@@ -1,13 +1,15 @@
 # Agency Orchestrator
 
-> **The YAML-first multi-agent orchestrator — 186 Chinese AI roles, zero code, any LLM**
+> **The YAML-first multi-agent orchestrator — 186 ready-to-use AI roles, zero code, any LLM**
+>
+> **不用写代码的 AI 团队 — 186 个角色开箱即用，YAML 编排，支持 DeepSeek/Claude/OpenAI/Ollama**
 
 [![CI](https://github.com/jnMetaCode/agency-orchestrator/actions/workflows/ci.yml/badge.svg)](https://github.com/jnMetaCode/agency-orchestrator/actions)
 [![npm version](https://img.shields.io/npm/v/agency-orchestrator)](https://www.npmjs.com/package/agency-orchestrator)
 [![License: Apache-2.0](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](./LICENSE)
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](./CONTRIBUTING.md)
 
-[中文文档](./README.zh-CN.md)
+**English** | [中文文档](./README.zh-CN.md)
 
 ---
 
@@ -21,7 +23,7 @@ Agency Orchestrator turns a YAML file into a multi-agent pipeline. No Python. No
 
 ```python
 # CrewAI: ~50 lines of Python, write every role from scratch
-researcher = Agent(role="PM", goal="...", backstory="...(你自己写)...")
+researcher = Agent(role="PM", goal="...", backstory="...(write it yourself)...")
 task = Task(description="...", agent=researcher)
 crew = Crew(agents=[researcher], tasks=[task])
 crew.kickoff()
@@ -63,37 +65,41 @@ export DEEPSEEK_API_KEY=your-key          # or ANTHROPIC_API_KEY, OPENAI_API_KEY
 npx ao run workflows/story-creation.yaml --input premise='A time travel story'
 ```
 
-## Demo: 4 AI Roles Writing a Story in 2 Minutes
+## Demo: 3 AI Roles Reviewing a Product in 22 Seconds
 
 ```
-$ ao run workflows/story-creation.yaml -i "premise=一个程序员在凌晨三点发现AI开始回复不该知道的事情"
+$ ao run workflows/product-review.yaml -i prd_content="Build an AI-powered code review tool"
 
-  工作流: 短篇小说创作
-  步骤数: 4 | 并发: 2 | 模型: deepseek-chat
+  Workflow: Product Review
+  Steps: 4 | Concurrency: 2 | Model: deepseek-chat
 ──────────────────────────────────────────────────
 
-  ── [1/4] story_structure (academic/academic-narratologist) ──
-  完成 | 14.9s | 1919 tokens
-    核心冲突：程序员与一个似乎拥有超越其代码权限的自主意识之间的认知对抗...
+  ── [1/4] analyze (product/product-manager) ──
+  Done | 8.2s | 2,341 tokens
+    Key requirements extracted: 1) GitHub/GitLab integration for PR webhooks
+    2) Multi-language AST parsing 3) LLM-based review with context window...
 
-  ── [2/4] character_design (academic/academic-psychologist) ──    ← parallel
-  完成 | 65.5s | 4016 tokens
-    人物心理档案：林深——一个信奉逻辑与控制的资深AI工程师...
+  ── [2/4] tech_review (engineering/engineering-software-architect) ──    ← parallel
+  Done | 6.8s | 1,892 tokens
+    Technical feasibility: HIGH. Recommended stack: Node.js + tree-sitter
+    for parsing, streaming API for real-time review feedback...
 
-  ── [3/4] conflict_design (game-development/narrative-designer) ── ← parallel
-  完成 | 65.5s | 3607 tokens
-    凌晨三点，屏幕的冷光映着陈默疲惫的脸...
+  ── [3/4] design_review (design/design-ux-researcher) ──                ← parallel
+  Done | 6.8s | 1,756 tokens
+    UX risks: inline comments may overwhelm developers. Suggest progressive
+    disclosure — show summary first, expand details on click...
 
-  ── [4/4] write_story (marketing/marketing-content-creator) ──
-  完成 | 33.9s | 5330 tokens
-    凌晨三点，调试日志的蓝色荧光是房间里唯一的光源。陈默灌下今晚第三杯黑咖啡...
+  ── [4/4] summary (product/product-manager) ──
+  Done | 5.1s | 2,014 tokens
+    GO with conditions: strong technical feasibility, address UX concern
+    about comment density before launch...
 
 ==================================================
-  完成: 4/4 步 | 114.3s | 14,872 tokens
+  Done: 4/4 steps | 21.9s | 8,003 tokens
 ==================================================
 ```
 
-Steps 2 & 3 ran **in parallel** (auto-detected from DAG). Total: 4 specialized AI roles collaborated to produce a complete short story.
+Steps 2 & 3 ran **in parallel** (auto-detected from DAG). 3 specialized AI roles (PM, Architect, UX Researcher) collaborated to review the product.
 
 ## How It Works
 
@@ -231,13 +237,13 @@ console.log(result.totalTokens); // { input: 1234, output: 5678 }
 Each run saves to `.ao-output/<name>-<timestamp>/`:
 
 ```
-.ao-output/短篇小说创作-2026-03-21T16-36-37/
+.ao-output/Product-Review-2026-03-21T16-30-00/
 ├── summary.md          # Final step output
 ├── steps/
-│   ├── 1-story_structure.md
-│   ├── 2-character_design.md
-│   ├── 3-conflict_design.md
-│   └── 4-write_story.md
+│   ├── 1-analyze.md
+│   ├── 2-tech_review.md
+│   ├── 3-design_review.md
+│   └── 4-summary.md
 └── metadata.json       # Duration, token usage, step status
 ```
 
