@@ -31,6 +31,7 @@
 
 ```typescript
 condition?: string;  // 如 "{{category}} contains bug"
+depends_on_mode?: 'all' | 'any_completed';  // 默认 'all'
 ```
 
 #### 条件语法
@@ -53,7 +54,19 @@ condition?: string;  // 如 "{{category}} contains bug"
 
 如果一个步骤有多个依赖（`depends_on: [A, B]`），只要任一依赖被跳过或失败，该步骤也跳过。这是"任一失败即跳过"语义，与当前引擎行为一致。
 
-**例外：汇总节点**。故障响应等模板中，复盘汇总依赖多个条件分支步骤，但这些分支互斥（只有一个会执行）。对此类场景，汇总节点的 `depends_on` 应只包含一定会执行的上游步骤，条件分支的输出通过变量传递而非依赖关系连接。
+**例外：汇总节点**。故障响应等模板中，复盘汇总依赖多个条件分支步骤，但这些分支互斥（只有一个会执行）。对此类场景，使用 `depends_on_mode: any_completed`：
+
+```yaml
+  - id: postmortem
+    depends_on: [branch_a, branch_b, branch_c]
+    depends_on_mode: any_completed  # 只要有一个分支完成就执行
+```
+
+`depends_on_mode` 支持两种值：
+- `all`（默认）：任一依赖被跳过或失败 → 该步骤也跳过
+- `any_completed`：只有当所有依赖都被跳过/失败时才跳过；只要有一个完成就执行
+
+互斥分支步骤应写入相同的 `output` 变量名，下游汇总节点通过变量读取结果。
 
 #### 执行逻辑
 
