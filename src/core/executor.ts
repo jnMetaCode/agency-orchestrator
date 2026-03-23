@@ -49,22 +49,31 @@ export async function executeDAG(dag: DAG, options: ExecutorOptions): Promise<Wo
   const timeout = llmConfig.timeout || 120_000;
   const maxRetry = llmConfig.retry ?? 3;
 
-  for (const level of dag.levels) {
+  const loopIterations = new Map<string, number>();
+  const hasLoops = Array.from(dag.nodes.values()).some(n => n.step.loop);
+  if (hasLoops) {
+    context.set('_loop_iteration', '1');
+  }
+
+  let levelIndex = 0;
+  while (levelIndex < dag.levels.length) {
     // 同层节点可并行，但受 concurrency 限制
     const { onBatchStart, onBatchComplete } = options;
-    const allTasks = level.map(id => dag.nodes.get(id)!);
+    const allTasks = dag.levels[levelIndex].map(id => dag.nodes.get(id)!);
 
     // 过滤掉已被标记为 skipped 的节点
     const tasks = allTasks.filter(node => {
       if (node.status === 'skipped') {
         node.endTime = Date.now();
         node.startTime = node.endTime;
-        stepResults.push({
+        const iterCount = loopIterations.get(node.step.id) || 0;
+        upsertStepResult(stepResults, {
           id: node.step.id,
           role: node.step.role,
           status: 'skipped',
           duration: 0,
           tokens: { input: 0, output: 0 },
+          iterations: iterCount > 0 ? iterCount + 1 : undefined,
         });
         onStepComplete?.(node);
         return false;
@@ -117,7 +126,8 @@ export async function executeDAG(dag: DAG, options: ExecutorOptions): Promise<Wo
 
         node.endTime = Date.now();
 
-        stepResults.push({
+        const iterCount = loopIterations.get(node.step.id) || 0;
+        upsertStepResult(stepResults, {
           id: node.step.id,
           role: node.step.role,
           status: node.status as StepResult['status'],
@@ -125,12 +135,62 @@ export async function executeDAG(dag: DAG, options: ExecutorOptions): Promise<Wo
           error: node.error,
           duration: (node.endTime || 0) - (node.startTime || 0),
           tokens: node.tokenUsage || { input: 0, output: 0 },
+          iterations: iterCount > 0 ? iterCount + 1 : undefined,
         });
 
         onStepComplete?.(node);
       }
 
       onBatchComplete?.(batch);
+    }
+
+    // 检查本层是否有需要循环的步骤
+    let loopTriggered = false;
+    for (const id of dag.levels[levelIndex]) {
+      const node = dag.nodes.get(id)!;
+      if (node.step.loop && node.status === 'completed') {
+        const loop = node.step.loop;
+        const currentIter = (loopIterations.get(id) || 0) + 1;
+
+        // 检查退出条件
+        const shouldExit = evaluateCondition(loop.exit_condition, context);
+        const maxIter = Math.min(loop.max_iterations, 10); // 硬上限 10
+
+        if (!shouldExit && currentIter < maxIter) {
+          loopIterations.set(id, currentIter);
+          context.set('_loop_iteration', String(currentIter + 1));
+
+          // 找到 back_to 所在的 level index
+          const backToLevel = dag.levels.findIndex(l => l.includes(loop.back_to));
+          if (backToLevel < 0) {
+            throw new Error(`loop.back_to "${loop.back_to}" 不在 DAG 层级中`);
+          }
+
+          // 重置 back_to 到当前层之间的所有节点
+          for (let li = backToLevel; li <= levelIndex; li++) {
+            for (const nodeId of dag.levels[li]) {
+              const n = dag.nodes.get(nodeId)!;
+              n.status = 'pending';
+              n.result = undefined;
+              n.error = undefined;
+              n.startTime = undefined;
+              n.endTime = undefined;
+              n.tokenUsage = undefined;
+            }
+          }
+
+          levelIndex = backToLevel;
+          loopTriggered = true;
+          break; // 只处理第一个循环触发
+        } else {
+          // 循环结束，清理 _loop_iteration
+          context.delete('_loop_iteration');
+        }
+      }
+    }
+
+    if (!loopTriggered) {
+      levelIndex++;
     }
   }
 
@@ -279,4 +339,14 @@ function isRetryable(error: Error): boolean {
 
 function sleep(ms: number): Promise<void> {
   return new Promise(r => setTimeout(r, ms));
+}
+
+/** 按 step id 覆盖或插入 stepResult（循环场景用覆盖策略） */
+function upsertStepResult(results: StepResult[], entry: StepResult): void {
+  const idx = results.findIndex(r => r.id === entry.id);
+  if (idx >= 0) {
+    results[idx] = entry;
+  } else {
+    results.push(entry);
+  }
 }
