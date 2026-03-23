@@ -208,20 +208,99 @@ ao roles                             # 列出所有角色
 
 ### 迭代优化（Resume）
 
-第一次运行后想基于结果继续优化？用 `--resume`：
+**问题**：`ao run` 跑完一轮后，所有步骤的输出都丢了。想基于叙事学家的结构重写小说，只能整个工作流从头跑。
 
-```bash
-# 第一次运行
-ao run workflows/content-publish.yaml -i topic='AI编程' -i platform='公众号'
+**解决**：`--resume` 会自动加载上一轮所有步骤的输出，`--from` 指定从哪步开始重跑。之前的步骤直接用缓存结果，不会重新执行。
 
-# 基于上次结果，只重新执行最后的发布清单步骤
-ao run workflows/content-publish.yaml --resume last --from publish_checklist
+#### 完整示例：小说创作 4 轮迭代
 
-# 指定具体的输出目录
-ao run workflows/content-publish.yaml --resume .ao-output/内容发布流程-2026-03-24T10-30-00/
+以 `story-creation.yaml` 为例，DAG 结构如下：
+
+```
+story_structure ──→ character_design ──→ write_story
+                └→ conflict_design  ──┘
+                    (并行)
 ```
 
-`--resume last` 自动找最近一次输出，`--from` 指定从哪个步骤开始重新执行，之前的步骤使用上次的输出。
+**第一轮：正常运行**
+
+```bash
+ao run workflows/story-creation.yaml \
+  -i premise='一个程序员在凌晨三点发现AI开始回复不该知道的事情'
+```
+
+运行完后，每步输出保存在 `.ao-output/` 下：
+
+```
+.ao-output/短篇小说创作-2026-03-24T14-30-00/
+├── summary.md                    ← 最终小说
+├── metadata.json                 ← 每步状态 + 变量映射
+├── steps/
+│   ├── 1-story_structure.md      ← 叙事学家的结构设计
+│   ├── 2-character_design.md     ← 心理学家的人物设定
+│   ├── 3-conflict_design.md      ← 叙事设计师的冲突场景
+│   └── 4-write_story.md          ← 最终小说
+```
+
+打开这些文件看每步输出，觉得哪里不满意就重跑那步。
+
+**第二轮：人物太单薄，从人物设计开始重跑**
+
+```bash
+ao run workflows/story-creation.yaml --resume last --from character_design
+```
+
+- `--resume last`：自动找到最近一次输出
+- `--from character_design`：从人物设计开始重跑
+- `story_structure` 的输出（叙事结构）直接复用，不重新执行
+- `character_design` → `conflict_design` → `write_story` 重新执行
+- 新的输出保存到新的时间戳目录
+
+**第三轮：结构和人物都好，只改最终写作**
+
+```bash
+ao run workflows/story-creation.yaml --resume last --from write_story
+```
+
+只重跑最后一步。叙事结构、人物设定、冲突设计全部复用，只让内容创作者重写。
+
+**第四轮：想回到第二轮的版本继续改**
+
+```bash
+ao run workflows/story-creation.yaml \
+  --resume .ao-output/短篇小说创作-2026-03-24T14-35-00/ \
+  --from write_story
+```
+
+指定具体目录，基于那个版本继续迭代。
+
+#### 所有历史版本都保留
+
+```bash
+ls .ao-output/
+# 短篇小说创作-2026-03-24T14-30-00/   ← 第一轮
+# 短篇小说创作-2026-03-24T14-35-00/   ← 第二轮
+# 短篇小说创作-2026-03-24T14-38-00/   ← 第三轮
+# 短篇小说创作-2026-03-24T14-40-00/   ← 第四轮
+```
+
+#### 用法速查
+
+| 场景 | 命令 |
+|------|------|
+| 第一次运行 | `ao run workflow.yaml -i key=value` |
+| 从某步重跑（基于上次结果） | `ao run workflow.yaml --resume last --from <步骤ID>` |
+| 只重跑失败的步骤 | `ao run workflow.yaml --resume last` |
+| 基于指定版本重跑 | `ao run workflow.yaml --resume .ao-output/具体目录/ --from <步骤ID>` |
+
+#### 原理
+
+`--resume` 做了三件事：
+1. 读取指定目录的 `metadata.json`，获取每步的状态和输出变量名
+2. 从 `steps/` 目录读取已完成步骤的输出内容，注入回 `{{变量}}` 上下文
+3. 标记 `--from` 之前的步骤为"已完成"，跳过执行
+
+智能体结构（角色分工、DAG 依赖、变量传递）不会丢失 — 它定义在 YAML 里，每次都会重新加载。丢失的只是上一轮的**输出内容**，`--resume` 就是把这些内容恢复回来。
 
 ## 编程 API
 
@@ -460,20 +539,75 @@ When the exit condition is not met, execution jumps back to `back_to` step. The 
 
 ### Resume (Iterate on Previous Results)
 
-After a run completes, use `--resume` to iterate without re-running everything:
+**Problem**: After `ao run` completes, all step outputs are lost. To tweak the final story, you'd have to re-run the entire workflow from scratch.
+
+**Solution**: `--resume` reloads all previous step outputs into the `{{variable}}` context. `--from` specifies which step to restart from — earlier steps use cached results and are not re-executed.
+
+#### Full Example: 4-Round Story Iteration
+
+Using `story-creation.yaml` (DAG: `story_structure → character_design + conflict_design → write_story`):
+
+**Round 1: Normal run**
 
 ```bash
-# First run
-ao run workflows/content-publish.yaml -i topic='AI Programming'
-
-# Resume: only re-run the last step, reuse previous outputs
-ao run workflows/content-publish.yaml --resume last --from publish_checklist
-
-# Resume from a specific output directory
-ao run workflows/content-publish.yaml --resume .ao-output/content-publish-2026-03-24T10-30-00/
+ao run workflows/story-creation.yaml -i premise='A programmer discovers AI replies with things it shouldn't know'
 ```
 
-`--resume last` auto-finds the most recent output. `--from` specifies which step to restart from — earlier steps use cached outputs.
+Outputs saved to `.ao-output/`:
+```
+.ao-output/短篇小说创作-2026-03-24T14-30-00/
+├── summary.md              ← final story
+├── metadata.json           ← step states + variable mapping
+├── steps/
+│   ├── 1-story_structure.md
+│   ├── 2-character_design.md
+│   ├── 3-conflict_design.md
+│   └── 4-write_story.md
+```
+
+**Round 2: Characters feel flat — re-run from character design**
+
+```bash
+ao run workflows/story-creation.yaml --resume last --from character_design
+```
+
+- `story_structure` output is reused (not re-executed)
+- `character_design` → `conflict_design` → `write_story` are re-executed
+- New outputs saved to a new timestamped directory
+
+**Round 3: Everything is good except the final prose**
+
+```bash
+ao run workflows/story-creation.yaml --resume last --from write_story
+```
+
+Only re-runs the last step. All upstream outputs (structure, characters, scenes) are preserved.
+
+**Round 4: Go back to a specific version**
+
+```bash
+ao run workflows/story-creation.yaml \
+  --resume .ao-output/短篇小说创作-2026-03-24T14-35-00/ \
+  --from write_story
+```
+
+#### Quick Reference
+
+| Scenario | Command |
+|----------|---------|
+| First run | `ao run workflow.yaml -i key=value` |
+| Re-run from a specific step | `ao run workflow.yaml --resume last --from <step-id>` |
+| Re-run only failed steps | `ao run workflow.yaml --resume last` |
+| Resume from a specific version | `ao run workflow.yaml --resume .ao-output/<dir>/ --from <step-id>` |
+
+#### How It Works
+
+`--resume` does three things:
+1. Reads `metadata.json` from the specified output directory to get step states and output variable names
+2. Loads completed step outputs from `steps/` files back into the `{{variable}}` context
+3. Marks steps before `--from` as "completed" and skips execution
+
+The agent structure (role assignments, DAG dependencies, variable passing) is never lost — it's defined in the YAML and reloaded every time. What's lost is the **output content** from previous steps, and `--resume` restores exactly that.
 
 ### Supported LLMs
 
