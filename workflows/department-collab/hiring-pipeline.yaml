@@ -1,0 +1,89 @@
+name: "招聘评估流程"
+description: "HR 筛选简历 → 按岗位类型分流技术/业务评估 → 薪酬方案 → 最终审批"
+
+agents_dir: "agency-agents-zh"
+
+llm:
+  provider: deepseek
+  model: deepseek-chat
+  max_tokens: 4096
+
+concurrency: 2
+
+inputs:
+  - name: resume
+    description: "候选人简历内容"
+    required: true
+  - name: job_title
+    description: "应聘岗位名称"
+    required: true
+
+steps:
+  - id: screen
+    role: "hr/hr-recruiter"
+    task: |
+      请筛选以下简历，评估候选人是否符合「{{job_title}}」岗位要求：
+
+      1. 基本条件匹配度
+      2. 工作经验相关性
+      3. 技能匹配程度
+      4. 判断岗位类型，只回答一个词：技术岗 或 非技术岗
+
+      简历：
+      {{resume}}
+    output: screen_result
+
+  - id: tech_eval
+    role: "engineering/engineering-software-architect"
+    task: |
+      请对以下候选人进行技术面评估：
+
+      筛选报告：
+      {{screen_result}}
+
+      请评估：
+      1. 技术深度和广度
+      2. 系统设计能力
+      3. 编码能力评估建议
+      4. 技术成长潜力
+    depends_on: [screen]
+    condition: "{{screen_result}} contains 技术岗"
+    output: eval_result
+
+  - id: biz_eval
+    role: "product/product-manager"
+    task: |
+      请对以下候选人进行业务面评估：
+
+      筛选报告：
+      {{screen_result}}
+
+      请评估：
+      1. 业务理解能力
+      2. 沟通协作能力
+      3. 项目管理经验
+      4. 发展潜力
+    depends_on: [screen]
+    condition: "{{screen_result}} contains 非技术岗"
+    output: eval_result
+
+  - id: salary
+    role: "hr/hr-recruiter"
+    task: |
+      基于以下评估结果，制定薪酬方案建议：
+
+      岗位：{{job_title}}
+      评估报告：
+      {{eval_result}}
+
+      请输出：
+      1. 建议薪资范围
+      2. 福利方案
+      3. 谈判策略建议
+    depends_on: [tech_eval, biz_eval]
+    depends_on_mode: any_completed
+
+  - id: final_approval
+    type: approval
+    prompt: "请审阅薪酬方案，输入 yes 确认发 offer，或输入修改意见："
+    depends_on: [salary]

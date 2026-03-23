@@ -1,0 +1,109 @@
+name: "代码评审流程"
+description: "架构/安全/性能并行评审 → 汇总 → 不通过则打回重审（最多 2 轮）"
+
+agents_dir: "agency-agents-zh"
+
+llm:
+  provider: deepseek
+  model: deepseek-chat
+  max_tokens: 4096
+
+concurrency: 3
+
+inputs:
+  - name: code
+    description: "待评审的代码或 PR 描述"
+    required: true
+  - name: context
+    description: "代码背景说明（功能目的、影响范围等）"
+    required: true
+
+steps:
+  - id: arch_review
+    role: "engineering/engineering-software-architect"
+    task: |
+      请从架构角度评审以下代码：
+
+      背景：{{context}}
+
+      代码：
+      {{code}}
+
+      请评估：
+      1. 架构合理性
+      2. 设计模式使用
+      3. 可维护性
+      4. 改进建议
+    output: arch_report
+
+  - id: security_review
+    role: "engineering/engineering-security-engineer"
+    task: |
+      请从安全角度评审以下代码：
+
+      背景：{{context}}
+
+      代码：
+      {{code}}
+
+      请检查：
+      1. OWASP Top 10 风险
+      2. 输入验证
+      3. 认证授权
+      4. 数据保护
+    output: security_report
+
+  - id: perf_review
+    role: "testing/testing-performance-benchmarker"
+    task: |
+      请从性能角度评审以下代码：
+
+      背景：{{context}}
+
+      代码：
+      {{code}}
+
+      请评估：
+      1. 时间复杂度
+      2. 内存使用
+      3. 并发安全性
+      4. 性能瓶颈和优化建议
+    output: perf_report
+
+  - id: summary
+    role: "engineering/engineering-code-reviewer"
+    task: |
+      请综合以下三方面评审结果，给出最终评审结论：
+
+      ## 架构评审
+      {{arch_report}}
+
+      ## 安全评审
+      {{security_report}}
+
+      ## 性能评审
+      {{perf_report}}
+
+      请输出：
+      1. 总体结论（通过 / 需修改 / 不通过）
+      2. 必须修改的问题清单
+      3. 建议改进项
+      如所有评审都没有严重问题，回复「通过」。
+    depends_on: [arch_review, security_review, perf_review]
+    output: review_feedback
+
+  - id: revision_request
+    role: "engineering/engineering-code-reviewer"
+    task: |
+      第 {{_loop_iteration}} 轮评审反馈已出，请整理需要开发者修改的具体内容：
+
+      评审结论：
+      {{review_feedback}}
+
+      请输出结构化的修改要求清单。
+    depends_on: [summary]
+    output: revision_list
+    loop:
+      back_to: arch_review
+      max_iterations: 2
+      exit_condition: "{{review_feedback}} contains 通过"

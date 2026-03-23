@@ -1,0 +1,111 @@
+name: "故障响应流程"
+description: "故障分类 → 按类型分流给对应团队分析 → 复盘汇总"
+
+agents_dir: "agency-agents-zh"
+
+llm:
+  provider: deepseek
+  model: deepseek-chat
+  max_tokens: 4096
+
+concurrency: 2
+
+inputs:
+  - name: incident_report
+    description: "故障报告内容（告警信息、影响范围等）"
+    required: true
+
+steps:
+  - id: classify
+    role: "engineering/engineering-sre"
+    task: |
+      请分析以下故障报告，判断故障类型并给出初步评估：
+
+      {{incident_report}}
+
+      请输出：
+      1. 故障严重程度（P0/P1/P2/P3）
+      2. 影响范围
+      3. 故障类型（只回答一个：后端故障 / 前端故障 / 基础设施故障）
+      4. 初步判断的根因方向
+    output: classification
+
+  - id: backend_analysis
+    role: "engineering/engineering-backend-architect"
+    task: |
+      请深入分析以下后端故障：
+
+      故障分类报告：
+      {{classification}}
+
+      原始报告：
+      {{incident_report}}
+
+      请输出：
+      1. 根因分析
+      2. 修复方案
+      3. 临时缓解措施
+      4. 预计恢复时间
+    depends_on: [classify]
+    condition: "{{classification}} contains 后端故障"
+    output: analysis_result
+
+  - id: frontend_analysis
+    role: "engineering/engineering-frontend-developer"
+    task: |
+      请深入分析以下前端故障：
+
+      故障分类报告：
+      {{classification}}
+
+      原始报告：
+      {{incident_report}}
+
+      请输出：
+      1. 根因分析
+      2. 修复方案
+      3. 回滚方案
+      4. 用户影响评估
+    depends_on: [classify]
+    condition: "{{classification}} contains 前端故障"
+    output: analysis_result
+
+  - id: infra_analysis
+    role: "engineering/engineering-devops-automator"
+    task: |
+      请深入分析以下基础设施故障：
+
+      故障分类报告：
+      {{classification}}
+
+      原始报告：
+      {{incident_report}}
+
+      请输出：
+      1. 根因分析
+      2. 修复方案
+      3. 容灾切换建议
+      4. 基础设施加固建议
+    depends_on: [classify]
+    condition: "{{classification}} contains 基础设施故障"
+    output: analysis_result
+
+  - id: postmortem
+    role: "engineering/engineering-sre"
+    task: |
+      请根据以下信息撰写故障复盘报告：
+
+      故障分类：
+      {{classification}}
+
+      详细分析：
+      {{analysis_result}}
+
+      请输出完整复盘文档：
+      1. 时间线
+      2. 根因总结
+      3. 修复措施
+      4. 改进项（短期/长期）
+      5. 经验教训
+    depends_on: [backend_analysis, frontend_analysis, infra_analysis]
+    depends_on_mode: any_completed

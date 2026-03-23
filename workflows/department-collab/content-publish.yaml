@@ -1,0 +1,115 @@
+name: "内容发布流程"
+description: "选题策划 → 文案撰写 → 品牌审核（不通过打回修改，最多 3 轮）→ 法务合规 → 发布清单"
+
+agents_dir: "agency-agents-zh"
+
+llm:
+  provider: deepseek
+  model: deepseek-chat
+  max_tokens: 4096
+
+concurrency: 1
+
+inputs:
+  - name: topic
+    description: "内容主题"
+    required: true
+  - name: platform
+    description: "发布平台（公众号/小红书/抖音等）"
+    required: true
+
+steps:
+  - id: plan
+    role: "marketing/marketing-content-creator"
+    task: |
+      请为以下主题制定内容策划方案：
+
+      主题：{{topic}}
+      平台：{{platform}}
+
+      请输出：
+      1. 选题角度
+      2. 目标受众
+      3. 内容大纲
+      4. 预期效果
+    output: content_plan
+
+  - id: write
+    role: "marketing/marketing-content-creator"
+    task: |
+      根据以下策划方案撰写完整文案：
+
+      {{content_plan}}
+
+      平台：{{platform}}
+      要求：符合平台调性，有吸引力
+    depends_on: [plan]
+    output: copy
+
+  - id: brand_review
+    role: "design/design-brand-guardian"
+    task: |
+      请审核以下文案是否符合品牌规范：
+
+      {{copy}}
+
+      审核要点：
+      1. 品牌调性一致性
+      2. 用语规范性
+      3. 视觉建议
+      如合格请回复「通过」，否则给出具体修改意见。
+    depends_on: [write]
+    output: brand_feedback
+
+  - id: revise
+    role: "marketing/marketing-content-creator"
+    task: |
+      根据品牌审核反馈修改文案（第 {{_loop_iteration}} 轮修改）：
+
+      原稿：
+      {{copy}}
+
+      审核意见：
+      {{brand_feedback}}
+
+      请输出修改后的完整文案。
+    depends_on: [brand_review]
+    output: copy
+    loop:
+      back_to: brand_review
+      max_iterations: 3
+      exit_condition: "{{brand_feedback}} contains 通过"
+
+  - id: legal_review
+    role: "support/support-legal-compliance-checker"
+    task: |
+      请对以下即将发布的内容进行法务合规审查：
+
+      {{copy}}
+
+      审查要点：
+      1. 广告法合规性
+      2. 知识产权风险
+      3. 敏感词检查
+      4. 免责声明建议
+    depends_on: [revise]
+    output: legal_report
+
+  - id: publish_checklist
+    role: "marketing/marketing-content-creator"
+    task: |
+      综合以下信息，输出最终发布清单：
+
+      最终文案：
+      {{copy}}
+
+      法务审查：
+      {{legal_report}}
+
+      平台：{{platform}}
+
+      请输出：
+      1. 发布时间建议
+      2. 标签/话题建议
+      3. 注意事项
+    depends_on: [legal_review]

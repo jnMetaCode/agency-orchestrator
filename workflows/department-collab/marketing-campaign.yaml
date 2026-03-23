@@ -1,0 +1,97 @@
+name: "营销活动策划"
+description: "市场调研 → 创意策划 → 预算审批 → 投放方案 → 效果分析"
+
+agents_dir: "agency-agents-zh"
+
+llm:
+  provider: deepseek
+  model: deepseek-chat
+  max_tokens: 4096
+
+concurrency: 2
+
+inputs:
+  - name: product
+    description: "产品/服务名称和简介"
+    required: true
+  - name: budget
+    description: "预算范围"
+    required: true
+  - name: goal
+    description: "营销目标（拉新/促活/品牌等）"
+    required: true
+
+steps:
+  - id: research
+    role: "product/product-trend-researcher"
+    task: |
+      请为以下产品进行市场调研分析：
+
+      产品：{{product}}
+      营销目标：{{goal}}
+      预算：{{budget}}
+
+      请输出：
+      1. 目标市场分析
+      2. 竞品营销策略
+      3. 目标受众画像
+      4. 渠道建议
+    output: research_report
+
+  - id: creative
+    role: "marketing/marketing-content-creator"
+    task: |
+      基于以下市场调研，制定创意策划方案：
+
+      {{research_report}}
+
+      营销目标：{{goal}}
+      预算：{{budget}}
+
+      请输出：
+      1. 活动主题和创意概念
+      2. 内容矩阵规划
+      3. 关键传播节点
+      4. 预期 KPI
+    depends_on: [research]
+    output: creative_plan
+
+  - id: budget_approval
+    type: approval
+    prompt: "请审阅营销方案和预算分配，输入 yes 批准执行，或输入修改意见："
+    task: "{{creative_plan}}"
+    depends_on: [creative]
+    output: approval_result
+
+  - id: channel_plan
+    role: "marketing/marketing-social-media-strategist"
+    task: |
+      已批准的营销方案如下，请制定详细的多渠道投放计划：
+
+      {{creative_plan}}
+
+      预算：{{budget}}
+
+      请输出：
+      1. 各渠道预算分配
+      2. 投放时间表
+      3. 素材需求清单
+      4. A/B 测试计划
+    depends_on: [budget_approval]
+    condition: "{{approval_result}} contains yes"
+    output: channel_plan
+
+  - id: analysis
+    role: "product/product-feedback-synthesizer"
+    task: |
+      请为以下营销活动设计效果评估框架：
+
+      投放计划：
+      {{channel_plan}}
+
+      请输出：
+      1. 核心监测指标
+      2. 数据采集方案
+      3. 归因模型建议
+      4. 优化迭代机制
+    depends_on: [channel_plan]
