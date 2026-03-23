@@ -73,7 +73,8 @@ export function printStepResult(node: DAGNode, stepIndex: number, totalSteps: nu
   } else if (node.status === 'failed') {
     console.log(`  失败: ${node.error}`);
   } else if (node.status === 'skipped') {
-    console.log(`  跳过 (上游失败)`);
+    const reason = node.step.condition ? '条件不满足' : '上游失败/跳过';
+    console.log(`  跳过 (${reason})`);
   }
 }
 

@@ -42,7 +42,7 @@
   "scripts": {
     "build": "tsc",
     "dev": "tsc --watch",
-    "test": "npx tsx test/run.ts && npx tsx test/e2e.ts",
+    "test": "npx tsx test/run.ts && npx tsx test/condition.ts && npx tsx test/e2e.ts && npx tsx test/e2e-condition.ts && npx tsx test/e2e-loop.ts",
     "prepublishOnly": "npm run build"
   },
   "files": [

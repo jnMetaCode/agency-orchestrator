@@ -8,6 +8,7 @@
 export { parseWorkflow, validateWorkflow } from './core/parser.js';
 export { buildDAG, formatDAG } from './core/dag.js';
 export { executeDAG } from './core/executor.js';
+export { evaluateCondition } from './core/condition.js';
 export { renderTemplate, extractVariables } from './core/template.js';
 export { loadAgent, listAgents } from './agents/loader.js';
 export { ClaudeConnector } from './connectors/claude.js';
