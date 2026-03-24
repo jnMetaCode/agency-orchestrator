@@ -1,0 +1,91 @@
+# Claude Code 集成
+
+在 Claude Code 中直接运行多角色工作流，**无需 API key**。
+
+## 两种使用方式
+
+### 方式一：Skill 模式（推荐，零配置）
+
+安装 [superpowers-zh](https://github.com/jnMetaCode/superpowers-zh) 后，Claude Code 会自动获得 `workflow-runner` 技能。
+
+```bash
+# 1. 安装 superpowers-zh（如果还没有）
+npx superpowers-zh
+
+# 2. 安装角色定义
+cd your-project
+git clone --depth 1 https://github.com/jnMetaCode/agency-agents-zh.git
+```
+
+然后在 Claude Code 中直接说：
+
+```
+运行 workflows/story-creation.yaml，创意是"一个程序员在凌晨发现AI回复不该知道的事"
+```
+
+或者不用 YAML 文件：
+
+```
+用叙事学家设计结构，心理学家塑造人物，内容创作者执笔，帮我写一个关于时间旅行的故事
+```
+
+Claude Code 会自动：
+- 解析工作流 / 生成工作流
+- 按 DAG 顺序加载每个角色
+- 扮演角色执行每一步
+- 将结果保存到 `.ao-output/`
+
+### 方式二：CLI 模式（需要 API key）
+
+如果你需要批量执行、CI/CD 集成或脚本调用：
+
+```bash
+npm install -g agency-orchestrator
+
+export DEEPSEEK_API_KEY=sk-xxx   # 或 ANTHROPIC_API_KEY / OPENAI_API_KEY
+
+ao run workflows/story-creation.yaml -i 'premise=时间旅行的故事'
+```
+
+## 对比
+
+| 特性 | Skill 模式 | CLI 模式 |
+|------|:----------:|:--------:|
+| 需要 API key | 不需要 | 需要 |
+| 需要安装 | superpowers-zh | agency-orchestrator |
+| 执行环境 | Claude Code 会话内 | 终端 |
+| 并行执行 | 子代理并行 | Promise.allSettled |
+| 适合场景 | 交互式、一次性任务 | 批量、自动化、CI/CD |
+| 输出 | 会话内 + 文件 | 文件 |
+
+## 自定义工作流
+
+创建你自己的 YAML 工作流文件：
+
+```yaml
+name: "我的工作流"
+agents_dir: "agency-agents-zh"
+
+inputs:
+  - name: topic
+    description: "主题"
+    required: true
+
+steps:
+  - id: research
+    role: "marketing/marketing-content-strategist"
+    task: "研究以下主题的内容策略：{{topic}}"
+    output: strategy
+
+  - id: write
+    role: "marketing/marketing-content-creator"
+    task: "根据以下策略撰写文章：{{strategy}}"
+    depends_on: [research]
+```
+
+查看所有可用角色：
+
+```bash
+ao roles
+# 或在 Claude Code 中说：列出 agency-agents-zh 里的所有角色
+```

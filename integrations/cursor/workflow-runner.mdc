@@ -1,0 +1,55 @@
+---
+description: "Triggered when user asks to run a YAML workflow or multi-role collaboration"
+alwaysApply: false
+---
+
+## Multi-Role Workflow Runner
+
+When the user asks to run a workflow (YAML file) or a multi-role collaboration task, follow these steps:
+
+### 1. Parse Workflow
+Read the specified YAML file. Extract name, inputs, steps, depends_on, conditions, and loops.
+
+### 2. Collect Inputs
+- `required: true` inputs must be provided by the user
+- Optional inputs with `default` use the default value
+- Optional inputs without default are set to empty string
+
+### 3. Build Execution Order
+Topological sort by `depends_on`. Steps without dependencies belong to the same level and can run in parallel.
+
+### 4. Execute Steps
+For each step:
+1. Read `agency-agents-zh/{role}.md` (search order: YAML's agents_dir → ./agency-agents-zh/ → ../agency-agents-zh/ → node_modules/agency-agents-zh/)
+2. Extract all markdown content after the frontmatter (`---`) as the role personality
+3. Replace `{{variables}}` in the task with context values (from inputs or previous step outputs)
+4. **Evaluate conditions**: if `condition` is set, evaluate it. Skip the step if the condition is not met. Operators: `contains`, `equals`, `not_contains`, `not_equals`
+5. **Fully embody the role** — use that role's expertise, frameworks, and communication style. Output should be substantive.
+6. Store the step's output text into the context variable (if step has an `output` field)
+7. **Check loops**: if `loop` is set and exit_condition is not met, jump back to `loop.back_to` step (max: `loop.max_iterations` rounds)
+
+Label each step: `### Step N/Total: step_id (Role Name)`
+
+### 5. Save Results
+Save all outputs to files:
+```
+.ao-output/{workflow-name}-{date}/
+├── steps/
+│   ├── 1-{step_id}.md
+│   └── ...
+├── summary.md          # Final step's full output
+└── metadata.json       # Step states, timing, token counts
+```
+
+### 6. Suggest Iteration
+After completion, always tell the user:
+
+> To improve a specific step, ask me to re-run from that step. I'll reuse all upstream outputs.
+> For CLI: `ao run <workflow> --resume last --from <step-id>`
+
+### Important Rules
+- Each step must genuinely embody the assigned role — no generic responses
+- Never skip or merge steps; execute strictly in topological order
+- If a role file is missing, tell the user to install agency-agents-zh
+- If a condition is not met, mark the step as "skipped" and continue
+- For `depends_on_mode: "any_completed"`, proceed when ANY upstream step completes (not all)

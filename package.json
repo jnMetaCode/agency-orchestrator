@@ -1,23 +1,25 @@
 {
   "name": "agency-orchestrator",
   "version": "0.2.0",
-  "description": "基于 agency-agents 角色定义的轻量多智能体编排引擎 — 用 YAML 定义工作流，自动调度 AI 角色协作完成复杂任务",
+  "description": "Multi-agent workflow orchestrator — 186 ready-to-use AI roles, YAML-defined pipelines, auto DAG parallelism, zero code required",
   "keywords": [
-    "agency-agents",
     "multi-agent",
+    "ai-agents",
+    "agent-orchestration",
     "orchestrator",
     "workflow",
-    "ai-agents",
+    "yaml-workflow",
+    "dag",
     "llm",
     "claude",
+    "openai",
     "deepseek",
     "ollama",
-    "openai",
-    "yaml-workflow",
-    "agent-orchestration",
-    "chinese-ai",
-    "dag",
-    "crewai-alternative"
+    "crewai-alternative",
+    "langgraph-alternative",
+    "no-code",
+    "ai-roles",
+    "chinese-ai"
   ],
   "author": "jnMetaCode",
   "license": "Apache-2.0",
@@ -52,7 +54,7 @@
     "README.md"
   ],
   "engines": {
-    "node": ">=18"
+    "node": ">=20"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.52.0",
