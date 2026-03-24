@@ -1,6 +1,6 @@
 {
   "name": "agency-orchestrator",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "description": "Multi-agent workflow orchestrator — 186 ready-to-use AI roles, YAML-defined pipelines, auto DAG parallelism, zero code required",
   "keywords": [
     "multi-agent",
