@@ -21,10 +21,15 @@ export interface WorkflowOptions {
   inputs: { name: string; description: string; required: boolean }[];
 }
 
+/** Escape double quotes for YAML string values */
+function yamlEscape(s: string): string {
+  return s.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
+}
+
 export function generateWorkflowYaml(opts: WorkflowOptions): string {
   const lines: string[] = [
-    `name: "${opts.name}"`,
-    `description: "${opts.description}"`,
+    `name: "${yamlEscape(opts.name)}"`,
+    `description: "${yamlEscape(opts.description)}"`,
     '',
     'agents_dir: "agency-agents-zh"',
     '',
@@ -39,8 +44,8 @@ export function generateWorkflowYaml(opts: WorkflowOptions): string {
   if (opts.hasInputs && opts.inputs.length > 0) {
     lines.push('', 'inputs:');
     for (const input of opts.inputs) {
-      lines.push(`  - name: ${input.name}`);
-      lines.push(`    description: "${input.description}"`);
+      lines.push(`  - name: "${yamlEscape(input.name)}"`);
+      lines.push(`    description: "${yamlEscape(input.description)}"`);
       lines.push(`    required: ${input.required}`);
     }
   }
@@ -48,14 +53,18 @@ export function generateWorkflowYaml(opts: WorkflowOptions): string {
   lines.push('', 'steps:');
   for (let i = 0; i < opts.roles.length; i++) {
     const step = opts.roles[i];
-    lines.push(`  - id: ${step.id}`);
-    lines.push(`    role: "${step.role}"`);
-    lines.push(`    task: |`);
-    // Indent task lines for YAML block scalar
-    for (const taskLine of step.task.split('\n')) {
-      lines.push(`      ${taskLine}`);
+    lines.push(`  - id: "${yamlEscape(step.id)}"`);
+    lines.push(`    role: "${yamlEscape(step.role)}"`);
+    // 单行 task 用引号，多行用 block scalar
+    if (step.task.includes('\n')) {
+      lines.push(`    task: |`);
+      for (const taskLine of step.task.split('\n')) {
+        lines.push(`      ${taskLine}`);
+      }
+    } else {
+      lines.push(`    task: "${yamlEscape(step.task)}"`);
     }
-    lines.push(`    output: ${step.output}`);
+    lines.push(`    output: "${yamlEscape(step.output)}"`);
     if (i > 0) {
       lines.push(`    depends_on: [${opts.roles[i - 1].id}]`);
     }

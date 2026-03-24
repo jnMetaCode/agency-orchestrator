@@ -5,16 +5,19 @@
 ## 安装
 
 ```bash
-# 1. 安装角色定义到项目
+# 1. 下载 186 个 AI 角色
 cd your-project
 git clone --depth 1 https://github.com/jnMetaCode/agency-agents-zh.git
 
-# 2. 复制工作流模板
-git clone --depth 1 https://github.com/jnMetaCode/agency-orchestrator.git .ao-tmp && cp -r .ao-tmp/workflows ./workflows && rm -rf .ao-tmp
-
-# 3. 添加工作流执行规则
+# 2. 下载工作流模板和技能文件
+git clone --depth 1 https://github.com/jnMetaCode/agency-orchestrator.git .ao-tmp
+cp -r .ao-tmp/workflows ./workflows
 mkdir -p .kiro/steering
-cp agency-orchestrator/integrations/kiro/ao-workflow-runner.md .kiro/steering/
+cp .ao-tmp/integrations/kiro/ao-workflow-runner.md .kiro/steering/
+rm -rf .ao-tmp
+
+# 3. 开始使用
+# 在 Kiro 中直接说：运行 workflows/story-creation.yaml
 ```
 
 ## 使用方式

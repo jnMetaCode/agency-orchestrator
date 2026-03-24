@@ -5,13 +5,19 @@
 ## 安装
 
 ```bash
-# 1. 安装角色定义
+# 1. 下载 186 个 AI 角色
 cd your-project
 git clone --depth 1 https://github.com/jnMetaCode/agency-agents-zh.git
 
-# 2. 将 SKILL.md 复制到 DeerFlow 的自定义技能目录
+# 2. 下载工作流模板和技能文件
+git clone --depth 1 https://github.com/jnMetaCode/agency-orchestrator.git .ao-tmp
+cp -r .ao-tmp/workflows ./workflows
 mkdir -p skills/custom/ao-workflow-runner
-cp integrations/deerflow/SKILL.md skills/custom/ao-workflow-runner/SKILL.md
+cp .ao-tmp/integrations/deerflow/SKILL.md skills/custom/ao-workflow-runner/SKILL.md
+rm -rf .ao-tmp
+
+# 3. 开始使用
+# 在 DeerFlow 中直接说：运行 workflows/story-creation.yaml
 ```
 
 ## 使用方式

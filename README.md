@@ -160,7 +160,7 @@ analyze ──→ tech_review  ──→ summary
   condition: "{{job_type}} contains technical"
 
 - id: biz_path
-  role: "marketing/marketing-strategist"
+  role: "marketing/marketing-social-media-strategist"
   task: "Business evaluation: {{requirements}}"
   depends_on: [classify]
   condition: "{{job_type}} contains business"
@@ -176,12 +176,12 @@ Supported operators: `contains`, `equals`, `not_contains`, `not_equals`.
 
 ```yaml
 - id: write_draft
-  role: "content/content-creator"
+  role: "marketing/marketing-content-creator"
   task: "Write article: {{topic}}"
   output: draft
 
 - id: brand_review
-  role: "marketing/brand-guardian"
+  role: "design/design-brand-guardian"
   task: "Review brand compliance: {{draft}}"
   output: review_result
   depends_on: [write_draft]

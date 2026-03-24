@@ -5,18 +5,25 @@
 ## 安装
 
 ```bash
-# 1. 安装角色定义
+# 1. 下载 186 个 AI 角色
 cd your-project
 git clone --depth 1 https://github.com/jnMetaCode/agency-agents-zh.git
 
-# 2. 将 workflow-runner 指令追加到项目根目录的 GEMINI.md
-cat integrations/gemini-cli/GEMINI.md >> GEMINI.md
+# 2. 下载工作流模板和技能文件
+git clone --depth 1 https://github.com/jnMetaCode/agency-orchestrator.git .ao-tmp
+cp -r .ao-tmp/workflows ./workflows
+cp .ao-tmp/integrations/gemini-cli/GEMINI.md ./GEMINI.md
+rm -rf .ao-tmp
+
+# 3. 开始使用
+# 在 Gemini CLI 中直接说：运行 workflows/story-creation.yaml
 ```
 
-如果项目根目录还没有 `GEMINI.md`，直接复制即可：
+如果项目根目录已有 `GEMINI.md`，可将内容追加而非覆盖：
 
 ```bash
-cp integrations/gemini-cli/GEMINI.md GEMINI.md
+# 替换上面第 2 步中的 cp 命令为：
+cat .ao-tmp/integrations/gemini-cli/GEMINI.md >> ./GEMINI.md
 ```
 
 ## 使用方式

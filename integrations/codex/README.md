@@ -5,19 +5,26 @@
 ## 安装
 
 ```bash
-# 1. 安装角色定义
+# 1. 下载 186 个 AI 角色
 cd your-project
 git clone --depth 1 https://github.com/jnMetaCode/agency-agents-zh.git
 
-# 2. 复制 workflow-runner 指令到 .codex 目录
+# 2. 下载工作流模板和技能文件
+git clone --depth 1 https://github.com/jnMetaCode/agency-orchestrator.git .ao-tmp
+cp -r .ao-tmp/workflows ./workflows
 mkdir -p .codex
-cp integrations/codex/instructions.md .codex/instructions.md
+cp .ao-tmp/integrations/codex/instructions.md .codex/instructions.md
+rm -rf .ao-tmp
+
+# 3. 开始使用
+# 在 Codex CLI 中直接说：运行 workflows/story-creation.yaml
 ```
 
-如果 `.codex/instructions.md` 已存在，将内容追加：
+如果 `.codex/instructions.md` 已存在，可将内容追加而非覆盖：
 
 ```bash
-cat integrations/codex/instructions.md >> .codex/instructions.md
+# 替换上面第 2 步中的 cp 命令为：
+cat .ao-tmp/integrations/codex/instructions.md >> .codex/instructions.md
 ```
 
 ## 使用方式

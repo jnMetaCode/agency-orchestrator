@@ -50,7 +50,7 @@ async function main(): Promise<void> {
       break;
     default: {
       // 容错：用户可能漏了空格，如 "planworkflows/x.yaml"
-      const knownCmds = ['run', 'validate', 'plan', 'explain', 'roles'];
+      const knownCmds = ['run', 'validate', 'plan', 'explain', 'roles', 'init'];
       const match = knownCmds.find(c => command.startsWith(c) && command.length > c.length);
       if (match) {
         console.error(`看起来少了个空格？试试:\n  ao ${match} ${command.slice(match.length)}\n`);

@@ -25,7 +25,7 @@ const ICONS = {
   running: '🔄',
   done: '✅',
   error: '❌',
-  skipped: '⏭️',
+  skipped: '⏩',
 } as const;
 
 /**
@@ -82,7 +82,9 @@ export function createWatchRenderer(
     }
 
     lines.push(`│${''.padEnd(boxWidth - 2)}│`);
-    lines.push(`│ Progress: ${bar} ${completed}/${total}  ${elapsed}s${''.padEnd(Math.max(0, boxWidth - 38 - elapsed.length))}│`);
+    const progressContent = `Progress: ${bar} ${completed}/${total}  ${elapsed}s`;
+    const progressPad = Math.max(0, boxWidth - 4 - progressContent.length);
+    lines.push(`│ ${progressContent}${''.padEnd(progressPad)} │`);
     lines.push(`└${'─'.repeat(boxWidth - 2)}┘`);
 
     // 写到 stderr 避免与正常输出混合

@@ -51,7 +51,7 @@ function buildLayers(steps: StepDefinition[]): DAGLayer[] {
       remaining.delete(s.id);
       for (const [id, depList] of deps) {
         if (depList.includes(s.id)) {
-          inDegree.set(id, (inDegree.get(id) || 1) - 1);
+          inDegree.set(id, (inDegree.get(id) ?? 0) - 1);
         }
       }
     }
@@ -101,10 +101,12 @@ export function explainWorkflow(workflow: Pick<WorkflowDefinition, 'name' | 'ste
     for (const step of layer.steps) {
       const role = formatRole(step.role);
       // 取 task 的第一行作为摘要
-      const taskSummary = (step.task || '').split('\n')[0].trim().slice(0, 60);
+      const firstLine = (step.task || '').split('\n')[0].trim();
+      const taskSummary = firstLine.slice(0, 60);
+      const truncated = firstLine.length > 60 || (step.task || '').includes('\n');
       lines.push(`  • ${step.id} (${role})`);
       if (taskSummary) {
-        lines.push(`    ${taskSummary}${(step.task || '').length > 60 ? '...' : ''}`);
+        lines.push(`    ${taskSummary}${truncated ? '...' : ''}`);
       }
 
       // 标注条件
@@ -123,7 +125,7 @@ export function explainWorkflow(workflow: Pick<WorkflowDefinition, 'name' | 'ste
 
   // 汇总
   const totalSteps = workflow.steps.length;
-  const maxParallel = Math.max(...layers.map(l => l.steps.length));
+  const maxParallel = layers.length > 0 ? Math.max(...layers.map(l => l.steps.length)) : 0;
   const hasLoop = workflow.steps.some(s => s.loop);
   const hasCondition = workflow.steps.some(s => s.condition);
 

@@ -5,16 +5,19 @@
 ## 安装
 
 ```bash
-# 1. 安装角色定义到项目
+# 1. 下载 186 个 AI 角色
 cd your-project
 git clone --depth 1 https://github.com/jnMetaCode/agency-agents-zh.git
 
-# 2. 复制工作流模板
-git clone --depth 1 https://github.com/jnMetaCode/agency-orchestrator.git .ao-tmp && cp -r .ao-tmp/workflows ./workflows && rm -rf .ao-tmp
-
-# 3. 添加工作流执行规则
+# 2. 下载工作流模板和技能文件
+git clone --depth 1 https://github.com/jnMetaCode/agency-orchestrator.git .ao-tmp
+cp -r .ao-tmp/workflows ./workflows
 mkdir -p .cursor/rules
-cp agency-orchestrator/integrations/cursor/workflow-runner.mdc .cursor/rules/
+cp .ao-tmp/integrations/cursor/workflow-runner.mdc .cursor/rules/
+rm -rf .ao-tmp
+
+# 3. 开始使用
+# 在 Cursor 中直接说：运行 workflows/story-creation.yaml
 ```
 
 ## 使用方式
@@ -87,11 +90,11 @@ ao run workflows/story-creation.yaml -i 'premise=时间旅行'
 
 ## 可用工作流
 
-| 工作流 | 说明 | 角色 |
+| 工作流 | 文件 | 说明 |
 |--------|------|------|
-| `story-creation.yaml` | 短篇小说创作 | 叙事学家 → 心理学家 + 叙事设计师 → 内容创作者 |
-| `product-review.yaml` | 产品需求评审 | 产品经理 → 架构师 + UX 研究员 → 产品经理 |
-| `content-pipeline.yaml` | 内容创作流水线 | 策略师 → 创作者 + SEO → 编辑 |
+| 短篇小说创作 | `story-creation.yaml` | 叙事学家 → 心理学家 + 叙事设计师 → 内容创作者 |
+| 产品需求评审 | `product-review.yaml` | 产品经理 → 架构师 + UX 研究员 → 产品经理 |
+| 内容流水线 | `content-pipeline.yaml` | 策略师 → 创作者 + SEO → 编辑 |
 
 ## 自定义
 

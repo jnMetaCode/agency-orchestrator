@@ -132,6 +132,55 @@ test('显示输入变量', () => {
   assert(explanation.includes('必填'), '应显示必填标记');
 });
 
+test('空步骤不崩溃', () => {
+  const explanation = explainWorkflow({
+    name: '空工作流',
+    steps: [] as any,
+    inputs: [],
+  });
+
+  assert(explanation.includes('总计 0 个步骤'), '应显示 0 步骤');
+  assert(explanation.includes('最大并行度 0'), '应显示并行度 0');
+});
+
+test('单行 task 不使用 block scalar', () => {
+  const yaml = generateWorkflowYaml({
+    name: 'Test',
+    description: 'test',
+    roles: [{ id: 's1', role: 'r/r', task: 'single line task', output: 'out' }],
+    concurrency: 1,
+    hasInputs: false,
+    inputs: [],
+  });
+
+  assert(!yaml.includes('task: |'), '单行 task 不应使用 block scalar');
+  assert(yaml.includes('task: "single line task"'), '单行 task 应用引号包裹');
+});
+
+test('name 含双引号时正确转义', () => {
+  const yaml = generateWorkflowYaml({
+    name: 'My "cool" workflow',
+    description: 'test "desc"',
+    roles: [{ id: 's1', role: 'r/r', task: 'do', output: 'out' }],
+    concurrency: 1,
+    hasInputs: false,
+    inputs: [],
+  });
+
+  assert(yaml.includes('name: "My \\"cool\\" workflow"'), '应转义 name 中的双引号');
+  assert(yaml.includes('description: "test \\"desc\\""'), '应转义 description 中的双引号');
+});
+
+test('多行 task 第一行短但有省略号', () => {
+  const explanation = explainWorkflow({
+    name: '多行',
+    steps: [{ id: 's1', role: 'r/r', task: '短首行\n第二行很长很长', output: 'out' }] as any,
+    inputs: [],
+  });
+
+  assert(explanation.includes('短首行...'), '多行 task 应显示省略号');
+});
+
 // ─── 汇总 ───
 console.log(`\n  结果: ${passed} 通过, ${failed} 失败\n`);
 if (failed > 0) process.exit(1);
