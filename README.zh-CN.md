@@ -403,6 +403,7 @@ console.log(result.totalTokens); // { input: 1234, output: 5678 }
 |------|------|
 | [agency-agents-zh](https://github.com/jnMetaCode/agency-agents-zh) | 186 个 AI 角色定义 — 本编排引擎的角色库 |
 | [superpowers-zh](https://github.com/jnMetaCode/superpowers-zh) | AI 编程超能力 · 中文版 — 20 个 skills，让你的 AI 编程助手真正会干活 |
+| [shellward](https://github.com/jnMetaCode/shellward) | AI 智能体安全中间件 — 注入检测、数据防泄露、命令安全、零依赖 |
 
 ## 路线图
 

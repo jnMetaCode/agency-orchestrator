@@ -334,6 +334,7 @@ Each run saves to `.ao-output/<name>-<timestamp>/`:
 |---------|-------------|
 | [agency-agents-zh](https://github.com/jnMetaCode/agency-agents-zh) | 186 AI role definitions — the role library for this engine |
 | [superpowers-zh](https://github.com/jnMetaCode/superpowers-zh) | AI coding superpowers — 20 skills for Claude Code / Cursor |
+| [shellward](https://github.com/jnMetaCode/shellward) | AI agent security middleware — prompt injection detection, DLP, command safety |
 
 ## Roadmap
 
