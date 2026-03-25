@@ -44,13 +44,16 @@ async function main(): Promise<void> {
     case 'explain':
       await handleExplain();
       break;
+    case 'compose':
+      await handleCompose();
+      break;
     case '--version':
     case '-v':
       console.log(getVersion());
       break;
     default: {
       // 容错：用户可能漏了空格，如 "planworkflows/x.yaml"
-      const knownCmds = ['run', 'validate', 'plan', 'explain', 'roles', 'init'];
+      const knownCmds = ['run', 'validate', 'plan', 'explain', 'compose', 'roles', 'init'];
       const match = knownCmds.find(c => command.startsWith(c) && command.length > c.length);
       if (match) {
         console.error(`看起来少了个空格？试试:\n  ao ${match} ${command.slice(match.length)}\n`);
@@ -173,6 +176,56 @@ async function handleExplain(): Promise<void> {
     console.log('\n' + explainWorkflow(workflow) + '\n');
   } catch (err) {
     console.error(`错误: ${err instanceof Error ? err.message : err}`);
+    process.exit(1);
+  }
+}
+
+async function handleCompose(): Promise<void> {
+  const description = args[1];
+  if (!description) {
+    console.error('用法: ao compose "用一句话描述你想要的工作流"');
+    console.error('');
+    console.error('示例:');
+    console.error('  ao compose "PR 代码审查，要覆盖安全和性能"');
+    console.error('  ao compose "写一篇技术博客，需要调研、写稿、审校"');
+    console.error('  ao compose "用户反馈分析，分类后分别给产品和技术团队"');
+    console.error('');
+    console.error('选项:');
+    console.error('  --provider <name>   LLM 提供商 (默认 deepseek)');
+    console.error('  --model <name>      模型名 (默认 deepseek-chat)');
+    process.exit(1);
+  }
+
+  const provider = (getArgValue('--provider') || 'deepseek') as 'deepseek' | 'openai' | 'claude' | 'ollama';
+  const model = getArgValue('--model') || (provider === 'deepseek' ? 'deepseek-chat' : provider === 'claude' ? 'claude-sonnet-4-20250514' : 'gpt-4o');
+  const agentsDir = getArgValue('--agents-dir') || resolveAgentsDir();
+
+  try {
+    const { composeWorkflow } = await import('./cli/compose.js');
+    const { yaml, savedPath } = await composeWorkflow({
+      description,
+      agentsDir: resolve(agentsDir),
+      llmConfig: { provider, model },
+    });
+
+    console.log(`\n  ✅ 工作流已生成: ${savedPath}\n`);
+    console.log('  预览:');
+    // 显示前 30 行
+    const previewLines = yaml.split('\n').slice(0, 30);
+    for (const line of previewLines) {
+      console.log(`    ${line}`);
+    }
+    if (yaml.split('\n').length > 30) {
+      console.log('    ...');
+    }
+    console.log('');
+    console.log('  接下来可以:');
+    console.log(`    ao plan ${savedPath}       查看执行计划`);
+    console.log(`    ao validate ${savedPath}   校验工作流`);
+    console.log(`    ao run ${savedPath}        运行工作流`);
+    console.log('');
+  } catch (err) {
+    console.error(`\n错误: ${err instanceof Error ? err.message : err}`);
     process.exit(1);
   }
 }
@@ -323,6 +376,7 @@ function printHelp(): void {
   Commands:
     init                              下载/更新 agency-agents-zh
     init --workflow                    交互式创建新工作流
+    compose "描述"                     AI 智能编排工作流（一句话生成 YAML）
     run <workflow.yaml>               执行工作流
     validate <workflow.yaml>          校验工作流定义
     plan <workflow.yaml>              查看执行计划
@@ -341,6 +395,7 @@ function printHelp(): void {
 
   Examples:
     ao init
+    ao compose "PR 代码审查，覆盖安全和性能"
     ao run workflows/story-creation.yaml -i premise='一个时间旅行的故事' -i style='悬疑'
     ao run workflows/product-review.yaml -i prd_content=@prd.md
     ao plan workflows/content-pipeline.yaml

@@ -200,6 +200,7 @@ analyze ──→ tech_review  ──→ summary
 ```bash
 ao init                              # 下载 186 个 AI 角色
 ao init --workflow                    # 交互式创建工作流
+ao compose "一句话描述"                # AI 智能编排工作流
 ao run <workflow.yaml> [选项]          # 执行工作流
 ao validate <workflow.yaml>           # 校验（不执行）
 ao plan <workflow.yaml>               # 查看执行计划（DAG）
@@ -216,6 +217,22 @@ ao roles                             # 列出所有角色
 | `--from <step-id>` | 配合 `--resume`，从指定步骤重新执行 |
 | `--watch` | 实时终端进度显示 |
 | `--quiet` | 静默模式 |
+
+### AI 智能编排（Compose）
+
+一句话描述需求，AI 自动从 186 个角色中选角色、设计 DAG、生成完整 workflow YAML：
+
+```bash
+ao compose "PR 代码审查，要覆盖安全和性能"
+```
+
+AI 会自动：
+1. 从 186 角色中匹配出 Code Reviewer、Security Engineer、Performance Benchmarker
+2. 设计 DAG（三路并行 → 汇总）
+3. 生成带 `depends_on`、变量串联的完整 YAML
+4. 保存到 `workflows/` — 直接 `ao run` 就能跑
+
+支持 `--provider` 和 `--model` 参数（默认使用 DeepSeek）。
 
 ### 迭代优化（Resume）
 

@@ -79,6 +79,7 @@ export interface AgentDefinition {
   description: string;
   emoji?: string;
   tools?: string;
+  rolePath?: string;          // 角色路径，如 "engineering/engineering-sre"
   systemPrompt: string;       // frontmatter 之后的完整 markdown 内容
 }
 

@@ -150,6 +150,22 @@ analyze ──→ tech_review  ──→ summary
 
 ## Features
 
+### AI Workflow Composer
+
+Describe your workflow in one sentence — AI selects the right roles, designs the DAG, and generates a ready-to-run YAML:
+
+```bash
+ao compose "PR code review covering security and performance"
+```
+
+The AI will:
+1. Select matching roles from 186 available (e.g., Code Reviewer, Security Engineer, Performance Benchmarker)
+2. Design the DAG (3-way parallel → summary)
+3. Generate complete YAML with variable passing and task descriptions
+4. Save to `workflows/` — ready to `ao run`
+
+Supports `--provider` and `--model` flags (default: DeepSeek).
+
 ### Condition Branching
 
 ```yaml
@@ -238,6 +254,7 @@ All providers support custom `base_url` and `api_key`, compatible with any OpenA
 ```bash
 ao init                              # Download 186 AI roles
 ao init --workflow                    # Interactive workflow creator
+ao compose "description"             # AI-powered workflow generation
 ao run <workflow.yaml> [options]      # Execute workflow
 ao validate <workflow.yaml>           # Validate without running
 ao plan <workflow.yaml>               # Show execution plan (DAG)

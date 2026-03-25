@@ -92,6 +92,7 @@ export function listAgents(agentsDir: string): AgentDefinition[] {
       const rolePath = `${dept.name}/${file.name.replace('.md', '')}`;
       try {
         const agent = loadAgent(agentsDir, rolePath);
+        agent.rolePath = rolePath;
         agents.push(agent);
       } catch {
         // 跳过无法解析的文件

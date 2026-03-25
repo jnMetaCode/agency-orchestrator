@@ -15,6 +15,7 @@ export { ClaudeConnector } from './connectors/claude.js';
 export { OllamaConnector } from './connectors/ollama.js';
 export { OpenAICompatibleConnector } from './connectors/openai-compatible.js';
 export { saveResults, loadPreviousContext, findLatestOutput } from './output/reporter.js';
+export { composeWorkflow, buildRoleCatalog, extractYamlFromResponse } from './cli/compose.js';
 
 export type {
   WorkflowDefinition,

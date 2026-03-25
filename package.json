@@ -1,7 +1,7 @@
 {
   "name": "agency-orchestrator",
-  "version": "0.3.1",
-  "description": "Multi-agent workflow orchestrator — 186 ready-to-use AI roles, YAML-defined pipelines, auto DAG parallelism, zero code required",
+  "version": "0.3.2",
+  "description": "Multi-agent workflow orchestrator — 186 AI roles, YAML pipelines, auto DAG parallelism, AI-powered workflow composer",
   "keywords": [
     "multi-agent",
     "ai-agents",
@@ -44,7 +44,7 @@
   "scripts": {
     "build": "tsc",
     "dev": "tsc --watch",
-    "test": "npx tsx test/run.ts && npx tsx test/condition.ts && npx tsx test/cli.ts && npx tsx test/e2e.ts && npx tsx test/e2e-condition.ts && npx tsx test/e2e-loop.ts",
+    "test": "npx tsx test/run.ts && npx tsx test/condition.ts && npx tsx test/cli.ts && npx tsx test/compose.ts && npx tsx test/e2e.ts && npx tsx test/e2e-condition.ts && npx tsx test/e2e-loop.ts",
     "prepublishOnly": "npm run build"
   },
   "files": [
