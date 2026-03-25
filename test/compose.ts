@@ -139,6 +139,12 @@ test('超长描述被截断', () => {
   assert(name.length < 60, '文件名应被截断');
 });
 
+test('同名文件已存在时加序号', () => {
+  // 用 workflows/ 目录测试（里面已有文件）
+  const name1 = generateFileName('story-creation', './workflows');
+  assert(name1 === 'story-creation-2.yaml', '应加序号避免覆盖');
+});
+
 // ─── 汇总 ───
 console.log(`\n  结果: ${passed} 通过, ${failed} 失败\n`);
 if (failed > 0) process.exit(1);

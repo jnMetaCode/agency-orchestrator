@@ -202,15 +202,24 @@ async function handleCompose(): Promise<void> {
 
   try {
     const { composeWorkflow } = await import('./cli/compose.js');
-    const { yaml, savedPath } = await composeWorkflow({
+    const { yaml, relativePath, warnings } = await composeWorkflow({
       description,
       agentsDir: resolve(agentsDir),
       llmConfig: { provider, model },
     });
 
-    console.log(`\n  ✅ 工作流已生成: ${savedPath}\n`);
+    console.log(`\n  ✅ 工作流已生成: ${relativePath}\n`);
+
+    // 校验警告
+    if (warnings.length > 0) {
+      console.log('  ⚠️  校验发现问题（AI 生成的 YAML 可能需要手动调整）:');
+      for (const w of warnings) {
+        console.log(`    - ${w}`);
+      }
+      console.log('');
+    }
+
     console.log('  预览:');
-    // 显示前 30 行
     const previewLines = yaml.split('\n').slice(0, 30);
     for (const line of previewLines) {
       console.log(`    ${line}`);
@@ -220,9 +229,9 @@ async function handleCompose(): Promise<void> {
     }
     console.log('');
     console.log('  接下来可以:');
-    console.log(`    ao plan ${savedPath}       查看执行计划`);
-    console.log(`    ao validate ${savedPath}   校验工作流`);
-    console.log(`    ao run ${savedPath}        运行工作流`);
+    console.log(`    ao validate ${relativePath}   校验工作流`);
+    console.log(`    ao plan ${relativePath}       查看执行计划`);
+    console.log(`    ao run ${relativePath}        运行工作流`);
     console.log('');
   } catch (err) {
     console.error(`\n错误: ${err instanceof Error ? err.message : err}`);

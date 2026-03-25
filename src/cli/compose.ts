@@ -5,8 +5,9 @@
  */
 import { listAgents } from '../agents/loader.js';
 import { existsSync, writeFileSync, mkdirSync } from 'node:fs';
-import { resolve } from 'node:path';
-import type { AgentDefinition, LLMConfig, LLMConnector } from '../types.js';
+import { resolve, relative } from 'node:path';
+import { createConnector } from '../connectors/factory.js';
+import type { LLMConfig } from '../types.js';
 
 /** 精简的角色摘要，供 LLM 选角色用 */
 export interface RoleSummary {
@@ -22,7 +23,7 @@ export interface RoleSummary {
 export function buildRoleCatalog(agentsDir: string): RoleSummary[] {
   const agents = listAgents(agentsDir);
   return agents
-    .filter(a => a.rolePath)  // 只保留有路径的
+    .filter(a => a.rolePath)
     .map(a => ({
       path: a.rolePath!,
       name: a.name,
@@ -144,9 +145,9 @@ export function extractYamlFromResponse(response: string): string {
 }
 
 /**
- * 根据描述生成文件名
+ * 根据描述生成文件名（避免覆盖已有文件）
  */
-export function generateFileName(description: string): string {
+export function generateFileName(description: string, dir?: string): string {
   const cleaned = description
     .replace(/[^\u4e00-\u9fffa-zA-Z0-9\s-]/g, '')
     .trim()
@@ -154,39 +155,18 @@ export function generateFileName(description: string): string {
     .toLowerCase()
     .replace(/\s+/g, '-')
     .replace(/^-|-$/g, '');
-  return (cleaned || 'composed-workflow') + '.yaml';
-}
+  const base = cleaned || 'composed-workflow';
 
-/**
- * 创建 LLM connector（动态导入）
- */
-async function createConnector(config: LLMConfig): Promise<LLMConnector> {
-  switch (config.provider) {
-    case 'deepseek': {
-      const { OpenAICompatibleConnector } = await import('../connectors/openai-compatible.js');
-      return new OpenAICompatibleConnector({
-        apiKey: config.api_key || process.env.DEEPSEEK_API_KEY,
-        baseUrl: config.base_url || 'https://api.deepseek.com/v1',
-      });
-    }
-    case 'openai': {
-      const { OpenAICompatibleConnector } = await import('../connectors/openai-compatible.js');
-      return new OpenAICompatibleConnector({
-        apiKey: config.api_key || process.env.OPENAI_API_KEY,
-        baseUrl: config.base_url || 'https://api.openai.com/v1',
-      });
-    }
-    case 'claude': {
-      const { ClaudeConnector } = await import('../connectors/claude.js');
-      return new ClaudeConnector(config.api_key);
-    }
-    case 'ollama': {
-      const { OllamaConnector } = await import('../connectors/ollama.js');
-      return new OllamaConnector(config.base_url);
-    }
-    default:
-      throw new Error(`不支持的 provider: ${config.provider}`);
+  if (!dir) return `${base}.yaml`;
+
+  // 同名文件已存在时加序号
+  let candidate = `${base}.yaml`;
+  let i = 2;
+  while (existsSync(resolve(dir, candidate))) {
+    candidate = `${base}-${i}.yaml`;
+    i++;
   }
+  return candidate;
 }
 
 /**
@@ -196,7 +176,7 @@ export async function composeWorkflow(options: {
   description: string;
   agentsDir: string;
   llmConfig: LLMConfig;
-}): Promise<{ yaml: string; savedPath: string }> {
+}): Promise<{ yaml: string; savedPath: string; relativePath: string; warnings: string[] }> {
   const { description, agentsDir, llmConfig } = options;
 
   // 1. 构建角色目录
@@ -213,7 +193,7 @@ export async function composeWorkflow(options: {
   // 3. 调用 LLM
   console.log(`  正在用 AI 编排工作流...（${roles.length} 个角色可选）\n`);
 
-  const connector = await createConnector(llmConfig);
+  const connector = createConnector(llmConfig);
   const result = await connector.chat(systemPrompt, userPrompt, {
     ...llmConfig,
     max_tokens: llmConfig.max_tokens || 4096,
@@ -225,16 +205,33 @@ export async function composeWorkflow(options: {
     throw new Error('AI 生成的内容不是有效的 workflow YAML，请重试或调整描述');
   }
 
-  // 5. 保存
-  const fileName = generateFileName(description);
+  // 5. 保存（避免覆盖）
   const workflowsDir = resolve('workflows');
   if (!existsSync(workflowsDir)) {
     mkdirSync(workflowsDir, { recursive: true });
   }
+  const fileName = generateFileName(description, workflowsDir);
   const savedPath = resolve(workflowsDir, fileName);
   writeFileSync(savedPath, yaml + '\n', 'utf-8');
 
+  const relativePath = relative(process.cwd(), savedPath);
+
   console.log(`  Token 用量: 输入 ${result.usage.input_tokens}, 输出 ${result.usage.output_tokens}`);
 
-  return { yaml, savedPath };
+  // 6. 校验生成的 YAML
+  const warnings: string[] = [];
+  try {
+    const { parseWorkflow, validateWorkflow } = await import('../core/parser.js');
+    const workflow = parseWorkflow(savedPath);
+    const errors = validateWorkflow(workflow);
+    if (errors.length > 0) {
+      for (const e of errors) {
+        warnings.push(e);
+      }
+    }
+  } catch (err) {
+    warnings.push(`YAML 解析失败: ${err instanceof Error ? err.message : err}`);
+  }
+
+  return { yaml, savedPath, relativePath, warnings };
 }

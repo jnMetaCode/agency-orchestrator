@@ -14,6 +14,7 @@ export { loadAgent, listAgents } from './agents/loader.js';
 export { ClaudeConnector } from './connectors/claude.js';
 export { OllamaConnector } from './connectors/ollama.js';
 export { OpenAICompatibleConnector } from './connectors/openai-compatible.js';
+export { createConnector } from './connectors/factory.js';
 export { saveResults, loadPreviousContext, findLatestOutput } from './output/reporter.js';
 export { composeWorkflow, buildRoleCatalog, extractYamlFromResponse } from './cli/compose.js';
 
@@ -32,13 +33,10 @@ export type {
 import { parseWorkflow, validateWorkflow } from './core/parser.js';
 import { buildDAG, formatDAG } from './core/dag.js';
 import { executeDAG, type ExecutorOptions } from './core/executor.js';
-import { ClaudeConnector } from './connectors/claude.js';
-import { OllamaConnector } from './connectors/ollama.js';
-import { OpenAICompatibleConnector } from './connectors/openai-compatible.js';
+import { createConnector } from './connectors/factory.js';
 import { saveResults, printStepResult, printStepRunning, clearRunningLine, printSummary, loadPreviousContext, getCompletedStepIds, findLatestOutput } from './output/reporter.js';
 import { existsSync } from 'node:fs';
 import { resolve, dirname } from 'node:path';
-import type { LLMConnector } from './types.js';
 
 /**
  * 一行运行工作流（高级 API）
@@ -72,29 +70,7 @@ export async function run(
   const dag = buildDAG(workflow);
 
   // 创建 connector
-  let connector: LLMConnector;
-  switch (workflow.llm.provider) {
-    case 'claude':
-      connector = new ClaudeConnector(workflow.llm.api_key);
-      break;
-    case 'ollama':
-      connector = new OllamaConnector(workflow.llm.base_url);
-      break;
-    case 'deepseek':
-      connector = new OpenAICompatibleConnector({
-        apiKey: workflow.llm.api_key || process.env.DEEPSEEK_API_KEY,
-        baseUrl: workflow.llm.base_url || 'https://api.deepseek.com/v1',
-      });
-      break;
-    case 'openai':
-      connector = new OpenAICompatibleConnector({
-        apiKey: workflow.llm.api_key || process.env.OPENAI_API_KEY,
-        baseUrl: workflow.llm.base_url || 'https://api.openai.com/v1',
-      });
-      break;
-    default:
-      throw new Error(`暂不支持 provider: ${workflow.llm.provider}（支持 claude / deepseek / openai / ollama）`);
-  }
+  const connector = createConnector(workflow.llm);
 
   // 构建输入
   const inputMap = new Map(Object.entries(inputs));
