@@ -50,13 +50,16 @@ async function main(): Promise<void> {
     case 'demo':
       await handleDemo();
       break;
+    case 'serve':
+      await handleServe();
+      break;
     case '--version':
     case '-v':
       console.log(getVersion());
       break;
     default: {
       // 容错：用户可能漏了空格，如 "planworkflows/x.yaml"
-      const knownCmds = ['run', 'validate', 'plan', 'explain', 'compose', 'demo', 'roles', 'init'];
+      const knownCmds = ['run', 'validate', 'plan', 'explain', 'compose', 'demo', 'roles', 'init', 'serve'];
       const match = knownCmds.find(c => command.startsWith(c) && command.length > c.length);
       if (match) {
         console.error(`看起来少了个空格？试试:\n  ao ${match} ${command.slice(match.length)}\n`);
@@ -242,6 +245,17 @@ async function handleCompose(): Promise<void> {
   }
 }
 
+async function handleServe(): Promise<void> {
+  const verbose = args.includes('--verbose');
+  try {
+    const { startServer } = await import('./mcp/server.js');
+    await startServer(verbose);
+  } catch (err) {
+    console.error(`MCP 服务器启动失败: ${err instanceof Error ? err.message : err}`);
+    process.exit(1);
+  }
+}
+
 async function handleDemo(): Promise<void> {
   try {
     const { runDemo } = await import('./cli/demo.js');
@@ -401,6 +415,7 @@ function printHelp(): void {
     init                              下载/更新 agency-agents-zh
     init --workflow                    交互式创建新工作流
     compose "描述"                     AI 智能编排工作流（一句话生成 YAML）
+    serve                             启动 MCP Server（供 Claude Code / Cursor 调用）
     run <workflow.yaml>               执行工作流
     validate <workflow.yaml>          校验工作流定义
     plan <workflow.yaml>              查看执行计划
