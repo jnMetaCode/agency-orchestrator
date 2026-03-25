@@ -9,6 +9,8 @@
 [![License: Apache-2.0](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](./LICENSE)
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](./CONTRIBUTING.md)
 
+> If you find this useful, please give it a **Star** — it helps others discover this project and motivates continued development.
+
 ---
 
 ## What Is This?
