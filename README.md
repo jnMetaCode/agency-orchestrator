@@ -48,6 +48,14 @@ steps:
 
 ## Quick Start
 
+### Fastest: Zero-Config Demo
+
+```bash
+npx agency-orchestrator demo
+```
+
+See 4 AI roles collaborate on a story in 5 seconds — no API key needed. Then optionally run with a real LLM.
+
 ### Option A: Inside Claude Code / Cursor (No API key needed)
 
 Your AI coding tool's built-in LLM serves as the execution engine:
@@ -254,6 +262,7 @@ All providers support custom `base_url` and `api_key`, compatible with any OpenA
 ## CLI Reference
 
 ```bash
+ao demo                              # Zero-config multi-agent demo
 ao init                              # Download 186 AI roles
 ao init --workflow                    # Interactive workflow creator
 ao compose "description"             # AI-powered workflow generation

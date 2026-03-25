@@ -49,6 +49,14 @@ steps:
 
 ## 快速开始
 
+### 最快体验：零配置 Demo
+
+```bash
+npx agency-orchestrator demo
+```
+
+5 秒内看到 4 个 AI 角色协作写小说 — 无需 API key。然后可选择用真实 LLM 运行。
+
 ### 方式一：在 Claude Code / OpenClaw / Cursor 中直接用（无需 API key）
 
 如果你已经在 AI 编程工具中，**不需要配置任何 API key**，工具自带的 LLM 就是执行引擎：
@@ -200,6 +208,7 @@ analyze ──→ tech_review  ──→ summary
 ## CLI 命令
 
 ```bash
+ao demo                              # 零配置体验多智能体协作
 ao init                              # 下载 186 个 AI 角色
 ao init --workflow                    # 交互式创建工作流
 ao compose "一句话描述"                # AI 智能编排工作流

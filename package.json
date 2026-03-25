@@ -1,6 +1,6 @@
 {
   "name": "agency-orchestrator",
-  "version": "0.3.2",
+  "version": "0.4.0",
   "description": "Multi-agent workflow engine — describe a workflow in one sentence, AI assembles 186 expert roles into a ready-to-run YAML pipeline. Auto DAG parallelism, zero code.",
   "keywords": [
     "multi-agent",
@@ -44,12 +44,13 @@
   "scripts": {
     "build": "tsc",
     "dev": "tsc --watch",
-    "test": "npx tsx test/run.ts && npx tsx test/condition.ts && npx tsx test/cli.ts && npx tsx test/compose.ts && npx tsx test/e2e.ts && npx tsx test/e2e-condition.ts && npx tsx test/e2e-loop.ts",
+    "test": "npx tsx test/run.ts && npx tsx test/condition.ts && npx tsx test/cli.ts && npx tsx test/compose.ts && npx tsx test/demo.ts && npx tsx test/e2e.ts && npx tsx test/e2e-condition.ts && npx tsx test/e2e-loop.ts",
     "prepublishOnly": "npm run build"
   },
   "files": [
     "dist/",
     "workflows/",
+    "examples/",
     "integrations/",
     "LICENSE",
     "README.md"

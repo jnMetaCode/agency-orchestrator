@@ -47,13 +47,16 @@ async function main(): Promise<void> {
     case 'compose':
       await handleCompose();
       break;
+    case 'demo':
+      await handleDemo();
+      break;
     case '--version':
     case '-v':
       console.log(getVersion());
       break;
     default: {
       // 容错：用户可能漏了空格，如 "planworkflows/x.yaml"
-      const knownCmds = ['run', 'validate', 'plan', 'explain', 'compose', 'roles', 'init'];
+      const knownCmds = ['run', 'validate', 'plan', 'explain', 'compose', 'demo', 'roles', 'init'];
       const match = knownCmds.find(c => command.startsWith(c) && command.length > c.length);
       if (match) {
         console.error(`看起来少了个空格？试试:\n  ao ${match} ${command.slice(match.length)}\n`);
@@ -239,6 +242,16 @@ async function handleCompose(): Promise<void> {
   }
 }
 
+async function handleDemo(): Promise<void> {
+  try {
+    const { runDemo } = await import('./cli/demo.js');
+    await runDemo();
+  } catch (err) {
+    console.error(`\n错误: ${err instanceof Error ? err.message : err}`);
+    process.exit(1);
+  }
+}
+
 async function handleInit(): Promise<void> {
   // ao init --workflow: 交互式创建工作流
   if (args.includes('--workflow')) {
@@ -377,12 +390,14 @@ function printHelp(): void {
   基于 agency-agents-zh 的多智能体编排引擎
 
   Quick Start:
+    ao demo                           零配置体验多智能体协作
     ao init                           下载 186 个 AI 角色定义
     ao roles                          查看所有可用角色
     ao plan <workflow.yaml>           查看执行计划 (DAG)
     ao run <workflow.yaml> [options]   执行工作流
 
   Commands:
+    demo                              零配置体验多智能体协作（mock + 真实 AI）
     init                              下载/更新 agency-agents-zh
     init --workflow                    交互式创建新工作流
     compose "描述"                     AI 智能编排工作流（一句话生成 YAML）

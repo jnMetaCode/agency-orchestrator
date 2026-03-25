@@ -5,7 +5,7 @@ agents_dir: "agency-agents-zh"
 
 llm:
   provider: "claude"
-  model: "claude-sonnet-4-6"
+  model: "claude-sonnet-4-20250514"
   max_tokens: 4096
   timeout: 120000
   retry: 3
@@ -21,48 +21,75 @@ steps:
   - id: analyze
     role: "product/product-manager"
     task: |
-      请分析以下 PRD 文档，提取：
-      1. 核心需求（按优先级排列）
-      2. 目标用户画像
-      3. 潜在风险和不确定性
-      4. 关键成功指标
+      分析以下 PRD 文档，输出结构化评审。
 
       PRD 内容：
       {{prd_content}}
+
+      输出格式（markdown）：
+      ### 核心需求（按优先级 P0/P1/P2 排列）
+      - P0: ...
+      - P1: ...
+
+      ### 目标用户画像
+      用户类型 | 核心痛点 | 使用场景
+
+      ### 风险与不确定性
+      - [高/中/低] 风险描述 → 建议的验证方式
+
+      ### 关键成功指标
+      - 指标名 | 目标值 | 衡量方式
     output: requirements
 
   - id: tech_review
     role: "engineering/engineering-software-architect"
     task: |
-      基于以下需求分析，请评估：
-      1. 技术可行性（高/中/低）
-      2. 推荐技术架构
-      3. 预估开发复杂度
-      4. 技术风险点
+      基于以下需求分析，进行技术可行性评估。
 
       需求分析：
       {{requirements}}
+
+      输出格式（markdown）：
+      ### 技术可行性评分：[高/中/低]
+
+      ### 推荐技术架构
+      简要描述核心组件和交互方式（3-5 句话）
+
+      ### 开发复杂度
+      | 模块 | 复杂度(1-5) | 预估人天 | 主要挑战 |
+
+      ### 技术风险
+      - [高/中/低] 风险描述 → 缓解方案
     output: tech_report
     depends_on: [analyze]
 
   - id: design_review
     role: "design/design-ux-researcher"
     task: |
-      基于以下需求分析，请评估：
-      1. 用户体验风险
-      2. 可用性问题
-      3. 设计建议
-      4. 需要进一步验证的假设
+      基于以下需求分析，进行用户体验评估。
 
       需求分析：
       {{requirements}}
+
+      输出格式（markdown）：
+      ### UX 风险评估
+      - [高/中/低] 风险描述 → 影响范围
+
+      ### 可用性问题
+      - 问题 → 建议的解决方案
+
+      ### 设计建议（Top 3）
+      1. 建议 → 预期效果
+
+      ### 需验证假设
+      - 假设 → 建议的验证方法（用户访谈/A-B测试/原型测试）
     output: design_report
     depends_on: [analyze]
 
   - id: final_summary
     role: "product/product-manager"
     task: |
-      综合以下技术和设计两方面的反馈，输出最终评审结论：
+      综合技术和设计反馈，输出最终评审结论。
 
       ## 技术评估
       {{tech_report}}
@@ -70,8 +97,16 @@ steps:
       ## 设计评估
       {{design_report}}
 
-      请输出：
-      1. 总体结论（通过/需修改/不通过）
-      2. 必须解决的问题清单
-      3. 建议的下一步行动
+      输出格式（markdown）：
+      ### 评审结论：[✅ 通过 / ⚠️ 需修改 / ❌ 不通过]
+
+      ### 必须解决（合并前）
+      1. [来源: 技术/设计] 问题 → 建议方案
+
+      ### 建议改进（可后续迭代）
+      1. 问题 → 优先级
+
+      ### 下一步行动
+      - [ ] 行动项 | 负责方 | 建议时间
+    output: final_report
     depends_on: [tech_review, design_review]

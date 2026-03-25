@@ -53,6 +53,8 @@ export async function run(
     resumeDir?: string;
     /** 从指定步骤开始重新执行（跳过之前的步骤） */
     fromStep?: string;
+    /** 覆盖 LLM 配置（例如来自 ao demo） */
+    llmOverride?: Partial<import('./types.js').LLMConfig>;
   }
 ): Promise<import('./types.js').WorkflowResult> {
   const workflow = parseWorkflow(workflowPath);
@@ -68,6 +70,11 @@ export async function run(
 
   // 构建 DAG
   const dag = buildDAG(workflow);
+
+  // Apply LLM override (e.g., from ao demo)
+  if (options?.llmOverride) {
+    Object.assign(workflow.llm, options.llmOverride);
+  }
 
   // 创建 connector
   const connector = createConnector(workflow.llm);
