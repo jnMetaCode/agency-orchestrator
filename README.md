@@ -529,7 +529,7 @@ ao-output/产品需求评审-2026-03-22/
 
 | 项目 | 说明 |
 |------|------|
-| [ai-coding-guide](https://github.com/jnMetaCode/ai-coding-guide) | AI 编程工具实战指南 — 66 个 Claude Code 技巧 + 8 款工具最佳实践 + 可复制配置模板 |
+| [ai-coding-guide](https://github.com/jnMetaCode/ai-coding-guide) | AI 编程工具实战指南 — 66 个 Claude Code 技巧 + 9 款工具最佳实践 + 可复制配置模板 |
 | [agency-agents-zh](https://github.com/jnMetaCode/agency-agents-zh) | 187 个专业角色，让 AI 变成安全工程师、DBA、产品经理等 |
 | [superpowers-zh](https://github.com/jnMetaCode/superpowers-zh) | AI 编程超能力 · 中文版 — 20 个 skills，让你的 AI 编程助手真正会干活 |
 | [shellward](https://github.com/jnMetaCode/shellward) | AI 智能体安全中间件 — 注入检测、数据防泄露、命令安全、零依赖、MCP Server |
