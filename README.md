@@ -525,6 +525,12 @@ ao-output/产品需求评审-2026-03-22/
       DeepSeek / Claude / OpenAI / Ollama
 ```
 
+## 社区交流
+
+| 群名 | 加入方式 |
+|------|---------|
+| AI 编程 & Agent 中文实践群 | [点击加入](https://qm.qq.com/q/EeNQA9xCxy) |
+
 ## 姊妹项目
 
 | 项目 | 说明 |
