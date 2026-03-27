@@ -41,7 +41,7 @@ Gemini CLI 会根据 GEMINI.md 中的 workflow-runner 指令：
 - 解析 YAML 工作流
 - 加载每个角色的 .md 定义
 - 按 DAG 顺序逐步执行
-- 保存结果到 `.ao-output/`
+- 保存结果到 `ao-output/`
 
 ### 方式二：自然语言模式
 

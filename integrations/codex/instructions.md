@@ -28,7 +28,7 @@ Label each step: `### Step N/Total: step_id (Role Name)`
 ### 5. Save Results
 Save all outputs to files:
 ```
-.ao-output/{workflow-name}-{date}/
+ao-output/{workflow-name}-{date}/
 ├── steps/
 │   ├── 1-{step_id}.md
 │   └── ...

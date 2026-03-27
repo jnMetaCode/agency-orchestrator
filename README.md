@@ -57,7 +57,7 @@ npx agency-orchestrator demo
 
 5 秒内看到 4 个 AI 角色协作写小说 — 无需 API key。然后可选择用真实 LLM 运行。
 
-### 方式一：在 Claude Code / OpenClaw / Cursor 中直接用（无需 API key）
+### 方式一：在 AI 编程工具中直接用（无需 API key）
 
 如果你已经在 AI 编程工具中，**不需要配置任何 API key**，工具自带的 LLM 就是执行引擎：
 
@@ -65,8 +65,9 @@ npx agency-orchestrator demo
 # 安装角色定义
 git clone --depth 1 https://github.com/jnMetaCode/agency-agents-zh.git
 
-# 安装 superpowers-zh（包含 workflow-runner 技能）
-npx superpowers-zh
+# 一键安装 workflow-runner 到你的工具
+./scripts/install.sh                       # 自动检测已安装的工具
+./scripts/install.sh --tool cursor         # 或指定工具
 ```
 
 然后在 AI 工具中直接说：
@@ -77,16 +78,24 @@ npx superpowers-zh
 
 AI 会自动解析 YAML → 加载角色 → 按 DAG 顺序执行 → 保存结果。零配置。
 
-各工具集成指南见 [integrations/](./integrations/)（支持 9 个 AI 编程工具）：
-- [Claude Code](./integrations/claude-code/) — Skill 模式（推荐）
-- [Cursor](./integrations/cursor/) — .cursor/rules
-- [Kiro](./integrations/kiro/) — .kiro/steering
-- [Trae](./integrations/trae/) — .trae/rules
-- [Gemini CLI](./integrations/gemini-cli/) — GEMINI.md
-- [Codex CLI](./integrations/codex/) — .codex/instructions
-- [DeerFlow 2.0](./integrations/deerflow/) — skills/custom
-- [Antigravity](./integrations/antigravity/) — AGENTS.md
-- [OpenClaw](./integrations/openclaw/) — Skill 模式
+支持 **14 个 AI 编程工具**（[集成指南](./integrations/)）：
+
+| 工具 | 配置位置 | 安装命令 |
+|------|---------|---------|
+| [Claude Code](./integrations/claude-code/) | Skill 模式 | `npx superpowers-zh` |
+| [GitHub Copilot](./integrations/copilot/) | `.github/copilot-instructions.md` | `./scripts/install.sh --tool copilot` |
+| [Cursor](./integrations/cursor/) | `.cursor/rules/` | `./scripts/install.sh --tool cursor` |
+| [Windsurf](./integrations/windsurf/) | `.windsurfrules` | `./scripts/install.sh --tool windsurf` |
+| [Kiro](./integrations/kiro/) | `.kiro/steering/` | `./scripts/install.sh --tool kiro` |
+| [Trae](./integrations/trae/) | `.trae/rules/` | `./scripts/install.sh --tool trae` |
+| [Aider](./integrations/aider/) | `CONVENTIONS.md` | `./scripts/install.sh --tool aider` |
+| [Gemini CLI](./integrations/gemini-cli/) | `GEMINI.md` | `./scripts/install.sh --tool gemini-cli` |
+| [Codex CLI](./integrations/codex/) | `.codex/instructions.md` | `./scripts/install.sh --tool codex` |
+| [OpenCode](./integrations/opencode/) | `.opencode/instructions.md` | `./scripts/install.sh --tool opencode` |
+| [Qwen Code](./integrations/qwen/) | `.qwen/rules/` | `./scripts/install.sh --tool qwen` |
+| [DeerFlow 2.0](./integrations/deerflow/) | `skills/custom/` | `./scripts/install.sh --tool deerflow` |
+| [Antigravity](./integrations/antigravity/) | `AGENTS.md` | `./scripts/install.sh --tool antigravity` |
+| [OpenClaw](./integrations/openclaw/) | Skill 模式 | `./scripts/install.sh --tool openclaw` |
 
 ### 方式二：CLI 模式（需要 API key）
 
@@ -186,7 +195,7 @@ steps:
 3. 通过 `{{变量}}` 在步骤间传递输出
 4. 从 [agency-agents-zh](https://github.com/jnMetaCode/agency-agents-zh) 加载角色定义作为 system prompt
 5. 失败自动重试（指数退避）
-6. 保存所有输出到 `.ao-output/`
+6. 保存所有输出到 `ao-output/`
 
 ```
 analyze ──→ tech_review  ──→ summary
@@ -224,7 +233,7 @@ ao serve                             # 启动 MCP Server（供 Claude Code / Cur
 |------|------|
 | `--input key=value` | 传入输入变量 |
 | `--input key=@file` | 从文件读取变量值 |
-| `--output dir` | 输出目录（默认 `.ao-output/`） |
+| `--output dir` | 输出目录（默认 `ao-output/`） |
 | `--resume <dir\|last>` | 从上次运行恢复（加载已完成步骤的输出） |
 | `--from <step-id>` | 配合 `--resume`，从指定步骤重新执行 |
 | `--watch` | 实时终端进度显示 |
@@ -269,10 +278,10 @@ ao run workflows/story-creation.yaml \
   -i premise='一个程序员在凌晨三点发现AI开始回复不该知道的事情'
 ```
 
-运行完后，每步输出保存在 `.ao-output/` 下：
+运行完后，每步输出保存在 `ao-output/` 下：
 
 ```
-.ao-output/短篇小说创作-2026-03-24T14-30-00/
+ao-output/短篇小说创作-2026-03-24T14-30-00/
 ├── summary.md                    ← 最终小说
 ├── metadata.json                 ← 每步状态 + 变量映射
 ├── steps/
@@ -308,7 +317,7 @@ ao run workflows/story-creation.yaml --resume last --from write_story
 
 ```bash
 ao run workflows/story-creation.yaml \
-  --resume .ao-output/短篇小说创作-2026-03-24T14-35-00/ \
+  --resume ao-output/短篇小说创作-2026-03-24T14-35-00/ \
   --from write_story
 ```
 
@@ -317,7 +326,7 @@ ao run workflows/story-creation.yaml \
 #### 所有历史版本都保留
 
 ```bash
-ls .ao-output/
+ls ao-output/
 # 短篇小说创作-2026-03-24T14-30-00/   ← 第一轮
 # 短篇小说创作-2026-03-24T14-35-00/   ← 第二轮
 # 短篇小说创作-2026-03-24T14-38-00/   ← 第三轮
@@ -331,7 +340,7 @@ ls .ao-output/
 | 第一次运行 | `ao run workflow.yaml -i key=value` |
 | 从某步重跑（基于上次结果） | `ao run workflow.yaml --resume last --from <步骤ID>` |
 | 只重跑失败的步骤 | `ao run workflow.yaml --resume last` |
-| 基于指定版本重跑 | `ao run workflow.yaml --resume .ao-output/具体目录/ --from <步骤ID>` |
+| 基于指定版本重跑 | `ao run workflow.yaml --resume ao-output/具体目录/ --from <步骤ID>` |
 
 #### 原理
 
@@ -429,10 +438,10 @@ ao serve --verbose    # 带调试日志
 
 ## 输出
 
-每次运行保存到 `.ao-output/<名称>-<时间戳>/`：
+每次运行保存到 `ao-output/<名称>-<时间戳>/`：
 
 ```
-.ao-output/产品需求评审-2026-03-22/
+ao-output/产品需求评审-2026-03-22/
 ├── summary.md          # 最终步骤输出
 ├── steps/
 │   ├── 1-analyze.md
@@ -484,10 +493,11 @@ ao serve --verbose    # 带调试日志
 ```
                     agency-agents-zh（186 个 AI 角色定义）
                             │
-              ┌─────────────┼─────────────┐
-              ▼             ▼             ▼
-      Claude Code    Cursor    Kiro    Trae    Gemini CLI    Codex    ...    ← 9 个 AI 编程工具
-      (workflow-runner 技能)
+    ┌───────────┬───────────┼───────────┬───────────┐
+    ▼           ▼           ▼           ▼           ▼
+ Claude Code  Copilot    Cursor    Windsurf     Aider     ← 14 个 AI 编程工具
+ Kiro  Trae  Gemini CLI  Codex  OpenCode  Qwen  DeerFlow  Antigravity  OpenClaw
+    (workflow-runner 技能 / 规则文件)
               │
               ▼
       agency-orchestrator（YAML 工作流引擎）          ← CLI 模式（需要 API key）
@@ -509,7 +519,7 @@ ao serve --verbose    # 带调试日志
 - [x] **v0.1** — YAML 工作流、DAG 引擎、4 个 LLM 连接器、CLI、实时输出
 - [x] **v0.2** — 条件分支、循环迭代、人工审批、Resume 断点续跑、5 个部门协作模板
 - [x] **v0.3** — 9 个 AI 工具集成、20+ 工作流模板、`ao explain`、`ao init --workflow`、`--watch` 模式
-- [x] **v0.4** — MCP Server 模式（`ao serve`）
+- [x] **v0.4** — MCP Server 模式（`ao serve`）、14 个 AI 工具集成、一键安装脚本
 - [ ] **v0.5** — Web UI、可视化 DAG 编辑器、英文角色支持、工作流市场
 
 ## 贡献

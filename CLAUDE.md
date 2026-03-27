@@ -14,13 +14,13 @@ ao roles                              # List all 186 available roles
 
 ## Resume — Iterative Optimization
 
-After `ao run` completes, all step outputs are saved to `.ao-output/<name>-<timestamp>/`. Users can iterate on any step without re-running the entire workflow.
+After `ao run` completes, all step outputs are saved to `ao-output/<name>-<timestamp>/`. Users can iterate on any step without re-running the entire workflow.
 
 ### When to suggest `--resume`
 
 After a workflow finishes, **always tell the user they can iterate**:
 
-> Workflow complete. Outputs saved to `.ao-output/<dir>/`.
+> Workflow complete. Outputs saved to `ao-output/<dir>/`.
 >
 > To improve a specific step, use:
 > ```
@@ -39,7 +39,7 @@ After a workflow finishes, **always tell the user they can iterate**:
 
 Before suggesting changes, read the actual outputs:
 
-1. Check `.ao-output/` for the latest run directory
+1. Check `ao-output/` for the latest run directory
 2. Read `metadata.json` to see step IDs and states
 3. Read individual step files in `steps/` to understand what was produced
 4. Then suggest which step to re-run and why
@@ -83,4 +83,4 @@ Roles are in `agency-agents-zh/` (or `node_modules/agency-agents-zh/`). Each rol
 - `workflows/` — Built-in workflow templates
 - `test/` — Unit and E2E tests
 - `integrations/` — Guides for Claude Code, Cursor, OpenClaw
-- `.ao-output/` — Workflow execution outputs (gitignored)
+- `ao-output/` — Workflow execution outputs (gitignored)

@@ -1,6 +1,6 @@
-# Codex CLI 集成
+# OpenCode 集成
 
-在 OpenAI Codex CLI 中直接运行多角色工作流，无需额外 API key。
+在 OpenCode（开源终端 AI 编程工具）中直接运行多角色工作流，无需额外 API key。
 
 ## 安装
 
@@ -9,36 +9,35 @@
 cd your-project
 git clone --depth 1 https://github.com/jnMetaCode/agency-agents-zh.git
 
-# 2. 下载工作流模板和技能文件
+# 2. 下载工作流模板和指令文件
 git clone --depth 1 https://github.com/jnMetaCode/agency-orchestrator.git .ao-tmp
 cp -r .ao-tmp/workflows ./workflows
-mkdir -p .codex
-cp .ao-tmp/integrations/codex/instructions.md .codex/instructions.md
+mkdir -p .opencode
+cp .ao-tmp/integrations/opencode/instructions.md .opencode/instructions.md
 rm -rf .ao-tmp
 
 # 3. 开始使用
-# 在 Codex CLI 中直接说：运行 workflows/story-creation.yaml
+# 在 OpenCode 中直接说：运行 workflows/story-creation.yaml
 ```
 
-如果 `.codex/instructions.md` 已存在，可将内容追加而非覆盖：
+如果 `.opencode/instructions.md` 已存在，可将内容追加而非覆盖：
 
 ```bash
 # 替换上面第 2 步中的 cp 命令为：
-cat .ao-tmp/integrations/codex/instructions.md >> .codex/instructions.md
+cat .ao-tmp/integrations/opencode/instructions.md >> .opencode/instructions.md
 ```
 
 ## 使用方式
 
 ### 方式一：Skill 模式（推荐）
 
-在 Codex CLI 会话中直接说：
+在 OpenCode 会话中直接说：
 
 ```
-运行 workflows/story-creation.yaml
-创意：一个程序员在凌晨发现AI回复不该知道的事
+运行 workflows/story-creation.yaml，创意是"一个程序员在凌晨发现AI回复不该知道的事"
 ```
 
-Codex CLI 会根据 `.codex/instructions.md` 中的 workflow-runner 指令：
+OpenCode 会根据 `.opencode/instructions.md` 中的 workflow-runner 指令：
 - 解析 YAML 工作流
 - 加载每个角色的 .md 定义
 - 按 DAG 顺序逐步执行

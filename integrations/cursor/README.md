@@ -57,7 +57,7 @@ alwaysApply: false
 每步开始时标注：### Step N/Total: step_id（角色名）
 
 ### 5. 保存结果
-保存到 .ao-output/{名称}-{日期}/ 目录：
+保存到 ao-output/{名称}-{日期}/ 目录：
 - steps/1-{id}.md — 每步输出
 - summary.md — 最终成果
 ```
@@ -96,6 +96,34 @@ ao run workflows/story-creation.yaml -i 'premise=时间旅行'
 | 产品需求评审 | `product-review.yaml` | 产品经理 → 架构师 + UX 研究员 → 产品经理 |
 | 内容流水线 | `content-pipeline.yaml` | 策略师 → 创作者 + SEO → 编辑 |
 
-## 自定义
+## 自定义工作流
 
-查看 [YAML 工作流格式](../../README.md) 了解如何创建自己的工作流。
+创建你自己的 YAML 工作流文件：
+
+```yaml
+name: "我的工作流"
+agents_dir: "agency-agents-zh"
+
+inputs:
+  - name: topic
+    description: "主题"
+    required: true
+
+steps:
+  - id: research
+    role: "marketing/marketing-content-strategist"
+    task: "研究以下主题的内容策略：{{topic}}"
+    output: strategy
+
+  - id: write
+    role: "marketing/marketing-content-creator"
+    task: "根据以下策略撰写文章：{{strategy}}"
+    depends_on: [research]
+```
+
+查看所有可用角色：
+
+```bash
+ao roles
+# 或在 Cursor 中说：列出 agency-agents-zh 里的所有角色
+```

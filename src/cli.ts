@@ -80,7 +80,7 @@ async function handleRun(): Promise<void> {
   }
 
   const inputs = parseInputArgs();
-  const outputDir = getArgValue('--output') || '.ao-output';
+  const outputDir = getArgValue('--output') || 'ao-output';
   const quiet = args.includes('--quiet') || args.includes('-q');
   const watch = args.includes('--watch');
   let resumeDir = getArgValue('--resume');
@@ -425,7 +425,7 @@ function printHelp(): void {
   Options:
     --input, -i key=value    传入输入变量
     --input, -i key=@file    从文件读取变量值
-    --output dir             输出目录 (默认 .ao-output/)
+    --output dir             输出目录 (默认 ao-output/)
     --resume <dir|last>      从上次运行恢复（加载已完成步骤的输出）
     --from <step-id>         配合 --resume，从指定步骤重新执行
     --watch                  实时进度显示（终端 UI）
@@ -442,7 +442,7 @@ function printHelp(): void {
   Resume (基于上次结果迭代):
     ao run workflow.yaml --resume last                    # 跳过上次已完成的步骤
     ao run workflow.yaml --resume last --from summary     # 从 summary 步骤重新执行
-    ao run workflow.yaml --resume .ao-output/xxx/         # 指定具体输出目录
+    ao run workflow.yaml --resume ao-output/xxx/         # 指定具体输出目录
 
   Agents: https://github.com/jnMetaCode/agency-agents-zh
   `);

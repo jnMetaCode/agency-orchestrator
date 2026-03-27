@@ -193,7 +193,7 @@ export async function run(
   result.name = workflow.name;
 
   // 保存结果
-  const outputDir = options?.outputDir || '.ao-output';
+  const outputDir = options?.outputDir || 'ao-output';
   const outputPath = saveResults(result, outputDir);
 
   if (!quiet) {

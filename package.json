@@ -1,7 +1,7 @@
 {
   "name": "agency-orchestrator",
   "version": "0.4.0",
-  "description": "一句话编排 AI 工作流 — 186 个专业角色、自动 DAG 并行、YAML 零代码。支持 DeepSeek / Claude / OpenAI / Ollama",
+  "description": "一句话编排 AI 工作流 — 186 个专业角色、自动 DAG 并行、YAML 零代码。支持 14 个 AI 编程工具 + DeepSeek / Claude / OpenAI / Ollama",
   "keywords": [
     "multi-agent",
     "ai-agents",
@@ -19,7 +19,22 @@
     "langgraph-alternative",
     "no-code",
     "ai-roles",
-    "chinese-ai"
+    "chinese-ai",
+    "copilot",
+    "cursor",
+    "windsurf",
+    "aider",
+    "kiro",
+    "trae",
+    "gemini-cli",
+    "codex",
+    "qwen",
+    "openclaw",
+    "opencode",
+    "claude-code",
+    "deerflow",
+    "antigravity",
+    "mcp"
   ],
   "author": "jnMetaCode",
   "license": "Apache-2.0",

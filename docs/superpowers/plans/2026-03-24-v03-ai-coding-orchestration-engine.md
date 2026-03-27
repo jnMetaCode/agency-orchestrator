@@ -51,7 +51,7 @@
 标注每步：`### Step N/Total: step_id (角色名)`
 
 ## 5. 保存结果
-保存所有输出到 `.ao-output/{workflow-name}-{date}/`
+保存所有输出到 `ao-output/{workflow-name}-{date}/`
 
 ## 6. 建议迭代
 完成后告知用户可以重跑某一步。CLI: `ao run <workflow> --resume last --from <step-id>`

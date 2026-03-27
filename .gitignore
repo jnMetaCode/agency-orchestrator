@@ -1,5 +1,5 @@
 node_modules/
 dist/
-.ao-output/
+ao-output/
 *.tgz
 .DS_Store

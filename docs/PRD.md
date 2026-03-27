@@ -172,7 +172,7 @@ npx agency-orchestrator roles --agents-dir ./agents
 - `--input key=@file.md` 从文件读取变量值
 - `--agents-dir path` 指定 agency-agents 角色目录
 - `--dry-run` 显示将要执行的步骤但不实际调用 LLM
-- `--output dir` 指定输出目录（默认 `./.ao-output/`）
+- `--output dir` 指定输出目录（默认 `./ao-output/`）
 - `--verbose` 显示每步的完整输入输出
 
 #### F5: 执行过程输出
@@ -192,12 +192,12 @@ npx agency-orchestrator roles --agents-dir ./agents
    ✅ 完成 (4.5s, 1542 tokens)
 
 📊 总计: 4 步 | 17.6s | 4668 tokens | $0.032
-📁 输出: .ao-output/产品需求评审-20260321-163000/
+📁 输出: ao-output/产品需求评审-20260321-163000/
 ```
 
 输出目录结构：
 ```
-.ao-output/产品需求评审-20260321-163000/
+ao-output/产品需求评审-20260321-163000/
 ├── summary.md          # 最终步骤的输出
 ├── steps/
 │   ├── 1-analyze.md
