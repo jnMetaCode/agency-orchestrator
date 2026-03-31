@@ -1,6 +1,6 @@
 {
   "name": "agency-orchestrator",
-  "version": "0.4.1",
+  "version": "0.4.2",
   "description": "Multi-agent YAML workflow engine — 186 AI roles, auto DAG parallelism, zero code. Use your existing subscription (Claude Max / ChatGPT Plus / Copilot / Gemini free) — no API key needed. Industry first.",
   "keywords": [
     "multi-agent",
