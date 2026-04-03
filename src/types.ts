@@ -11,12 +11,12 @@ export interface WorkflowDefinition {
 }
 
 export interface LLMConfig {
-  provider: 'claude' | 'openai' | 'ollama' | 'deepseek' | 'claude-code' | 'gemini-cli' | 'copilot-cli' | 'codex-cli' | 'openclaw-cli';
+  provider: 'claude' | 'openai' | 'ollama' | 'deepseek' | 'claude-code' | 'gemini-cli' | 'copilot-cli' | 'codex-cli' | 'openclaw-cli' | (string & {});
   base_url?: string;          // 自定义 API 地址（DeepSeek、智谱等）
   api_key?: string;           // 可在 YAML 中配置，也可用环境变量
   model?: string;              // CLI providers 可省略（使用 CLI 默认模型）
   max_tokens?: number;        // 默认 4096
-  timeout?: number;           // 单步超时 ms，默认 120000
+  timeout?: number;           // 单步超时 ms，API 默认 120000，CLI 默认 300000
   retry?: number;             // 失败重试次数，默认 3
 }
 
@@ -37,6 +37,7 @@ export interface StepDefinition {
   prompt?: string;            // approval 类型的提示文本
   condition?: string;           // 如 "{{category}} contains bug"
   depends_on_mode?: 'all' | 'any_completed';  // 默认 'all'（任一跳过→跳过），'any_completed' = 只要有一个完成就执行
+  llm?: Partial<LLMConfig>;   // 步骤级 LLM 配置，覆盖全局 llm
   loop?: {
     back_to: string;            // 跳回的步骤 id
     max_iterations: number;     // 最大循环次数，必填，上限 10

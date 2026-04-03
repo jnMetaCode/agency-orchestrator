@@ -41,10 +41,24 @@ export function createConnector(config: LLMConfig): LLMConnector {
         baseUrl: config.base_url || 'https://api.openai.com/v1',
       });
     default:
+      // 未知 provider：如果提供了 base_url，当作 OpenAI 兼容 API 处理
+      if (config.base_url) {
+        return new OpenAICompatibleConnector({
+          apiKey: config.api_key || process.env.OPENAI_API_KEY,
+          baseUrl: config.base_url,
+        });
+      }
       throw new Error(
         `暂不支持 provider: ${config.provider}\n` +
-        '免 API key: claude-code / gemini-cli / copilot-cli / codex-cli / openclaw-cli / ollama\n' +
-        '需 API key: claude / deepseek / openai'
+        '如需使用自定义 API，请配置 base_url 字段（兼容 OpenAI 格式）:\n' +
+        '  llm:\n' +
+        `    provider: "${config.provider}"\n` +
+        '    base_url: "https://your-api-endpoint/v1"\n' +
+        '    api_key: "your-key"\n' +
+        '    model: "model-name"\n\n' +
+        '内置 provider:\n' +
+        '  免 API key: claude-code / gemini-cli / copilot-cli / codex-cli / openclaw-cli / ollama\n' +
+        '  需 API key: claude / deepseek / openai'
       );
   }
 }

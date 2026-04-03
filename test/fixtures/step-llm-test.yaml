@@ -1,0 +1,26 @@
+name: "Step LLM 测试"
+description: "测试步骤级 LLM 配置覆盖"
+
+agents_dir: "../agency-agents-zh"
+
+llm:
+  provider: deepseek
+  model: deepseek-chat
+
+steps:
+  - id: step_a
+    role: "engineering/engineering-code-reviewer"
+    task: "审查代码"
+    output: review_result
+    llm:
+      model: deepseek-reasoner
+
+  - id: step_b
+    role: "product/product-manager"
+    task: "分析 {{review_result}}"
+    output: analysis
+    depends_on: [step_a]
+    llm:
+      provider: openai
+      model: gpt-4o
+      api_key: "test-key"

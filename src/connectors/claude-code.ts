@@ -20,6 +20,14 @@ export class ClaudeCodeConnector extends CLIBaseConnector {
         }
         return args;
       },
+      buildStdinArgs: (config: LLMConfig) => {
+        // claude -p - 从 stdin 读取 prompt
+        const args = ['-p', '-', '--output-format', 'text'];
+        if (config.model && config.model !== 'claude-code') {
+          args.push('--model', config.model);
+        }
+        return args;
+      },
     });
   }
 }

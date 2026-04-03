@@ -176,6 +176,7 @@ export async function composeWorkflow(options: {
   description: string;
   agentsDir: string;
   llmConfig: LLMConfig;
+  outputName?: string;
 }): Promise<{ yaml: string; savedPath: string; relativePath: string; warnings: string[] }> {
   const { description, agentsDir, llmConfig } = options;
 
@@ -210,7 +211,9 @@ export async function composeWorkflow(options: {
   if (!existsSync(workflowsDir)) {
     mkdirSync(workflowsDir, { recursive: true });
   }
-  const fileName = generateFileName(description, workflowsDir);
+  const fileName = options.outputName
+    ? (options.outputName.endsWith('.yaml') ? options.outputName : `${options.outputName}.yaml`)
+    : generateFileName(description, workflowsDir);
   const savedPath = resolve(workflowsDir, fileName);
   writeFileSync(savedPath, yaml + '\n', 'utf-8');
 

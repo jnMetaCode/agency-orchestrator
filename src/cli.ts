@@ -198,6 +198,7 @@ async function handleCompose(): Promise<void> {
     console.error('  ao compose "用户反馈分析，分类后分别给产品和技术团队"');
     console.error('');
     console.error('选项:');
+    console.error('  --name <filename>   自定义输出文件名 (不含 .yaml 后缀)');
     console.error('  --provider <name>   LLM 提供商 (默认 deepseek)');
     console.error('  --model <name>      模型名 (默认 deepseek-chat)');
     process.exit(1);
@@ -206,6 +207,7 @@ async function handleCompose(): Promise<void> {
   const provider = (getArgValue('--provider') || 'deepseek') as LLMConfig['provider'];
   const model = getArgValue('--model') || (provider === 'deepseek' ? 'deepseek-chat' : provider === 'claude' ? 'claude-sonnet-4-20250514' : 'gpt-4o');
   const agentsDir = getArgValue('--agents-dir') || resolveAgentsDir();
+  const outputName = getArgValue('--name');
 
   try {
     const { composeWorkflow } = await import('./cli/compose.js');
@@ -213,6 +215,7 @@ async function handleCompose(): Promise<void> {
       description,
       agentsDir: resolve(agentsDir),
       llmConfig: { provider, model },
+      outputName,
     });
 
     console.log(`\n  ✅ 工作流已生成: ${relativePath}\n`);
@@ -288,15 +291,45 @@ async function handleInit(): Promise<void> {
     }
   } else {
     console.log('  正在下载 agency-agents-zh (186 个 AI 角色定义)...\n');
+    let downloaded = false;
+
+    // 优先用 npm（国内镜像快）
     try {
-      execSync(
-        'git clone --depth 1 https://github.com/jnMetaCode/agency-agents-zh.git',
-        { stdio: 'inherit' }
-      );
-      console.log('\n  下载完成!');
+      execSync('npm pack agency-agents-zh --pack-destination .', { stdio: 'pipe' });
+      const { readdirSync } = await import('node:fs');
+      const tgz = readdirSync('.').find(f => f.startsWith('agency-agents-zh-') && f.endsWith('.tgz'));
+      if (tgz) {
+        const { mkdirSync } = await import('node:fs');
+        mkdirSync('agency-agents-zh', { recursive: true });
+        execSync(`tar xzf ${tgz} --strip-components=1 -C agency-agents-zh`, { stdio: 'pipe' });
+        const { unlinkSync } = await import('node:fs');
+        unlinkSync(tgz);
+        downloaded = true;
+        console.log('  通过 npm 下载完成!');
+      }
     } catch {
-      console.error('\n  下载失败，请手动克隆:');
-      console.error('  git clone https://github.com/jnMetaCode/agency-agents-zh.git');
+      // npm 失败，回退 git clone
+    }
+
+    // 回退: git clone
+    if (!downloaded) {
+      try {
+        console.log('  npm 下载失败，尝试 git clone...\n');
+        execSync(
+          'git clone --depth 1 https://github.com/jnMetaCode/agency-agents-zh.git',
+          { stdio: 'inherit' }
+        );
+        console.log('\n  下载完成!');
+        downloaded = true;
+      } catch {
+        // ignore
+      }
+    }
+
+    if (!downloaded) {
+      console.error('\n  下载失败，请手动安装:');
+      console.error('  npm pack agency-agents-zh && tar xzf agency-agents-zh-*.tgz && mv package agency-agents-zh');
+      console.error('  或: git clone https://github.com/jnMetaCode/agency-agents-zh.git');
       process.exit(1);
     }
   }
@@ -316,9 +349,27 @@ function handleRoles(): void {
   try {
     const agents = listAgents(resolve(agentsDir));
     console.log(`\n  共 ${agents.length} 个角色 (${agentsDir}):\n`);
+
+    // 按分类分组
+    const byCategory = new Map<string, typeof agents>();
     for (const agent of agents) {
-      const emoji = agent.emoji || ' ';
-      console.log(`  ${emoji} ${agent.name} — ${agent.description || '(无描述)'}`);
+      const cat = agent.rolePath?.split('/')[0] || 'other';
+      const list = byCategory.get(cat) || [];
+      list.push(agent);
+      byCategory.set(cat, list);
+    }
+
+    for (const [category, list] of byCategory) {
+      console.log(`  ── ${category} (${list.length}) ──`);
+      for (const agent of list) {
+        const emoji = agent.emoji || ' ';
+        const path = agent.rolePath || '';
+        console.log(`  ${emoji} ${agent.name}  ${path}`);
+        if (agent.description) {
+          console.log(`     ${agent.description}`);
+        }
+      }
+      console.log('');
     }
   } catch (err) {
     console.error(`错误: ${err instanceof Error ? err.message : err}`);

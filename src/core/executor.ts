@@ -13,6 +13,7 @@ import type { DAG } from './dag.js';
 import { renderTemplate } from './template.js';
 import { evaluateCondition } from './condition.js';
 import { loadAgent } from '../agents/loader.js';
+import { createConnector } from '../connectors/factory.js';
 import { createInterface } from 'node:readline';
 
 export interface ExecutorOptions {
@@ -48,7 +49,8 @@ export async function executeDAG(dag: DAG, options: ExecutorOptions): Promise<Wo
   const startTime = Date.now();
   const stepResults: StepResult[] = [];
 
-  const timeout = llmConfig.timeout || 120_000;
+  const isCLI = llmConfig.provider.endsWith('-cli') || llmConfig.provider === 'claude-code';
+  const timeout = llmConfig.timeout || (isCLI ? 300_000 : 120_000);
   const maxRetry = llmConfig.retry ?? 3;
 
   const loopIterations = new Map<string, number>();
@@ -270,12 +272,21 @@ async function executeStep(
   // 渲染任务模板
   const userMessage = renderTemplate(node.step.task, opts.context);
 
+  // 步骤级 LLM 配置覆盖
+  const stepLlm = node.step.llm;
+  const effectiveConfig: LLMConfig = stepLlm
+    ? { ...opts.llmConfig, ...stepLlm } as LLMConfig
+    : opts.llmConfig;
+  const effectiveConnector = (stepLlm?.provider && stepLlm.provider !== opts.llmConfig.provider)
+    ? createConnector(effectiveConfig)
+    : opts.connector;
+
   // 带重试的 LLM 调用
   let lastError: Error | null = null;
   for (let attempt = 0; attempt <= opts.maxRetry; attempt++) {
     try {
       const result = await withTimeout(
-        opts.connector.chat(systemPrompt, userMessage, opts.llmConfig),
+        effectiveConnector.chat(systemPrompt, userMessage, effectiveConfig),
         opts.timeout
       );
       node.tokenUsage = { input: result.usage.input_tokens, output: result.usage.output_tokens };
