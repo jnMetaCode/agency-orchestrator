@@ -18,6 +18,8 @@ export interface CLIConnectorConfig {
   command: string;
   /** 显示名称（用于错误消息） */
   displayName: string;
+  /** 安装提示（ENOENT 时显示） */
+  installHint?: string;
   /** 构建命令行参数 */
   buildArgs: (fullPrompt: string, config: LLMConfig) => string[];
   /** 构建 stdin 模式的参数（prompt 过长时使用，默认用 buildArgs 替换 prompt 为 '-'） */
@@ -72,6 +74,7 @@ export class CLIBaseConnector implements LLMConnector {
         if (err.code === 'ENOENT') {
           reject(new Error(
             `找不到 ${this.cfg.command} 命令，请先安装 ${this.cfg.displayName}\n` +
+            (this.cfg.installHint ? `安装: ${this.cfg.installHint}\n` : '') +
             `参考: https://github.com/jnMetaCode/agency-orchestrator#llm-配置`
           ));
         } else {

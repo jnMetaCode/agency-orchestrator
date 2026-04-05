@@ -7,7 +7,8 @@
  *
  * 注意: openclaw agent 必须指定 --agent <id>，否则会报
  * "Pass --to <E.164>, --session-id, or --agent to choose a session"
- * 默认使用 "main" agent，可通过 YAML model 字段或 OPENCLAW_AGENT 环境变量覆盖
+ * 默认使用 "main" agent，可通过 YAML agent 字段、model 字段或 OPENCLAW_AGENT 环境变量覆盖
+ * 优先级: agent > model > OPENCLAW_AGENT > "main"
  *
  * ⚠️ 如果在 OpenClaw 内部运行 ao workflow，不应使用此 provider，
  *   否则会产生 OpenClaw → ao → OpenClaw 环形调用导致超时。
@@ -42,9 +43,10 @@ export class OpenClawCLIConnector extends CLIBaseConnector {
     super({
       command: 'openclaw',
       displayName: 'OpenClaw CLI',
+      installHint: 'npm install -g openclaw@latest && openclaw onboard --install-daemon',
       buildArgs: (prompt: string, config: LLMConfig) => {
-        // model 字段复用为 agent id，例如 model: "my-agent"
-        const agentId = config.model || process.env.OPENCLAW_AGENT || 'main';
+        // 优先 agent 字段，model 作为向后兼容 fallback（旧版用 model 传 agent ID）
+        const agentId = config.agent || config.model || process.env.OPENCLAW_AGENT || 'main';
         return ['agent', '--agent', agentId, '--message', prompt];
       },
       parseOutput: (stdout: string) => {
