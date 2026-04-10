@@ -13,6 +13,7 @@ import type { LLMConfig } from '../types.js';
 export interface RoleSummary {
   path: string;       // e.g. "engineering/engineering-code-reviewer"
   name: string;       // e.g. "代码审查员"
+  emoji?: string;     // e.g. "🔍"
   description: string; // one-liner
   category: string;   // e.g. "engineering"
 }
@@ -27,6 +28,7 @@ export function buildRoleCatalog(agentsDir: string): RoleSummary[] {
     .map(a => ({
       path: a.rolePath!,
       name: a.name,
+      emoji: a.emoji,
       description: a.description || '',
       category: a.rolePath!.split('/')[0],
     }));
@@ -47,7 +49,7 @@ export function formatCatalogForPrompt(roles: RoleSummary[]): string {
   for (const [cat, list] of byCategory) {
     lines.push(`## ${cat}`);
     for (const r of list) {
-      lines.push(`- ${r.path} | ${r.name} | ${r.description}`);
+      lines.push(`- ${r.path} | ${r.emoji || ''} ${r.name} | ${r.description}`);
     }
     lines.push('');
   }
@@ -56,16 +58,47 @@ export function formatCatalogForPrompt(roles: RoleSummary[]): string {
 
 /**
  * 构建发给 LLM 的 system prompt
+ * @param catalog 角色目录文本
+ * @param options.autoRun 如果 true，生成的 YAML 不需要 inputs，用户描述直接嵌入 task
  */
-export function buildComposeSystemPrompt(catalog: string): string {
+export function buildComposeSystemPrompt(catalog: string, options?: { autoRun?: boolean; provider?: string; model?: string }): string {
+  const autoRun = options?.autoRun ?? false;
+  const provider = options?.provider || 'deepseek';
+  const model = options?.model;
+
+  const inputsSection = autoRun
+    ? `
+## 重要：直接运行模式
+
+这个工作流生成后会立即执行，所以：
+- **不要**生成 inputs 段
+- 把用户描述中的所有具体信息直接写进每个 step 的 task 里
+- 确保工作流无需任何外部输入就能直接运行`
+    : `
+inputs:
+  - name: variable_name
+    description: "变量描述"
+    required: true`;
+
+  const inputsYamlExample = autoRun ? '' : `
+inputs:
+  - name: variable_name
+    description: "变量描述"
+    required: true
+`;
+
+  const inputsDesignPrinciple = autoRun
+    ? '- **自包含**：所有信息直接写在 task 中，不要使用 inputs，工作流必须能直接运行'
+    : '- **合理输入**：提取用户需求中的关键变量作为 inputs';
+
   return `你是一个 AI 工作流编排专家。用户会用一句话描述他想要的工作流，你需要：
 
 1. 从下方角色目录中选择最合适的角色（通常 2-6 个）
 2. 设计合理的 DAG 依赖关系（哪些步骤可以并行，哪些必须串行）
 3. 为每个步骤编写详细的 task 描述
-4. 设计合理的输入变量
+${autoRun ? '4. 把用户描述中的具体信息直接写进 task，不要生成 inputs' : '4. 设计合理的输入变量'}
 5. 生成完整的 workflow YAML
-
+${autoRun ? inputsSection : ''}
 ## 输出格式
 
 直接输出一个完整的 YAML 代码块，格式如下：
@@ -77,23 +110,20 @@ description: "一句话描述"
 agents_dir: "agency-agents-zh"
 
 llm:
-  provider: deepseek
-  model: deepseek-chat
+  provider: ${provider}
+  ${model ? `model: ${model}` : ''}
   max_tokens: 4096
 
 concurrency: 2
-
-inputs:
-  - name: variable_name
-    description: "变量描述"
-    required: true
-
+${inputsYamlExample}
 steps:
   - id: step_id
     role: "category/role-name"
+    name: "通俗易懂的角色名（如：老板、产品经理、技术总监）"
+    emoji: "👔"
     task: |
       详细的任务描述...
-      使用 {{variable_name}} 引用输入变量
+${autoRun ? '      直接包含用户需求中的具体信息' : '      使用 {{variable_name}} 引用输入变量'}
       使用 {{previous_output}} 引用上游步骤的输出
     output: output_variable_name
     depends_on: [upstream_step_id]  # 仅在有依赖时添加
@@ -104,9 +134,10 @@ steps:
 - **并行优先**：没有数据依赖的步骤应该并行执行（不加 depends_on）
 - **变量串联**：上游步骤的 output 变量名要和下游步骤 task 中的 {{变量}} 对应
 - **角色匹配**：选择最专业的角色，不要用一个角色做所有事
+- **角色命名**：每个步骤必须设置 name（通俗的公司职位名如"老板""产品经理""技术总监"）和 emoji，让小白也能一眼看懂谁在说话
 - **任务详细**：task 描述要具体，告诉角色要做什么、输出什么格式
-- **合理输入**：提取用户需求中的关键变量作为 inputs
-- **最终汇总**：如果有多路并行，最后应该有一个汇总步骤
+${inputsDesignPrinciple}
+- **最终成品**：最后一个步骤必须输出用户想要的最终成品（如完整文章、完整报告），而不是审查意见或修改建议。如果有审校步骤，审校步骤应该直接输出修改后的定稿，而不是"修改建议列表"
 
 ## 可用角色目录
 
@@ -116,7 +147,9 @@ ${catalog}
 
 - role 的值必须严格使用角色目录中的 path（如 "engineering/engineering-code-reviewer"），不要自己编造
 - 只输出 YAML 代码块，不要输出其他内容
-- concurrency 设为并行步骤的最大数量`;
+- concurrency 设为并行步骤的最大数量
+- **重要：拆分大任务**。写长文章时，不要让一个步骤生成超过 800 字的内容。应该按章节拆分成多个并行步骤（如 write_ch1、write_ch2、write_ch3），最后用一个合并步骤重写为连贯的完整文章
+- 每个写作步骤的 task 中要限定输出字数（如"500字以内"），避免单步骤生成时间过长`;
 }
 
 /**
@@ -177,6 +210,8 @@ export async function composeWorkflow(options: {
   agentsDir: string;
   llmConfig: LLMConfig;
   outputName?: string;
+  /** 直接运行模式：生成的 YAML 不需要 inputs */
+  autoRun?: boolean;
 }): Promise<{ yaml: string; savedPath: string; relativePath: string; warnings: string[] }> {
   const { description, agentsDir, llmConfig } = options;
 
@@ -188,7 +223,11 @@ export async function composeWorkflow(options: {
   const catalog = formatCatalogForPrompt(roles);
 
   // 2. 构建 prompt
-  const systemPrompt = buildComposeSystemPrompt(catalog);
+  const systemPrompt = buildComposeSystemPrompt(catalog, {
+    autoRun: options.autoRun,
+    provider: options.llmConfig.provider,
+    model: options.llmConfig.model,
+  });
   const userPrompt = buildComposeUserPrompt(description);
 
   // 3. 调用 LLM

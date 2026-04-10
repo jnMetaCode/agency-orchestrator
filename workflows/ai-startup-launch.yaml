@@ -1,0 +1,82 @@
+name: "AI 一人公司：SaaS 产品发布决策"
+description: "CEO 一句话启动，5 个 AI 部门并行工作，30 秒出完整发布方案"
+
+agents_dir: "agency-agents-zh"
+
+llm:
+  provider: claude-code
+  model: ""
+
+concurrency: 3
+
+inputs:
+  - name: product_idea
+    required: true
+
+steps:
+  # CEO 决策
+  - id: ceo_vision
+    role: "strategy/nexus-strategy"
+    task: |
+      作为 CEO，请基于以下产品创意制定一份简洁的产品愿景和战略方向：
+
+      产品创意：{{product_idea}}
+
+      输出 300 字以内，包含：产品定位（一句话）、目标用户、核心差异化、6个月目标。
+    output: vision
+
+  # 四个部门并行
+  - id: product_plan
+    role: "product/product-manager"
+    task: |
+      基于 CEO 愿景：{{vision}}
+
+      作为产品经理，输出 MVP 功能规划（500字以内）：核心功能 3 个、用户故事、优先级排序、第一版交付范围。
+    output: product_spec
+    depends_on: [ceo_vision]
+
+  - id: tech_plan
+    role: "engineering/engineering-backend-architect"
+    task: |
+      基于 CEO 愿景：{{vision}}
+
+      作为技术架构师，输出技术方案（500字以内）：技术栈选型、系统架构、1人团队的开发路线图（4周冲刺计划）。
+    output: tech_spec
+    depends_on: [ceo_vision]
+
+  - id: marketing_plan
+    role: "marketing/marketing-content-creator"
+    task: |
+      基于 CEO 愿景：{{vision}}
+
+      作为市场负责人，输出 Go-to-Market 方案（500字以内）：发布文案（标题+副标题）、目标渠道 Top 3、首月增长策略、预算为 0 的冷启动方案。
+    output: marketing_spec
+    depends_on: [ceo_vision]
+
+  - id: finance_plan
+    role: "finance/finance-financial-forecaster"
+    task: |
+      基于 CEO 愿景：{{vision}}
+
+      作为财务顾问，输出商业模型（500字以内）：定价策略、收入预测（3/6/12个月）、成本结构、盈亏平衡分析。
+    output: finance_spec
+    depends_on: [ceo_vision]
+
+  # CEO 汇总
+  - id: launch_decision
+    role: "strategy/nexus-strategy"
+    task: |
+      作为 CEO，所有部门方案已提交：
+
+      **产品方案**：{{product_spec}}
+      **技术方案**：{{tech_spec}}
+      **市场方案**：{{marketing_spec}}
+      **财务方案**：{{finance_spec}}
+
+      请做最终决策，输出一份 800 字以内的《产品发布执行计划》：
+      1. Go/No-Go 决策及理由
+      2. 各部门方案的采纳/调整要点
+      3. 第一周具体行动清单（每个部门 3 件事）
+      4. 风险预警和应对
+    output: launch_plan
+    depends_on: [product_plan, tech_plan, marketing_plan, finance_plan]

@@ -328,6 +328,85 @@ await test('onStepStart 和 onStepComplete 被正确调用', async () => {
   assert(completeEvents[completeEvents.length - 1] === 'final_summary', '最后完成应是 final_summary');
 });
 
+// ─── API 错误检测与重试 ───
+console.log('\n=== E2E: API 错误检测与重试 ===');
+
+await test('ECONNRESET 等网络错误触发重试并最终成功', async () => {
+  const wf = parseWorkflow(resolve(import.meta.dirname!, '../workflows/product-review.yaml'));
+  wf.steps = [wf.steps[0]];
+  const dag = buildDAG(wf);
+
+  let callCount = 0;
+  const flakyMock: LLMConnector = {
+    async chat(_sys, _msg, _cfg) {
+      callCount++;
+      if (callCount === 1) throw new Error('API 错误: ECONNRESET');
+      return { content: 'recovered after reset', usage: { input_tokens: 10, output_tokens: 20 } };
+    }
+  };
+
+  const result = await executeDAG(dag, {
+    connector: flakyMock,
+    agentsDir,
+    llmConfig: { ...wf.llm, retry: 2 },
+    concurrency: 1,
+    inputs: new Map([['prd_content', 'Test']]),
+  });
+
+  assert(result.success === true, 'ECONNRESET 重试后应成功');
+  assert(callCount === 2, `应调用 2 次，实际: ${callCount}`);
+});
+
+await test('非重试错误直接失败不重试', async () => {
+  const wf = parseWorkflow(resolve(import.meta.dirname!, '../workflows/product-review.yaml'));
+  wf.steps = [wf.steps[0]];
+  const dag = buildDAG(wf);
+
+  let callCount = 0;
+  const fatalMock: LLMConnector = {
+    async chat(_sys, _msg, _cfg) {
+      callCount++;
+      throw new Error('Invalid API key');
+    }
+  };
+
+  const result = await executeDAG(dag, {
+    connector: fatalMock,
+    agentsDir,
+    llmConfig: { ...wf.llm, retry: 3 },
+    concurrency: 1,
+    inputs: new Map([['prd_content', 'Test']]),
+  });
+
+  assert(result.success === false, '非重试错误应直接失败');
+  assert(callCount === 1, `不可重试错误应只调用 1 次，实际: ${callCount}`);
+});
+
+await test('失败摘要包含失败步骤和跳过步骤', async () => {
+  const wf = parseWorkflow(resolve(import.meta.dirname!, '../workflows/product-review.yaml'));
+  const dag = buildDAG(wf);
+
+  const failingMock: LLMConnector = {
+    async chat(_sys, _msg, _cfg) {
+      throw new Error('test failure');
+    }
+  };
+
+  const result = await executeDAG(dag, {
+    connector: failingMock,
+    agentsDir,
+    llmConfig: { ...wf.llm, retry: 0 },
+    concurrency: 2,
+    inputs: new Map([['prd_content', 'Test']]),
+  });
+
+  const failedSteps = result.steps.filter(s => s.status === 'failed');
+  const skippedSteps = result.steps.filter(s => s.status === 'skipped');
+  assert(failedSteps.length >= 1, '应至少有 1 步失败');
+  assert(skippedSteps.length >= 1, '应至少有 1 步被跳过');
+  assert(failedSteps[0].error!.includes('test failure'), '错误信息应包含原始错误');
+});
+
 // ─── 结果 ───
 console.log('\n' + '='.repeat(50));
 console.log(`  E2E 测试: ${passed} 通过, ${failed} 失败 (共 ${passed + failed} 项)`);

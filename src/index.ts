@@ -34,9 +34,10 @@ import { parseWorkflow, validateWorkflow } from './core/parser.js';
 import { buildDAG, formatDAG } from './core/dag.js';
 import { executeDAG, type ExecutorOptions } from './core/executor.js';
 import { createConnector } from './connectors/factory.js';
+import { loadAgent } from './agents/loader.js';
 import { saveResults, printStepResult, printStepRunning, clearRunningLine, printSummary, loadPreviousContext, getCompletedStepIds, findLatestOutput } from './output/reporter.js';
-import { existsSync } from 'node:fs';
-import { resolve, dirname } from 'node:path';
+import { existsSync, readFileSync } from 'node:fs';
+import { resolve, dirname, join } from 'node:path';
 
 /**
  * 一行运行工作流（高级 API）
@@ -108,6 +109,20 @@ export async function run(
       inputMap.set(key, value);
     }
 
+    // 兼容变量重命名：如果旧 metadata 的 output_var 和新 YAML 的 output 不同，
+    // 按 step id 匹配，把旧内容也映射到新变量名
+    const metadata = JSON.parse(readFileSync(join(resumeDir, 'metadata.json'), 'utf-8'));
+    for (const savedStep of metadata.steps) {
+      if (savedStep.status !== 'completed' || !savedStep.output_var) continue;
+      const currentStep = workflow.steps.find(s => s.id === savedStep.id);
+      if (currentStep?.output && currentStep.output !== savedStep.output_var) {
+        const oldValue = inputMap.get(savedStep.output_var);
+        if (oldValue && !inputMap.has(currentStep.output)) {
+          inputMap.set(currentStep.output, oldValue);
+        }
+      }
+    }
+
     if (fromStep) {
       // --from: 跳过指定步骤之前的所有已完成步骤
       const completedIds = getCompletedStepIds(resumeDir);
@@ -156,7 +171,26 @@ export async function run(
 
   if (!quiet && !useWatch) {
     console.log(`\n  工作流: ${workflow.name}`);
-    console.log(`  步骤数: ${totalSteps} | 并发: ${workflow.concurrency} | 模型: ${workflow.llm.model}`);
+    const isCLI = workflow.llm.provider.endsWith('-cli') || workflow.llm.provider === 'claude-code';
+    const displayConcurrency = isCLI ? 1 : (workflow.concurrency || 2);
+    console.log(`  步骤数: ${totalSteps} | 并发: ${displayConcurrency}${isCLI && (workflow.concurrency || 2) > 1 ? '（CLI 模式自动串行）' : ''} | 模型: ${workflow.llm.model || workflow.llm.provider}`);
+
+    // 显示参与者阵容（步骤级 name/emoji 优先）
+    const seen = new Map<string, string>();  // name → emoji
+    for (const step of workflow.steps) {
+      try {
+        const agent = loadAgent(workflow.agents_dir, step.role);
+        const name = step.name || agent.name;
+        const emoji = step.emoji || agent.emoji || '🤖';
+        if (!seen.has(name)) {
+          seen.set(name, emoji);
+        }
+      } catch { /* 校验阶段已检查 */ }
+    }
+    if (seen.size > 0) {
+      console.log(`  参与者: ${Array.from(seen.entries()).map(([n, e]) => `${e} ${n}`).join(' | ')}`);
+    }
+
     console.log('─'.repeat(50));
   }
 
@@ -197,7 +231,7 @@ export async function run(
   const outputPath = saveResults(result, outputDir);
 
   if (!quiet) {
-    printSummary(result, outputPath);
+    printSummary(result, outputPath, workflowPath);
   }
 
   return result;

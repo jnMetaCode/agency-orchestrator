@@ -31,6 +31,8 @@ export interface InputDefinition {
 export interface StepDefinition {
   id: string;
   role: string;               // agency-agents 路径，如 "engineering/engineering-sre"
+  name?: string;              // 自定义显示名（覆盖角色文件的 name）
+  emoji?: string;             // 自定义 emoji（覆盖角色文件的 emoji）
   task: string;               // 任务描述，支持 {{变量}} 模板
   output?: string;            // 输出变量名
   depends_on?: string[];      // 依赖的步骤 id
@@ -58,6 +60,8 @@ export interface DAGNode {
   startTime?: number;
   endTime?: number;
   tokenUsage?: { input: number; output: number };
+  agentName?: string;         // 角色显示名（如"趋势研究员"）
+  agentEmoji?: string;        // 角色 emoji
 }
 
 /** LLM Connector 相关类型 */
@@ -98,6 +102,8 @@ export interface WorkflowResult {
 export interface StepResult {
   id: string;
   role: string;
+  agentName?: string;             // 角色显示名（如"趋势研究员"）
+  agentEmoji?: string;            // 角色 emoji
   status: 'completed' | 'failed' | 'skipped';
   output?: string;
   output_var?: string;            // 输出变量名（用于 resume 时重建 context）

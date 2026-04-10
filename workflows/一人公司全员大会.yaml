@@ -1,0 +1,194 @@
+name: "AI 一人公司：全员大会"
+description: "你说一句话，9 个 AI 部门自动协作，2 分钟出完整商业方案——这就是一人公司"
+
+agents_dir: "agency-agents-zh"
+
+llm:
+  provider: deepseek
+  model: deepseek-chat
+
+concurrency: 4
+
+inputs:
+  - name: idea
+    description: "你的一句话创意（如：做一个帮自由职业者自动开发票的工具）"
+    required: true
+
+steps:
+  # ── 第 1 层：老板定方向 ──
+  - id: ceo_kickoff
+    role: "strategy/nexus-strategy"
+    name: "老板"
+    emoji: "👔"
+    task: |
+      你是这家一人公司的 CEO。现在开全员大会，你先做开场：
+
+      创始人的想法：{{idea}}
+
+      请输出：
+      1. 产品一句话定位
+      2. 我们要解决什么痛点
+      3. 目标用户是谁
+      4. 6 个月后的成功画面
+
+      语气要像 CEO 在晨会上讲话，简洁有力，说人话，不要套话。
+    output: vision
+
+  # ── 第 2 层：四个部门并行调研 ──
+  - id: market_research
+    role: "product/product-trend-researcher"
+    name: "市场调研员"
+    emoji: "📊"
+    task: |
+      CEO 刚定了方向：{{vision}}
+
+      作为趋势研究员，请做快速市场调研：
+      1. 这个赛道的市场规模和增速
+      2. 现有竞品 Top 3 及各自优劣
+      3. 市场空白点在哪里
+      4. 未来 12 个月的趋势判断
+
+      要求：每一点说透说到位，给出具体数据和判断依据，不要空洞的套话。
+    output: market_insight
+    depends_on: [ceo_kickoff]
+
+  - id: user_research
+    role: "design/design-ux-researcher"
+    name: "用户研究员"
+    emoji: "🔍"
+    task: |
+      CEO 刚定了方向：{{vision}}
+
+      作为用户研究员，请输出用户洞察：
+      1. 核心用户画像（2 类典型用户，要具体到年龄、职业、心态）
+      2. 他们现在怎么解决这个问题（现有方案及各自的坑）
+      3. 最大的 3 个痛点（要有场景感，不要泛泛而谈）
+      4. 愿意付费的关键触发点
+    output: user_insight
+    depends_on: [ceo_kickoff]
+
+  - id: tech_feasibility
+    role: "engineering/engineering-backend-architect"
+    name: "技术总监"
+    emoji: "💻"
+    task: |
+      CEO 刚定了方向：{{vision}}
+
+      作为技术架构师，请评估技术可行性：
+      1. 推荐技术栈（1 人能 hold 住的，说清楚为什么选这个不选那个）
+      2. MVP 核心架构（画清楚模块关系，不要过度设计）
+      3. 4 周开发计划（按周拆解，每周要有可交付物）
+      4. 技术风险和规避方案（说真实会踩的坑，不要教科书式列举）
+    output: tech_plan
+    depends_on: [ceo_kickoff]
+
+  - id: brand_design
+    role: "design/design-brand-guardian"
+    name: "品牌总监"
+    emoji: "🎨"
+    task: |
+      CEO 刚定了方向：{{vision}}
+
+      作为品牌设计师，请输出品牌基础方案：
+      1. 品牌名建议（3 个候选 + 理由，要好记、能注册域名）
+      2. 品牌调性和关键词
+      3. Slogan 候选（3 个，要口语化，能让人记住）
+      4. 视觉风格方向（配色 + 字体建议，给出具体色值）
+    output: brand_plan
+    depends_on: [ceo_kickoff]
+
+  # ── 第 3 层：基于调研结果，三个部门并行规划 ──
+  - id: product_plan
+    role: "product/product-manager"
+    name: "产品经理"
+    emoji: "🧭"
+    task: |
+      调研结果已出：
+
+      **市场调研**：{{market_insight}}
+      **用户洞察**：{{user_insight}}
+
+      作为产品经理，请输出 MVP 规划：
+      1. 核心功能 3 个（每个说清楚用户怎么用、解决什么问题）
+      2. 用户故事 Top 5
+      3. 优先级排序和取舍理由（说清楚为什么砍掉某些功能）
+      4. 第一版上线标准（什么算"能用"，要有具体可衡量的指标）
+    output: product_spec
+    depends_on: [market_research, user_research]
+
+  - id: marketing_plan
+    role: "marketing/marketing-content-creator"
+    name: "营销主管"
+    emoji: "📣"
+    task: |
+      调研结果已出：
+
+      **市场调研**：{{market_insight}}
+      **用户洞察**：{{user_insight}}
+      **品牌方案**：{{brand_plan}}
+
+      作为营销负责人，请输出冷启动方案：
+      1. 发布文案（标题要有钩子感，正文要让人想转发）
+      2. 首发渠道 Top 3 及理由（说清楚每个渠道的打法）
+      3. 0 预算冷启动策略（要可执行，不要说"做好内容"这种废话）
+      4. 首月增长目标和关键动作（按周拆解）
+    output: marketing_spec
+    depends_on: [market_research, user_research, brand_design]
+
+  - id: finance_plan
+    role: "finance/finance-financial-forecaster"
+    name: "财务总监"
+    emoji: "💰"
+    task: |
+      调研结果已出：
+
+      **市场调研**：{{market_insight}}
+      **技术方案**：{{tech_plan}}
+
+      作为财务顾问，请输出商业模型：
+      1. 定价策略（免费版 vs 付费版，说清楚定价逻辑）
+      2. 成本结构（月固定开支，列明每一项）
+      3. 收入预测（3/6/12 个月，给出关键假设和计算过程）
+      4. 盈亏平衡点分析（多少用户、多少收入才能活下来）
+    output: finance_spec
+    depends_on: [market_research, tech_feasibility]
+
+  # ── 第 4 层：老板拍板 ──
+  - id: ceo_decision
+    role: "strategy/nexus-strategy"
+    name: "老板"
+    emoji: "👔"
+    task: |
+      全员大会，所有部门已汇报完毕：
+
+      **市场调研**：{{market_insight}}
+      **用户洞察**：{{user_insight}}
+      **技术方案**：{{tech_plan}}
+      **品牌方案**：{{brand_plan}}
+      **产品规划**：{{product_spec}}
+      **营销方案**：{{marketing_spec}}
+      **财务模型**：{{finance_spec}}
+
+      作为 CEO，请做最终决策，输出《一人公司启动计划》：
+
+      ## 决策
+      Go 还是 No-Go？一句话理由。
+
+      ## 产品名称
+      从品牌方案中选定一个，说明理由。
+
+      ## 第一周行动清单
+      每天做什么，具体到可执行。
+
+      ## 资源分配
+      时间怎么分（产品/技术/营销各占比）。
+
+      ## 风险预警
+      Top 3 风险 + 应对策略。
+
+      ## 给自己的话
+      作为一人公司创始人，最该坚持什么、最该避免什么。
+
+      要求：每个部分都要有明确的决策和理由，不要模棱两可。行动清单要具体到可以直接执行，不要写"做好XX"这种空话。
+    output: launch_plan
+    depends_on: [product_plan, marketing_plan, finance_plan]

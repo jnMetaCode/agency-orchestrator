@@ -79,7 +79,7 @@ test('按分类分组', () => {
   const text = formatCatalogForPrompt(roles);
   assert(text.includes('## eng'), '应有 eng 分类标题');
   assert(text.includes('## design'), '应有 design 分类标题');
-  assert(text.includes('eng/eng-sre | SRE | 站点可靠性'), '应包含角色详情');
+  assert(text.includes('eng/eng-sre |') && text.includes('SRE') && text.includes('站点可靠性'), '应包含角色详情');
 });
 
 test('空角色列表不崩溃', () => {
@@ -97,6 +97,19 @@ test('system prompt 包含关键指引', () => {
   assert(prompt.includes('变量串联'), '应包含变量串联原则');
   assert(prompt.includes('role/path'), '应包含角色目录');
   assert(prompt.includes('agents_dir'), '应包含 YAML 模板');
+});
+
+test('autoRun 模式 prompt 不含 inputs', () => {
+  const prompt = buildComposeSystemPrompt('## test\n- role/path | name | desc', { autoRun: true });
+  assert(prompt.includes('直接运行模式'), '应包含直接运行模式说明');
+  assert(prompt.includes('自包含'), '应包含自包含原则');
+  assert(!prompt.includes('合理输入'), '不应包含合理输入原则');
+});
+
+test('非 autoRun 模式 prompt 包含 inputs', () => {
+  const prompt = buildComposeSystemPrompt('## test\n- role/path | name | desc', { autoRun: false });
+  assert(prompt.includes('合理输入'), '应包含合理输入原则');
+  assert(!prompt.includes('直接运行模式'), '不应包含直接运行模式说明');
 });
 
 // ─── buildComposeUserPrompt ───

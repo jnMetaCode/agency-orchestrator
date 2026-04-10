@@ -50,8 +50,11 @@ export async function executeDAG(dag: DAG, options: ExecutorOptions): Promise<Wo
   const stepResults: StepResult[] = [];
 
   const isCLI = llmConfig.provider.endsWith('-cli') || llmConfig.provider === 'claude-code';
-  const timeout = llmConfig.timeout || (isCLI ? 300_000 : 120_000);
-  const maxRetry = llmConfig.retry ?? 3;
+  const timeout = llmConfig.timeout || (isCLI ? 300_000 : 120_000);  // CLI 5分钟，API 2分钟
+  const maxRetry = llmConfig.retry ?? 5;
+
+  // CLI provider 强制串行：共享同一账户额度，并发会触发限速反而更慢
+  const effectiveConcurrency = isCLI ? 1 : concurrency;
 
   const loopIterations = new Map<string, number>();
   const hasLoops = Array.from(dag.nodes.values()).some(n => n.step.loop);
@@ -103,9 +106,20 @@ export async function executeDAG(dag: DAG, options: ExecutorOptions): Promise<Wo
       return true;
     });
 
-    // 按 concurrency 分批执行
-    for (let i = 0; i < tasks.length; i += concurrency) {
-      const batch = tasks.slice(i, i + concurrency);
+    // 按 effectiveConcurrency 分批执行
+    for (let i = 0; i < tasks.length; i += effectiveConcurrency) {
+      const batch = tasks.slice(i, i + effectiveConcurrency);
+
+      // 预加载角色名和 emoji，让 onBatchStart 能显示（步骤级配置优先）
+      for (const node of batch) {
+        if (!node.agentName && node.step.role) {
+          try {
+            const agentInfo = loadAgent(agentsDir, node.step.role);
+            node.agentName = node.step.name || agentInfo.name;
+            node.agentEmoji = node.step.emoji || agentInfo.emoji;
+          } catch { /* executeStep 里会再加载并报错 */ }
+        }
+      }
 
       onBatchStart?.(batch);
 
@@ -152,6 +166,8 @@ export async function executeDAG(dag: DAG, options: ExecutorOptions): Promise<Wo
         upsertStepResult(stepResults, {
           id: node.step.id,
           role: node.step.role,
+          agentName: node.agentName,
+          agentEmoji: node.agentEmoji,
           status: node.status as StepResult['status'],
           output: node.result,
           output_var: node.step.output,
@@ -177,7 +193,7 @@ export async function executeDAG(dag: DAG, options: ExecutorOptions): Promise<Wo
 
         // 检查退出条件
         const shouldExit = evaluateCondition(loop.exit_condition, context);
-        const maxIter = Math.min(loop.max_iterations, 10); // 硬上限 10
+        const maxIter = Math.min(loop.max_iterations, 50); // 安全上限 50（防止无限循环）
 
         if (!shouldExit && currentIter < maxIter) {
           loopIterations.set(id, currentIter);
@@ -251,9 +267,14 @@ async function executeStep(
   node.startTime = Date.now();
   opts.onStepStart?.(node);
 
-  // 条件检查
+  // 条件检查（变量未定义等异常视为条件不满足，跳过而非崩溃）
   if (node.step.condition) {
-    const conditionMet = evaluateCondition(node.step.condition, opts.context);
+    let conditionMet = false;
+    try {
+      conditionMet = evaluateCondition(node.step.condition, opts.context);
+    } catch {
+      process.stderr.write(`\n  ⚠️  ${node.step.id} 条件评估失败: ${node.step.condition}，跳过该步骤\n`);
+    }
     if (!conditionMet) {
       node.status = 'skipped';
       return '';  // 返回空，调用方会处理 skipped 状态
@@ -265,8 +286,10 @@ async function executeStep(
     return await handleApproval(node, opts.context);
   }
 
-  // 加载角色定义
+  // 加载角色定义（步骤级 name/emoji 优先）
   const agent = loadAgent(opts.agentsDir, node.step.role);
+  node.agentName = node.step.name || agent.name;
+  node.agentEmoji = node.step.emoji || agent.emoji;
   const systemPrompt = agent.systemPrompt;
 
   // 渲染任务模板
@@ -294,11 +317,28 @@ async function executeStep(
     } catch (err) {
       lastError = err instanceof Error ? err : new Error(String(err));
       if (attempt < opts.maxRetry && isRetryable(lastError)) {
-        // 指数退避: 1s, 2s, 4s
-        await sleep(1000 * Math.pow(2, attempt));
+        const isCLI = opts.llmConfig.provider.endsWith('-cli') || opts.llmConfig.provider === 'claude-code';
+        const errorClass = classifyError(lastError);
+        // 分级退避：rate_limit 最长，connection 中等，server_error 最短
+        const baseByClass = isCLI
+          ? { rate_limit: 15_000, connection: 10_000, server_error: 5_000 }
+          : { rate_limit: 5_000,  connection: 2_000,  server_error: 1_000 };
+        const base = baseByClass[errorClass as keyof typeof baseByClass] || 1_000;
+        const jitter = Math.random() * 0.3;  // 0-30% 抖动，防止并发步骤同时重试
+        const delay = Math.round(base * Math.pow(2, attempt) * (1 + jitter));
+        process.stderr.write(`\n  ⚠️  ${node.step.id} 失败 (${lastError.message.slice(0, 80)})，${Math.round(delay / 1000)}s 后重试 (${attempt + 1}/${opts.maxRetry})...\n`);
+        await sleep(delay);
         continue;
       }
+      break;  // 不可重试的错误，立即停止
     }
+  }
+
+  // 重试全部耗尽：检查是否有部分内容可兜底
+  if (lastError && (lastError as any).partialContent) {
+    const partial = (lastError as any).partialContent as string;
+    process.stderr.write(`\n  ⚠️  ${node.step.id} 重试耗尽，使用部分结果 (${partial.length} 字符)\n`);
+    return partial;
   }
 
   throw lastError || new Error(`step "${node.step.id}" 执行失败`);
@@ -353,6 +393,7 @@ function markDownstreamSkipped(dag: DAG, failedId: string): void {
 }
 
 function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
+  if (!ms) return promise;  // 0 = 不限时（CLI provider 写完自动停）
   return new Promise((resolve, reject) => {
     const timer = setTimeout(() => reject(new Error(`超时 (${ms}ms)`)), ms);
     promise
@@ -361,12 +402,25 @@ function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
   });
 }
 
-function isRetryable(error: Error): boolean {
+/** 错误分级：不同错误类型使用不同退避策略（借鉴 Claude Code 架构） */
+function classifyError(error: Error): 'rate_limit' | 'server_error' | 'connection' | 'non_retryable' {
   const msg = error.message.toLowerCase();
-  return msg.includes('429') || msg.includes('rate') ||
-         msg.includes('500') || msg.includes('502') ||
-         msg.includes('503') || msg.includes('timeout') ||
-         msg.includes('econnreset');
+  // 限速：需要更长退避
+  if (msg.includes('429') || msg.includes('rate'))
+    return 'rate_limit';
+  // 服务端错误：短退避即可
+  if (msg.includes('500') || msg.includes('502') || msg.includes('503') || msg.includes('api 错误'))
+    return 'server_error';
+  // 连接断开/超时：中等退避
+  if (msg.includes('econnreset') || msg.includes('econnrefused') ||
+      msg.includes('etimedout') || msg.includes('socket hang up') ||
+      msg.includes('terminated') || msg.includes('aborted') || msg.includes('timeout'))
+    return 'connection';
+  return 'non_retryable';
+}
+
+function isRetryable(error: Error): boolean {
+  return classifyError(error) !== 'non_retryable';
 }
 
 function sleep(ms: number): Promise<void> {

@@ -3,3 +3,4 @@ dist/
 ao-output/
 *.tgz
 .DS_Store
+.private/

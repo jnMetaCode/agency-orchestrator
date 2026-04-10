@@ -20,7 +20,16 @@ import type { AgentDefinition } from '../types.js';
  * @param rolePath 角色路径，如 "engineering/engineering-sre"
  */
 export function loadAgent(agentsDir: string, rolePath: string): AgentDefinition {
+  // 防止路径穿越攻击（如 ../../etc/passwd）
+  if (/\.\.[/\\]/.test(rolePath) || /[^a-zA-Z0-9_\-/]/.test(rolePath)) {
+    throw new Error(`非法角色路径: ${rolePath}\n角色路径只能包含字母、数字、下划线、连字符和斜杠`);
+  }
+
   const fullPath = resolve(agentsDir, `${rolePath}.md`);
+  const resolvedDir = resolve(agentsDir);
+  if (!fullPath.startsWith(resolvedDir)) {
+    throw new Error(`角色路径越界: ${rolePath}`);
+  }
 
   if (!existsSync(fullPath)) {
     throw new Error(`角色文件不存在: ${fullPath}\n请确认 agents_dir 和 role 路径正确`);

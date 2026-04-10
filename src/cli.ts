@@ -86,6 +86,8 @@ async function handleRun(): Promise<void> {
   const watch = args.includes('--watch');
   let resumeDir = getArgValue('--resume');
   const fromStep = getArgValue('--from');
+  const provider = getArgValue('--provider') as LLMConfig['provider'] | undefined;
+  const model = getArgValue('--model');
 
   // --resume last: 自动找最近一次的输出目录
   if (resumeDir === 'last') {
@@ -99,12 +101,22 @@ async function handleRun(): Promise<void> {
   }
 
   try {
+    // --provider / --model: 命令行覆盖 YAML 中的 LLM 配置
+    const cliProviders = ['claude-code', 'gemini-cli', 'copilot-cli', 'codex-cli', 'openclaw-cli'];
+    const llmOverride = provider ? {
+      provider,
+      // CLI provider 不指定 model 时清空（避免 YAML 里的 deepseek-chat 传给 claude CLI）
+      model: model || (cliProviders.includes(provider) ? '' : undefined),
+      ...(cliProviders.includes(provider) ? { timeout: 600_000 } : {}),
+    } as Partial<LLMConfig> : undefined;
+
     const result = await run(resolve(filePath), inputs, {
       outputDir,
       quiet,
       watch,
       resumeDir: resumeDir ? resolve(resumeDir) : undefined,
       fromStep,
+      llmOverride,
     });
     process.exit(result.success ? 0 : 1);
   } catch (err) {
@@ -188,7 +200,19 @@ async function handleExplain(): Promise<void> {
 }
 
 async function handleCompose(): Promise<void> {
-  const description = args[1];
+  const autoRun = args.includes('--run');
+  // 描述是第一个非 flag 的参数（跳过 compose 本身和 --xxx 的值）
+  const flagsWithValue = new Set(['--name', '--provider', '--model', '--agents-dir']);
+  let description: string | undefined;
+  for (let i = 1; i < args.length; i++) {
+    if (args[i] === '--run') continue;
+    if (args[i].startsWith('--')) {
+      if (flagsWithValue.has(args[i])) i++; // 跳过 flag 的值
+      continue;
+    }
+    description = args[i];
+    break;
+  }
   if (!description) {
     console.error('用法: ao compose "用一句话描述你想要的工作流"');
     console.error('');
@@ -198,6 +222,7 @@ async function handleCompose(): Promise<void> {
     console.error('  ao compose "用户反馈分析，分类后分别给产品和技术团队"');
     console.error('');
     console.error('选项:');
+    console.error('  --run                生成后立即运行（一句话出结果）');
     console.error('  --name <filename>   自定义输出文件名 (不含 .yaml 后缀)');
     console.error('  --provider <name>   LLM 提供商 (默认 deepseek)');
     console.error('  --model <name>      模型名 (默认 deepseek-chat)');
@@ -205,17 +230,24 @@ async function handleCompose(): Promise<void> {
   }
 
   const provider = (getArgValue('--provider') || 'deepseek') as LLMConfig['provider'];
-  const model = getArgValue('--model') || (provider === 'deepseek' ? 'deepseek-chat' : provider === 'claude' ? 'claude-sonnet-4-20250514' : 'gpt-4o');
+  const cliProviders = ['claude-code', 'gemini-cli', 'copilot-cli', 'codex-cli', 'openclaw-cli'];
+  const model = getArgValue('--model') || (
+    cliProviders.includes(provider) ? '' :
+    provider === 'deepseek' ? 'deepseek-chat' :
+    provider === 'claude' ? 'claude-sonnet-4-20250514' :
+    'gpt-4o'
+  );
   const agentsDir = getArgValue('--agents-dir') || resolveAgentsDir();
   const outputName = getArgValue('--name');
 
   try {
     const { composeWorkflow } = await import('./cli/compose.js');
-    const { yaml, relativePath, warnings } = await composeWorkflow({
+    const { yaml, savedPath, relativePath, warnings } = await composeWorkflow({
       description,
       agentsDir: resolve(agentsDir),
       llmConfig: { provider, model },
       outputName,
+      autoRun,
     });
 
     console.log(`\n  ✅ 工作流已生成: ${relativePath}\n`);
@@ -229,6 +261,37 @@ async function handleCompose(): Promise<void> {
       console.log('');
     }
 
+    if (autoRun) {
+      // --run 模式：校验有严重问题时不执行
+      if (warnings.some(w => w.includes('解析失败'))) {
+        console.error('  生成的 YAML 有解析错误，无法自动运行。请手动修复后执行:');
+        console.error(`    ao run ${relativePath}`);
+        process.exit(1);
+      }
+
+      console.log('─'.repeat(50));
+      console.log('  开始执行工作流...\n');
+
+      // 保底：如果 LLM 仍然生成了 required inputs，用用户描述填充
+      const { parseWorkflow } = await import('./core/parser.js');
+      const workflow = parseWorkflow(resolve(savedPath));
+      const inputs: Record<string, string> = {};
+      for (const def of workflow.inputs || []) {
+        if (def.required && def.default === undefined) {
+          inputs[def.name] = description;
+        }
+      }
+
+      const result = await run(resolve(savedPath), inputs, {
+        quiet: false,
+        // 用 compose 时同样的 provider 执行，避免 YAML 里写的 provider 和用户实际可用的不一致
+        // CLI provider 单步调用可能很慢（1-20 分钟），给足超时
+        llmOverride: { provider, model: model || undefined, timeout: cliProviders.includes(provider) ? 600_000 : 300_000 },
+      });
+      process.exit(result.success ? 0 : 1);
+    }
+
+    // 非 --run 模式：显示预览和下一步提示
     console.log('  预览:');
     const previewLines = yaml.split('\n').slice(0, 30);
     for (const line of previewLines) {
@@ -467,6 +530,7 @@ function printHelp(): void {
     init                              下载/更新 agency-agents-zh
     init --workflow                    交互式创建新工作流
     compose "描述"                     AI 智能编排工作流（一句话生成 YAML）
+    compose "描述" --run               生成并立即运行（一句话出结果）
     serve                             启动 MCP Server（供 Claude Code / Cursor 调用）
     run <workflow.yaml>               执行工作流
     validate <workflow.yaml>          校验工作流定义
@@ -477,6 +541,8 @@ function printHelp(): void {
   Options:
     --input, -i key=value    传入输入变量
     --input, -i key=@file    从文件读取变量值
+    --provider <name>        覆盖 YAML 中的 LLM provider (如 claude-code, deepseek)
+    --model <name>           覆盖 YAML 中的模型名
     --output dir             输出目录 (默认 ao-output/)
     --resume <dir|last>      从上次运行恢复（加载已完成步骤的输出）
     --from <step-id>         配合 --resume，从指定步骤重新执行
