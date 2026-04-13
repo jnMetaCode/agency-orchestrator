@@ -8,7 +8,7 @@
 # 1. 安装 superpowers-zh（如果还没有）
 npx superpowers-zh
 
-# 2. 下载 186 个 AI 角色
+# 2. 下载 179 个 AI 角色
 cd your-project
 git clone --depth 1 https://github.com/jnMetaCode/agency-agents-zh.git
 

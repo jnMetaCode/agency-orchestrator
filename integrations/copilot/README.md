@@ -5,7 +5,7 @@
 ## 安装
 
 ```bash
-# 1. 下载 186 个 AI 角色
+# 1. 下载 179 个 AI 角色
 cd your-project
 git clone --depth 1 https://github.com/jnMetaCode/agency-agents-zh.git
 
