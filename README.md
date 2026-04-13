@@ -506,11 +506,11 @@ ao-output/产品需求评审-2026-03-22/
 | `一人公司全员大会.yaml` | CEO、市场调研员、用户研究员、产品经理、市场负责人、CFO | **一人公司全员大会**（CEO→6 部门并行→决策） |
 | `ai-startup-launch.yaml` | CEO、产品经理、架构师、市场负责人、财务顾问 | **SaaS 产品发布决策**（CEO→4 部门并行→发布计划） |
 
-## 项目生态
+## 生态与社区
 
 ```
-你的 AI 会员 ──→ agency-orchestrator ──→ 179 个专业角色协作 ──→ 高质量输出
-                     │
+你的 AI 会员 ──→ agency-orchestrator ──→ 396 个 AI 角色协作 ──→ 高质量输出
+                     │                  (179 中文 + 217 英文)
     ┌────────────────┼────────────────┐
     ▼                ▼                ▼
   14 个 AI 编程工具    CLI 模式         MCP Server
@@ -518,7 +518,15 @@ ao-output/产品需求评审-2026-03-22/
    Code/Copilot...)                   Cursor 直接调用)
 ```
 
-## 交流 · Community
+| 项目 | 说明 |
+|------|------|
+| [agency-agents](https://github.com/msitarzewski/agency-agents) | 217 个英文 AI 角色定义 by [@msitarzewski](https://github.com/msitarzewski) — 本引擎的英文角色库 |
+| [agency-agents-zh](https://github.com/jnMetaCode/agency-agents-zh) | 179 个中文 AI 角色定义 — 本引擎的中文角色库 |
+| [ai-coding-guide](https://github.com/jnMetaCode/ai-coding-guide) | AI 编程工具实战指南 — 66 个 Claude Code 技巧 + 9 款工具最佳实践 + 可复制配置模板 |
+| [superpowers-zh](https://github.com/jnMetaCode/superpowers-zh) | AI 编程超能力 · 中文版 — 20 个 skills，让你的 AI 编程助手真正会干活 |
+| [shellward](https://github.com/jnMetaCode/shellward) | AI 智能体安全中间件 — 注入检测、数据防泄露、命令安全、零依赖、MCP Server |
+
+### 交流
 
 微信公众号 **「AI不止语」**（微信搜索 `AI_BuZhiYu`）— 技术问答 · 项目更新 · 实战文章
 
@@ -526,15 +534,6 @@ ao-output/产品需求评审-2026-03-22/
 |------|---------|
 | QQ 群 | [点击加入](https://qm.qq.com/q/EeNQA9xCxy)（群号 1071280067） |
 | 微信群 | 关注公众号后回复「群」获取入群方式 |
-
-## 姊妹项目
-
-| 项目 | 说明 |
-|------|------|
-| [ai-coding-guide](https://github.com/jnMetaCode/ai-coding-guide) | AI 编程工具实战指南 — 66 个 Claude Code 技巧 + 9 款工具最佳实践 + 可复制配置模板 |
-| [agency-agents-zh](https://github.com/jnMetaCode/agency-agents-zh) | 179 个专业角色，让 AI 变成安全工程师、DBA、产品经理等 |
-| [superpowers-zh](https://github.com/jnMetaCode/superpowers-zh) | AI 编程超能力 · 中文版 — 20 个 skills，让你的 AI 编程助手真正会干活 |
-| [shellward](https://github.com/jnMetaCode/shellward) | AI 智能体安全中间件 — 注入检测、数据防泄露、命令安全、零依赖、MCP Server |
 
 ## 路线图
 

@@ -470,8 +470,8 @@ ao-output/product-review-2026-03-22/
 ## Ecosystem
 
 ```
-Your AI subscription ──→ agency-orchestrator ──→ 179 expert roles collaborate ──→ quality output
-                              │
+Your AI subscription ──→ agency-orchestrator ──→ 396 expert roles collaborate ──→ quality output
+                              │                  (179 Chinese + 217 English)
              ┌────────────────┼────────────────┐
              ▼                ▼                ▼
       14 AI Coding Tools    CLI Mode        MCP Server
@@ -481,8 +481,9 @@ Your AI subscription ──→ agency-orchestrator ──→ 179 expert roles co
 
 | Project | Description |
 |---------|-------------|
+| [agency-agents](https://github.com/msitarzewski/agency-agents) | 217 English AI role definitions by [@msitarzewski](https://github.com/msitarzewski) — the English role library for this engine |
+| [agency-agents-zh](https://github.com/jnMetaCode/agency-agents-zh) | 179 Chinese AI role definitions — the Chinese role library for this engine |
 | [ai-coding-guide](https://github.com/jnMetaCode/ai-coding-guide) | AI coding tools field guide — 66 Claude Code tips + 9 tools best practices + copyable config templates |
-| [agency-agents-zh](https://github.com/jnMetaCode/agency-agents-zh) | 179 AI role definitions — the role library for this engine |
 | [superpowers-zh](https://github.com/jnMetaCode/superpowers-zh) | AI coding superpowers — 20 skills for Claude Code / Cursor |
 | [shellward](https://github.com/jnMetaCode/shellward) | AI agent security middleware — prompt injection detection, DLP, command safety |
 
