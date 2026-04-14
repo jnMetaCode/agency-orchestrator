@@ -129,6 +129,8 @@ llm:
   provider: ${provider}
   ${model ? `model: ${model}` : ''}
   max_tokens: 4096
+  timeout: 120000
+  retry: 2
 
 concurrency: 2
 ${inputsYamlExample}
@@ -162,6 +164,7 @@ ${catalog}
 ## Rules
 
 - The role value must strictly use paths from the role catalog (e.g., "engineering/engineering-code-reviewer") — do NOT make up role paths
+- **Variable names must use underscores**, no spaces. Correct: "market_analysis", "tech_report". Wrong: "market analysis", "tech report". All id, output, and depends_on values must be snake_case
 - Only output the YAML code block, nothing else
 - Set concurrency to the maximum number of parallel steps
 - **Important: Split large tasks**. When writing long articles, don't let one step generate more than 800 words. Split by sections into multiple parallel steps (e.g., write_ch1, write_ch2, write_ch3), then use a merge step to rewrite into a coherent complete article
@@ -220,6 +223,8 @@ llm:
   provider: ${provider}
   ${model ? `model: ${model}` : ''}
   max_tokens: 4096
+  timeout: 120000
+  retry: 2
 
 concurrency: 2
 ${inputsYamlExample}
@@ -253,6 +258,7 @@ ${catalog}
 ## 注意
 
 - role 的值必须严格使用角色目录中的 path（如 "engineering/engineering-code-reviewer"），不要自己编造
+- **变量名必须用下划线**，不能有空格。正确："market_analysis"、"tech_report"。错误："market analysis"、"tech report"。id、output、depends_on 中的值都必须用 snake_case
 - 只输出 YAML 代码块，不要输出其他内容
 - concurrency 设为并行步骤的最大数量
 - **重要：拆分大任务**。写长文章时，不要让一个步骤生成超过 800 字的内容。应该按章节拆分成多个并行步骤（如 write_ch1、write_ch2、write_ch3），最后用一个合并步骤重写为连贯的完整文章
