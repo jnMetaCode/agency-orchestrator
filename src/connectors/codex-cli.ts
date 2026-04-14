@@ -14,7 +14,10 @@ export class CodexCLIConnector extends CLIBaseConnector {
       command: 'codex',
       displayName: 'OpenAI Codex CLI',
       buildArgs: (prompt: string, _config: LLMConfig) => {
-        return ['-q', prompt];
+        return ['exec', '--skip-git-repo-check', '--sandbox', 'read-only', prompt];
+      },
+      buildStdinArgs: (_config: LLMConfig) => {
+        return ['exec', '--skip-git-repo-check', '--sandbox', 'read-only', '-'];
       },
     });
   }
