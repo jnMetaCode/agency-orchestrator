@@ -370,28 +370,35 @@ async function handleInit(): Promise<void> {
     console.log(`  正在下载 ${pkgName} ...`);
     let downloaded = false;
 
-    // 优先用 npm（国内镜像快）
-    try {
-      execSync(`npm pack ${pkgName} --pack-destination .`, { stdio: 'pipe' });
-      const { readdirSync } = await import('node:fs');
-      const tgz = readdirSync('.').find(f => f.startsWith(`${pkgName}-`) && f.endsWith('.tgz'));
-      if (tgz) {
-        const { mkdirSync } = await import('node:fs');
-        mkdirSync(pkgName, { recursive: true });
-        execSync(`tar xzf ${tgz} --strip-components=1 -C ${pkgName}`, { stdio: 'pipe' });
-        const { unlinkSync } = await import('node:fs');
-        unlinkSync(tgz);
-        downloaded = true;
-        console.log('  通过 npm 下载完成!');
+    // 英文包在 npm 上只是 264B 占位 stub，直接走 git clone
+    // 中文包走 npm（国内镜像快）
+    if (lang === 'zh') {
+      try {
+        execSync(`npm pack ${pkgName} --pack-destination .`, { stdio: 'pipe' });
+        const { readdirSync } = await import('node:fs');
+        const tgz = readdirSync('.').find(f => f.startsWith(`${pkgName}-`) && f.endsWith('.tgz'));
+        if (tgz) {
+          const { mkdirSync } = await import('node:fs');
+          mkdirSync(pkgName, { recursive: true });
+          execSync(`tar xzf ${tgz} --strip-components=1 -C ${pkgName}`, { stdio: 'pipe' });
+          const { unlinkSync } = await import('node:fs');
+          unlinkSync(tgz);
+          downloaded = true;
+          console.log('  通过 npm 下载完成!');
+        }
+      } catch {
+        // npm 失败，回退 git clone
       }
-    } catch {
-      // npm 失败，回退 git clone
     }
 
-    // 回退: git clone
+    // git clone（英文直接走这里；中文作为 npm 的回退）
     if (!downloaded) {
       try {
-        console.log('  npm 下载失败，尝试 git clone...\n');
+        if (lang === 'en') {
+          console.log('  通过 git clone 下载（npm 包尚未包含角色文件）...\n');
+        } else {
+          console.log('  npm 下载失败，尝试 git clone...\n');
+        }
         execSync(`git clone --depth 1 ${gitRepo}`, { stdio: 'inherit' });
         console.log('\n  下载完成!');
         downloaded = true;

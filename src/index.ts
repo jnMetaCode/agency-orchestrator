@@ -289,27 +289,22 @@ function resolveAgentsDir(agentsDir: string, workflowPath: string): string {
     if (existsSync(dir)) return dir;
   }
 
-  // 4. 找不到用户指定的目录，再尝试另一语言版本作为兜底（但会在 stderr 警告）
-  const fallbackName = baseName === 'agency-agents' ? 'agency-agents-zh'
-                     : baseName === 'agency-agents-zh' ? 'agency-agents'
-                     : null;
-  if (fallbackName) {
-    const fallbackCandidates = [
-      resolve(fallbackName),
-      resolve('..', fallbackName),
-      resolve('node_modules', fallbackName),
-      resolve(scriptDir, '../../node_modules', fallbackName),
-    ];
-    for (const dir of fallbackCandidates) {
-      if (existsSync(dir)) {
-        console.warn(`\n⚠️  未找到 "${baseName}"，回退到 "${fallbackName}"（角色名可能是另一种语言）`);
-        console.warn(`    "${baseName}" not found, falling back to "${fallbackName}" (role names may appear in the other language)`);
-        console.warn(`    要使用 ${baseName} / To use ${baseName}: ao init${baseName === 'agency-agents' ? ' --lang en' : ''}\n`);
-        return dir;
-      }
-    }
-  }
-
-  // 找不到就返回原值，让后续报错
-  return agentsDir;
+  // 找不到用户指定的目录 → 明确报错（不再静默回退到另一语言版本，
+  // 否则英文工作流会在中文角色库上跑，用户得到中文角色名一脸懵）
+  const initCmd = baseName === 'agency-agents' ? 'ao init --lang en'
+                : baseName === 'agency-agents-zh' ? 'ao init'
+                : `ao init  # 或手动准备目录: ${agentsDir}`;
+  throw new Error(
+    [
+      `找不到角色库目录 "${baseName}" / Role library "${baseName}" not found`,
+      ``,
+      `  请先运行 / Please run: ${initCmd}`,
+      ``,
+      `已搜索位置 / Searched:`,
+      `  - ${resolve(agentsDir)}`,
+      `  - ${resolve(dirname(workflowPath), agentsDir)}`,
+      `  - ${resolve('..', baseName)}`,
+      `  - ${resolve('node_modules', baseName)}`,
+    ].join('\n')
+  );
 }
