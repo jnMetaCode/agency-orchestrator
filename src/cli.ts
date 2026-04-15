@@ -16,11 +16,15 @@ import type { LLMConfig } from './types.js';
 import { buildDAG, formatDAG } from './core/dag.js';
 import { listAgents } from './agents/loader.js';
 import { run } from './index.js';
+import { scheduleUpdateCheck } from './utils/version-check.js';
 
 const args = process.argv.slice(2);
 const command = args[0];
 
 async function main(): Promise<void> {
+  // 启动时提示新版本（仅 TTY，24h 缓存，失败静默）
+  scheduleUpdateCheck(getVersion());
+
   if (!command || command === '--help' || command === '-h') {
     printHelp();
     return;
