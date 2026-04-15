@@ -66,7 +66,7 @@ export async function run(
   // 校验
   const errors = validateWorkflow(workflow);
   if (errors.length > 0) {
-    throw new Error(`工作流校验失败:\n${errors.map(e => `  - ${e}`).join('\n')}`);
+    throw new Error(`工作流校验失败 / Workflow validation failed:\n${errors.map(e => `  - ${e}`).join('\n')}`);
   }
 
   // 构建 DAG
@@ -88,10 +88,11 @@ export async function run(
     def => def.required && !inputMap.has(def.name)
   );
   if (missingInputs.length > 0) {
+    const names = missingInputs.map(i => i.name).join(', ');
     const lines = [
-      `缺少必填输入: ${missingInputs.map(i => i.name).join(', ')}`,
+      `缺少必填输入 / Missing required inputs: ${names}`,
       '',
-      '请通过 -i 传入（支持多次，支持从文件读取）:',
+      '请通过 -i 传入（支持多次，支持 @文件 读取） / Pass with -i (repeatable, @file supported):',
     ];
     for (const def of missingInputs) {
       const desc = def.description ? `  # ${def.description}` : '';
@@ -290,8 +291,9 @@ function resolveAgentsDir(agentsDir: string, workflowPath: string): string {
     ];
     for (const dir of fallbackCandidates) {
       if (existsSync(dir)) {
-        console.warn(`\n⚠️  未找到 "${baseName}"，回退到 "${fallbackName}"。角色名可能显示为另一种语言。`);
-        console.warn(`   要使用 ${baseName}，请运行: ao init${baseName === 'agency-agents' ? ' --lang en' : ''}\n`);
+        console.warn(`\n⚠️  未找到 "${baseName}"，回退到 "${fallbackName}"（角色名可能是另一种语言）`);
+        console.warn(`    "${baseName}" not found, falling back to "${fallbackName}" (role names may appear in the other language)`);
+        console.warn(`    要使用 ${baseName} / To use ${baseName}: ao init${baseName === 'agency-agents' ? ' --lang en' : ''}\n`);
         return dir;
       }
     }
