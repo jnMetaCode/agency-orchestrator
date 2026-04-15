@@ -11,7 +11,7 @@
 
 **One sentence → full plan · 211 expert AI roles · Zero-code YAML · 10 LLM providers · 7 need no API key**
 
-> **Note:** `ao compose --run` auto-detects your language. For English input, it uses [agency-agents](https://github.com/msitarzewski/agency-agents) (170+ English roles). Use `ao init --lang en` to download the English role library. **6 English workflow templates** are ready in `workflows/en/` — more coming in v0.6.
+> **Note:** `ao compose --run` auto-detects your language. Both 211 Chinese roles and 170+ English roles ([agency-agents](https://github.com/msitarzewski/agency-agents), MIT) are **bundled in the npm package — no extra download needed**. **6 English workflow templates** are ready in `workflows/en/` — more coming in v0.6.
 
 > 📖 [Full Tutorial](https://dev.to/jnmetacode/agency-orchestrator-one-sentence-five-ai-agents-a-complete-plan-in-3-minutes-1ij6) — from install to real-world use in 10 minutes
 
@@ -217,8 +217,8 @@ All API providers support custom `base_url` and `api_key`, compatible with any O
 
 ```bash
 ao demo                              # Zero-config multi-agent demo
-ao init                              # Download 211 Chinese AI roles
-ao init --lang en                    # Download 170+ English AI roles
+ao init                              # (Optional) Copy 211 Chinese roles locally for editing
+ao init --lang en                    # (Optional) Copy 170+ English roles locally for editing
 ao init --workflow                    # Interactive workflow creator
 ao compose "description"             # AI-powered workflow generation
 ao compose "description" --run       # Generate AND execute in one command

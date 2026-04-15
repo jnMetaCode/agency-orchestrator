@@ -2,6 +2,8 @@
 
 在 Kiro 中直接运行多角色工作流，无需 API key。
 
+> 🌐 **English users:** `npm install -g agency-orchestrator` — both 211 Chinese and 170+ English roles are bundled. Use `ao compose "your idea" --run` from CLI, or follow this guide for IDE-specific setup (translations coming in v0.6).
+
 ## 安装
 
 ```bash

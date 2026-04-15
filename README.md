@@ -216,8 +216,8 @@ analyze ──→ tech_review  ──→ summary
 
 ```bash
 ao demo                              # 零配置体验多智能体协作
-ao init                              # 下载 211 个中文 AI 角色
-ao init --lang en                    # 下载 170+ 个英文 AI 角色
+ao init                              # （可选）复制 211 个中文角色到本地以便编辑
+ao init --lang en                    # （可选）复制 170+ 个英文角色到本地以便编辑
 ao init --workflow                    # 交互式创建工作流
 ao compose "一句话描述"                # AI 智能编排工作流
 ao compose "一句话描述" --run          # 编排并立即执行
