@@ -248,9 +248,9 @@ async function handleCompose(): Promise<void> {
     process.exit(1);
   }
 
-  const provider = (getArgValue('--provider') || 'deepseek') as LLMConfig['provider'];
+  const provider = (getArgValue('--provider') || process.env.AO_PROVIDER || 'deepseek') as LLMConfig['provider'];
   const cliProviders = ['claude-code', 'gemini-cli', 'copilot-cli', 'codex-cli', 'openclaw-cli', 'hermes-cli'];
-  const model = getArgValue('--model') || (
+  const model = getArgValue('--model') || process.env.AO_MODEL || (
     cliProviders.includes(provider) ? '' :
     provider === 'deepseek' ? 'deepseek-chat' :
     provider === 'claude' ? 'claude-sonnet-4-20250514' :
