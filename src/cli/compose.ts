@@ -292,6 +292,10 @@ export function extractYamlFromResponse(response: string): string {
   const codeBlock = response.match(/```\s*\n([\s\S]*?)```/);
   if (codeBlock) return codeBlock[1].trim();
 
+  // 小模型可能只有开头的 ``` 没有闭合，兜底去掉
+  const unclosed = response.match(/```ya?ml?\s*\n([\s\S]+)/);
+  if (unclosed) return unclosed[1].trim().replace(/```\s*$/, '').trim();
+
   // 没有代码块，整个回复当 YAML
   return response.trim();
 }

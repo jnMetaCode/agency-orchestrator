@@ -67,6 +67,13 @@ test('多个代码块时取第一个 yaml 块', () => {
   assert(!yaml.includes('second'), '不应包含第二个代码块');
 });
 
+test('未闭合的 ```yaml 代码块（小模型兜底）', () => {
+  const response = '```yaml\nname: "test"\nsteps:\n  - id: s1\n    role: "engineering/engineering-senior-developer"';
+  const yaml = extractYamlFromResponse(response);
+  assert(yaml.includes('name: "test"'), '应提取内容');
+  assert(!yaml.includes('```'), '不应包含代码块标记');
+});
+
 // ─── formatCatalogForPrompt ───
 
 console.log('\n─── formatCatalogForPrompt ───');
