@@ -211,7 +211,24 @@ analyze ──→ tech_review  ──→ summary
 | Claude API | `provider: "claude"` | `ANTHROPIC_API_KEY` |
 | OpenAI | `provider: "openai"` | `OPENAI_API_KEY` |
 
-All API providers support custom `base_url` and `api_key`, compatible with any OpenAI-compatible API.
+**Custom API (any OpenAI-compatible endpoint):**
+
+```bash
+ao init --provider openai --model model-name \
+  --base-url https://your-api-endpoint/v1 \
+  --api-key your-key
+```
+
+Or edit `.env` manually:
+
+```env
+AO_PROVIDER=openai
+AO_MODEL=model-name
+OPENAI_BASE_URL=https://your-api-endpoint/v1
+OPENAI_API_KEY=your-key
+```
+
+> ⚠️ Use `provider: "openai"` for third-party APIs, not `provider: "ollama"`. Ollama is for local models only and does not send API keys.
 
 ## CLI Reference
 

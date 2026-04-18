@@ -210,7 +210,33 @@ analyze ──→ tech_review  ──→ summary
 | Claude API | `provider: "claude"` | `ANTHROPIC_API_KEY` |
 | OpenAI | `provider: "openai"` | `OPENAI_API_KEY` |
 
-所有 API 提供商支持自定义 `base_url` 和 `api_key`，兼容智谱、月之暗面等 OpenAI 兼容 API。
+**自定义 API（火山引擎、智谱、月之暗面、硅基流动等 OpenAI 兼容 API）：**
+
+```bash
+ao init --provider openai --model 模型名 \
+  --base-url https://你的API地址/v1 \
+  --api-key 你的key
+```
+
+或手动编辑 `.env`：
+
+```env
+AO_PROVIDER=openai
+AO_MODEL=模型名
+OPENAI_BASE_URL=https://你的API地址/v1
+OPENAI_API_KEY=你的key
+```
+
+常见示例：
+
+| 平台 | base_url | model |
+|------|----------|-------|
+| 火山引擎 | `https://ark.cn-beijing.volces.com/api/coding/v3` | `ark-code-latest` |
+| 智谱 AI | `https://open.bigmodel.cn/api/paas/v4` | `glm-4` |
+| 硅基流动 | `https://api.siliconflow.cn/v1` | `deepseek-ai/DeepSeek-V3` |
+| 月之暗面 | `https://api.moonshot.cn/v1` | `moonshot-v1-8k` |
+
+> ⚠️ 注意：这些平台请使用 `provider: "openai"`，不要用 `provider: "ollama"`。Ollama 仅用于本地模型，不发送 API Key。
 
 ## CLI 命令
 
