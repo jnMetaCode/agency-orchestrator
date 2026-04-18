@@ -12,6 +12,9 @@ export class OllamaConnector implements LLMConnector {
   }
 
   async chat(systemPrompt: string, userMessage: string, config: LLMConfig): Promise<LLMResult> {
+    const numPredict = config.max_tokens || 8192;
+    const numCtx = estimateNumCtx(systemPrompt, userMessage, numPredict);
+
     let response: Response;
     try {
       response = await fetch(`${this.baseUrl}/api/chat`, {
@@ -25,7 +28,8 @@ export class OllamaConnector implements LLMConnector {
           ],
           stream: false,
           options: {
-            num_predict: config.max_tokens || 8192,
+            num_predict: numPredict,
+            num_ctx: numCtx,
           },
         }),
       });
@@ -59,4 +63,22 @@ export class OllamaConnector implements LLMConnector {
       },
     };
   }
+}
+
+/**
+ * 根据实际输入长度自适应计算 num_ctx，避免 Ollama 默认 2048 截断，
+ * 同时小输入不分配多余显存，提升推理速度。
+ */
+function estimateNumCtx(systemPrompt: string, userMessage: string, numPredict: number): number {
+  const text = systemPrompt + userMessage;
+  // CJK 字符约 1.5-2 token/字，ASCII 约 0.25 token/字，按实际比例加权
+  let tokens = 0;
+  for (let i = 0; i < text.length; i++) {
+    tokens += text.charCodeAt(i) > 0x7F ? 1.5 : 0.3;
+  }
+  const estimatedInputTokens = Math.ceil(tokens);
+  const buffer = 512;
+  const computed = estimatedInputTokens + numPredict + buffer;
+  // 下限 4096（部分模型低于此值行为异常），上限 131072（主流模型极限）
+  return Math.min(Math.max(computed, 4096), 131072);
 }
