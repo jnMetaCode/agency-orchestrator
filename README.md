@@ -478,12 +478,12 @@ ao-output/产品需求评审-2026-03-22/
 
 | 项目 | 定位 | 一句话 |
 |------|------|-------|
-| **本项目**（agency-orchestrator） | 🚀 编排引擎 | 一句话调度 211+ 角色自动协作，DAG 并行执行，9 家 LLM（6 家免费） |
-| [agency-agents-zh](https://github.com/jnMetaCode/agency-agents-zh) | 🎭 中文角色库 | 211 个即插即用 AI 专家（本引擎的中文角色库） |
-| [agency-agents](https://github.com/msitarzewski/agency-agents) | 🎭 英文角色库 | 170+ 个英文 AI 角色 by [@msitarzewski](https://github.com/msitarzewski)（本引擎的英文角色库） |
-| [superpowers-zh](https://github.com/jnMetaCode/superpowers-zh) | 🧠 工作方法论 | 20 个 skills 教 AI 怎么干活（TDD/调试/代码审查等） |
+| **本项目**（agency-orchestrator） | 🚀 编排引擎 | 一句话调度 211 专家协作，DAG 并行 + 9 家 LLM（6 免费） |
+| [agency-agents-zh](https://github.com/jnMetaCode/agency-agents-zh) | 🎭 中文角色库 | 211 个 AI 专家，含 46 中国原创（小红书 / 抖音 / 飞书 / 钉钉） |
+| [agency-agents](https://github.com/msitarzewski/agency-agents) | 🎭 英文角色库 | 170+ 个英文 AI 角色 by [@msitarzewski](https://github.com/msitarzewski) |
+| [superpowers-zh](https://github.com/jnMetaCode/superpowers-zh) | 🧠 工作方法论 | 20 个 skills 教 AI 怎么干活（TDD / 调试 / 代码审查等） |
 | [ai-coding-guide](https://github.com/jnMetaCode/ai-coding-guide) | 📖 实战教程 | 66 个 Claude Code 技巧 + 9 款工具最佳实践 |
-| [shellward](https://github.com/jnMetaCode/shellward) | 🛡️ 安全中间件 | 8 层防御 + DLP 数据流，注入检测 + MCP Server |
+| [shellward](https://github.com/jnMetaCode/shellward) | 🛡️ 安全中间件 | 8 层防御 + DLP 数据流 + 注入检测 + MCP Server |
 
 ### 交流
 
