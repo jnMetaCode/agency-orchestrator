@@ -70,7 +70,11 @@ export class OpenAICompatibleConnector implements LLMConnector {
         });
       } catch (err) {
         clearTimeout(timer);
-        throw err;
+        const url = `${this.baseUrl}/chat/completions`;
+        const hint = !this.apiKey
+          ? '\n  可能原因: 未设置 API Key，请检查环境变量（DEEPSEEK_API_KEY 或 OPENAI_API_KEY）或 .env 配置'
+          : `\n  可能原因: 无法连接 ${this.baseUrl}，请检查 base_url 是否正确、网络是否可达`;
+        throw new Error(`请求失败: ${url}\n  ${err instanceof Error ? err.message : err}${hint}`);
       }
 
       if (!response.ok) {

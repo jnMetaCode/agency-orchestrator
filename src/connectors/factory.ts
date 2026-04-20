@@ -36,12 +36,12 @@ export function createConnector(config: LLMConfig): LLMConnector {
     case 'deepseek':
       return new OpenAICompatibleConnector({
         apiKey: config.api_key || process.env.DEEPSEEK_API_KEY,
-        baseUrl: config.base_url || 'https://api.deepseek.com/v1',
+        baseUrl: config.base_url || process.env.OPENAI_BASE_URL || 'https://api.deepseek.com/v1',
       });
     case 'openai':
       return new OpenAICompatibleConnector({
         apiKey: config.api_key || process.env.OPENAI_API_KEY,
-        baseUrl: config.base_url || 'https://api.openai.com/v1',
+        baseUrl: config.base_url || process.env.OPENAI_BASE_URL || 'https://api.openai.com/v1',
       });
     default:
       // 未知 provider：如果提供了 base_url，当作 OpenAI 兼容 API 处理
