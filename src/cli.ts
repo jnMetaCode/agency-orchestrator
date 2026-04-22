@@ -427,17 +427,7 @@ async function handleInit(): Promise<void> {
       updates[keyVar] = cfgApiKey;
     }
 
-    // 未知 provider 必须同时给 base_url（factory 的 default case 才能兜底为 openai-compatible）
-    const factoryBuiltin = new Set([
-      'claude-code', 'gemini-cli', 'copilot-cli', 'codex-cli', 'openclaw-cli', 'hermes-cli',
-      'ollama', 'claude', 'deepseek', 'openai',
-    ]);
-    const pLower = (cfgProvider || '').toLowerCase();
-    const isUnknownProvider = !!cfgProvider && !factoryBuiltin.has(pLower);
     const hasBaseUrl = !!cfgBaseUrl || !!process.env.OPENAI_BASE_URL;
-    if (isUnknownProvider && !hasBaseUrl) {
-      console.log(`  ⚠️  provider "${cfgProvider}" 不是内置支持，需要同时提供 --base-url（OpenAI 兼容接口）才能跑通。`);
-    }
 
     const envPath = resolve(process.cwd(), '.env');
     writeEnvFile(updates);
@@ -449,6 +439,21 @@ async function handleInit(): Promise<void> {
       console.log(`     ${k}=${shown}`);
     }
     if (gitignoreUpdated) console.log(`  🔒 已将 .env 加入 .gitignore`);
+
+    // 打印 provider 专属的首次使用指南
+    if (cfgProvider) {
+      const { getProviderGuide } = await import('./cli/provider-guides.js');
+      const guide = getProviderGuide(cfgProvider, {
+        hasApiKey: !!cfgApiKey,
+        hasBaseUrl,
+        model: cfgModel,
+      });
+      if (guide) {
+        console.log('');
+        for (const line of guide.split('\n')) console.log(`  ${line}`);
+      }
+    }
+
     console.log(`\n  下次运行 ao 时会自动加载这些配置。`);
     console.log(`  也可手动编辑 .env 或复制到其他项目复用。`);
     return;
