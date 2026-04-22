@@ -13,8 +13,11 @@ export class CopilotCLIConnector extends CLIBaseConnector {
     super({
       command: 'copilot',
       displayName: 'GitHub Copilot CLI',
-      buildArgs: (prompt: string, _config: LLMConfig) => {
-        return ['-p', prompt];
+      buildArgs: (prompt: string, config: LLMConfig) => {
+        const args: string[] = [];
+        if (config.model) args.push('--model', config.model);
+        args.push('-p', prompt);
+        return args;
       },
     });
   }

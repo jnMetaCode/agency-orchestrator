@@ -13,8 +13,11 @@ export class GeminiCLIConnector extends CLIBaseConnector {
     super({
       command: 'gemini',
       displayName: 'Gemini CLI',
-      buildArgs: (prompt: string, _config: LLMConfig) => {
-        return ['-p', prompt];
+      buildArgs: (prompt: string, config: LLMConfig) => {
+        const args: string[] = [];
+        if (config.model) args.push('-m', config.model);
+        args.push('-p', prompt);
+        return args;
       },
     });
   }
