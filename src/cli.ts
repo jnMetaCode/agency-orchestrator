@@ -260,7 +260,16 @@ async function handleCompose(): Promise<void> {
 
   const provider = (getArgValue('--provider') || process.env.AO_PROVIDER || 'deepseek') as LLMConfig['provider'];
   const cliProviders = ['claude-code', 'gemini-cli', 'copilot-cli', 'codex-cli', 'openclaw-cli', 'hermes-cli'];
-  const model = getArgValue('--model') || process.env.AO_MODEL || (
+  const knownApiProviders = ['deepseek', 'claude', 'openai', 'ollama'];
+  const isUnknownProvider = !cliProviders.includes(provider) && !knownApiProviders.includes(provider);
+  const cliModel = getArgValue('--model') || process.env.AO_MODEL;
+  // 未知 provider（如 zhipu/qwen/moonshot 走 openai-compatible）必须显式指定 model，
+  // 否则会用下面的 'gpt-4o' 默认值去调自定义端点，必然 404。
+  if (isUnknownProvider && !cliModel) {
+    console.error(`\n错误: provider "${provider}" 是自定义 OpenAI 兼容端点，必须用 --model 显式指定模型名（例如 --model glm-4-plus）。`);
+    process.exit(1);
+  }
+  const model = cliModel || (
     cliProviders.includes(provider) ? '' :
     provider === 'deepseek' ? 'deepseek-chat' :
     provider === 'claude' ? 'claude-sonnet-4-20250514' :
