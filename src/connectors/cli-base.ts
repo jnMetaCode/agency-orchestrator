@@ -114,7 +114,13 @@ export class CLIBaseConnector implements LLMConnector {
         }
 
         if (code !== 0 && !stdout.trim()) {
-          reject(new Error(`${this.cfg.displayName} 调用失败 (exit ${code}): ${stderr.slice(0, 500)}`));
+          // 启发式识别"首次未认证"类错误（各 CLI 工具首次运行时都要求登录），给中文引导
+          const authPattern = /auth method|not authenticated|not logged in|please (login|sign[\s-]*in)|unauthorized|credentials|_API_KEY/i;
+          const looksLikeAuth = authPattern.test(stderr);
+          const hint = looksLikeAuth
+            ? `\n  提示: 首次使用 ${this.cfg.displayName} 需要先在终端跑一次 \`${this.cfg.command}\` 完成账号登录，或设置对应的 API KEY 环境变量`
+            : '';
+          reject(new Error(`${this.cfg.displayName} 调用失败 (exit ${code}): ${stderr.slice(0, 500)}${hint}`));
           return;
         }
 
