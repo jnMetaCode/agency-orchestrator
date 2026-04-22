@@ -406,17 +406,28 @@ async function handleInit(): Promise<void> {
       updates[urlVar] = cfgBaseUrl;
     }
     if (cfgApiKey) {
-      // Route api key to the provider-specific var the connectors already read
+      // 路由到 factory 里 connector 实际会读的 env 变量。
+      // factory.ts 只对 deepseek / claude / openai 有专属分支；其他 provider
+      // （zhipu/glm/qwen/moonshot 等）都走 default → openai-compatible，读 OPENAI_API_KEY。
+      // 所以未知 provider 的 key 也写到 OPENAI_API_KEY，不再写死代码的 AO_API_KEY / ZHIPU_API_KEY。
       const p = (cfgProvider || process.env.AO_PROVIDER || '').toLowerCase();
       const keyVar =
         p === 'deepseek' ? 'DEEPSEEK_API_KEY' :
-        p === 'openai' ? 'OPENAI_API_KEY' :
         p === 'anthropic' || p === 'claude' ? 'ANTHROPIC_API_KEY' :
-        p === 'zhipu' || p === 'glm' ? 'ZHIPU_API_KEY' :
-        p === 'qwen' || p === 'dashscope' ? 'DASHSCOPE_API_KEY' :
-        p === 'moonshot' || p === 'kimi' ? 'MOONSHOT_API_KEY' :
-        'AO_API_KEY';
+        'OPENAI_API_KEY';
       updates[keyVar] = cfgApiKey;
+    }
+
+    // 未知 provider 必须同时给 base_url（factory 的 default case 才能兜底为 openai-compatible）
+    const factoryBuiltin = new Set([
+      'claude-code', 'gemini-cli', 'copilot-cli', 'codex-cli', 'openclaw-cli', 'hermes-cli',
+      'ollama', 'claude', 'deepseek', 'openai',
+    ]);
+    const pLower = (cfgProvider || '').toLowerCase();
+    const isUnknownProvider = !!cfgProvider && !factoryBuiltin.has(pLower);
+    const hasBaseUrl = !!cfgBaseUrl || !!process.env.OPENAI_BASE_URL;
+    if (isUnknownProvider && !hasBaseUrl) {
+      console.log(`  ⚠️  provider "${cfgProvider}" 不是内置支持，需要同时提供 --base-url（OpenAI 兼容接口）才能跑通。`);
     }
 
     const envPath = resolve(process.cwd(), '.env');
