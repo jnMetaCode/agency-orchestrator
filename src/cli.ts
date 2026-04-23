@@ -10,6 +10,7 @@
  */
 import { readFileSync, existsSync } from 'node:fs';
 import { resolve, join, dirname } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { execSync } from 'node:child_process';
 import { parseWorkflow, validateWorkflow } from './core/parser.js';
 import type { LLMConfig } from './types.js';
@@ -644,7 +645,9 @@ function parseInputArgs(): Record<string, string> {
  */
 function resolveAgentsDir(preferLang?: 'zh' | 'en'): string {
   // scriptDir = dist/ inside the installed package
-  const scriptDir = dirname(new URL(import.meta.url).pathname);
+  // Windows: 必须用 fileURLToPath，不能用 new URL(url).pathname，
+  // 否则会得到 "/C:/Users/..." 非法路径，包内置 / node_modules 候选都失效
+  const scriptDir = dirname(fileURLToPath(import.meta.url));
 
   const zhFirst = [
     './agency-agents-zh',

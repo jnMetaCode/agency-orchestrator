@@ -12,6 +12,7 @@ import { z } from 'zod';
 import { resolve, relative, dirname } from 'node:path';
 import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs';
 import { createRequire } from 'node:module';
+import { fileURLToPath } from 'node:url';
 import * as yaml from 'js-yaml';
 
 import { run } from '../index.js';
@@ -31,8 +32,9 @@ function findAgentsDir(hint?: string): string {
     resolve('agents'),
     resolve('node_modules/agency-agents-zh'),
     resolve('node_modules/agency-agents'),
-    resolve(dirname(new URL(import.meta.url).pathname), '../../node_modules/agency-agents-zh'),
-    resolve(dirname(new URL(import.meta.url).pathname), '../../node_modules/agency-agents'),
+    // Windows: 必须用 fileURLToPath，不能用 new URL(url).pathname（会得到 "/C:/..." 非法路径）
+    resolve(dirname(fileURLToPath(import.meta.url)), '../../node_modules/agency-agents-zh'),
+    resolve(dirname(fileURLToPath(import.meta.url)), '../../node_modules/agency-agents'),
   ];
   for (const dir of candidates) {
     if (existsSync(dir)) return dir;

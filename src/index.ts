@@ -38,6 +38,7 @@ import { loadAgent } from './agents/loader.js';
 import { saveResults, printStepResult, printStepRunning, clearRunningLine, printSummary, loadPreviousContext, getCompletedStepIds, findLatestOutput } from './output/reporter.js';
 import { existsSync, readFileSync } from 'node:fs';
 import { resolve, dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 /**
  * 一行运行工作流（高级 API）
@@ -278,7 +279,9 @@ function resolveAgentsDir(agentsDir: string, workflowPath: string): string {
   // 3. 按用户指定的 agents_dir 名字，在常见位置查找同名目录
   // （尊重用户意图：指定 "agency-agents" 不会 fallback 到 "agency-agents-zh"）
   const baseName = agentsDir.replace(/[\/\\]+$/, '').split(/[\/\\]/).pop() || agentsDir;
-  const scriptDir = dirname(new URL(import.meta.url).pathname);
+  // Windows: 必须用 fileURLToPath，不能用 new URL(url).pathname，
+  // 否则会得到 "/C:/Users/..." 非法路径，所有 scriptDir 相关候选都失效
+  const scriptDir = dirname(fileURLToPath(import.meta.url));
   const sameNameCandidates = [
     resolve(baseName),
     resolve('..', baseName),
