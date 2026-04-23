@@ -71,20 +71,20 @@ export function detectLang(text: string): 'zh' | 'en' {
  * @param options.autoRun 如果 true，生成的 YAML 不需要 inputs，用户描述直接嵌入 task
  * @param options.lang 语言：'zh' 中文提示词 + agency-agents-zh，'en' 英文提示词 + agency-agents
  */
-export function buildComposeSystemPrompt(catalog: string, options?: { autoRun?: boolean; provider?: string; model?: string; lang?: 'zh' | 'en' }): string {
+export function buildComposeSystemPrompt(catalog: string, options?: { autoRun?: boolean; provider?: string; model?: string; lang?: 'zh' | 'en'; timeoutMs?: number }): string {
   const lang = options?.lang ?? 'zh';
   return lang === 'en'
     ? buildComposeSystemPromptEn(catalog, options)
     : buildComposeSystemPromptZh(catalog, options);
 }
 
-function buildComposeSystemPromptEn(catalog: string, options?: { autoRun?: boolean; provider?: string; model?: string }): string {
+function buildComposeSystemPromptEn(catalog: string, options?: { autoRun?: boolean; provider?: string; model?: string; timeoutMs?: number }): string {
   const autoRun = options?.autoRun ?? false;
   const provider = options?.provider || 'deepseek';
   const model = options?.model;
   const isLocal = provider === 'ollama';
   const maxTokens = isLocal ? 8192 : 4096;
-  const timeoutMs = isLocal ? 600000 : 120000;
+  const timeoutMs = options?.timeoutMs ?? (isLocal ? 600000 : 300000);
 
   const inputsSection = autoRun
     ? `
@@ -175,13 +175,13 @@ ${catalog}
 - Limit word count in each writing step's task (e.g., "under 500 words") to avoid overly long single-step generation times`;
 }
 
-function buildComposeSystemPromptZh(catalog: string, options?: { autoRun?: boolean; provider?: string; model?: string }): string {
+function buildComposeSystemPromptZh(catalog: string, options?: { autoRun?: boolean; provider?: string; model?: string; timeoutMs?: number }): string {
   const autoRun = options?.autoRun ?? false;
   const provider = options?.provider || 'deepseek';
   const model = options?.model;
   const isLocal = provider === 'ollama';
   const maxTokens = isLocal ? 8192 : 4096;
-  const timeoutMs = isLocal ? 600000 : 120000;
+  const timeoutMs = options?.timeoutMs ?? (isLocal ? 600000 : 300000);
 
   const inputsSection = autoRun
     ? `
@@ -343,6 +343,8 @@ export async function composeWorkflow(options: {
   autoRun?: boolean;
   /** 语言：自动检测或指定 */
   lang?: 'zh' | 'en';
+  /** 生成的 YAML 中写入的单步超时（ms）；未指定时 API=300s / ollama=600s */
+  timeoutMs?: number;
 }): Promise<{ yaml: string; savedPath: string; relativePath: string; warnings: string[] }> {
   const { description, agentsDir, llmConfig } = options;
   const lang = options.lang ?? detectLang(description);
@@ -360,6 +362,7 @@ export async function composeWorkflow(options: {
     provider: options.llmConfig.provider,
     model: options.llmConfig.model,
     lang,
+    timeoutMs: options.timeoutMs,
   });
   const userPrompt = buildComposeUserPrompt(description, lang);
 

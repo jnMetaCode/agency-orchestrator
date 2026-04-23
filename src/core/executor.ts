@@ -313,16 +313,27 @@ async function executeStep(
   // timeout / retry / CLI 判定必须基于 effectiveConfig，否则 step 级覆盖这几个字段时会被全局值吃掉
   const effectiveIsCLI = effectiveConfig.provider.endsWith('-cli') || effectiveConfig.provider === 'claude-code';
   const effectiveIsLocal = effectiveConfig.provider === 'ollama';
-  const effectiveTimeout = effectiveConfig.timeout || (effectiveIsCLI ? 600_000 : effectiveIsLocal ? 600_000 : 120_000);
+  // timeout 策略：
+  // - 用户显式设置（含 timeout: 0 表示不限时）→ 第一次按此值
+  // - 未设置 → provider 默认（API 120s / CLI/ollama 600s）
+  // - 因超时触发 retry 时，下一轮 timeout x1.5（上限 900s）
+  //   非超时类错误（429/500/ECONNRESET 等）保持原 timeout，避免无谓放大
+  const defaultTimeout = effectiveIsCLI ? 600_000 : effectiveIsLocal ? 600_000 : 120_000;
+  const baseTimeout = effectiveConfig.timeout !== undefined ? effectiveConfig.timeout : defaultTimeout;
   const effectiveMaxRetry = effectiveConfig.retry ?? opts.maxRetry;
+  const TIMEOUT_CAP = 900_000;
 
-  // 带重试的 LLM 调用
+  // 带重试的 LLM 调用（timeout 在网络超时类错误重试时自动延长）
   let lastError: Error | null = null;
+  let attemptTimeout = baseTimeout;
   for (let attempt = 0; attempt <= effectiveMaxRetry; attempt++) {
     try {
+      // attemptTimeout 同时传给 connector（控制内层 fetch/CLI timeout）和 withTimeout（外层兜底），
+      // 否则 connector 内部还按旧 timeout 硬断，递增就白加了
+      const attemptConfig = { ...effectiveConfig, timeout: attemptTimeout };
       const result = await withTimeout(
-        effectiveConnector.chat(systemPrompt, userMessage, effectiveConfig),
-        effectiveTimeout
+        effectiveConnector.chat(systemPrompt, userMessage, attemptConfig),
+        attemptTimeout
       );
       node.tokenUsage = { input: result.usage.input_tokens, output: result.usage.output_tokens };
       return result.content;
@@ -330,6 +341,12 @@ async function executeStep(
       lastError = err instanceof Error ? err : new Error(String(err));
       if (attempt < effectiveMaxRetry && isRetryable(lastError)) {
         const errorClass = classifyError(lastError);
+        // connection 类错误（超时/ECONNRESET/aborted/socket hang up 等）→ 下一次 timeout x1.5
+        // 上限 900s，0=不限时保持不变，rate_limit / server_error 保持原值避免无谓放大
+        let nextTimeout = attemptTimeout;
+        if (errorClass === 'connection' && attemptTimeout > 0 && attemptTimeout < TIMEOUT_CAP) {
+          nextTimeout = Math.min(Math.round(attemptTimeout * 1.5), TIMEOUT_CAP);
+        }
         // 分级退避：rate_limit 最长，connection 中等，server_error 最短
         const baseByClass = effectiveIsCLI
           ? { rate_limit: 15_000, connection: 10_000, server_error: 5_000 }
@@ -337,7 +354,11 @@ async function executeStep(
         const base = baseByClass[errorClass as keyof typeof baseByClass] || 1_000;
         const jitter = Math.random() * 0.3;  // 0-30% 抖动，防止并发步骤同时重试
         const delay = Math.round(base * Math.pow(2, attempt) * (1 + jitter));
-        process.stderr.write(`\n  ⚠️  ${node.step.id} 失败 (${lastError.message.slice(0, 80)})，${Math.round(delay / 1000)}s 后重试 (${attempt + 1}/${effectiveMaxRetry})...\n`);
+        const extendHint = nextTimeout !== attemptTimeout
+          ? `（timeout 延长至 ${Math.round(nextTimeout / 1000)}s）`
+          : '';
+        process.stderr.write(`\n  ⚠️  ${node.step.id} 失败 (${lastError.message.slice(0, 80)})，${Math.round(delay / 1000)}s 后重试${extendHint} (${attempt + 1}/${effectiveMaxRetry})...\n`);
+        attemptTimeout = nextTimeout;
         await sleep(delay);
         continue;
       }
@@ -406,7 +427,10 @@ function markDownstreamSkipped(dag: DAG, failedId: string): void {
 function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
   if (!ms) return promise;  // 0 = 不限时（CLI provider 写完自动停）
   return new Promise((resolve, reject) => {
-    const timer = setTimeout(() => reject(new Error(`超时 (${ms}ms)`)), ms);
+    const timer = setTimeout(
+      () => reject(new Error(`超时 (${ms}ms)，可用 --timeout 或 YAML llm.timeout 延长`)),
+      ms
+    );
     promise
       .then(val => { clearTimeout(timer); resolve(val); })
       .catch(err => { clearTimeout(timer); reject(err); });
@@ -416,16 +440,17 @@ function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
 /** 错误分级：不同错误类型使用不同退避策略（借鉴 Claude Code 架构） */
 function classifyError(error: Error): 'rate_limit' | 'server_error' | 'connection' | 'non_retryable' {
   const msg = error.message.toLowerCase();
-  // 限速：需要更长退避
-  if (msg.includes('429') || msg.includes('rate'))
+  // 限速：需要更长退避。用 \b 边界匹配，避免 "1429ms" / "429 ids" 等子串误判
+  if (/\b429\b/.test(msg) || msg.includes('rate'))
     return 'rate_limit';
-  // 服务端错误：短退避即可
-  if (msg.includes('500') || msg.includes('502') || msg.includes('503') || msg.includes('api 错误'))
+  // 服务端错误：短退避即可。5xx 状态码用 \b 边界匹配，避免 "500ms" / "450000ms" 等误判
+  if (/\b5\d\d\b/.test(msg) || msg.includes('api 错误'))
     return 'server_error';
-  // 连接断开/超时：中等退避
+  // 连接断开/超时：中等退避（"超时"识别中文 withTimeout 抛出的消息）
   if (msg.includes('econnreset') || msg.includes('econnrefused') ||
       msg.includes('etimedout') || msg.includes('socket hang up') ||
-      msg.includes('terminated') || msg.includes('aborted') || msg.includes('timeout'))
+      msg.includes('terminated') || msg.includes('aborted') ||
+      msg.includes('timeout') || msg.includes('超时'))
     return 'connection';
   return 'non_retryable';
 }

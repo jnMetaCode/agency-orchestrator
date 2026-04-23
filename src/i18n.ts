@@ -178,6 +178,7 @@ const dict: Dict = {
     --input, -i key=@file    从文件读取变量值
     --provider <name>        覆盖 YAML 中的 LLM provider (如 claude-code, deepseek)
     --model <name>           覆盖 YAML 中的模型名
+    --timeout <值>            单步超时，支持 300000/300s/5m/0 (0=不限时)
     --output dir             输出目录 (默认 ao-output/)
     --resume <dir|last>      从上次运行恢复（加载已完成步骤的输出）
     --from <step-id>         配合 --resume，从指定步骤重新执行
@@ -231,6 +232,7 @@ const dict: Dict = {
     --input, -i key=@file    Read variable value from a file
     --provider <name>        Override LLM provider (e.g. claude-code, deepseek)
     --model <name>           Override model name from YAML
+    --timeout <value>        Per-step timeout, accepts 300000/300s/5m/0 (0=no limit)
     --output dir             Output directory (default: ao-output/)
     --resume <dir|last>      Resume from previous run (reuse completed step outputs)
     --from <step-id>         With --resume, re-run starting from this step

@@ -19,6 +19,7 @@ import { run } from './index.js';
 import { scheduleUpdateCheck } from './utils/version-check.js';
 import { t, detectLang } from './i18n.js';
 import { loadEnvFile, writeEnvFile, ensureEnvGitignored } from './utils/env-loader.js';
+import { parseDuration } from './utils/duration.js';
 
 // Auto-load ./.env (shell env wins; no overwrite)
 loadEnvFile();
@@ -108,6 +109,16 @@ async function handleRun(): Promise<void> {
   const model = getArgValue('--model') || process.env.AO_MODEL;
   const baseUrl = getArgValue('--base-url') || getArgValue('--baseurl');
   const apiKey = getArgValue('--api-key') || getArgValue('--apikey');
+  const timeoutRaw = getArgValue('--timeout');
+  let timeoutMs: number | undefined;
+  if (timeoutRaw !== undefined) {
+    const parsed = parseDuration(timeoutRaw);
+    if (parsed === null) {
+      console.error(`--timeout 值无效: "${timeoutRaw}"（支持 300000 / 300s / 5m / 0）`);
+      process.exit(1);
+    }
+    timeoutMs = parsed;
+  }
 
   // --resume last: 自动找最近一次的输出目录
   if (resumeDir === 'last') {
@@ -121,10 +132,10 @@ async function handleRun(): Promise<void> {
   }
 
   try {
-    // --provider / --model / --base-url / --api-key: 命令行覆盖 YAML 中的 LLM 配置
+    // --provider / --model / --base-url / --api-key / --timeout: 命令行覆盖 YAML 中的 LLM 配置
     const cliProviders = ['claude-code', 'gemini-cli', 'copilot-cli', 'codex-cli', 'openclaw-cli', 'hermes-cli'];
     let llmOverride: Partial<LLMConfig> | undefined;
-    if (provider || model || baseUrl || apiKey) {
+    if (provider || model || baseUrl || apiKey || timeoutMs !== undefined) {
       llmOverride = {};
       if (provider) {
         llmOverride.provider = provider;
@@ -136,6 +147,8 @@ async function handleRun(): Promise<void> {
       }
       if (baseUrl) llmOverride.base_url = baseUrl;
       if (apiKey) llmOverride.api_key = apiKey;
+      // --timeout 最后赋值，优先级高于 CLI provider 自动 600s
+      if (timeoutMs !== undefined) llmOverride.timeout = timeoutMs;
     }
 
     const result = await run(resolve(filePath), inputs, {
@@ -230,7 +243,7 @@ async function handleExplain(): Promise<void> {
 async function handleCompose(): Promise<void> {
   const autoRun = args.includes('--run');
   // 描述是第一个非 flag 的参数（跳过 compose 本身和 --xxx 的值）
-  const flagsWithValue = new Set(['--name', '--provider', '--model', '--agents-dir', '--lang', '--base-url', '--baseurl', '--api-key', '--apikey']);
+  const flagsWithValue = new Set(['--name', '--provider', '--model', '--agents-dir', '--lang', '--base-url', '--baseurl', '--api-key', '--apikey', '--timeout']);
   let description: string | undefined;
   for (let i = 1; i < args.length; i++) {
     if (args[i] === '--run') continue;
@@ -255,6 +268,7 @@ async function handleCompose(): Promise<void> {
     console.error('  --provider <name>   LLM 提供商 (默认 deepseek)');
     console.error('  --model <name>      模型名 (默认 deepseek-chat)');
     console.error('  --lang <zh|en>      语言 (默认自动检测 / auto-detect)');
+    console.error('  --timeout <值>       单步超时，支持 300000/300s/5m (默认 API 300s, 本地/CLI 600s)');
     process.exit(1);
   }
 
@@ -277,6 +291,16 @@ async function handleCompose(): Promise<void> {
   );
   const baseUrl = getArgValue('--base-url') || getArgValue('--baseurl');
   const apiKey = getArgValue('--api-key') || getArgValue('--apikey');
+  const composeTimeoutRaw = getArgValue('--timeout');
+  let composeTimeoutMs: number | undefined;
+  if (composeTimeoutRaw !== undefined) {
+    const parsed = parseDuration(composeTimeoutRaw);
+    if (parsed === null) {
+      console.error(`--timeout 值无效: "${composeTimeoutRaw}"（支持 300000 / 300s / 5m / 0）`);
+      process.exit(1);
+    }
+    composeTimeoutMs = parsed;
+  }
   // 自动检测语言：英文输入 → 优先英文角色库
   const { detectLang } = await import('./cli/compose.js');
   const composeLang = getArgValue('--lang') as 'zh' | 'en' | undefined ?? detectLang(description);
@@ -297,6 +321,7 @@ async function handleCompose(): Promise<void> {
       outputName,
       autoRun,
       lang: composeLang,
+      timeoutMs: composeTimeoutMs,
     });
 
     console.log(`\n  ${t('compose.generated', { path: relativePath })}\n`);
@@ -334,11 +359,13 @@ async function handleCompose(): Promise<void> {
       const result = await run(resolve(savedPath), inputs, {
         quiet: false,
         // 用 compose 时同样的 provider 执行，避免 YAML 里写的 provider 和用户实际可用的不一致
-        // CLI provider 单步调用可能很慢（1-20 分钟），给足超时
+        // CLI provider 单步调用可能很慢（1-20 分钟），给足超时；用户显式 --timeout 优先
         llmOverride: {
           provider,
           model: model || undefined,
-          timeout: cliProviders.includes(provider) ? 600_000 : 300_000,
+          timeout: composeTimeoutMs !== undefined
+            ? composeTimeoutMs
+            : (cliProviders.includes(provider) ? 600_000 : 300_000),
           ...(baseUrl ? { base_url: baseUrl } : {}),
           ...(apiKey ? { api_key: apiKey } : {}),
         },

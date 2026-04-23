@@ -17,7 +17,7 @@ export interface LLMConfig {
   model?: string;              // CLI providers 可省略（使用 CLI 默认模型）
   agent?: string;             // openclaw-cli 专用：agent ID（默认 "main"）
   max_tokens?: number;        // 默认 4096
-  timeout?: number;           // 单步超时 ms，API 默认 120000，CLI 默认 600000
+  timeout?: number;           // 单步超时 ms。默认 API 120000 / CLI 600000 / ollama 600000。因超时触发重试时，下一次 timeout 自动 x1.5（上限 900000）。设为 0 表示不限时
   retry?: number;             // 失败重试次数，默认 3
 }
 
