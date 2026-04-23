@@ -345,7 +345,7 @@ Cursor (`.cursor/mcp.json`):
 | `llm.provider` | string | Yes | `claude-code` / `gemini-cli` / `copilot-cli` / `codex-cli` / `openclaw-cli` / `hermes-cli` / `ollama` / `claude` / `deepseek` / `openai` |
 | `llm.model` | string | Yes | Model name |
 | `llm.max_tokens` | number | No | Default 4096 |
-| `llm.timeout` | number | No | Step timeout in ms (default 120000) |
+| `llm.timeout` | number | No | Step timeout in ms (default API 120000 / CLI/ollama 600000). Automatically extends x1.5 on timeout retry up to 3600000. `0` means no timeout |
 | `llm.retry` | number | No | Retry count (default 3) |
 | `concurrency` | number | No | Max parallel steps (default 2) |
 | `inputs` | array | No | Input variable definitions |

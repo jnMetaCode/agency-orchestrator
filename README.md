@@ -366,7 +366,7 @@ ao serve --verbose    # 带调试日志
 | `llm.provider` | string | 是 | `claude-code` / `gemini-cli` / `copilot-cli` / `codex-cli` / `openclaw-cli` / `hermes-cli` / `ollama` / `claude` / `deepseek` / `openai` |
 | `llm.model` | string | 是 | 模型名称 |
 | `llm.max_tokens` | number | 否 | 默认 4096 |
-| `llm.timeout` | number | 否 | 步骤超时毫秒数（默认 120000） |
+| `llm.timeout` | number | 否 | 步骤超时毫秒数（默认 API 120000 / CLI/ollama 600000）。因超时重试时自动 x1.5 递增，上限 3600000。`0` 表示不限时 |
 | `llm.retry` | number | 否 | 重试次数（默认 3） |
 | `concurrency` | number | 否 | 最大并行步骤数（默认 2） |
 | `inputs` | array | 否 | 输入变量定义 |
