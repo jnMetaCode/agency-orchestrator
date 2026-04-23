@@ -2,6 +2,11 @@
 
 本项目采用 [语义化版本](https://semver.org/lang/zh-CN/)。
 
+## [0.6.9] - 2026-04-24
+
+### Fixed
+- Windows 上 `ao run` / `ao compose` / `ao serve` 找不到包内置 / node_modules 下的 agents 目录，报 "agents 目录不存在"。根因：`new URL(import.meta.url).pathname` 在 Windows 上返回 `/C:/Users/...` 这种前导斜杠非法路径，`dirname` + `resolve` 后所有依赖 scriptDir 的候选路径全部失效。改用 `node:url` 的 `fileURLToPath` 跨平台 API 正确解析。Mac/Linux 行为不变
+
 ## [0.6.8] - 2026-04-24
 
 ### Changed
