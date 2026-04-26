@@ -2,6 +2,14 @@
 
 本项目采用 [语义化版本](https://semver.org/lang/zh-CN/)。
 
+## [0.6.11] - 2026-04-27
+
+### Fixed
+- `repairWithLLM` 失败时静默吞错。LLM 调用因网络/认证/超时失败时不再悄悄返回，会在 stderr 给出失败原因，避免用户看到 "LLM 修复后仍有 X 个变量未解决" 误以为 LLM 修了但不够，实际是根本没调通
+
+### Tests
+- 新增 1 项测试覆盖跨 step 同名 bad var 的已知边界行为（全局 replace 只处理一次，靠 LLM repair 兜底）
+
 ## [0.6.10] - 2026-04-27
 
 ### Fixed

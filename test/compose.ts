@@ -348,6 +348,44 @@ steps:
   assert(r.fixed === 0, `没有上游应不修，实际 ${r.fixed}`);
 });
 
+await test('autoFix: 跨 step 同名 bad var 只全局处理一次（已知 limitation）', async () => {
+  // 边角 case：两个 step 都引用 {{review}}，但上游不同。
+  // 当前实现用全局 replace + globallyHandled，所以两个 step 的 {{review}} 都
+  // 被改成同一个 output（第一个匹配到的）。这在罕见的"同名变量不同语义"场景
+  // 下会让第二个 step 出现新的未定义变量，留给 LLM repair 兜底。
+  const p = makeYamlFile(validYamlBase + `
+steps:
+  - id: a_step
+    role: engineering/engineering-sre
+    task: "A"
+    output: data_a
+
+  - id: b_step
+    role: engineering/engineering-sre
+    task: "B"
+    output: data_b
+
+  - id: review_a
+    role: engineering/engineering-sre
+    task: "review {{review}}"
+    output: review_a_out
+    depends_on: [a_step]
+
+  - id: review_b
+    role: engineering/engineering-sre
+    task: "review {{review}}"
+    output: review_b_out
+    depends_on: [b_step]
+`);
+  const r = await autoFixVariableRefs(p);
+  // 期望：第一个 step (review_a) 把 {{review}} → {{data_a}}（上游唯一 output）
+  // 第二个 step (review_b) 的 {{review}} 也被全局 replace 改成 data_a
+  // 但 review_b 的上游是 b_step，data_a 不在它的 depends_on 闭包里
+  // 这是已知 limitation，由 LLM repair 兜底。autoFix 自身只确保不指向"下游"
+  assert(r.fixed === 1, `应仅记录 1 次替换（全局），实际 ${r.fixed}`);
+  assert(r.details[0].from === 'review', `期望 from=review，实际 ${r.details[0].from}`);
+});
+
 // ─── 汇总 ───
 console.log(`\n  结果: ${passed} 通过, ${failed} 失败\n`);
 if (failed > 0) process.exit(1);

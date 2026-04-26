@@ -773,11 +773,14 @@ inputs: ${inputNames.length > 0 ? inputNames.join('、') : '（无）'}
     });
     const fixedYaml = extractYamlFromResponse(result.content);
     if (!fixedYaml || !fixedYaml.includes('steps:')) {
+      process.stderr.write('  ⚠️  LLM 二次修复返回的内容不是有效 YAML，保留原文件\n');
       return { ok: false, replaced: false };
     }
     writeFileSync(yamlPath, fixedYaml + '\n', 'utf-8');
     return { ok: true, replaced: true };
-  } catch {
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    process.stderr.write(`  ⚠️  LLM 二次修复调用失败: ${msg.slice(0, 120)}\n`);
     return { ok: false, replaced: false };
   }
 }
