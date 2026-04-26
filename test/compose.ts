@@ -2,6 +2,7 @@
  * compose 功能单元测试 — 纯函数部分（不需要 LLM 调用）
  */
 import {
+  autoFixVariableRefs,
   buildComposeSystemPrompt,
   buildComposeUserPrompt,
   extractYamlFromResponse,
@@ -10,19 +11,21 @@ import {
   detectLang,
   type RoleSummary,
 } from '../src/cli/compose.js';
+import { writeFileSync, readFileSync, mkdtempSync } from 'node:fs';
+import { join } from 'node:path';
+import { tmpdir } from 'node:os';
 
 let passed = 0;
 let failed = 0;
 
-function test(name: string, fn: () => void): void {
-  try {
-    fn();
+function test(name: string, fn: () => void | Promise<void>): Promise<void> {
+  return Promise.resolve(fn()).then(() => {
     console.log(`  ✅ ${name}`);
     passed++;
-  } catch (err) {
+  }).catch(err => {
     console.log(`  ❌ ${name}: ${err instanceof Error ? err.message : err}`);
     failed++;
-  }
+  });
 }
 
 function assert(condition: boolean, msg: string): void {
@@ -209,6 +212,140 @@ test('同名文件已存在时加序号', () => {
   // 用 workflows/ 目录测试（里面已有文件）
   const name1 = generateFileName('story-creation', './workflows');
   assert(name1 === 'story-creation-2.yaml', '应加序号避免覆盖');
+});
+
+// ─── prompt 含变量来源约束（D） ───
+
+console.log('\n─── prompt 变量来源约束 ───');
+
+test('zh prompt 包含变量来源规则', () => {
+  const p = buildComposeSystemPrompt('## cat\n- foo/bar | 🔍 n | d', { lang: 'zh' });
+  assert(p.includes('变量必须有来源'), 'prompt 应说明变量必须有来源');
+  assert(p.includes('合并/汇总类步骤'), 'prompt 应专门提示 merge step 的 depends_on');
+});
+
+test('en prompt 包含变量来源规则', () => {
+  const p = buildComposeSystemPrompt('## cat\n- foo/bar | 🔍 n | d', { lang: 'en' });
+  assert(p.includes('Variables must have a source'), 'prompt should mention variable source rule');
+  assert(p.includes('Merge / aggregation steps'), 'prompt should mention merge step rule');
+});
+
+// ─── autoFixVariableRefs（A：DAG 上游约束） ───
+
+console.log('\n─── autoFixVariableRefs DAG 上游约束 ───');
+
+function makeYamlFile(content: string): string {
+  const dir = mkdtempSync(join(tmpdir(), 'aotest-'));
+  const p = join(dir, 'wf.yaml');
+  writeFileSync(p, content);
+  return p;
+}
+
+const validYamlBase = `name: t
+agents_dir: agency-agents
+llm:
+  provider: deepseek
+  model: deepseek-chat
+`;
+
+await test('autoFix: 用上游 step.id 替换 → 走策略 1', async () => {
+  const p = makeYamlFile(validYamlBase + `
+steps:
+  - id: analyze
+    role: engineering/engineering-sre
+    task: "分析"
+    output: analysis_data
+
+  - id: report
+    role: engineering/engineering-sre
+    task: "汇总 {{analyze}}"
+    output: final
+    depends_on: [analyze]
+`);
+  const r = await autoFixVariableRefs(p);
+  assert(r.fixed === 1, `应修复 1 个，实际 ${r.fixed}`);
+  assert(r.details[0].from === 'analyze' && r.details[0].to === 'analysis_data',
+    `期望 analyze → analysis_data，实际 ${r.details[0].from} → ${r.details[0].to}`);
+});
+
+await test('autoFix: 不允许指向下游 output（拓扑约束）', async () => {
+  // personal_assessment 在前，final_report 在后；旧版会错误地把 personal_assessment → final_report
+  const p = makeYamlFile(validYamlBase + `
+steps:
+  - id: personal_assessment_step
+    role: engineering/engineering-sre
+    task: "评估 {{platform_analysis}}"
+    output: assessment
+
+  - id: final_report
+    role: engineering/engineering-sre
+    task: "总结 {{assessment}}"
+    output: final_report
+    depends_on: [personal_assessment_step]
+`);
+  const r = await autoFixVariableRefs(p);
+  // personal_assessment_step 没有 depends_on，所以 {{platform_analysis}} 没法在上游找到
+  // 应该 0 个 fixed，不能错改成 final_report
+  assert(r.fixed === 0, `不应做任何替换，实际 fixed=${r.fixed} details=${JSON.stringify(r.details)}`);
+});
+
+await test('autoFix: 上游 outputs 内模糊匹配 → 走策略 2', async () => {
+  const p = makeYamlFile(validYamlBase + `
+steps:
+  - id: market
+    role: engineering/engineering-sre
+    task: "调研"
+    output: market_research
+
+  - id: tech
+    role: engineering/engineering-sre
+    task: "技术 {{market_data}}"
+    output: tech_doc
+    depends_on: [market]
+`);
+  const r = await autoFixVariableRefs(p);
+  assert(r.fixed === 1, `应修复 1 个，实际 ${r.fixed}`);
+  assert(r.details[0].to === 'market_research', `期望 → market_research，实际 ${r.details[0].to}`);
+});
+
+await test('autoFix: 多个 bad var 在 merge step 内分别匹配上游', async () => {
+  const p = makeYamlFile(validYamlBase + `
+steps:
+  - id: market_step
+    role: engineering/engineering-sre
+    task: "市场"
+    output: market_data
+
+  - id: tech_step
+    role: engineering/engineering-sre
+    task: "技术"
+    output: tech_data
+
+  - id: merge
+    role: engineering/engineering-sre
+    task: "合并 {{market}} 和 {{tech}}"
+    output: report
+    depends_on: [market_step, tech_step]
+`);
+  const r = await autoFixVariableRefs(p);
+  // {{market}} 和 {{tech}} 都不是 step.id，但模糊匹配 outputs 时
+  // market 应匹配 market_data, tech 应匹配 tech_data
+  assert(r.fixed === 2, `应修复 2 个，实际 ${r.fixed}`);
+  const tos = r.details.map(d => d.to).sort();
+  assert(JSON.stringify(tos) === JSON.stringify(['market_data', 'tech_data']),
+    `期望 [market_data, tech_data]，实际 ${JSON.stringify(tos)}`);
+});
+
+await test('autoFix: 没有上游的 step 内的 bad var 跳过不修', async () => {
+  const p = makeYamlFile(validYamlBase + `
+steps:
+  - id: lonely
+    role: engineering/engineering-sre
+    task: "单飞 {{nonsense}}"
+    output: out
+`);
+  const r = await autoFixVariableRefs(p);
+  assert(r.fixed === 0, `没有上游应不修，实际 ${r.fixed}`);
 });
 
 // ─── 汇总 ───

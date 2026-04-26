@@ -337,10 +337,31 @@ async function handleCompose(): Promise<void> {
     }
 
     if (autoRun) {
-      // --run 模式：校验有严重问题时不执行
-      if (warnings.some(w => w.includes('解析失败') || w.toLowerCase().includes('parse failed'))) {
+      // --run 模式：校验有严重问题时不进入 run 阶段
+      // run() 内部会重新 validate 并 hard-fail，提前拦下来给用户更清晰的提示
+      const fatalParse = warnings.some(w => w.includes('解析失败') || w.toLowerCase().includes('parse failed'));
+      const fatalUndefVar = warnings.some(w =>
+        w.includes('未定义的变量') || w.toLowerCase().includes('undefined variable')
+      );
+      const fatalInvalidRole = warnings.some(w =>
+        w.includes('不存在于角色库') || w.toLowerCase().includes('does not exist in catalog')
+      );
+      if (fatalParse || fatalUndefVar || fatalInvalidRole) {
         console.error(`  ${t('compose.retry_yaml_bad')}`);
-        console.error(`    ao run ${relativePath}`);
+        console.error('');
+        console.error('  以下问题需要先解决 / The following issues need to be resolved:');
+        for (const w of warnings) {
+          if (w.includes('未定义的变量') || w.includes('解析失败') || w.includes('不存在于角色库')
+              || w.toLowerCase().includes('undefined variable') || w.toLowerCase().includes('parse failed')
+              || w.toLowerCase().includes('does not exist in catalog')) {
+            console.error(`    - ${w}`);
+          }
+        }
+        console.error('');
+        console.error('  建议 / Suggestions:');
+        console.error('    1. 重新生成 / Regenerate: ao compose "..." --run');
+        console.error(`    2. 手动修改 / Manually edit: ${relativePath}`);
+        console.error(`       然后用 / then run: ao run ${relativePath}`);
         process.exit(1);
       }
 

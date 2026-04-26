@@ -169,6 +169,8 @@ ${catalog}
 
 - The role value must strictly use paths from the role catalog (e.g., "engineering/engineering-code-reviewer") — do NOT make up role paths
 - **Variable names must use underscores**, no spaces. Correct: "market_analysis", "tech_report". Wrong: "market analysis", "tech report". All id, output, and depends_on values must be snake_case
+- **Variables must have a source**: every \`{{X}}\` referenced in a step's task MUST appear either as an \`inputs\` name OR as the \`output\` field of an earlier step. Do NOT invent variable names that no step produces
+- **Merge / aggregation steps**: if a step references \`{{a}}\`, \`{{b}}\`, \`{{c}}\` from upstream, its \`depends_on\` MUST list every upstream step that produces those outputs. Cross-check before emitting
 - Only output the YAML code block, nothing else
 - Set concurrency to the maximum number of parallel steps
 - **Important: Split large tasks**. When writing long articles, don't let one step generate more than 800 words. Split by sections into multiple parallel steps (e.g., write_ch1, write_ch2, write_ch3), then use a merge step to rewrite into a coherent complete article
@@ -266,6 +268,8 @@ ${catalog}
 
 - role 的值必须严格使用角色目录中的 path（如 "engineering/engineering-code-reviewer"），不要自己编造
 - **变量名必须用下划线**，不能有空格。正确："market_analysis"、"tech_report"。错误："market analysis"、"tech report"。id、output、depends_on 中的值都必须用 snake_case
+- **变量必须有来源**：每个 task 中的 \`{{X}}\` 引用，X 必须是 \`inputs\` 中的某个 name，或者是前面某个 step 的 \`output\` 字段。不要凭空写一个没有任何 step 产生的变量名
+- **合并/汇总类步骤**：如果一个步骤的 task 里引用了 \`{{a}}\`、\`{{b}}\`、\`{{c}}\` 这些上游变量，它的 \`depends_on\` 必须列出所有产生这些 output 的上游 step。生成完后请逐一核对一遍
 - 只输出 YAML 代码块，不要输出其他内容
 - concurrency 设为并行步骤的最大数量
 - **重要：拆分大任务**。写长文章时，不要让一个步骤生成超过 800 字的内容。应该按章节拆分成多个并行步骤（如 write_ch1、write_ch2、write_ch3），最后用一个合并步骤重写为连贯的完整文章
@@ -438,53 +442,86 @@ export async function composeWorkflow(options: {
       if (retryYaml && retryYaml.includes('steps:')) {
         writeFileSync(savedPath, retryYaml + '\n', 'utf-8');
         const second = await validateGenerated(savedPath);
-        // 重试后仍有变量引用错误 → 自动修复
-        const retryVarErrors = second.errors.filter(e => e.includes('未定义的变量'));
-        if (retryVarErrors.length > 0) {
-          const fixResult = await autoFixVariableRefs(savedPath);
-          if (fixResult.fixed > 0) {
-            console.log(`  自动修复了 ${fixResult.fixed} 个变量引用：`);
-            for (const f of fixResult.details) console.log(`    {{${f.from}}} → {{${f.to}}}`);
-            const afterFix = await validateGenerated(savedPath);
-            warnings.push(...afterFix.errors);
-            const fixedYaml = readFileSync(savedPath, 'utf-8').trim();
-            return { yaml: fixedYaml, savedPath, relativePath, warnings };
-          }
-        }
-        warnings.push(...second.errors);
-        return { yaml: retryYaml, savedPath, relativePath, warnings };
+        // 重试后仍有变量引用错误 → 走 fix 链（autoFix → LLM 二次修复）
+        const finalErrors = await runVariableFixChain(savedPath, second.errors, validateGenerated, llmConfig, lang);
+        warnings.push(...finalErrors);
+        const fixedYaml = readFileSync(savedPath, 'utf-8').trim();
+        return { yaml: fixedYaml, savedPath, relativePath, warnings };
       }
     } catch (err) {
       warnings.push(`自动修正失败（保留原始输出）: ${err instanceof Error ? err.message : err}`);
     }
   }
 
-  // 自动修复未定义的变量引用（LLM 常见错误：变量名与 output 名不一致）
-  const varErrors = first.errors.filter(e => e.includes('未定义的变量'));
-  if (varErrors.length > 0) {
-    const fixResult = await autoFixVariableRefs(savedPath);
-    if (fixResult.fixed > 0) {
-      console.log(`  自动修复了 ${fixResult.fixed} 个变量引用：`);
-      for (const f of fixResult.details) {
-        console.log(`    {{${f.from}}} → {{${f.to}}}`);
-      }
-      // 重新校验
-      const afterFix = await validateGenerated(savedPath);
-      warnings.push(...afterFix.errors);
-      const fixedYaml = readFileSync(savedPath, 'utf-8').trim();
-      return { yaml: fixedYaml, savedPath, relativePath, warnings };
-    }
-  }
+  // 首次生成无幻觉角色 → 直接走变量 fix 链
+  const finalErrors = await runVariableFixChain(savedPath, first.errors, validateGenerated, llmConfig, lang);
+  warnings.push(...finalErrors);
+  const finalYaml = readFileSync(savedPath, 'utf-8').trim();
+  return { yaml: finalYaml, savedPath, relativePath, warnings };
+}
 
-  warnings.push(...first.errors);
-  return { yaml, savedPath, relativePath, warnings };
+/**
+ * 变量引用错误的修复链：autoFix（启发式）→ LLM 二次修复 → 重新校验。
+ * 返回最终仍未解决的 errors。
+ */
+async function runVariableFixChain(
+  savedPath: string,
+  initialErrors: string[],
+  validateGenerated: (p: string) => Promise<{ errors: string[]; invalidRoles: string[] }>,
+  llmConfig: LLMConfig,
+  lang: 'zh' | 'en'
+): Promise<string[]> {
+  const hasVarError = (errs: string[]) =>
+    errs.some(e => e.includes('未定义的变量') || e.toLowerCase().includes('undefined variable'));
+
+  if (!hasVarError(initialErrors)) return initialErrors;
+
+  // 阶段 1: autoFix（启发式，只在 DAG 上游内替换）
+  const fixResult = await autoFixVariableRefs(savedPath);
+  if (fixResult.fixed > 0) {
+    console.log(`  自动修复了 ${fixResult.fixed} 个变量引用：`);
+    for (const f of fixResult.details) console.log(`    {{${f.from}}} → {{${f.to}}}`);
+  }
+  let current = await validateGenerated(savedPath);
+  if (!hasVarError(current.errors)) return current.errors;
+
+  // 阶段 2: LLM 二次修复（autoFix 修不动的让 LLM 决策）
+  const remainingVars = extractUndefinedVarNames(current.errors);
+  if (remainingVars.length === 0) return current.errors;
+
+  console.log(`  ${remainingVars.length} 个变量启发式修不动，调 LLM 二次修复...`);
+  const repair = await repairWithLLM(savedPath, remainingVars, llmConfig, lang);
+  if (repair.replaced) {
+    current = await validateGenerated(savedPath);
+    if (!hasVarError(current.errors)) {
+      console.log('  LLM 修复成功');
+      return current.errors;
+    }
+    console.log(`  LLM 修复后仍有 ${remainingVars.length} 个变量未解决，需人工检查`);
+  }
+  return current.errors;
+}
+
+/** 从 "step \"X\" 引用了未定义的变量: {{Y}}" 这类消息里提取变量名 Y */
+function extractUndefinedVarNames(errors: string[]): string[] {
+  const names = new Set<string>();
+  for (const e of errors) {
+    const m = e.match(/\{\{(\w+)\}\}/);
+    if (m) names.add(m[1]);
+  }
+  return [...names];
 }
 
 /**
  * 自动修复 compose 生成 YAML 中的变量引用错误。
- * 常见情况：LLM 用 step id 或 role 名代替 output 变量名。
+ *
+ * 核心约束：替换目标必须在当前 step 的 DAG 上游（递归 depends_on 闭包）内的 step.output 集合里。
+ * 这避免了"早期 step 引用下游 step output"的拓扑错误（旧版策略 2 模糊匹配会把
+ * personal_assessment 错误地指向 final_report 这种最终汇总 output）。
+ *
+ * 如果某 step 没有上游或上游 output 都对不上，bad var 留给 LLM 二次修复（repairWithLLM）。
  */
-async function autoFixVariableRefs(yamlPath: string): Promise<{ fixed: number; details: { from: string; to: string }[] }> {
+export async function autoFixVariableRefs(yamlPath: string): Promise<{ fixed: number; details: { from: string; to: string }[] }> {
   const { parseWorkflow } = await import('../core/parser.js');
   const content = readFileSync(yamlPath, 'utf-8');
   let workflow;
@@ -495,65 +532,88 @@ async function autoFixVariableRefs(yamlPath: string): Promise<{ fixed: number; d
   }
 
   const inputNames = new Set((workflow.inputs || []).map((i: any) => i.name));
-  const outputNames = new Set<string>();
-  const stepIdToOutput = new Map<string, string>();
-
+  const stepById = new Map<string, any>();
+  const allOutputs = new Set<string>();
   for (const step of workflow.steps) {
-    if (step.output) {
-      outputNames.add(step.output);
-      stepIdToOutput.set(step.id, step.output);
-    }
+    stepById.set(step.id, step);
+    if (step.output) allOutputs.add(step.output);
   }
+  const allDefined = new Set([...inputNames, ...allOutputs, '_loop_iteration']);
 
-  const allDefined = new Set([...inputNames, ...outputNames, '_loop_iteration']);
-  const replacements: { from: string; to: string }[] = [];
-  let fixedContent = content;
-
-  // 找出所有未定义的变量引用
-  const undefinedVars = new Set<string>();
-  for (const step of workflow.steps) {
-    const refs = step.task?.match(/\{\{(\w+)\}\}/g) || [];
-    for (const ref of refs) {
-      const varName = ref.slice(2, -2);
-      if (!allDefined.has(varName)) {
-        undefinedVars.add(varName);
+  // 计算 stepId 的 DAG 上游 step ids（递归 depends_on 闭包，不含自身）
+  function upstreamStepIds(stepId: string): Set<string> {
+    const out = new Set<string>();
+    const stack = [stepId];
+    while (stack.length > 0) {
+      const cur = stack.pop()!;
+      const step = stepById.get(cur);
+      if (!step) continue;
+      for (const dep of step.depends_on || []) {
+        if (out.has(dep)) continue;
+        out.add(dep);
+        stack.push(dep);
       }
     }
+    return out;
   }
 
-  for (const badVar of undefinedVars) {
-    // 策略1：badVar 是某个 step id，该 step 有 output → 替换为 output
-    if (stepIdToOutput.has(badVar)) {
-      const goodVar = stepIdToOutput.get(badVar)!;
-      fixedContent = fixedContent.replace(new RegExp(`\\{\\{${badVar}\\}\\}`, 'g'), `{{${goodVar}}}`);
-      replacements.push({ from: badVar, to: goodVar });
-      continue;
-    }
+  const replacements: { from: string; to: string }[] = [];
+  let fixedContent = content;
+  // 同名 bad var 在多个 step 里只处理一次（避免重复全局 replace）
+  const globallyHandled = new Set<string>();
 
-    // 策略2：模糊匹配 — 找子串包含关系最强的 output 变量
-    const best = findBestMatch(badVar, [...outputNames]);
-    if (best) {
-      fixedContent = fixedContent.replace(new RegExp(`\\{\\{${badVar}\\}\\}`, 'g'), `{{${best}}}`);
-      replacements.push({ from: badVar, to: best });
-      continue;
+  for (const step of workflow.steps) {
+    const refs = step.task?.match(/\{\{(\w+)\}\}/g) || [];
+    const badVarsInStep: string[] = [];
+    for (const ref of refs) {
+      const varName = ref.slice(2, -2);
+      if (!allDefined.has(varName) && !globallyHandled.has(varName)) {
+        badVarsInStep.push(varName);
+      }
     }
+    if (badVarsInStep.length === 0) continue;
 
-    // 策略3：按 depends_on 找上游有 output 且尚未被引用的步骤
-    const alreadyUsed = new Set(replacements.map(r => r.to));
-    for (const step of workflow.steps) {
-      const refs = step.task?.match(/\{\{(\w+)\}\}/g) || [];
-      const hasBadRef = refs.some((r: string) => r.slice(2, -2) === badVar);
-      if (hasBadRef && step.depends_on?.length) {
-        // 优先选还没被占用的上游 output
-        const deps = step.depends_on.filter(d => stepIdToOutput.has(d));
-        const unusedDep = deps.find(d => !alreadyUsed.has(stepIdToOutput.get(d)!));
-        const depId = unusedDep || deps[0];
-        if (depId) {
-          const goodVar = stepIdToOutput.get(depId)!;
-          fixedContent = fixedContent.replace(new RegExp(`\\{\\{${badVar}\\}\\}`, 'g'), `{{${goodVar}}}`);
+    // 当前 step 的 DAG 上游 outputs（仅这些是合法替换目标）
+    const upStepIds = upstreamStepIds(step.id);
+    const upstreamOutputs: string[] = [];
+    for (const id of upStepIds) {
+      const s = stepById.get(id);
+      if (s?.output) upstreamOutputs.push(s.output);
+    }
+    if (upstreamOutputs.length === 0) continue;  // 无上游可用 → 跳过，等 LLM 修
+
+    const usedInThisStep = new Set<string>();
+
+    for (const badVar of badVarsInStep) {
+      let goodVar: string | undefined;
+
+      // 策略 1：badVar 等于某个上游 step.id（含传递闭包），用该 step.output
+      if (upStepIds.has(badVar)) {
+        const depStep = stepById.get(badVar);
+        if (depStep?.output) goodVar = depStep.output;
+      }
+
+      // 策略 2：在上游 outputs 中模糊匹配（已被本 step 用过的优先级降低）
+      if (!goodVar) {
+        const candidates = upstreamOutputs.filter(o => !usedInThisStep.has(o));
+        const pool = candidates.length > 0 ? candidates : upstreamOutputs;
+        const match = findBestMatch(badVar, pool);
+        if (match) goodVar = match;
+      }
+
+      // 策略 3：上游里第一个还没被本 step 占用的 output
+      if (!goodVar) {
+        goodVar = upstreamOutputs.find(o => !usedInThisStep.has(o));
+      }
+
+      if (goodVar && goodVar !== badVar) {
+        const re = new RegExp(`\\{\\{${escapeRegex(badVar)}\\}\\}`, 'g');
+        if (re.test(fixedContent)) {
+          fixedContent = fixedContent.replace(re, `{{${goodVar}}}`);
           replacements.push({ from: badVar, to: goodVar });
+          usedInThisStep.add(goodVar);
+          globallyHandled.add(badVar);
         }
-        break;
       }
     }
   }
@@ -562,6 +622,10 @@ async function autoFixVariableRefs(yamlPath: string): Promise<{ fixed: number; d
     writeFileSync(yamlPath, fixedContent, 'utf-8');
   }
   return { fixed: replacements.length, details: replacements };
+}
+
+function escapeRegex(s: string): string {
+  return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
 /**
@@ -601,4 +665,119 @@ function longestCommonSubstring(a: string, b: string): number {
     }
   }
   return max;
+}
+
+/**
+ * 当 autoFix 修不全时，调一次 LLM 让它修剩余的未定义变量。
+ * Prompt 给完整 YAML + 错误清单 + 可用 inputs/outputs，让 LLM 决定:
+ *  - 改 task 里的 {{X}} 引用
+ *  - 给某 step 加 output 字段
+ *  - 补 merge step 的 depends_on
+ */
+async function repairWithLLM(
+  yamlPath: string,
+  undefinedVars: string[],
+  llmConfig: LLMConfig,
+  lang: 'zh' | 'en'
+): Promise<{ ok: boolean; replaced: boolean }> {
+  const { parseWorkflow } = await import('../core/parser.js');
+  const currentYaml = readFileSync(yamlPath, 'utf-8');
+  let workflow;
+  try {
+    workflow = parseWorkflow(yamlPath);
+  } catch {
+    return { ok: false, replaced: false };
+  }
+
+  const inputNames = (workflow.inputs || []).map((i: any) => i.name);
+  const outputNames: string[] = [];
+  const stepIds: string[] = [];
+  for (const step of workflow.steps) {
+    stepIds.push(step.id);
+    if (step.output) outputNames.push(step.output);
+  }
+
+  const prompt = lang === 'en'
+    ? `Your previously generated workflow YAML has unresolved variable references. Fix and output the complete YAML.
+
+# Current YAML
+
+\`\`\`yaml
+${currentYaml}
+\`\`\`
+
+# Undefined variables
+
+These \`{{X}}\` references appear in some step's task but no step produces them as \`output\`:
+${undefinedVars.map(v => `  - {{${v}}}`).join('\n')}
+
+# Available names
+
+inputs: ${inputNames.length > 0 ? inputNames.join(', ') : '(none)'}
+existing step.output: ${outputNames.length > 0 ? outputNames.join(', ') : '(none)'}
+existing step.id: ${stepIds.join(', ')}
+
+# How to fix (pick whichever fits each case)
+
+1. If the reference meant an existing upstream output → rename \`{{X}}\` to that output name in the task
+2. If a step should be producing this output but lacks the field → add \`output: X\` to that step
+3. If a merge/aggregation step's \`depends_on\` is incomplete → add the upstream step ids that produce the referenced outputs
+
+# Output rules
+
+- Output ONLY the corrected complete YAML code block, nothing else
+- Preserve roles, descriptions, structure as much as possible
+- DO NOT add commentary
+`
+    : `你之前生成的工作流 YAML 中有未解决的变量引用错误。请修正后输出完整的 YAML。
+
+# 当前 YAML
+
+\`\`\`yaml
+${currentYaml}
+\`\`\`
+
+# 未定义的变量
+
+以下 \`{{X}}\` 在某个 step 的 task 中被引用，但没有任何 step 用 \`output\` 字段产生它们：
+${undefinedVars.map(v => `  - {{${v}}}`).join('\n')}
+
+# 可用的名字
+
+inputs: ${inputNames.length > 0 ? inputNames.join('、') : '（无）'}
+已有的 step.output: ${outputNames.length > 0 ? outputNames.join('、') : '（无）'}
+已有的 step.id: ${stepIds.join('、')}
+
+# 修复方式（按场景任选）
+
+1. 如果引用的本意是上游某个已存在的 output → 把 task 里的 \`{{X}}\` 改成该 output 的名字
+2. 如果某个 step 本应产生这个 output 但少写了字段 → 给该 step 加 \`output: X\`
+3. 如果合并/汇总类 step 的 \`depends_on\` 不全 → 补上产生这些 output 的上游 step.id
+
+# 输出要求
+
+- 只输出修正后的完整 YAML 代码块，不要输出其他文字
+- 保持角色、描述、结构尽量不变
+- 不要加解释
+`;
+
+  const systemPrompt = lang === 'en'
+    ? 'You are a YAML workflow repair assistant. Output only the corrected YAML code block.'
+    : '你是一个 YAML 工作流修复助手。只输出修正后的 YAML 代码块。';
+
+  try {
+    const connector = createConnector(llmConfig);
+    const result = await connector.chat(systemPrompt, prompt, {
+      ...llmConfig,
+      max_tokens: llmConfig.max_tokens || 4096,
+    });
+    const fixedYaml = extractYamlFromResponse(result.content);
+    if (!fixedYaml || !fixedYaml.includes('steps:')) {
+      return { ok: false, replaced: false };
+    }
+    writeFileSync(yamlPath, fixedYaml + '\n', 'utf-8');
+    return { ok: true, replaced: true };
+  } catch {
+    return { ok: false, replaced: false };
+  }
 }
