@@ -111,6 +111,42 @@ test('检测 condition 字段里的未定义变量', () => {
   );
 });
 
+test('output 重名例外：any_completed 分支收敛模式合法', () => {
+  // 多个并行 step 产出同名 output，下游用 any_completed 引用——是有意的"分支收敛"设计
+  const wf = parseWorkflow(workflowPath);
+  if (wf.steps.length < 4) throw new Error('fixture 至少需要 4 个 step');
+  // 让两个并行 step 都 output 同名
+  wf.steps[1].output = 'analysis_result';
+  wf.steps[2].output = 'analysis_result';
+  // 下游 step（已存在的）改成 any_completed
+  wf.steps[3].depends_on = [wf.steps[1].id, wf.steps[2].id];
+  wf.steps[3].depends_on_mode = 'any_completed';
+  const errors = validateWorkflow(wf);
+  // 不应报 output 重名错误
+  assert(
+    !errors.some(e => e.includes('analysis_result') && e.includes('多个 step 同时产出')),
+    `any_completed 模式下 output 重名应被允许，实际错误: ${errors.join('; ')}`
+  );
+});
+
+test('output 重名例外：loop 迭代覆盖模式合法', () => {
+  // write 产生种子 + revise 用 loop 反复覆盖同名 output，是合法的"原地修改"迭代
+  const wf = parseWorkflow(workflowPath);
+  if (wf.steps.length < 3) throw new Error('fixture 至少需要 3 个 step');
+  wf.steps[0].output = 'doc';
+  wf.steps[1].output = 'doc';
+  wf.steps[1].loop = {
+    back_to: wf.steps[0].id,
+    max_iterations: 3,
+    exit_condition: '{{doc}} contains 通过',
+  };
+  const errors = validateWorkflow(wf);
+  assert(
+    !errors.some(e => e.includes('"doc"') && e.includes('多个 step 同时产出')),
+    `loop 迭代覆盖应被允许，实际错误: ${errors.join('; ')}`
+  );
+});
+
 test('检测 output 重名：两个 step 产出同一个变量', () => {
   const wf = parseWorkflow(workflowPath);
   // 强制把第二个 step 的 output 改成和第一个相同

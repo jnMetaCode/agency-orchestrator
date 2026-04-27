@@ -81,7 +81,7 @@ steps:
 
       风格参考：小红书当前热门的视觉趋势。
     output: visual_plan
-    depends_on: [topic_planning]
+    depends_on: [topic_planning, write_notes]
 
   - id: optimize
     role: "marketing/marketing-xiaohongshu-operator"

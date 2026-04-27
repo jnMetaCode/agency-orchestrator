@@ -87,7 +87,7 @@ steps:
 
       每条风险明确标「发生概率」（高/中/低）。
     output: risk
-    depends_on: [research]
+    depends_on: [research, financial]
 
   - id: cfo_opinion
     role: "finance/finance-financial-forecaster"

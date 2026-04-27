@@ -74,6 +74,12 @@ export function validateWorkflow(workflow: WorkflowDefinition): string[] {
 
   // step.output 唯一性检查：两个 step 不能 output 到同一个变量名
   // 否则下游引用拿到的值取决于 context Map 的写入顺序，不可预期
+  //
+  // 两类合法例外不报错：
+  // 1. any_completed 分支收敛：下游用 depends_on_mode: any_completed 引用这些
+  //    重名 step（任一分支完成即走，重名 output 是有意设计）
+  // 2. loop 迭代覆盖：重名 step 中有任一个带 loop 字段（种子 step + loop step
+  //    反复覆盖同名 output，是常见的"原地修改"迭代模式，如 write/revise/brand_review 链）
   const outputToSteps = new Map<string, string[]>();
   for (const step of workflow.steps) {
     if (!step.output) continue;
@@ -82,9 +88,16 @@ export function validateWorkflow(workflow: WorkflowDefinition): string[] {
     outputToSteps.set(step.output, owners);
   }
   for (const [outName, owners] of outputToSteps) {
-    if (owners.length > 1) {
-      errors.push(`output 变量 "${outName}" 被多个 step 同时产出: ${owners.join(', ')}（重名会让下游引用结果不确定）`);
-    }
+    if (owners.length <= 1) continue;
+    const ownerSet = new Set(owners);
+    const hasAnyCompletedConsumer = workflow.steps.some(s =>
+      s.depends_on_mode === 'any_completed'
+      && s.depends_on?.some(d => ownerSet.has(d))
+    );
+    if (hasAnyCompletedConsumer) continue;
+    const hasLoopOwner = owners.some(id => stepById.get(id)?.loop);
+    if (hasLoopOwner) continue;
+    errors.push(`output 变量 "${outName}" 被多个 step 同时产出: ${owners.join(', ')}（重名会让下游引用结果不确定）`);
   }
 
   // 计算每个 step 的 DAG 上游 step ids（递归 depends_on 闭包，不含自身）。

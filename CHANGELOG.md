@@ -2,6 +2,18 @@
 
 本项目采用 [语义化版本](https://semver.org/lang/zh-CN/)。
 
+## [0.6.13] - 2026-04-27
+
+### Fixed
+- **回归修复**：0.6.12 新加的"output 唯一性校验"对两类合法的 ao 设计模式误报，导致 6 个内置 workflow 在 validate 时失败。现在校验放过两类例外：
+  - **`any_completed` 分支收敛**：多个并行 step 产出同名 output，下游用 `depends_on_mode: any_completed` 引用，是有意的"任一分支完成即走"设计（如 incident-response.yaml 的多团队并行分析、hiring-pipeline.yaml 的多维度评估）
+  - **loop 迭代覆盖**：种子 step 产生初始值 + loop step 反复覆盖同名 output，是常见的"原地修改"迭代模式（如 content-publish.yaml 的 write/revise 循环）
+- 修了 3 个内置 workflow 的拓扑反向引用：legal-consultation.yaml / investment-analysis.yaml / xiaohongshu-content.yaml 的相关 step 补 `depends_on`（不是新校验过严，是 yaml 本身设计就有缺陷，新校验把它们暴露出来）
+
+### Tests
+- 新增 2 项 parser 测试覆盖 any_completed / loop 迭代覆盖的合法重名例外
+- E2E 验证：44 个内置 workflow 现在全部通过 validate
+
 ## [0.6.12] - 2026-04-27
 
 ### Fixed

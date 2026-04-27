@@ -97,7 +97,7 @@ steps:
 
       ⚠️ 所有法条引用不确定处必须明确标「需核实最新法规」。
     output: risk_analysis
-    depends_on: [intake]
+    depends_on: [intake, document_review]
 
   - id: opinion
     role: "legal/legal-policy-writer"
