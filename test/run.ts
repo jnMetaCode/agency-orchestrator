@@ -82,6 +82,48 @@ test('检测未定义的变量引用', () => {
   assert(errors.some(e => e.includes('undefined_var')), '应检测到未定义变量');
 });
 
+test('检测拓扑反向：早期 step 引用下游 step 的 output', () => {
+  // step a 在 step b 之前，但 a.task 引用了 b.output → 拓扑反向
+  // 之前 validateWorkflow 不检查上游约束，会让这种错误漏到 run 阶段才崩
+  const wf = parseWorkflow(workflowPath);
+  // 找一个不依赖其他 step 的早期 step，让它引用下游某个 output
+  const earliest = wf.steps.find(s => !s.depends_on || s.depends_on.length === 0);
+  const downstream = wf.steps.find(s => s.depends_on && s.depends_on.length > 0 && s.output);
+  if (!earliest || !downstream || !downstream.output) {
+    throw new Error('fixture 不满足前提：找不到早期/下游 step');
+  }
+  earliest.task = `{{${downstream.output}}}`;
+  const errors = validateWorkflow(wf);
+  assert(
+    errors.some(e => e.includes(downstream.output!) && e.includes('未定义的变量')),
+    `应检测到拓扑反向引用，实际错误: ${errors.join('; ')}`
+  );
+});
+
+test('检测 condition 字段里的未定义变量', () => {
+  // condition 字段也含 {{}} 引用，之前 validateWorkflow 只看 step.task 导致漏检
+  const wf = parseWorkflow(workflowPath);
+  wf.steps[0].condition = '{{nonexistent_var}} contains "ok"';
+  const errors = validateWorkflow(wf);
+  assert(
+    errors.some(e => e.includes('nonexistent_var') && e.includes('未定义的变量')),
+    `应检测到 condition 里的未定义变量，实际错误: ${errors.join('; ')}`
+  );
+});
+
+test('检测 output 重名：两个 step 产出同一个变量', () => {
+  const wf = parseWorkflow(workflowPath);
+  // 强制把第二个 step 的 output 改成和第一个相同
+  if (wf.steps.length < 2) throw new Error('fixture 至少需要 2 个 step');
+  wf.steps[0].output = 'shared_name';
+  wf.steps[1].output = 'shared_name';
+  const errors = validateWorkflow(wf);
+  assert(
+    errors.some(e => e.includes('shared_name') && e.includes('多个 step 同时产出')),
+    `应检测到 output 重名，实际错误: ${errors.join('; ')}`
+  );
+});
+
 test('content-pipeline.yaml 也能解析', () => {
   const path2 = resolve(import.meta.dirname!, '../workflows/content-pipeline.yaml');
   const wf = parseWorkflow(path2);
