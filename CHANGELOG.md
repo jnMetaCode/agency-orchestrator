@@ -2,6 +2,15 @@
 
 本项目采用 [语义化版本](https://semver.org/lang/zh-CN/)。
 
+## [0.6.16] - 2026-04-29
+
+### Changed
+- **`ao demo` 重构：检测优先，去掉预录 mock**
+  - 检测到可用 LLM（CLI / API key / Ollama）→ **直接真跑** story-creation 工作流，无需"先看 mock 再确认"
+  - 没检测到 → 显示**真实 DAG 结构**（用 ao 自身的 `formatDAG`）+ 3 行行动指引（Claude Code / DeepSeek / Ollama 任选）
+  - 删掉旧的 `MOCK_STEPS` 预录数据 + `replayMockSteps` 函数（共 ~150 行）。原 mock 内容是精修过的小说创作，让用户对真跑的输出期望被错误抬高，且占用 5 秒注意力后还要再问 y/n，链路过长
+  - 体验路径从 "mock 5s → 选 provider → y/n → 真跑" 简化为 "检测 → 真跑" 或 "检测 → DAG + 配 key 指引"
+
 ## [0.6.15] - 2026-04-27
 
 ### Fixed
