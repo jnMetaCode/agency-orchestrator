@@ -128,8 +128,14 @@ export class CLIBaseConnector implements LLMConnector {
           ? this.cfg.parseOutput(stdout)
           : stdout.trim();
 
-        if (!content && stderr) {
-          reject(new Error(`${this.cfg.displayName} 返回空内容，stderr: ${stderr.slice(0, 500)}`));
+        // 空内容是严重错误（LLM 应当返回内容）。区分两类原因给具体 hint，避免上层
+        // 拿到空字符串后报出迷惑性的"无效 YAML"错误。
+        if (!content) {
+          const stderrSnippet = stderr.trim().slice(0, 400);
+          const hint = stderrSnippet
+            ? `stderr: ${stderrSnippet}`
+            : `进程退出码 ${code} 但 stdout/stderr 都为空。可能原因: CLI 命令格式已变（参考 issue #14 hermes 的 chat -q → -z）/ agent 或 model 配置不对 / CLI 需要先认证。建议在终端直接跑一次:\n    ${this.cfg.command} ${args.slice(0, 4).join(' ')}${args.length > 4 ? ' ...' : ''}\n  看真实输出再调整 ao 配置`;
+          reject(new Error(`${this.cfg.displayName} 返回空内容。${hint}`));
           return;
         }
 
