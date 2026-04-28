@@ -34,9 +34,11 @@ export function createConnector(config: LLMConfig): LLMConnector {
     case 'claude':
       return new ClaudeConnector(config.api_key);
     case 'deepseek':
+      // 不 fallback OPENAI_BASE_URL — issue #16: 用户设了 OPENAI_BASE_URL=openai.com 后切到
+      // deepseek 会用 OpenAI endpoint + DeepSeek key 调，得到 405。每个 provider 用自己专属 env
       return new OpenAICompatibleConnector({
         apiKey: config.api_key || process.env.DEEPSEEK_API_KEY,
-        baseUrl: config.base_url || process.env.OPENAI_BASE_URL || 'https://api.deepseek.com/v1',
+        baseUrl: config.base_url || process.env.DEEPSEEK_BASE_URL || 'https://api.deepseek.com/v1',
       });
     case 'openai':
       return new OpenAICompatibleConnector({

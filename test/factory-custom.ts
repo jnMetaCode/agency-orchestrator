@@ -59,6 +59,50 @@ test('内置 provider deepseek 不受影响', () => {
   assert(c.constructor.name === 'OpenAICompatibleConnector', `got ${c.constructor.name}`);
 });
 
+test('issue #16: deepseek 不被 OPENAI_BASE_URL 污染', () => {
+  // 模拟用户先用 ao init 设了 openai 的 OPENAI_BASE_URL，再切到 deepseek
+  // 修复前：deepseek 会用 OPENAI_BASE_URL，调 OpenAI endpoint + DeepSeek key → 405
+  // 修复后：deepseek 用自己的 DEEPSEEK_BASE_URL 或硬编码默认值
+  const saved = process.env.OPENAI_BASE_URL;
+  const savedDS = process.env.DEEPSEEK_BASE_URL;
+  try {
+    process.env.OPENAI_BASE_URL = 'https://api.openai.com/v1';
+    delete process.env.DEEPSEEK_BASE_URL;
+    const c = createConnector({
+      provider: 'deepseek',
+      model: 'deepseek-chat',
+      api_key: 'test-key',
+    } as LLMConfig) as any;
+    assert(
+      c.baseUrl === 'https://api.deepseek.com/v1',
+      `deepseek 应使用自己的默认 URL，实际: ${c.baseUrl}`
+    );
+  } finally {
+    if (saved !== undefined) process.env.OPENAI_BASE_URL = saved;
+    else delete process.env.OPENAI_BASE_URL;
+    if (savedDS !== undefined) process.env.DEEPSEEK_BASE_URL = savedDS;
+  }
+});
+
+test('issue #16: deepseek 仍然支持 DEEPSEEK_BASE_URL 自定义', () => {
+  const saved = process.env.DEEPSEEK_BASE_URL;
+  try {
+    process.env.DEEPSEEK_BASE_URL = 'https://my-deepseek-proxy.example.com/v1';
+    const c = createConnector({
+      provider: 'deepseek',
+      model: 'deepseek-chat',
+      api_key: 'test-key',
+    } as LLMConfig) as any;
+    assert(
+      c.baseUrl === 'https://my-deepseek-proxy.example.com/v1',
+      `应使用 DEEPSEEK_BASE_URL 自定义值，实际: ${c.baseUrl}`
+    );
+  } finally {
+    if (saved !== undefined) process.env.DEEPSEEK_BASE_URL = saved;
+    else delete process.env.DEEPSEEK_BASE_URL;
+  }
+});
+
 test('自定义 provider 名含中文也能用', () => {
   const c = createConnector({
     provider: '智谱',

@@ -64,7 +64,7 @@
   "scripts": {
     "build": "tsc",
     "dev": "tsc --watch",
-    "test": "npx tsx test/run.ts && npx tsx test/condition.ts && npx tsx test/cli.ts && npx tsx test/compose.ts && npx tsx test/demo.ts && npx tsx test/e2e.ts && npx tsx test/e2e-condition.ts && npx tsx test/e2e-loop.ts && npx tsx test/mcp.ts",
+    "test": "npx tsx test/run.ts && npx tsx test/condition.ts && npx tsx test/cli.ts && npx tsx test/compose.ts && npx tsx test/demo.ts && npx tsx test/factory-custom.ts && npx tsx test/step-llm.ts && npx tsx test/step-llm-yaml.ts && npx tsx test/stdin-limit.ts && npx tsx test/compose-name.ts && npx tsx test/e2e.ts && npx tsx test/e2e-condition.ts && npx tsx test/e2e-loop.ts && npx tsx test/mcp.ts",
     "prepublishOnly": "npm run build"
   },
   "files": [

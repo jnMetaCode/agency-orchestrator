@@ -17,7 +17,8 @@ function estimateTokens(text: string): number {
 
 export class OpenAICompatibleConnector implements LLMConnector {
   private apiKey: string;
-  private baseUrl: string;
+  /** 只读暴露给外部 debug / 测试用，运行时不可变 */
+  readonly baseUrl: string;
 
   constructor(options: { apiKey?: string; baseUrl?: string } = {}) {
     this.apiKey = options.apiKey || process.env.OPENAI_API_KEY || '';

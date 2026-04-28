@@ -456,10 +456,12 @@ async function handleInit(): Promise<void> {
     if (cfgProvider) updates.AO_PROVIDER = cfgProvider;
     if (cfgModel) updates.AO_MODEL = cfgModel;
     if (cfgBaseUrl) {
-      // Route to the env var the matching connector already reads
+      // Route to the env var the matching connector already reads.
+      // 每个 provider 写到自己专属的 BASE_URL env，避免 issue #16 的跨污染
       const p = (cfgProvider || '').toLowerCase();
       const urlVar =
         p === 'ollama' ? 'OLLAMA_BASE_URL' :
+        p === 'deepseek' ? 'DEEPSEEK_BASE_URL' :
         'OPENAI_BASE_URL';
       updates[urlVar] = cfgBaseUrl;
     }
