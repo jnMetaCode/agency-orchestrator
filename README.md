@@ -1,3 +1,5 @@
+[![MseeP.ai Security Assessment Badge](https://mseep.net/pr/jnmetacode-agency-orchestrator-badge.png)](https://mseep.ai/app/jnmetacode-agency-orchestrator)
+
 # Agency Orchestrator
 
 **中文** | [English](./README.en.md)
