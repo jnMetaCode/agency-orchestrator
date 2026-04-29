@@ -1,0 +1,121 @@
+name: "技术博客创作"
+description: "输入一句话主题，自动完成趋势调研 → 大纲 → 正文 → 润色，输出可直接发布的技术博客"
+
+agents_dir: "agency-agents-zh"
+
+llm:
+  provider: deepseek
+  model: deepseek-chat
+  max_tokens: 4096
+  timeout: 300000
+  retry: 2
+
+concurrency: 2
+
+inputs:
+  - name: topic
+    description: "博客主题（一句话），如：用 Rust 重写 Python 热点函数的实战经验"
+    required: true
+  - name: audience
+    description: "目标读者画像"
+    required: false
+    default: "中级技术开发者，对原理和实战代码有兴趣"
+
+steps:
+  - id: research
+    role: "product/product-trend-researcher"
+    name: "研究员"
+    emoji: "🔬"
+    task: |
+      围绕主题做调研，输出技术博客的核心论点和支撑材料。
+
+      主题: {{topic}}
+      目标读者: {{audience}}
+
+      输出格式（markdown，不超过 600 字）:
+      ### 核心论点（3 个，按重要性排序）
+      1. 论点 → 为什么读者会关心
+      2. ...
+      3. ...
+
+      ### 关键事实/数据
+      - 事实/数据 → 来源类型（论文/官方文档/常识/经验）
+
+      ### 容易踩的坑
+      - 坑 → 一句话规避方法
+
+      ### 推荐角度
+      最适合切入的写作角度（一句话）。
+    output: research_brief
+
+  - id: outline
+    role: "engineering/engineering-technical-writer"
+    name: "技术作家"
+    emoji: "✍️"
+    task: |
+      基于以下调研，搭建博客大纲。
+
+      调研:
+      {{research_brief}}
+
+      主题: {{topic}}
+
+      输出格式（markdown，不超过 400 字）:
+      ### 标题（3 个候选，按吸引力排序）
+      1. ...
+      2. ...
+      3. ...
+
+      ### 文章大纲（5-7 节）
+      1. 节标题 → 一句话本节要点
+      2. ...
+
+      ### 写作风格定位
+      语气、节奏、深度 一句话指引（如"先讲故事再上代码，避免论文腔"）
+    output: outline_doc
+    depends_on: [research]
+
+  - id: draft
+    role: "engineering/engineering-senior-developer"
+    name: "资深开发"
+    emoji: "💻"
+    task: |
+      基于调研和大纲，写出完整博客正文（包含代码示例）。
+
+      调研:
+      {{research_brief}}
+
+      大纲:
+      {{outline_doc}}
+
+      要求:
+      - 选大纲第一个标题
+      - 每节 200-400 字，节内逻辑紧凑
+      - 必须包含至少 1 段可直接运行的代码示例（带注释）
+      - 不要写"在本文中我们将"这种 AI 套话
+      - 直接给读者价值，避免泛泛而谈
+      - 总字数 1500-2500 字
+    output: blog_draft
+    depends_on: [research, outline]
+
+  - id: polish
+    role: "engineering/engineering-technical-writer"
+    name: "校对编辑"
+    emoji: "🧹"
+    task: |
+      对以下博客做最终润色，输出可直接发布的版本。
+
+      原稿:
+      {{blog_draft}}
+
+      润色要求:
+      - 删掉 AI 套话（"综上所述"、"在本文中"、"让我们一起"等）
+      - 简化冗长句式
+      - 检查代码示例是否可运行（syntax 错误就修正并标注 "// 修正"）
+      - 标题用大纲第一个候选
+      - 在文末加一段"延伸阅读"（3 条相关概念，不需要 URL）
+      - 保留所有原稿的核心论点和数据，不要漏内容
+
+      直接输出润色后的完整 markdown 博客（含标题）。
+    output: final_blog
+    depends_on: [draft]

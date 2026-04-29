@@ -1,0 +1,168 @@
+name: "OKR 拆解"
+description: "输入年度目标，自动完成现状分析 → 4 个季度 KR 拆解 → 首季度行动方案 → 完整 OKR 文档"
+
+agents_dir: "agency-agents-zh"
+
+llm:
+  provider: deepseek
+  model: deepseek-chat
+  max_tokens: 4096
+  timeout: 300000
+  retry: 2
+
+concurrency: 2
+
+inputs:
+  - name: annual_goal
+    description: "年度目标（一句话），如：让产品 MAU 从 5 万做到 50 万"
+    required: true
+  - name: team_context
+    description: "团队/公司现状（人数、阶段、资源、关键约束）"
+    required: false
+    default: "10 人创业团队，种子轮，资金约 12 个月，主要资源是工程力量"
+
+steps:
+  - id: situation_analysis
+    role: "product/product-manager"
+    name: "现状分析师"
+    emoji: "📊"
+    task: |
+      分析达成年度目标的关键现状和挑战。
+
+      年度目标: {{annual_goal}}
+      团队现状: {{team_context}}
+
+      输出格式（markdown，不超过 600 字）:
+      ### 当前位置
+      用 1-2 句话描述团队/产品当前的状态（数据 + 阶段）
+
+      ### 关键差距（要达成目标必须填的坑）
+      1. 差距描述 → 为什么这是瓶颈
+      2. ...
+      （3-5 条，按"如果不解决就一定达不成目标"的程度排序）
+
+      ### 可用杠杆（已有的优势）
+      1. 杠杆 → 怎么用
+      2. ...
+
+      ### 关键假设（如果错就全盘崩）
+      - 假设 → 风险等级 [高/中/低]
+    output: situation
+
+  - id: quarterly_plan
+    role: "project-management/project-manager-senior"
+    name: "项目总监"
+    emoji: "📅"
+    task: |
+      把年度目标拆成 4 个季度的 KR（关键结果）。
+
+      年度目标: {{annual_goal}}
+      现状分析:
+      {{situation}}
+
+      拆解原则:
+      - Q1 重点解决"关键差距"中最致命的 1-2 个
+      - Q2-Q4 渐进推进，不要 Q4 才做风险高的事
+      - KR 必须可量化（数字+时间）
+      - 每季度 3-5 个 KR，不要超
+
+      输出格式（markdown）:
+      ## Q1 (聚焦: 一句话主题)
+      | KR | 指标 | 当前 → 目标 | 验收方式 |
+      |---|------|------------|---------|
+
+      ## Q2 (聚焦: 一句话主题)
+      ...
+
+      ## Q3 (聚焦: 一句话主题)
+      ...
+
+      ## Q4 (聚焦: 一句话主题)
+      ...
+
+      ## 季度间依赖
+      用 1-2 句话说明 Q1→Q2→Q3→Q4 的递进关系
+    output: quarters
+    depends_on: [situation_analysis]
+
+  - id: q1_action_plan
+    role: "marketing/marketing-growth-hacker"
+    name: "Q1 操盘手"
+    emoji: "🚀"
+    task: |
+      给 Q1 出具体可执行的行动方案（3 个月内每周/每月做什么）。
+
+      Q1 KR（从季度计划提取）:
+      {{quarters}}
+
+      输出格式（markdown）:
+      ### Q1 月度路线图
+
+      **Month 1（聚焦: 一句话）**
+      - Week 1-2: 行动项 → 期望产出
+      - Week 3-4: 行动项 → 期望产出
+
+      **Month 2（聚焦: 一句话）**
+      - ...
+
+      **Month 3（聚焦: 一句话）**
+      - ...
+
+      ### Q1 关键里程碑（3 个）
+      1. [日期] 里程碑事件 → 验收标志
+      2. ...
+
+      ### Q1 资源需求
+      - 人力: 谁要做什么、是否需要外援
+      - 预算: 大致数额（如不确定写"待估算"）
+      - 工具: 关键工具/平台
+    output: q1_plan
+    depends_on: [quarterly_plan]
+
+  - id: final_okr
+    role: "project-management/project-manager-senior"
+    name: "OKR 主笔"
+    emoji: "📄"
+    task: |
+      整合输出最终 OKR 文档（可直接发团队评审）。
+
+      年度目标: {{annual_goal}}
+      团队现状: {{team_context}}
+
+      现状分析:
+      {{situation}}
+
+      季度拆解:
+      {{quarters}}
+
+      Q1 行动方案:
+      {{q1_plan}}
+
+      输出格式（markdown，可直接复制评审）:
+      # 年度 OKR
+
+      ## Objective
+      {{annual_goal}}
+
+      ## 立项背景
+      （从现状分析提炼 1 段，不超过 100 字）
+
+      ## 关键差距 & 杠杆
+      （从现状分析提炼，5 条总数以内）
+
+      ## 季度 KR 拆解
+      （从季度计划转录）
+
+      ## Q1 详细方案
+      （从 Q1 行动方案转录）
+
+      ## 风险与假设
+      （从现状分析的关键假设 + 添加 1-2 条 Q1 执行风险）
+
+      ## 评审检查清单
+      - [ ] KR 是否量化？
+      - [ ] 季度间依赖是否清晰？
+      - [ ] Q1 行动是否周级别可执行？
+      - [ ] 资源是否到位？
+    output: okr_document
+    depends_on: [q1_action_plan]

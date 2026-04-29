@@ -1,0 +1,159 @@
+name: "会议纪要整理"
+description: "输入原始会议记录，自动整理为结构化纪要：决策、TODO、争议点 三视角并行 → 完整纪要"
+
+agents_dir: "agency-agents-zh"
+
+llm:
+  provider: deepseek
+  model: deepseek-chat
+  max_tokens: 4096
+  timeout: 300000
+  retry: 2
+
+concurrency: 3
+
+inputs:
+  - name: raw_notes
+    description: "原始会议记录（口语/速记/录音转文字都可以）"
+    required: true
+  - name: meeting_type
+    description: "会议类型，如：产品评审 / 周会 / 1on1 / 客户访谈"
+    required: false
+    default: "内部会议"
+
+steps:
+  - id: organize
+    role: "specialized/specialized-meeting-assistant"
+    name: "速记整理员"
+    emoji: "📝"
+    task: |
+      把以下会议原始记录清理成结构化的"按发言人分段"版本。
+      会议类型: {{meeting_type}}
+
+      原始记录:
+      {{raw_notes}}
+
+      整理要求:
+      - 删掉口语化的"嗯/啊/那个/就是说"等填充词
+      - 修复明显的速记错别字（不要改原意）
+      - 按发言人分段，每段加 [发言人] 前缀（如果原文没有人名，用 "A" / "B" 代号）
+      - 不要总结，不要加你自己的判断，只做清理
+
+      输出格式（markdown）:
+      [发言人A] 整理后的发言内容
+      [发言人B] 整理后的发言内容
+      ...
+    output: cleaned_notes
+
+  - id: extract_decisions
+    role: "specialized/specialized-meeting-assistant"
+    name: "决策分析员"
+    emoji: "✅"
+    task: |
+      从以下整理后的会议记录中提取所有"已经达成的决策"。
+
+      会议记录:
+      {{cleaned_notes}}
+
+      只提取真正的决策（"我们决定 X"、"那就 Y 吧"），不要把讨论过的选项当决策。
+
+      输出格式（markdown）:
+      ### 决策清单
+      | # | 决策内容 | 决策依据 | 影响范围 |
+      |---|---------|---------|---------|
+      | 1 | ... | ... | ... |
+
+      如果没有明确决策，写 "本次会议未达成决策"。
+    output: decisions
+    depends_on: [organize]
+
+  - id: extract_todos
+    role: "specialized/specialized-meeting-assistant"
+    name: "行动跟踪员"
+    emoji: "📌"
+    task: |
+      从以下会议记录中提取所有 TODO/行动项（谁要在什么时候做什么）。
+
+      会议记录:
+      {{cleaned_notes}}
+
+      提取标准:
+      - 含责任人（即使是模糊的"@某某"也保留）
+      - 含动作（一个明确的动词）
+      - 时间不明确就写 "未定"，不要编
+
+      输出格式（markdown）:
+      ### 行动项清单
+      | # | 负责人 | 行动 | 截止时间 | 验收标准 |
+      |---|-------|-----|---------|---------|
+      | 1 | ... | ... | ... | ... |
+
+      如果没有明确行动项，写 "本次会议未产生行动项"。
+    output: todos
+    depends_on: [organize]
+
+  - id: extract_concerns
+    role: "specialized/specialized-meeting-assistant"
+    name: "争议追踪员"
+    emoji: "⚠️"
+    task: |
+      从以下会议记录中提取"未解决的分歧/疑问/风险"。
+
+      会议记录:
+      {{cleaned_notes}}
+
+      提取标准:
+      - 双方明确表达不同立场但没有结论的争议
+      - 任何被提出但没人回答的关键问题
+      - 提到的潜在风险（即使只是顺嘴一句）
+
+      输出格式（markdown）:
+      ### 未解决的分歧/疑问/风险
+      | # | 类型 [分歧/疑问/风险] | 内容 | 涉及方 | 建议处理方式 |
+      |---|----------------------|------|-------|------------|
+      | 1 | ... | ... | ... | 一句话建议 |
+
+      如果都解决了，写 "本次会议无遗留议题"。
+    output: concerns
+    depends_on: [organize]
+
+  - id: final_notes
+    role: "specialized/specialized-meeting-assistant"
+    name: "纪要主笔"
+    emoji: "📄"
+    task: |
+      整合三个视角，输出最终会议纪要（可直接发邮件/群里）。
+
+      会议类型: {{meeting_type}}
+
+      整理后的发言:
+      {{cleaned_notes}}
+
+      决策清单:
+      {{decisions}}
+
+      行动项清单:
+      {{todos}}
+
+      未解决议题:
+      {{concerns}}
+
+      输出格式（markdown，可直接复制发送）:
+      # {{meeting_type}}纪要
+
+      ## 一句话总结
+      （30 字以内）
+
+      ## 关键决策
+      （从决策清单中转录，不要改）
+
+      ## 行动项
+      （从行动项清单中转录，按截止时间排序）
+
+      ## 待跟进
+      （从未解决议题中转录，按重要性排序）
+
+      ## 完整记录
+      （从整理后发言转录）
+    output: meeting_summary
+    depends_on: [extract_decisions, extract_todos, extract_concerns]

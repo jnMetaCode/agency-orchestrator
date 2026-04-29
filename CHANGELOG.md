@@ -2,6 +2,22 @@
 
 本项目采用 [语义化版本](https://semver.org/lang/zh-CN/)。
 
+## [0.6.17] - 2026-04-29
+
+### Added
+- 模板库扩充：5 个手写精调高质量 workflow，覆盖个人 / 中小团队高频场景
+  - `tech-blog.yaml` — 技术博客创作（调研 → 大纲 → 正文 → 润色，4 步）
+  - `meeting-notes.yaml` — 会议纪要整理（清理 → 决策/TODO/争议 三视角并行 → 整合，5 步）
+  - `okr-decomposition.yaml` — OKR 拆解（现状分析 → 季度 KR → Q1 行动方案 → 完整文档，4 步）
+  - `product-launch-comms.yaml` — 产品发布物料（统一定位 → 通稿 / 社交 / 邮件 三件套并行 → 物料包，5 步）
+  - `pitch-deck-outline.yaml` — 创业 Pitch Deck 大纲（市场 / 方案 / 商业模式 / 财务 四角度并行 → 5 屏 deck，5 步）
+- 内置 workflow 总数从 44 个增加到 **49 个**，全部 validate 通过
+
+### Notes
+- 5 个模板都是"输入一句话 / 一段简介 → 多角度并行展开 → 整合"的纯 LLM 任务，不依赖外部数据 / 联网，零歧义
+- 每个模板的 task 描述都精确指定输出格式（markdown 模板）和约束（字数 / 结构 / 不许 AI 套话），避免 LLM 输出泛泛而谈
+- 默认 provider deepseek-chat（最便宜稳），用户可用 `--provider` 覆盖
+
 ## [0.6.16] - 2026-04-29
 
 ### Changed

@@ -1,0 +1,205 @@
+name: "创业 Pitch Deck 大纲"
+description: "输入一句话项目，并行输出市场分析 / 商业模式 / 财务预估 → 整合 5 屏 deck 大纲（创始人评审用）"
+
+agents_dir: "agency-agents-zh"
+
+llm:
+  provider: deepseek
+  model: deepseek-chat
+  max_tokens: 4096
+  timeout: 300000
+  retry: 2
+
+concurrency: 3
+
+inputs:
+  - name: startup_idea
+    description: "项目一句话描述（解决什么问题 + 给谁）"
+    required: true
+  - name: target_market
+    description: "主战场地区"
+    required: false
+    default: "中国市场"
+  - name: stage
+    description: "融资阶段（影响 deck 侧重）"
+    required: false
+    default: "种子轮"
+
+steps:
+  - id: market_analysis
+    role: "product/product-trend-researcher"
+    name: "市场研究员"
+    emoji: "🔍"
+    task: |
+      分析项目所在市场的痛点和机会。
+
+      项目: {{startup_idea}}
+      市场: {{target_market}}
+      阶段: {{stage}}
+
+      输出格式（markdown，不超过 500 字）:
+      ### 用户痛点（按强度排序）
+      1. 痛点 → 现有方案为什么不够
+      2. ...
+      3. ...
+
+      ### 市场规模（粗估）
+      - TAM（总市场）: 数字 + 估算逻辑（哪怕粗糙也写）
+      - SAM（可服务市场）: 数字 + 缩小逻辑
+      - SOM（3 年内可拿下）: 数字 + 凭什么
+
+      ### 时机为什么是现在
+      为什么今天做比 3 年前做更可能成（技术/政策/用户习惯任一角度，1-2 句话）
+
+      ### 主要竞争对手
+      | 对手 | 核心打法 | 我们的差异点 |
+      |------|---------|------------|
+    output: market
+
+  - id: solution_design
+    role: "product/product-manager"
+    name: "产品方案"
+    emoji: "💡"
+    task: |
+      设计项目的产品/服务方案。
+
+      项目: {{startup_idea}}
+      市场: {{target_market}}
+
+      输出格式（markdown，不超过 500 字）:
+      ### 核心方案（一句话）
+      用户最终拿到的是什么（产品/服务）
+
+      ### 关键能力（3 个最强）
+      1. 能力 → 解决了哪个痛点 → 用户感受
+      2. ...
+      3. ...
+
+      ### 产品形态
+      - 交付方式（APP/Web/SaaS/线下/其他）
+      - 用户使用频率（每天/每周/按需）
+      - 关键体验路径（用户从注册到产生价值的最短路径，3-5 步）
+
+      ### 技术/资源壁垒
+      为什么这个方案别人不能轻易复制（数据/网络效应/品牌/技术任一角度）
+    output: solution
+
+  - id: business_model
+    role: "specialized/specialized-pricing-optimizer"
+    name: "商业模式"
+    emoji: "💰"
+    task: |
+      设计项目的商业模式和定价策略。
+
+      项目: {{startup_idea}}
+      市场: {{target_market}}
+      阶段: {{stage}}
+
+      输出格式（markdown，不超过 400 字）:
+      ### 收入模式
+      - 主要收入来源（如订阅/交易抽成/广告/Saas/硬件）
+      - 一句话单笔收入逻辑（"用户每月付 X 元，因为 Y"）
+
+      ### 定价（建议初期）
+      | 套餐 | 价格 | 包含 | 目标人群 |
+      |------|-----|------|---------|
+
+      ### 单位经济（粗估）
+      - 获客成本 CAC（推测）: 多少元 + 来源
+      - 用户生命周期价值 LTV（推测）: 多少元 + 推算逻辑
+      - LTV/CAC 比例: X
+
+      ### 增长引擎
+      产品有没有内生的增长机制（推荐 / 内容 / 网络效应 / 都没有靠投放），一句话说明
+    output: business
+
+  - id: financial_projection
+    role: "finance/finance-financial-forecaster"
+    name: "财务预估"
+    emoji: "📈"
+    task: |
+      给项目做 3 年简易财务预估。
+
+      项目: {{startup_idea}}
+      阶段: {{stage}}
+
+      要求:
+      - 数字可以是粗估（标 "粗估" 即可）
+      - 假设条件要写出来，方便投资人质疑
+      - 不要假装精确，但要逻辑自洽
+
+      输出格式（markdown）:
+      ### 关键假设
+      1. 假设 → 数值
+      2. ...
+      （3-5 条最关键的）
+
+      ### 3 年预估
+      | 维度 | 第 1 年 | 第 2 年 | 第 3 年 |
+      |------|--------|--------|--------|
+      | 用户数 | | | |
+      | 付费用户数 | | | |
+      | 月经常性收入 MRR | | | |
+      | 团队规模 | | | |
+      | 月度烧钱 | | | |
+      | 现金跑道（月） | | | |
+
+      ### 资金需求
+      本轮融资多少（{{stage}}）→ 用在哪 → 能撑多久 → 关键里程碑
+    output: financials
+
+  - id: deck_outline
+    role: "product/product-manager"
+    name: "Deck 主笔"
+    emoji: "📊"
+    task: |
+      整合所有材料，输出 5 屏（每屏 1 页）的 pitch deck 大纲。
+
+      项目: {{startup_idea}}
+      市场分析:
+      {{market}}
+
+      产品方案:
+      {{solution}}
+
+      商业模式:
+      {{business}}
+
+      财务预估:
+      {{financials}}
+
+      要求:
+      - 每屏只讲一件事，2-3 句话能说完
+      - 5 屏顺序: 问题 → 方案 → 市场 → 商业模式 → 财务/融资
+      - 每屏给"标题 + 主信息 + 视觉建议"三部分
+      - 数据从前面材料中转录，不要新编
+
+      输出格式（markdown）:
+      # Pitch Deck 大纲：{{startup_idea}}
+
+      ## Slide 1: 问题
+      **标题**: 一句话点题
+      **主信息（≤ 3 行）**: ...
+      **视觉建议**: 用什么图/数据让评审一眼相信痛点真实存在
+
+      ## Slide 2: 方案
+      ...
+
+      ## Slide 3: 市场
+      ...
+
+      ## Slide 4: 商业模式
+      ...
+
+      ## Slide 5: 财务 & 融资
+      ...
+
+      ## 附录建议（可选 backup slide）
+      - 团队介绍
+      - 竞争对比表
+      - 已有进展（数据 / 用户 / 合作）
+
+      ## Pitch 演讲节奏建议
+      （5 屏总共讲多久，哪几屏要重点停留）
+    output: pitch_deck
+    depends_on: [market_analysis, solution_design, business_model, financial_projection]

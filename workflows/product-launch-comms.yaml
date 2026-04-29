@@ -1,0 +1,172 @@
+name: "产品发布物料生成"
+description: "输入新产品/功能简介，并行产出发布通稿 + 社交短文 + 客户邮件 → 整合发布物料包"
+
+agents_dir: "agency-agents-zh"
+
+llm:
+  provider: deepseek
+  model: deepseek-chat
+  max_tokens: 4096
+  timeout: 300000
+  retry: 2
+
+concurrency: 3
+
+inputs:
+  - name: product_name
+    description: "产品/功能名"
+    required: true
+  - name: product_summary
+    description: "一句话核心价值（用户角度，不要技术术语）"
+    required: true
+  - name: key_features
+    description: "3-5 个关键能力，每个一句话（换行分隔）"
+    required: true
+  - name: launch_audience
+    description: "目标受众"
+    required: false
+    default: "已注册用户 + 潜在客户"
+
+steps:
+  - id: positioning
+    role: "marketing/marketing-social-media-strategist"
+    name: "市场策略"
+    emoji: "🎯"
+    task: |
+      基于产品信息，输出统一的发布定位（所有物料都基于这一份）。
+
+      产品: {{product_name}}
+      一句话价值: {{product_summary}}
+      关键能力:
+      {{key_features}}
+      受众: {{launch_audience}}
+
+      输出格式（markdown，不超过 500 字）:
+      ### 核心 Hook（一句话钩子）
+      最能让目标受众停下来的那一句话。
+
+      ### 三个最强卖点（按打动力排序）
+      1. 卖点 → 替代了什么旧痛苦 / 解锁了什么新可能
+      2. ...
+      3. ...
+
+      ### 产品口吻
+      用 3 个形容词定位语气（如"专业、简洁、稍带克制的兴奋"）
+
+      ### 目标行动
+      读完这次发布，受众应该做什么（点链接/试用/分享/其他）
+    output: positioning
+
+  - id: press_release
+    role: "marketing/marketing-content-creator"
+    name: "通稿主笔"
+    emoji: "📰"
+    task: |
+      基于定位写一篇可投递媒体或发到公司博客的发布通稿。
+
+      产品: {{product_name}}
+      产品价值: {{product_summary}}
+      关键能力:
+      {{key_features}}
+      统一定位:
+      {{positioning}}
+
+      要求:
+      - 800-1200 字
+      - 结构: 钩子段 → 解决了什么 → 产品能力（每个能力一段）→ 用户故事 / 案例（编 1 个合理的）→ 上线信息（CTA）
+      - 标题用定位中的"核心 Hook"改写成媒体风格
+      - 不要写"在 AI 时代"、"新一代"、"颠覆性"这种空话
+      - 直接输出可发布的 markdown 文章
+    output: press
+    depends_on: [positioning]
+
+  - id: social_short
+    role: "marketing/marketing-social-media-strategist"
+    name: "社交短文"
+    emoji: "📱"
+    task: |
+      基于定位写 3 条不同平台的社交短文。
+
+      产品: {{product_name}}
+      统一定位:
+      {{positioning}}
+
+      输出格式（markdown）:
+      ### 微博 / 推特（≤ 140 字）
+      （直接发的内容，含 emoji，不要标记 #标签 留位置让用户自己加）
+
+      ### LinkedIn / 朋友圈（≤ 300 字）
+      （专业语气，3 段：钩子 / 价值 / CTA）
+
+      ### 小红书风格（≤ 250 字）
+      （第一人称体验，2-3 个 emoji，结尾问句引互动）
+
+      每条都要从定位中的"核心 Hook"出发，不要堆能力列表。
+    output: socials
+    depends_on: [positioning]
+
+  - id: customer_email
+    role: "marketing/marketing-content-creator"
+    name: "邮件主笔"
+    emoji: "✉️"
+    task: |
+      基于定位写一封发给老用户的产品发布邮件。
+
+      产品: {{product_name}}
+      产品价值: {{product_summary}}
+      统一定位:
+      {{positioning}}
+
+      要求:
+      - 收件人是已经使用我们产品的老用户（已注册），所以不要重新介绍公司
+      - 250-400 字
+      - 结构: 称呼（"嗨"，不要"尊敬的"）→ 一句话钩子 → 这次更新带来什么实际改变 → 怎么开始用（具体步骤）→ 反馈渠道
+      - 标题（subject line）用定位 hook 改写，加上"NEW:" 或 emoji 让收件箱里能被看见
+      - 直接输出邮件内容（含 Subject 行）
+    output: email
+    depends_on: [positioning]
+
+  - id: launch_pack
+    role: "marketing/marketing-content-creator"
+    name: "发布物料整理员"
+    emoji: "📦"
+    task: |
+      把所有物料整合成一份"发布日物料包"，方便市场/运营/客服当天取用。
+
+      统一定位:
+      {{positioning}}
+
+      发布通稿:
+      {{press}}
+
+      社交短文:
+      {{socials}}
+
+      老用户邮件:
+      {{email}}
+
+      输出格式（markdown，单文档可直接发）:
+      # 产品发布物料包：{{product_name}}
+
+      ## 发布定位（共享语言）
+      （摘录定位中的核心 Hook 和三个卖点，30 行内）
+
+      ## 渠道物料（按使用场景分组）
+
+      ### 媒体投放 / 公司博客
+      （直接转录通稿）
+
+      ### 社交渠道
+      （直接转录三条社交短文）
+
+      ### 老用户邮件
+      （直接转录邮件）
+
+      ## 发布日检查清单
+      - [ ] 通稿审核（公关/法务）
+      - [ ] 社交短文图片素材准备
+      - [ ] 邮件 EDM 列表确认
+      - [ ] 客服回应口径同步
+      - [ ] 发布时间确认（建议工作日上午）
+    output: full_pack
+    depends_on: [press_release, social_short, customer_email]
