@@ -8,6 +8,7 @@ ao-output/
 .local/
 .claude/
 marketing/
+scripts/fake-*.sh
 *.cast
 web/
 demo.gif
