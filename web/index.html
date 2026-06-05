@@ -1,0 +1,1112 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Agency Orchestrator</title>
+<script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+  :root {
+    --bg: #f5f6fa; --bg-card: #ffffff; --bg-hover: #f0f1f5;
+    --text: #1a1d23; --text-2: #4a5068; --text-3: #8b92a5;
+    --accent: #7c5cfc; --accent-light: #ede9fe; --accent-dark: #6344e0;
+    --green: #10b981; --green-light: #d1fae5;
+    --blue: #3b82f6; --blue-light: #dbeafe;
+    --orange: #f59e0b; --orange-light: #fef3c7;
+    --red: #ef4444; --red-light: #fee2e2;
+    --border: #e5e7ef; --shadow: 0 1px 3px rgba(0,0,0,0.05);
+    --shadow-md: 0 4px 12px rgba(0,0,0,0.08);
+    --shadow-lg: 0 8px 24px rgba(0,0,0,0.1);
+    --radius: 16px; --radius-sm: 10px;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { background: var(--bg); color: var(--text); font-family: 'Inter', -apple-system, 'PingFang SC', sans-serif; min-height: 100vh; }
+
+  /* ── Nav ── */
+  nav {
+    position: sticky; top: 0; z-index: 50;
+    background: rgba(255,255,255,0.92); backdrop-filter: blur(16px);
+    border-bottom: 1px solid var(--border);
+    padding: 0 32px; height: 60px;
+    display: flex; align-items: center; gap: 24px;
+  }
+  nav .logo { font-weight: 800; font-size: 17px; color: var(--accent); display: flex; align-items: center; gap: 8px; }
+  nav .logo span { font-size: 22px; }
+  nav .nav-links { display: flex; gap: 4px; margin-left: 20px; }
+  nav .nav-link {
+    padding: 8px 18px; border-radius: 10px; font-size: 14px; font-weight: 600;
+    color: var(--text-2); cursor: pointer; transition: all 0.15s; border: none; background: none;
+  }
+  nav .nav-link:hover { background: var(--bg-hover); color: var(--text); }
+  nav .nav-link.active { background: var(--accent); color: #fff; }
+  nav .spacer { flex: 1; }
+  nav select {
+    background: var(--bg); border: 1px solid var(--border); color: var(--text);
+    padding: 8px 14px; border-radius: var(--radius-sm); font-size: 13px; font-family: inherit;
+  }
+  nav .status-badge {
+    display: flex; align-items: center; gap: 6px;
+    padding: 7px 16px; border-radius: 20px;
+    font-size: 13px; font-weight: 500;
+    background: var(--bg); border: 1px solid var(--border); color: var(--text-3);
+  }
+  nav .status-badge .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--text-3); }
+  nav .status-badge.running .dot { background: var(--blue); animation: pulse 1.2s infinite; }
+  nav .status-badge.done .dot { background: var(--green); }
+  nav .status-badge.error .dot { background: var(--red); }
+
+  .page { display: none; }
+  .page.active { display: block; }
+
+  /* ═══ Common: Section header ═══ */
+  .page-header { padding: 32px 40px 0; max-width: 1400px; margin: 0 auto; }
+  .page-header h1 { font-size: 26px; font-weight: 800; margin-bottom: 4px; }
+  .page-header p { color: var(--text-3); font-size: 15px; }
+  .page-header .search-row { display: flex; gap: 12px; margin-top: 16px; }
+  .search-input {
+    flex: 1; max-width: 400px; padding: 10px 16px 10px 42px;
+    border: 1px solid var(--border); border-radius: var(--radius-sm);
+    font-size: 14px; font-family: inherit; background: #fff url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='18' height='18' viewBox='0 0 24 24' fill='none' stroke='%238b92a5' stroke-width='2'%3E%3Ccircle cx='11' cy='11' r='8'/%3E%3Cpath d='m21 21-4.35-4.35'/%3E%3C/svg%3E") 12px center no-repeat;
+    transition: all 0.15s;
+  }
+  .search-input:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-light); }
+
+  .cat-tabs { display: flex; gap: 6px; flex-wrap: wrap; padding: 16px 40px; max-width: 1400px; margin: 0 auto; }
+  .cat-tab {
+    padding: 7px 18px; border-radius: 20px; font-size: 13px; font-weight: 600;
+    color: var(--text-2); background: #fff; border: 1.5px solid var(--border);
+    cursor: pointer; transition: all 0.15s; white-space: nowrap;
+  }
+  .cat-tab:hover { background: var(--bg-hover); border-color: var(--text-3); }
+  .cat-tab.active { background: var(--accent); color: #fff; border-color: var(--accent); }
+  .cat-tab .cnt { margin-left: 3px; opacity: 0.7; }
+
+  /* ═══ Card grid ═══ */
+  .card-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 20px; padding: 8px 40px 40px; max-width: 1400px; margin: 0 auto; }
+
+  /* ═══ Team cards (Workflows) ═══ */
+  .team-card {
+    background: #fff; border: 2px solid var(--border); border-radius: var(--radius);
+    padding: 24px; cursor: pointer; transition: all 0.2s; position: relative; overflow: hidden;
+  }
+  .team-card:hover { border-color: var(--accent); box-shadow: var(--shadow-md); transform: translateY(-2px); }
+  .team-card .top-accent { position: absolute; top: 0; left: 0; right: 0; height: 4px; }
+  .team-card .team-name { font-size: 17px; font-weight: 700; margin-bottom: 6px; margin-top: 4px; }
+  .team-card .team-desc {
+    font-size: 13px; color: var(--text-2); line-height: 1.5; margin-bottom: 16px;
+    overflow: hidden; text-overflow: ellipsis; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
+  }
+  .team-card .members { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 14px; }
+  .team-card .member {
+    display: flex; align-items: center; gap: 4px;
+    padding: 4px 10px; border-radius: 16px; font-size: 12px; font-weight: 500;
+    background: var(--bg); color: var(--text-2); border: 1px solid var(--border);
+  }
+  .team-card .member .m-emoji { font-size: 14px; }
+  .team-card .card-footer { display: flex; align-items: center; gap: 8px; }
+  .team-card .step-count { font-size: 12px; color: var(--text-3); font-weight: 500; }
+  .team-card .private-tag {
+    background: var(--orange-light); color: #b45309; padding: 2px 10px;
+    border-radius: 10px; font-size: 11px; font-weight: 600;
+  }
+  .team-card .run-btn {
+    margin-left: auto; padding: 6px 16px; border-radius: 8px;
+    background: var(--accent); color: #fff; border: none;
+    font-size: 13px; font-weight: 600; cursor: pointer; font-family: inherit;
+    opacity: 0; transition: opacity 0.2s;
+  }
+  .team-card:hover .run-btn { opacity: 1; }
+  .team-card .run-btn:hover { background: var(--accent-dark); }
+
+  /* ═══ Role cards ═══ */
+  .role-card {
+    background: #fff; border: 2px solid var(--border); border-radius: var(--radius);
+    padding: 28px 24px; text-align: center; transition: all 0.2s; cursor: pointer;
+  }
+  .role-card:hover { border-color: var(--accent); box-shadow: var(--shadow-md); transform: translateY(-2px); }
+  .role-card .avatar {
+    width: 80px; height: 80px; border-radius: 50%; margin: 0 auto 16px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 36px; border: 3px solid;
+  }
+  .role-card .role-name { font-size: 16px; font-weight: 700; margin-bottom: 8px; }
+  .role-card .role-title {
+    display: inline-block; padding: 4px 16px; border-radius: 16px;
+    font-size: 14px; font-weight: 600; margin-bottom: 12px;
+  }
+  .role-card .role-desc {
+    font-size: 13px; color: var(--text-3); line-height: 1.5;
+    overflow: hidden; text-overflow: ellipsis; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical;
+  }
+
+  /* ═══ Run panel (modal fullscreen-ish) ═══ */
+  .run-overlay { position: fixed; inset: 0; z-index: 60; background: rgba(0,0,0,0.3); display: flex; }
+  .run-overlay.hidden { display: none; }
+  .run-panel {
+    margin: 20px auto; width: min(1100px, 95vw); max-height: calc(100vh - 40px);
+    background: #fff; border-radius: var(--radius); box-shadow: var(--shadow-lg);
+    display: flex; flex-direction: column; overflow: hidden;
+  }
+  .run-panel-hd {
+    padding: 18px 24px; border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; gap: 12px; flex-shrink: 0;
+  }
+  .run-panel-hd h2 { font-size: 18px; font-weight: 700; flex: 1; }
+  .run-panel-hd .close-btn {
+    width: 32px; height: 32px; border-radius: 8px; border: 1px solid var(--border);
+    background: var(--bg); cursor: pointer; font-size: 16px; display: flex; align-items: center; justify-content: center;
+  }
+  .run-panel-config { padding: 20px 24px; border-bottom: 1px solid var(--border); flex-shrink: 0; max-height: 40vh; overflow-y: auto; }
+  .step-chips { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 14px; }
+  .step-chip {
+    display: flex; align-items: center; gap: 4px;
+    padding: 5px 14px; border-radius: 20px; font-size: 12px; font-weight: 500;
+    background: var(--bg); border: 1.5px solid var(--border); color: var(--text-2); transition: all 0.2s;
+  }
+  .step-chip.running { background: var(--blue-light); border-color: var(--blue); color: var(--blue); animation: pulse 1.2s infinite; }
+  .step-chip.done { background: var(--green-light); border-color: var(--green); color: #059669; }
+  .step-chip.err { background: var(--red-light); border-color: var(--red); color: var(--red); }
+  .input-grid { display: grid; gap: 12px; }
+  .field label { display: block; font-size: 13px; font-weight: 500; color: var(--text-2); margin-bottom: 4px; }
+  .field .req { color: var(--red); margin-left: 2px; }
+  .field input, .field textarea {
+    width: 100%; padding: 10px 14px; border: 1px solid var(--border); border-radius: var(--radius-sm);
+    font-family: inherit; font-size: 14px; color: var(--text); background: var(--bg); resize: vertical;
+  }
+  .field textarea { min-height: 64px; }
+  .field input:focus, .field textarea:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-light); }
+  .action-bar { display: flex; gap: 10px; align-items: center; margin-top: 14px; }
+  .btn {
+    padding: 10px 22px; border-radius: var(--radius-sm); border: 1.5px solid var(--border);
+    background: #fff; color: var(--text); font-family: inherit; font-size: 14px;
+    font-weight: 600; cursor: pointer; transition: all 0.12s; display: inline-flex; align-items: center; gap: 6px;
+  }
+  .btn:hover:not(:disabled) { background: var(--bg-hover); }
+  .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+  .btn-primary { background: var(--accent); color: #fff; border-color: var(--accent); }
+  .btn-primary:hover:not(:disabled) { background: var(--accent-dark); }
+  .btn-danger { color: var(--red); border-color: var(--red); }
+  .btn-ghost { background: transparent; border-color: transparent; color: var(--text-2); }
+  .btn-sm { padding: 6px 14px; font-size: 12px; }
+
+  /* ── Compose by selection ── */
+  .role-card { position: relative; }
+  .role-card.picked { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent-light), var(--shadow-md); }
+  .pick-toggle {
+    position: absolute; top: 10px; right: 10px; width: 26px; height: 26px;
+    border-radius: 8px; border: 1.5px solid var(--border); background: #fff; color: var(--text-3);
+    font-size: 16px; line-height: 1; display: flex; align-items: center; justify-content: center;
+    cursor: pointer; z-index: 2; transition: all 0.15s;
+  }
+  .pick-toggle:hover { border-color: var(--accent); color: var(--accent); }
+  .role-card.picked .pick-toggle { background: var(--accent); border-color: var(--accent); color: #fff; }
+  .compose-tray {
+    position: fixed; left: 50%; transform: translateX(-50%); bottom: 24px; z-index: 55;
+    background: #fff; border: 1px solid var(--border); box-shadow: var(--shadow-lg);
+    border-radius: 999px; padding: 9px 13px 9px 18px; display: flex; align-items: center; gap: 14px; max-width: 92vw;
+  }
+  .compose-tray.hidden { display: none; }
+  .tray-avatars { display: flex; }
+  .tray-avatars .ta { width: 30px; height: 30px; border-radius: 50%; background: var(--accent-light); border: 2px solid #fff; margin-left: -8px; display: flex; align-items: center; justify-content: center; font-size: 15px; }
+  .tray-cnt { font-weight: 700; font-size: 14px; white-space: nowrap; }
+  .cmf { margin-bottom: 14px; }
+  .cmf label { display: block; font-weight: 600; font-size: 14px; margin-bottom: 6px; }
+  .cmf input, .cmf textarea, .cmf select { width: 100%; padding: 10px 12px; border: 1.5px solid var(--border); border-radius: 10px; font-family: inherit; font-size: 14px; background: var(--bg); color: var(--text); }
+  .cmf textarea { min-height: 72px; resize: vertical; }
+  .seg { display: inline-flex; border: 1.5px solid var(--border); border-radius: 10px; overflow: hidden; }
+  .seg button { padding: 8px 16px; border: none; background: #fff; font-family: inherit; font-size: 13px; font-weight: 600; cursor: pointer; color: var(--text-2); }
+  .seg button.active { background: var(--accent); color: #fff; }
+  .action-bar .hint { color: var(--text-3); font-size: 12px; margin-left: auto; }
+
+  .run-panel-tabs { display: flex; gap: 4px; padding: 0 24px; border-bottom: 1px solid var(--border); flex-shrink: 0; }
+  .view-tab {
+    padding: 12px 16px; font-size: 13px; font-weight: 600; color: var(--text-3);
+    cursor: pointer; border-bottom: 2px solid transparent;
+  }
+  .view-tab:hover { color: var(--text); }
+  .view-tab.active { color: var(--accent); border-bottom-color: var(--accent); }
+  .view-tab .cnt { background: var(--bg); padding: 2px 8px; border-radius: 10px; font-size: 11px; margin-left: 6px; }
+
+  .run-panel-body { flex: 1; overflow-y: auto; }
+  .results-view { padding: 20px 24px; }
+  .results-view.hidden { display: none; }
+  .terminal-view {
+    background: #1a1d23; color: #d0d8e2; font-family: 'SF Mono', 'JetBrains Mono', Menlo, monospace;
+    font-size: 12px; line-height: 1.6; white-space: pre-wrap; word-break: break-word;
+    padding: 16px 24px; min-height: 100%;
+  }
+  .terminal-view.hidden { display: none; }
+  .terminal-view .out { color: #d0d8e2; } .terminal-view .err { color: #fbbf24; }
+  .terminal-view .meta { color: #60a5fa; font-style: italic; }
+  .terminal-view .ok { color: #34d399; font-weight: 600; } .terminal-view .bad { color: #f87171; font-weight: 600; }
+
+  /* Step cards */
+  .step-card {
+    background: var(--bg-card); border: 1.5px solid var(--border); border-radius: var(--radius-sm);
+    margin-bottom: 14px; overflow: hidden; transition: border-color 0.2s;
+  }
+  .step-card.running { border-color: var(--blue); box-shadow: 0 0 0 3px var(--blue-light); }
+  .step-card-hd {
+    display: flex; align-items: center; padding: 14px 18px; cursor: pointer; gap: 10px;
+  }
+  .step-card-hd:hover { background: var(--bg-hover); }
+  .step-card-hd .emoji { font-size: 20px; }
+  .step-card-hd .title { flex: 1; font-size: 15px; font-weight: 600; }
+  .step-card-hd .meta { color: var(--text-3); font-size: 12px; }
+  .icon-s { font-size: 14px; font-weight: 700; }
+  .icon-s.ok { color: var(--green); } .icon-s.spin { color: var(--blue); animation: pulse 1s infinite; } .icon-s.fail { color: var(--red); }
+  .step-card-bd { padding: 18px 22px; border-top: 1px solid var(--border); line-height: 1.7; font-size: 15px; }
+  .step-card-bd.hidden { display: none; }
+  .step-actions { display: flex; gap: 6px; }
+  .step-actions button {
+    padding: 4px 10px; border-radius: 6px; border: 1px solid var(--border);
+    background: #fff; color: var(--text-3); font-size: 11px; cursor: pointer; font-family: inherit; font-weight: 500;
+  }
+  .step-actions button:hover { background: var(--bg-hover); color: var(--text); }
+  .step-actions .resume-btn { border-color: var(--accent); color: var(--accent); }
+  .step-actions .resume-btn:hover { background: var(--accent-light); }
+
+  .resume-banner {
+    background: var(--blue-light); border: 1.5px solid var(--blue); border-radius: var(--radius-sm);
+    padding: 14px 18px; margin-bottom: 14px; font-size: 14px; font-weight: 500;
+  }
+  .final-card {
+    margin-top: 20px; background: linear-gradient(135deg, #f0fdf4, #ede9fe);
+    border: 1.5px solid var(--green); border-left: 4px solid var(--green);
+    border-radius: var(--radius-sm); overflow: hidden;
+  }
+  .final-card-hd { padding: 16px 20px; font-weight: 700; color: #059669; display: flex; align-items: center; gap: 10px; border-bottom: 1px solid rgba(16,185,129,0.2); }
+  .final-card-hd .stats { font-size: 12px; color: var(--text-3); font-weight: 400; margin-left: auto; }
+  .final-card-bd { padding: 20px 24px; line-height: 1.7; font-size: 15px; }
+
+  /* ═══ History table ═══ */
+  .history-wrap { padding: 8px 40px 40px; max-width: 1400px; margin: 0 auto; }
+  .h-table { width: 100%; border-collapse: separate; border-spacing: 0; background: #fff; border: 1.5px solid var(--border); border-radius: var(--radius); overflow: hidden; box-shadow: var(--shadow); }
+  .h-table th { text-align: left; padding: 14px 18px; font-size: 12px; font-weight: 700; color: var(--text-3); text-transform: uppercase; letter-spacing: 0.04em; background: var(--bg); border-bottom: 1px solid var(--border); }
+  .h-table td { padding: 14px 18px; font-size: 14px; border-bottom: 1px solid var(--border); }
+  .h-table tr:last-child td { border-bottom: none; }
+  .h-table tr:hover td { background: var(--bg-hover); }
+  .h-table .s-ok { color: var(--green); font-weight: 600; } .h-table .s-fail { color: var(--red); font-weight: 600; }
+  .h-table .link { color: var(--accent); cursor: pointer; font-weight: 600; } .h-table .link:hover { text-decoration: underline; }
+
+  /* ── Modal ── */
+  .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.35); z-index: 100; display: flex; align-items: center; justify-content: center; }
+  .modal-overlay.hidden { display: none; }
+  .modal { background: #fff; border-radius: var(--radius); width: min(900px, 92vw); max-height: 85vh; display: flex; flex-direction: column; box-shadow: var(--shadow-lg); }
+  .modal-hd { padding: 18px 24px; border-bottom: 1px solid var(--border); display: flex; align-items: center; gap: 12px; }
+  .modal-hd .title { flex: 1; font-size: 17px; font-weight: 700; }
+  .modal-hd .close-btn { width: 32px; height: 32px; border-radius: 8px; border: 1px solid var(--border); background: var(--bg); cursor: pointer; font-size: 14px; display: flex; align-items: center; justify-content: center; }
+  .modal-bd { overflow-y: auto; flex: 1; }
+  .modal-bd pre { margin: 0; padding: 20px 24px; font-size: 13px; line-height: 1.6; color: #d0d8e2; background: #1a1d23; white-space: pre-wrap; font-family: 'SF Mono', monospace; border-radius: 0 0 var(--radius) var(--radius); }
+  .modal-bd .role-detail { padding: 28px; }
+  .modal-bd .role-detail h2 { font-size: 22px; margin-bottom: 8px; }
+  .modal-bd .role-detail .tag { display: inline-block; padding: 4px 16px; border-radius: 16px; font-size: 14px; font-weight: 600; margin-bottom: 16px; }
+  .modal-bd .role-detail .desc { color: var(--text-2); font-size: 15px; line-height: 1.6; margin-bottom: 20px; padding-bottom: 16px; border-bottom: 1px solid var(--border); }
+  .modal-bd .role-detail .body { line-height: 1.7; font-size: 15px; }
+
+  .time-bar { display: flex; height: 6px; border-radius: 3px; overflow: hidden; background: var(--bg); }
+  .time-bar .seg { transition: width 0.3s; }
+  .export-row { display: flex; gap: 8px; margin-top: 18px; padding-top: 14px; border-top: 1px solid var(--border); }
+
+  /* Markdown */
+  .md h1,.md h2,.md h3,.md h4 { margin: 18px 0 8px; font-weight: 700; }
+  .md h1 { font-size: 22px; border-bottom: 1px solid var(--border); padding-bottom: 8px; }
+  .md h2 { font-size: 18px; color: var(--accent); } .md h3 { font-size: 16px; color: var(--blue); }
+  .md p { margin: 8px 0; } .md ul,.md ol { margin: 8px 0 8px 24px; } .md li { margin: 4px 0; }
+  .md strong { font-weight: 700; }
+  .md code { background: var(--bg); border: 1px solid var(--border); border-radius: 4px; padding: 2px 6px; font-family: 'SF Mono', monospace; font-size: 13px; color: var(--accent-dark); }
+  .md pre { background: #1a1d23; border-radius: var(--radius-sm); padding: 16px; overflow-x: auto; margin: 12px 0; }
+  .md pre code { background: none; border: none; padding: 0; color: #d0d8e2; }
+  .md blockquote { border-left: 3px solid var(--accent); padding: 6px 16px; margin: 12px 0; color: var(--text-2); background: var(--bg); border-radius: 0 var(--radius-sm) var(--radius-sm) 0; }
+  .md table { border-collapse: collapse; margin: 12px 0; width: 100%; font-size: 14px; } .md th,.md td { border: 1px solid var(--border); padding: 8px 12px; text-align: left; } .md th { background: var(--bg); font-weight: 600; }
+  .md hr { border: none; border-top: 1px solid var(--border); margin: 20px 0; } .md a { color: var(--accent); }
+
+  /* Recent run cards */
+  .recent-card {
+    flex-shrink: 0; width: 260px; padding: 14px 18px;
+    background: #fff; border: 1.5px solid var(--border); border-radius: var(--radius-sm);
+    cursor: pointer; transition: all 0.15s;
+  }
+  .recent-card:hover { border-color: var(--accent); box-shadow: var(--shadow-md); }
+  .recent-card .rc-name { font-size: 13px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-bottom: 6px; }
+  .recent-card .rc-meta { font-size: 11px; color: var(--text-3); display: flex; gap: 8px; align-items: center; }
+  .recent-card .rc-status { font-weight: 700; }
+  .recent-card .rc-status.ok { color: var(--green); }
+  .recent-card .rc-status.fail { color: var(--red); }
+
+  /* Chat bubbles */
+  .chat-msg { margin-bottom: 16px; }
+  .chat-bubble {
+    border-radius: var(--radius-sm); padding: 14px 18px; max-width: 100%;
+    line-height: 1.7; font-size: 15px;
+  }
+  .user-bubble { background: var(--accent-light); border: 1px solid rgba(124,92,252,0.2); margin-left: 40px; }
+  .ai-bubble { background: #fff; border: 1px solid var(--border); box-shadow: var(--shadow); }
+  .chat-label { font-size: 12px; font-weight: 700; color: var(--text-3); margin-bottom: 6px; }
+  .user-bubble .chat-label { color: var(--accent); }
+  .streaming-indicator { color: var(--accent); animation: pulse 1.2s infinite; font-weight: 500; }
+  .chat-bubble .result-actions { margin-top: 10px; display: flex; gap: 6px; }
+
+  @keyframes pulse { 0%,100% { opacity: 0.4; } 50% { opacity: 1; } }
+</style>
+</head>
+<body>
+
+<nav>
+  <div class="logo"><span>⚡</span> Agency Orchestrator</div>
+  <div class="nav-links">
+    <button class="nav-link active" data-page="teams" onclick="switchPage('teams')">团队中心</button>
+    <button class="nav-link" data-page="roles" onclick="switchPage('roles')">专家中心</button>
+    <button class="nav-link" data-page="history" onclick="switchPage('history')">运行历史</button>
+  </div>
+  <div class="spacer"></div>
+  <div class="status-badge" id="status"><div class="dot"></div>就绪</div>
+  <select id="provider"><option value="">provider: 默认</option><option value="claude-code" selected>claude-code</option><option value="deepseek">deepseek</option><option value="openclaw-cli">openclaw-cli</option><option value="gemini-cli">gemini-cli</option></select>
+</nav>
+
+<!-- ═══ Page: Teams (Workflows) ═══ -->
+<div class="page active" id="page-teams">
+  <div class="page-header">
+    <h1>团队中心</h1>
+    <p>每个团队是一组 AI 专家的协作流程，选择团队一键启动</p>
+    <div class="search-row"><input class="search-input" placeholder="搜索团队..." id="team-search" oninput="renderTeams()" /></div>
+  </div>
+  <!-- Recent runs quick access -->
+  <div id="recent-runs-section" style="display:none;padding:0 40px;max-width:1400px;margin:0 auto;">
+    <div style="display:flex;align-items:center;gap:8px;margin:16px 0 12px;">
+      <span style="font-size:15px;font-weight:700;">🕐 最近运行</span>
+      <span style="color:var(--text-3);font-size:13px;" id="recent-runs-hint"></span>
+      <span style="flex:1"></span>
+      <button class="btn btn-ghost btn-sm" onclick="switchPage('history')">查看全部 →</button>
+    </div>
+    <div id="recent-runs-cards" style="display:flex;gap:12px;overflow-x:auto;padding-bottom:8px;"></div>
+  </div>
+  <div class="cat-tabs" id="team-cat-tabs"></div>
+  <div class="card-grid" id="teams-grid"></div>
+</div>
+
+<!-- ═══ Page: Roles ═══ -->
+<div class="page" id="page-roles">
+  <div class="page-header">
+    <h1>专家中心</h1>
+    <p>按行业分类浏览 AI 专家，点击查看详细能力说明</p>
+    <div class="search-row"><input class="search-input" placeholder="搜索专家职称或描述..." id="role-search" oninput="renderRoles()" /></div>
+  </div>
+  <div class="cat-tabs" id="role-cat-tabs"></div>
+  <div class="card-grid" id="roles-grid"></div>
+</div>
+
+<!-- ═══ Page: History ═══ -->
+<div class="page" id="page-history">
+  <div class="page-header"><h1>运行历史</h1><p>所有运行记录，点击查看详情或从任意步骤重跑</p></div>
+  <div class="history-wrap" id="history-content"></div>
+</div>
+
+<!-- ═══ Run panel ═══ -->
+<div class="run-overlay hidden" id="run-overlay" onclick="if(event.target===this)closeRun()">
+  <div class="run-panel">
+    <div class="run-panel-hd"><h2 id="run-title">运行</h2><button class="close-btn" onclick="closeRun()">✕</button></div>
+    <div class="run-panel-config" id="run-config"></div>
+    <div class="run-panel-tabs" id="run-tabs">
+      <div class="view-tab active" data-tab="results" onclick="switchVTab('results')">✨ 结果 <span class="cnt" id="cnt-results">0</span></div>
+      <div class="view-tab" data-tab="terminal" onclick="switchVTab('terminal')">📟 终端</div>
+    </div>
+    <div class="run-panel-body">
+      <div class="results-view" id="results-view"></div>
+      <div class="terminal-view hidden" id="terminal-view"></div>
+    </div>
+  </div>
+</div>
+
+<!-- Modals -->
+<div class="modal-overlay hidden" id="yaml-modal" onclick="if(event.target===this)closeYaml()">
+  <div class="modal"><div class="modal-hd"><span class="title" id="yaml-title">YAML</span><button class="close-btn" onclick="closeYaml()">✕</button></div><div class="modal-bd"><pre id="yaml-body"></pre></div></div>
+</div>
+<div class="modal-overlay hidden" id="role-modal" onclick="if(event.target===this)closeRoleModal()">
+  <div class="modal" style="max-width:1060px;max-height:92vh">
+    <div class="modal-hd"><span class="title" id="role-modal-title">专家详情</span><button class="close-btn" onclick="closeRoleModal()">✕</button></div>
+    <div class="modal-bd" id="role-modal-body" style="display:flex;flex-direction:column;overflow:hidden;">
+      <div id="role-info" style="padding:24px;overflow-y:auto;flex-shrink:0;max-height:40vh;"></div>
+      <div id="role-interact" style="padding:0 24px 20px;border-top:1px solid var(--border);flex-shrink:0;">
+        <div style="padding-top:16px;margin-bottom:8px;font-weight:700;font-size:15px;">💬 向专家提问</div>
+        <textarea id="role-task-input" placeholder="输入你的问题或任务，例如：帮我分析竞品的内容策略..." style="width:100%;min-height:80px;padding:12px 14px;border:1.5px solid var(--border);border-radius:10px;font-family:inherit;font-size:14px;resize:vertical;background:var(--bg);color:var(--text);"></textarea>
+        <div style="display:flex;gap:8px;margin-top:10px;align-items:center;">
+          <button class="btn btn-primary" id="role-run-btn" onclick="runRole()">▶ 发送</button>
+          <button class="btn btn-danger" id="role-stop-btn" style="display:none" onclick="stopRole()">■ 停止</button>
+          <span style="color:var(--text-3);font-size:12px;margin-left:auto;">⌘+Enter 发送</span>
+        </div>
+      </div>
+      <div id="role-result" style="flex:1;overflow-y:auto;min-height:0;display:none;"></div>
+    </div>
+  </div>
+</div>
+<div class="modal-overlay hidden" id="run-detail-modal" onclick="if(event.target===this)closeRunDetail()">
+  <div class="modal" style="max-width:1000px;max-height:90vh"><div class="modal-hd"><span class="title" id="rd-title">运行详情</span><button class="close-btn" onclick="closeRunDetail()">✕</button></div><div class="modal-bd" style="padding:24px;overflow-y:auto" id="rd-body"></div></div>
+</div>
+
+<!-- Compose tray (appears when roles are picked) -->
+<div class="compose-tray hidden" id="compose-tray">
+  <div class="tray-avatars" id="tray-avatars"></div>
+  <span class="tray-cnt" id="tray-cnt">已选 0 位</span>
+  <button class="btn btn-sm" onclick="clearPicks()">清空</button>
+  <button class="btn btn-primary btn-sm" onclick="openCompose()">⚡ 合成工作流</button>
+</div>
+
+<!-- Compose modal -->
+<div class="modal-overlay hidden" id="compose-modal" onclick="if(event.target===this)closeCompose()">
+  <div class="modal" style="max-width:680px">
+    <div class="modal-hd"><span class="title">⚡ 合成新工作流</span><button class="close-btn" onclick="closeCompose()">✕</button></div>
+    <div class="modal-bd" style="padding:24px">
+      <div id="compose-form">
+        <div class="cmf"><label>已选阵容</label><div id="compose-cast" style="display:flex;flex-wrap:wrap;gap:6px"></div></div>
+        <div class="cmf"><label>工作流名称 <span style="color:var(--text-3);font-weight:400">（可留空自动命名）</span></label><input id="compose-name" placeholder="例如：竞品内容策略小组" /></div>
+        <div class="cmf"><label>合成方式</label><div class="seg"><button id="mode-ai" class="active" onclick="setComposeMode('ai')">🤖 AI 编排（推荐）</button><button id="mode-manual" onclick="setComposeMode('manual')">✋ 手动拼装</button></div></div>
+        <div class="cmf" id="compose-goal-field"><label>这个团队要完成什么？<span style="color:var(--text-3);font-weight:400">（AI 据此设计步骤与协作）</span></label><textarea id="compose-goal" placeholder="例如：分析三个竞品的小红书内容策略，输出一份可执行的内容选题计划"></textarea></div>
+        <div class="cmf" id="compose-provider-field"><label>模型 Provider</label><select id="compose-provider"></select></div>
+        <div style="display:flex;gap:8px;align-items:center"><button class="btn btn-primary" id="compose-go" onclick="doCompose()">开始合成</button><span id="compose-hint" style="color:var(--text-3);font-size:12px"></span></div>
+      </div>
+      <div id="compose-result" style="display:none">
+        <div id="compose-warnings"></div>
+        <div class="cmf"><label>生成的工作流（可直接编辑后保存）</label><textarea id="compose-yaml" style="min-height:300px;font-family:'SF Mono',monospace;font-size:12px;white-space:pre"></textarea></div>
+        <div style="display:flex;gap:8px"><button class="btn btn-primary" onclick="saveAndRun()">💾 保存并运行</button><button class="btn" onclick="saveComposed(true)">仅保存到「我的团队」</button><button class="btn btn-ghost" onclick="closeCompose()">完成</button></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+const $ = id => document.getElementById(id);
+const S = {
+  workflows: [], runs: [], roles: [],
+  current: null, reader: null, steps: [], autoScroll: true,
+  teamCat: null, roleCat: null,
+  picked: new Map(), // path "cat/id" -> role obj, for compose-by-selection
+  composedFile: null, composedOriginalYaml: '',
+};
+marked.setOptions({ gfm: true, breaks: true });
+
+function saveI(f, i) { try { const a = JSON.parse(localStorage.getItem('ao-i') || '{}'); a[f] = i; localStorage.setItem('ao-i', JSON.stringify(a)); } catch {} }
+function loadI(f) { try { return JSON.parse(localStorage.getItem('ao-i') || '{}')[f] || {}; } catch { return {}; } }
+
+function switchPage(p) {
+  document.querySelectorAll('.page').forEach(el => el.classList.remove('active'));
+  $(`page-${p}`).classList.add('active');
+  document.querySelectorAll('.nav-link').forEach(l => l.classList.toggle('active', l.dataset.page === p));
+  if (p === 'roles' && !S.roles.length) loadRoles();
+  if (p === 'history') loadHistory().then(renderHistoryPage);
+}
+window.switchPage = switchPage;
+
+function setStatus(st, label) { const b = $('status'); b.className = `status-badge ${st}`; b.innerHTML = `<div class="dot"></div>${label}`; }
+
+// ════════════════════════════
+//  TEAMS (Workflows)
+// ════════════════════════════
+async function loadWorkflows() { S.workflows = await (await fetch('/api/workflows')).json(); renderTeamCats(); renderTeams(); }
+
+function renderTeamCats() {
+  const cats = new Map();
+  for (const w of S.workflows) {
+    const tags = w.private ? ['private'] : ['public'];
+    for (const t of tags) { cats.set(t, (cats.get(t) || 0) + 1); }
+  }
+  let h = `<div class="cat-tab ${!S.teamCat ? 'active' : ''}" onclick="S.teamCat=null;renderTeamCats();renderTeams()">全部<span class="cnt">(${S.workflows.length})</span></div>`;
+  h += `<div class="cat-tab ${S.teamCat === 'public' ? 'active' : ''}" onclick="S.teamCat='public';renderTeamCats();renderTeams()">内置模板<span class="cnt">(${cats.get('public') || 0})</span></div>`;
+  if (cats.has('private')) h += `<div class="cat-tab ${S.teamCat === 'private' ? 'active' : ''}" onclick="S.teamCat='private';renderTeamCats();renderTeams()">我的团队<span class="cnt">(${cats.get('private') || 0})</span></div>`;
+  $('team-cat-tabs').innerHTML = h;
+}
+
+function renderTeams() {
+  const q = ($('team-search')?.value || '').toLowerCase();
+  let list = S.workflows;
+  if (S.teamCat === 'public') list = list.filter(w => !w.private);
+  else if (S.teamCat === 'private') list = list.filter(w => w.private);
+  if (q) list = list.filter(w => (w.name + w.description).toLowerCase().includes(q));
+
+  const accentColors = ['#7c5cfc','#3b82f6','#10b981','#f59e0b','#ec4899','#06b6d4','#ef4444','#8b5cf6'];
+  $('teams-grid').innerHTML = list.map((w, wi) => {
+    const color = accentColors[wi % accentColors.length];
+    const members = w.steps.slice(0, 5).map(s => `<span class="member"><span class="m-emoji">${s.emoji || '🤖'}</span>${esc(s.name || s.id)}</span>`).join('');
+    const more = w.steps.length > 5 ? `<span class="member">+${w.steps.length - 5}</span>` : '';
+    return `<div class="team-card" onclick="openRun('${esc(w.file)}')">
+      <div class="top-accent" style="background:linear-gradient(90deg,${color},${color}80)"></div>
+      <div class="team-name">${esc(w.name)}</div>
+      <div class="team-desc">${esc(w.description || '—')}</div>
+      <div class="members">${members}${more}</div>
+      <div class="card-footer">
+        <span class="step-count">${w.steps.length} 步流程</span>
+        ${w.private ? '<span class="private-tag">private</span>' : ''}
+        <button class="run-btn" onclick="event.stopPropagation();openRun('${esc(w.file)}')">▶ 启动</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+// ── Run panel ──
+window.openRun = function(file) {
+  const w = S.workflows.find(x => x.file === file); if (!w) return;
+  S.current = w;
+  $('run-title').textContent = w.name;
+  const saved = loadI(w.file);
+  const chips = w.steps.map(s => `<span class="step-chip" data-chip="${esc(s.id)}">${s.emoji || '🤖'} ${esc(s.name || s.id)}</span>`).join('');
+  const inputs = w.inputs.map(i => {
+    const useTA = (i.description?.length > 40) || (String(i.default || '').length > 40);
+    const v = saved[i.name] || '';
+    return `<div class="field"><label>${esc(i.name)}${i.required ? '<span class="req">*</span>' : ''} <span style="color:var(--text-3);font-weight:400">${esc(i.description || '')}</span></label>${useTA ? `<textarea data-input="${esc(i.name)}" placeholder="${esc(i.default || '')}">${esc(v)}</textarea>` : `<input data-input="${esc(i.name)}" placeholder="${esc(i.default || '')}" value="${esc(v)}" />`}</div>`;
+  }).join('');
+  $('run-config').innerHTML = `
+    <div class="step-chips">${chips}</div>
+    <div class="input-grid">${inputs || '<p style="color:var(--text-3);font-size:13px">此工作流无需输入参数</p>'}</div>
+    <div class="action-bar">
+      <button class="btn btn-primary" id="run-btn" onclick="doRun()">▶ 运行</button>
+      <button class="btn" onclick="clearOut()">清空</button>
+      <button class="btn btn-danger" id="stop-btn" style="display:none" onclick="doStop()">■ 停止</button>
+      <button class="btn btn-ghost btn-sm" onclick="showYaml('${esc(w.file)}')">📄 YAML</button>
+      <span class="hint">⌘+Enter 运行 · Esc 停止</span>
+    </div>`;
+  clearOut();
+  $('run-overlay').classList.remove('hidden');
+};
+window.closeRun = function() { doStop(); $('run-overlay').classList.add('hidden'); };
+
+function clearOut() { $('terminal-view').innerHTML = ''; $('results-view').innerHTML = ''; $('cnt-results').textContent = '0'; S.steps = []; document.querySelectorAll('.step-chip').forEach(c => c.classList.remove('running','done','err')); }
+window.clearOut = clearOut;
+
+function collectInputs() { const o = {}; document.querySelectorAll('[data-input]').forEach(el => { const v = el.value.trim(); if (v) o[el.dataset.input] = v; }); return o; }
+
+window.doRun = async function(opts = {}) {
+  if (!S.current) return;
+  const inputs = collectInputs();
+  if (S.current.file) saveI(S.current.file, inputs);
+  if (!opts.resume) { const m = S.current.inputs.filter(i => i.required && !inputs[i.name]); if (m.length) { alert('缺少必填: ' + m.map(i => i.name).join(', ')); return; } }
+  clearOut(); S.autoScroll = true;
+  if (opts.resume && opts.fromStep) $('results-view').innerHTML = `<div class="resume-banner">🔄 <strong>Resume</strong> — 从 ${esc(opts.fromStep)} 重新执行</div>`;
+  setStatus('running', '运行中'); $('run-btn').disabled = true; $('stop-btn').style.display = '';
+  switchVTab('results'); appendTerm('meta', `→ ${opts.resume ? 'resume' : '运行'} ${S.current.name}`);
+  parser.cur = null; parser.mark = false;
+  const body = { file: S.current.file, inputs, provider: $('provider').value || undefined };
+  if (opts.resume) { body.resume = true; if (opts.fromStep) body.fromStep = opts.fromStep; }
+  try {
+    const res = await fetch('/api/run', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+    if (!res.ok) { appendTerm('bad', `✗ HTTP ${res.status}`); setStatus('error', '错误'); return; }
+    const reader = res.body.getReader(); S.reader = reader;
+    const dec = new TextDecoder(); let buf = '';
+    while (true) { const { done, value } = await reader.read(); if (done) break; buf += dec.decode(value, { stream: true }); const evts = buf.split('\n\n'); buf = evts.pop() || ''; for (const e of evts) processSSE(e); }
+  } catch (err) { appendTerm('bad', `✗ ${err.message}`); setStatus('error', '错误'); }
+  finally { $('run-btn').disabled = false; $('stop-btn').style.display = 'none'; loadHistory(); }
+};
+window.doStop = function() { if (S.reader) { try { S.reader.cancel(); } catch {} } setStatus('', '已停止'); $('run-btn') && ($('run-btn').disabled = false); const sb = $('stop-btn'); if (sb) sb.style.display = 'none'; };
+window.resumeFrom = function(file, stepId) { closeRunDetail(); openRun(file); setTimeout(() => doRun({ resume: true, fromStep: stepId }), 200); };
+
+function switchVTab(t) { document.querySelectorAll('.view-tab').forEach(el => el.classList.toggle('active', el.dataset.tab === t)); $('results-view').classList.toggle('hidden', t !== 'results'); $('terminal-view').classList.toggle('hidden', t !== 'terminal'); }
+window.switchVTab = switchVTab;
+
+// ── SSE ──
+const parser = { cur: null, mark: false };
+function processSSE(raw) {
+  const lines = raw.split('\n'); let ev = 'message', data = '';
+  for (const l of lines) { if (l.startsWith('event: ')) ev = l.slice(7).trim(); else if (l.startsWith('data: ')) data += l.slice(6); }
+  if (!data) return; let p; try { p = JSON.parse(data); } catch { return; }
+  switch (ev) {
+    case 'start': appendTerm('meta', `$ ${p.cmd}`); break;
+    case 'step-start': finStep(); parser.cur = { id: null, emoji: p.emoji, name: p.name, status: 'running', content: '', meta: '' }; document.querySelectorAll('.step-chip').forEach(c => { if (c.textContent.trim().endsWith(p.name.trim())) c.classList.add('running'); }); renderCards(); break;
+    case 'step-header': if (!parser.cur) parser.cur = { emoji: p.emoji, name: p.name, status: 'running', content: '', meta: '' }; Object.assign(parser.cur, { id: p.id, emoji: p.emoji, name: p.name, index: `${p.cur}/${p.total}` }); parser.mark = true; break;
+    case 'step-content': if (parser.cur && parser.mark) { parser.cur.content += p.text + '\n'; renderCards(); } break;
+    case 'step-done': if (parser.cur) { parser.cur.meta = p.meta; parser.cur.status = 'done'; document.querySelectorAll('.step-chip').forEach(c => { if (c.textContent.trim().endsWith(parser.cur.name.trim())) { c.classList.remove('running'); c.classList.add('done'); } }); renderCards(); } break;
+    case 'workflow-summary': finStep(); break;
+    case 'stdout': appendTerm('out', p.text); break;
+    case 'stderr': appendTerm('err', p.text); break;
+    case 'done': if (p.code === 0) { appendTerm('ok', '✓ exit 0'); setStatus('done', '完成'); finStep(); renderFinal(); } else { appendTerm('bad', `✗ exit ${p.code}`); setStatus('error', `exit ${p.code}`); finStep(true); } break;
+    case 'error': appendTerm('bad', `✗ ${p.message}`); setStatus('error', '错误'); break;
+  }
+}
+function finStep(err) { if (parser.cur) { if (parser.cur.status === 'running') parser.cur.status = err ? 'err' : 'done'; S.steps.push(parser.cur); parser.cur = null; parser.mark = false; renderCards(); } }
+
+function renderCards() {
+  const c = $('results-view'), all = [...S.steps]; if (parser.cur) all.push(parser.cur);
+  $('cnt-results').textContent = all.length;
+  const banner = c.querySelector('.resume-banner'); const bh = banner ? banner.outerHTML : '';
+  const wf = S.current;
+  c.innerHTML = bh + all.map((s, i) => {
+    const last = i === all.length - 1, exp = last || s.status !== 'done';
+    const rendered = s.content ? marked.parse(s.content) : '<span style="color:var(--text-3);font-style:italic">生成中...</span>';
+    const icon = s.status === 'running' ? '<span class="icon-s spin">⏳</span>' : s.status === 'done' ? '<span class="icon-s ok">✓</span>' : '<span class="icon-s fail">✗</span>';
+    const rb = (wf && s.id) ? `<button class="resume-btn" onclick="resumeFrom('${esc(wf.file)}','${esc(s.id)}')">🔄 重跑</button>` : '';
+    return `<div class="step-card ${s.status}"><div class="step-card-hd" onclick="togS(${i})">${icon}<span class="emoji">${esc(s.emoji||'🤖')}</span><span class="title">${s.index?`[${s.index}] `:''}${esc(s.name)}</span><span class="meta">${esc(s.meta||'')}</span><div class="step-actions" onclick="event.stopPropagation()">${rb}${s.content?`<button onclick="cpS(${i})">复制</button><button onclick="dlS(${i})">下载</button>`:''}</div></div><div class="step-card-bd md ${exp?'':'hidden'}" id="step-body-${i}">${rendered}</div></div>`;
+  }).join('');
+  if (S.autoScroll) { const lc = c.lastElementChild; if (lc) lc.scrollIntoView({ behavior: 'smooth', block: 'end' }); }
+}
+function renderFinal() {
+  const c = $('results-view'); if (!c || !S.steps.length || $('final-card')) return;
+  const last = S.steps[S.steps.length - 1]; let sec = 0, tok = 0;
+  for (const s of S.steps) { const m = (s.meta || '').match(/([\d.]+)s.*?([\d,]+)\s*tokens?/); if (m) { sec += parseFloat(m[1]); tok += parseInt(m[2].replace(/,/g, ''), 10); } }
+  const card = document.createElement('div'); card.className = 'final-card'; card.id = 'final-card';
+  card.innerHTML = `<div class="final-card-hd">🎁 最终交付<span class="stats">${S.steps.length} 步 · ${sec.toFixed(1)}s · ${tok.toLocaleString()} tokens</span></div><div class="final-card-bd md">${last.content ? marked.parse(last.content) : '(无输出)'}</div>`;
+  c.appendChild(card);
+  c.innerHTML += `<div class="export-row"><button class="btn btn-sm" onclick="exportAll()">⬇ 导出全部</button></div>`;
+  card.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+window.togS = i => { const el = $('step-body-' + i); if (el) el.classList.toggle('hidden'); };
+window.cpS = i => { const a = [...S.steps]; if (parser.cur) a.push(parser.cur); navigator.clipboard.writeText(a[i]?.content || ''); };
+window.dlS = i => { const a = [...S.steps]; if (parser.cur) a.push(parser.cur); const s = a[i]; if (!s) return; dl(`${s.name||'step'}.md`, s.content||''); };
+window.exportAll = () => { const md = [...S.steps].map((s, i) => `# ${s.emoji||'🤖'} ${s.name||`step-${i+1}`}\n\n${s.content||'(无)'}\n\n---\n`).join('\n'); dl(`${S.current?.name||'workflow'}.md`, md); };
+function dl(name, content) { const b = new Blob([content], { type: 'text/markdown' }); const u = URL.createObjectURL(b); const a = document.createElement('a'); a.href = u; a.download = name; a.click(); URL.revokeObjectURL(u); }
+function appendTerm(cls, text) { const t = $('terminal-view'); if (t.lastElementChild?.classList.contains(cls) && cls === 'out') { t.lastElementChild.textContent += text; } else { const d = document.createElement('div'); d.className = cls; d.textContent = text; t.appendChild(d); } if (S.autoScroll) t.scrollTop = t.scrollHeight; }
+window.showYaml = async f => { try { const r = await fetch(`/api/workflows/yaml?file=${encodeURIComponent(f)}`); $('yaml-title').textContent = f.split('/').pop(); $('yaml-body').textContent = await r.text(); $('yaml-modal').classList.remove('hidden'); } catch {} };
+window.closeYaml = () => $('yaml-modal').classList.add('hidden');
+
+// ════════════════════════════
+//  ROLES
+// ════════════════════════════
+async function loadRoles() { S.roles = await (await fetch('/api/roles')).json(); renderRoleCats(); renderRoles(); }
+
+function renderRoleCats() {
+  const cats = {}; for (const r of S.roles) { cats[r.category] = cats[r.category] || { name: r.categoryName, count: 0 }; cats[r.category].count++; }
+  let h = `<div class="cat-tab ${!S.roleCat ? 'active' : ''}" onclick="S.roleCat=null;renderRoleCats();renderRoles()">全部<span class="cnt">(${S.roles.length})</span></div>`;
+  for (const [k, v] of Object.entries(cats).sort((a, b) => b[1].count - a[1].count))
+    h += `<div class="cat-tab ${S.roleCat === k ? 'active' : ''}" onclick="S.roleCat='${k}';renderRoleCats();renderRoles()">${v.name}<span class="cnt">(${v.count})</span></div>`;
+  $('role-cat-tabs').innerHTML = h;
+}
+
+// Diverse person emojis for role cards — cycles through giving each card a unique look
+const personEmojis = ['👨‍💼','👩‍💻','👨‍🔬','👩‍🎨','👨‍⚕️','👩‍🏫','👨‍🍳','👩‍🔧','🧑‍💼','👨‍✈️','👩‍⚖️','🧑‍🔬','👩‍🚀','👨‍🎤','🧑‍🏫','👩‍🌾','🧑‍💻','👨‍🎓','👩‍🍳','🧑‍🎨','👨‍🏫','👩‍✈️','🧑‍⚕️','👨‍🔧'];
+// Stable hash so same role always gets same emoji
+function roleEmoji(id) { let h = 0; for (let i = 0; i < id.length; i++) h = ((h << 5) - h + id.charCodeAt(i)) | 0; return personEmojis[Math.abs(h) % personEmojis.length]; }
+
+function renderRoles() {
+  const q = ($('role-search')?.value || '').toLowerCase();
+  let list = S.roles;
+  if (S.roleCat) list = list.filter(r => r.category === S.roleCat);
+  if (q) list = list.filter(r => (r.name + r.description + r.categoryName).toLowerCase().includes(q));
+  $('roles-grid').innerHTML = list.map(r => {
+    const avatar = roleEmoji(r.id);
+    const color = r.color.startsWith('#') ? r.color : colorMap(r.color);
+    const lc = hexLight(color);
+    const picked = S.picked.has(`${r.category}/${r.id}`);
+    return `<div class="role-card ${picked ? 'picked' : ''}" onclick="openRole('${esc(r.category)}','${esc(r.id)}')">
+      <button class="pick-toggle" title="加入/移出组队" onclick="togglePick('${esc(r.category)}','${esc(r.id)}',event)">${picked ? '✓' : '+'}</button>
+      <div class="avatar" style="background:${lc};border-color:${color}">${avatar}</div>
+      <div class="role-name">${esc(r.name)}</div>
+      <div class="role-title" style="background:${lc};color:${color}">${esc(r.categoryName)}</div>
+      <div class="role-desc">${esc(r.description)}</div>
+    </div>`;
+  }).join('');
+}
+window.renderRoles = renderRoles;
+
+// ════════════════════════════
+//  Compose by selection (勾选角色 → 合成工作流)
+// ════════════════════════════
+let composeMode = 'ai';
+
+window.togglePick = function(cat, id, ev) {
+  if (ev) ev.stopPropagation();
+  const path = `${cat}/${id}`;
+  if (S.picked.has(path)) S.picked.delete(path);
+  else { const r = S.roles.find(x => x.category === cat && x.id === id); if (r) S.picked.set(path, r); }
+  renderRoles(); renderTray();
+};
+window.clearPicks = function() { S.picked.clear(); renderRoles(); renderTray(); };
+
+function renderTray() {
+  const t = $('compose-tray'), n = S.picked.size;
+  if (!n) { t.classList.add('hidden'); return; }
+  t.classList.remove('hidden');
+  const items = [...S.picked.values()].slice(0, 6);
+  $('tray-avatars').innerHTML = items.map(r => `<div class="ta" title="${esc(r.name)}">${roleEmoji(r.id)}</div>`).join('');
+  $('tray-cnt').textContent = `已选 ${n} 位` + (n > 6 ? ' …' : '');
+}
+
+window.openCompose = function() {
+  if (!S.picked.size) return;
+  $('compose-provider').innerHTML = $('provider').innerHTML;
+  $('compose-provider').value = $('provider').value;
+  $('compose-cast').innerHTML = [...S.picked.values()].map(r => `<span class="step-chip">${roleEmoji(r.id)} ${esc(r.name)}</span>`).join('');
+  $('compose-name').value = '';
+  $('compose-goal').value = '';
+  $('compose-hint').textContent = '';
+  $('compose-go').disabled = false;
+  S.composedFile = null; S.composedOriginalYaml = '';
+  setComposeMode('ai');
+  $('compose-form').style.display = '';
+  $('compose-result').style.display = 'none';
+  $('compose-modal').classList.remove('hidden');
+};
+window.closeCompose = () => $('compose-modal').classList.add('hidden');
+
+window.setComposeMode = function(m) {
+  composeMode = m;
+  $('mode-ai').classList.toggle('active', m === 'ai');
+  $('mode-manual').classList.toggle('active', m === 'manual');
+  const ai = m === 'ai';
+  $('compose-goal-field').style.display = ai ? '' : 'none';
+  $('compose-provider-field').style.display = ai ? '' : 'none';
+  $('compose-go').textContent = ai ? '开始合成' : '生成骨架';
+};
+
+// 手动模式：把勾选角色按顺序拼成串行骨架，留给用户填 task
+function buildManualSkeleton(name, roles) {
+  const L = [];
+  L.push(`name: "${(name || '我的团队').replace(/"/g, '')}"`);
+  L.push('description: ""');
+  L.push('agents_dir: "agency-agents-zh"');
+  L.push('llm:');
+  L.push('  provider: ' + ($('provider').value || 'claude-code'));
+  L.push('concurrency: 2');
+  L.push('steps:');
+  const seen = {}; let prev = null;
+  roles.forEach((r, idx) => {
+    let id = (r.id.replace(/^[a-z]+-/, '') || ('step' + (idx + 1))).replace(/[^a-z0-9_]/gi, '_');
+    if (seen[id]) id = id + '_' + (++seen[id]); else seen[id] = 1;
+    const out = id + '_out';
+    L.push(`  - id: ${id}`);
+    L.push(`    role: "${r.category}/${r.id}"`);
+    L.push(`    name: "${(r.name || '').replace(/"/g, '')}"`);
+    L.push('    task: |');
+    L.push(`      在此填写「${r.name}」要做的事${prev ? `，可用 {{${prev.out}}} 引用上一步输出` : ''}。`);
+    L.push(`    output: ${out}`);
+    if (prev) L.push(`    depends_on: [${prev.id}]`);
+    prev = { id, out };
+  });
+  return L.join('\n') + '\n';
+}
+
+function showComposeResult(yamlText, warnings, file) {
+  S.composedFile = file;
+  S.composedOriginalYaml = yamlText;
+  $('compose-form').style.display = 'none';
+  $('compose-result').style.display = '';
+  $('compose-yaml').value = yamlText;
+  $('compose-warnings').innerHTML = (warnings && warnings.length)
+    ? `<div style="background:var(--orange-light);color:#92590b;padding:10px 12px;border-radius:8px;font-size:13px;margin-bottom:12px">⚠️ ${warnings.map(esc).join('<br>')}</div>`
+    : (file
+        ? `<div style="background:var(--green-light);color:#065f46;padding:10px 12px;border-radius:8px;font-size:13px;margin-bottom:12px">✅ 合成完成，已存入「我的团队」。可直接编辑后再保存或运行。</div>`
+        : `<div style="background:var(--accent-light);color:var(--accent-dark);padding:10px 12px;border-radius:8px;font-size:13px;margin-bottom:12px">✋ 骨架已生成，请填好每步 task 再保存。</div>`);
+}
+
+window.doCompose = async function() {
+  const roles = [...S.picked.keys()];
+  const name = $('compose-name').value.trim();
+  if (composeMode === 'manual') {
+    showComposeResult(buildManualSkeleton(name, [...S.picked.values()]), null, null);
+    return;
+  }
+  const goal = $('compose-goal').value.trim();
+  if (!goal) { $('compose-hint').textContent = '请填写团队目标'; return; }
+  $('compose-go').disabled = true;
+  $('compose-hint').textContent = '🤖 AI 正在编排，请稍候（约 30s–1min）…';
+  try {
+    const res = await fetch('/api/compose', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ description: goal, roles, name: name || undefined, provider: $('compose-provider').value || undefined }),
+    });
+    const data = await res.json();
+    if (!res.ok) { $('compose-hint').textContent = '合成失败：' + (data.error || res.status); $('compose-go').disabled = false; return; }
+    showComposeResult(data.yaml, data.warnings, data.file);
+    await loadWorkflows();
+  } catch (e) {
+    $('compose-hint').textContent = '合成失败：' + e.message; $('compose-go').disabled = false;
+  }
+};
+
+// 保存（手动模式 / 编辑后另存）；toast=true 时仅提示不跳转
+window.saveComposed = async function(toast) {
+  const yamlText = $('compose-yaml').value;
+  const name = $('compose-name').value.trim();
+  try {
+    const res = await fetch('/api/workflows/save', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: name || undefined, yaml: yamlText }),
+    });
+    const data = await res.json();
+    if (!res.ok) { alert('保存失败：' + (data.error || res.status)); return null; }
+    S.composedFile = data.file; S.composedOriginalYaml = yamlText;
+    await loadWorkflows();
+    if (toast) { const el = $('compose-warnings'); el.innerHTML = `<div style="background:var(--green-light);color:#065f46;padding:10px 12px;border-radius:8px;font-size:13px;margin-bottom:12px">✅ 已保存到「我的团队」</div>`; }
+    return data.file;
+  } catch (e) { alert('保存失败：' + e.message); return null; }
+};
+
+window.saveAndRun = async function() {
+  let file = S.composedFile;
+  const edited = $('compose-yaml').value;
+  // AI 模式已存盘；若被编辑过或手动模式尚未存 → 先保存
+  if (!file || edited.trim() !== (S.composedOriginalYaml || '').trim()) file = await saveComposed(false);
+  if (!file) return;
+  closeCompose(); clearPicks(); switchPage('teams');
+  setTimeout(() => openRun(file), 150);
+};
+
+S.currentRole = null;
+S.roleReader = null;
+S.roleContent = '';
+S.roleHistory = []; // multi-turn conversation
+
+// Category -> emoji mapping for role avatars
+const catEmoji = {
+  marketing:'📣', 'paid-media':'📺', sales:'🤝', product:'📱',
+  'project-management':'📋', testing:'🧪', support:'🛠', 'spatial-computing':'🌐',
+  specialized:'⚙️', 'game-development':'🎮', engineering:'💻', design:'🎨',
+  academic:'🎓', finance:'💰', hr:'👥', legal:'⚖️', strategy:'🧭', 'supply-chain':'📦',
+};
+
+window.openRole = async function(cat, id) {
+  try {
+    const r = await (await fetch(`/api/roles/${cat}/${id}`)).json();
+    S.currentRole = { ...r, fullRole: `${cat}/${id}` };
+    S.roleHistory = [];
+    S.roleContent = '';
+    const color = (r.color || '#888').startsWith('#') ? r.color : colorMap(r.color);
+    const lc = hexLight(color);
+    const avatar = roleEmoji(id);
+    $('role-modal-title').textContent = r.name;
+    $('role-info').innerHTML = `
+      <div style="display:flex;gap:16px;align-items:flex-start;">
+        <div style="width:64px;height:64px;border-radius:50%;background:${lc};border:3px solid ${color};display:flex;align-items:center;justify-content:center;font-size:28px;flex-shrink:0;">${avatar}</div>
+        <div style="flex:1;">
+          <h2 style="font-size:20px;font-weight:700;margin-bottom:4px;">${esc(r.name)}</h2>
+          <div style="display:inline-block;padding:3px 14px;border-radius:14px;font-size:13px;font-weight:600;background:${lc};color:${color};margin-bottom:8px;">${esc(r.categoryName || r.category)}</div>
+          <div style="color:var(--text-2);font-size:14px;line-height:1.6;">${esc(r.description)}</div>
+        </div>
+      </div>
+      <details style="margin-top:14px;">
+        <summary style="cursor:pointer;font-size:13px;font-weight:600;color:var(--text-3);user-select:none;">📖 查看完整能力说明</summary>
+        <div class="md" style="margin-top:10px;font-size:14px;line-height:1.7;max-height:300px;overflow-y:auto;padding-right:8px;">${marked.parse(r.content || '')}</div>
+      </details>`;
+    $('role-task-input').value = '';
+    $('role-task-input').placeholder = `向 ${r.name} 提问，例如：帮我分析...`;
+    $('role-result').style.display = 'none';
+    $('role-result').innerHTML = '';
+    $('role-run-btn').disabled = false;
+    $('role-run-btn').textContent = '▶ 发送';
+    $('role-stop-btn').style.display = 'none';
+    $('role-modal').classList.remove('hidden');
+    setTimeout(() => $('role-task-input').focus(), 100);
+  } catch (err) { alert('加载失败'); }
+};
+
+window.runRole = async function() {
+  const role = S.currentRole;
+  if (!role) return;
+  const task = $('role-task-input').value.trim();
+  if (!task) { $('role-task-input').focus(); return; }
+
+  // Build context from conversation history for multi-turn
+  let fullTask = task;
+  if (S.roleHistory.length > 0) {
+    const ctx = S.roleHistory.map(h => `[用户问]: ${h.q}\n[你的回答]: ${h.a}`).join('\n\n');
+    fullTask = `以下是我们之前的对话记录：\n\n${ctx}\n\n---\n现在我的新问题是：${task}`;
+  }
+
+  S.roleContent = '';
+  $('role-run-btn').disabled = true;
+  $('role-stop-btn').style.display = '';
+  $('role-task-input').value = '';
+
+  const resultEl = $('role-result');
+  resultEl.style.display = 'block';
+
+  // Append user message bubble
+  const userBubble = document.createElement('div');
+  userBubble.className = 'chat-msg chat-user';
+  userBubble.innerHTML = `<div class="chat-bubble user-bubble"><div class="chat-label">你</div><div>${esc(task)}</div></div>`;
+  resultEl.appendChild(userBubble);
+
+  // Append streaming AI bubble
+  const aiBubble = document.createElement('div');
+  aiBubble.className = 'chat-msg chat-ai';
+  const avatar = roleEmoji(role.id);
+  aiBubble.innerHTML = `<div class="chat-bubble ai-bubble">
+    <div class="chat-label">${avatar} ${esc(role.name)} <span class="streaming-indicator">回复中...</span></div>
+    <div class="chat-body md" id="role-result-body"><span style="color:var(--text-3);font-style:italic">思考中...</span></div>
+  </div>`;
+  resultEl.appendChild(aiBubble);
+  resultEl.scrollTop = resultEl.scrollHeight;
+
+  const currentQuestion = task;
+  const provider = $('provider').value || undefined;
+  try {
+    const res = await fetch('/api/run-role', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ role: role.fullRole, task: fullTask, provider }),
+    });
+    if (!res.ok) { $('role-result-body').innerHTML = `<span style="color:var(--red)">请求失败: HTTP ${res.status}</span>`; return; }
+    const reader = res.body.getReader();
+    S.roleReader = reader;
+    const dec = new TextDecoder();
+    let buf = '';
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buf += dec.decode(value, { stream: true });
+      const evts = buf.split('\n\n');
+      buf = evts.pop() || '';
+      for (const e of evts) processRoleSSE(e);
+    }
+  } catch (err) {
+    $('role-result-body').innerHTML += `<br><span style="color:var(--red)">错误: ${esc(err.message)}</span>`;
+  } finally {
+    $('role-run-btn').disabled = false;
+    $('role-run-btn').textContent = '▶ 继续追问';
+    $('role-stop-btn').style.display = 'none';
+    // Save to history for multi-turn
+    if (S.roleContent) S.roleHistory.push({ q: currentQuestion, a: S.roleContent.trim() });
+    $('role-task-input').focus();
+  }
+};
+
+function processRoleSSE(raw) {
+  const lines = raw.split('\n');
+  let ev = 'message', data = '';
+  for (const l of lines) { if (l.startsWith('event: ')) ev = l.slice(7).trim(); else if (l.startsWith('data: ')) data += l.slice(6); }
+  if (!data) return;
+  let p; try { p = JSON.parse(data); } catch { return; }
+
+  if (ev === 'content') {
+    S.roleContent += p.text + '\n';
+    const body = $('role-result-body');
+    if (body) body.innerHTML = marked.parse(S.roleContent);
+    $('role-result').scrollTop = $('role-result').scrollHeight;
+  } else if (ev === 'step-done') {
+    const indicator = document.querySelector('.streaming-indicator');
+    if (indicator) indicator.textContent = `· ${p.meta || ''}`;
+  } else if (ev === 'done') {
+    const indicator = document.querySelector('.streaming-indicator');
+    if (indicator) indicator.remove();
+    if (p.code !== 0 && !S.roleContent) {
+      const body = $('role-result-body');
+      if (body) body.innerHTML = `<span style="color:var(--red)">执行失败 (exit ${p.code})</span>`;
+    }
+    // Add copy/download buttons under the last AI bubble
+    if (S.roleContent) {
+      const lastBubble = document.querySelector('.chat-ai:last-child .ai-bubble');
+      if (lastBubble) {
+        const actDiv = document.createElement('div');
+        actDiv.className = 'result-actions';
+        const contentCopy = S.roleContent;
+        actDiv.innerHTML = `<button class="btn btn-sm" onclick="navigator.clipboard.writeText(\`${esc(contentCopy).replace(/`/g,'\\`')}\`)">📋 复制</button>`;
+        lastBubble.appendChild(actDiv);
+      }
+    }
+  } else if (ev === 'error') {
+    const body = $('role-result-body');
+    if (body) body.innerHTML += `<br><span style="color:var(--red)">错误: ${esc(p.message)}</span>`;
+  }
+}
+
+window.stopRole = function() {
+  if (S.roleReader) { try { S.roleReader.cancel(); } catch {} }
+  $('role-run-btn').disabled = false;
+  $('role-stop-btn').style.display = 'none';
+  const indicator = document.querySelector('.streaming-indicator');
+  if (indicator) indicator.textContent = '· 已停止';
+};
+
+window.closeRoleModal = () => { stopRole(); $('role-modal').classList.add('hidden'); };
+
+function colorMap(n) { const m = { cyan:'#06b6d4',pink:'#ec4899',red:'#ef4444',blue:'#3b82f6',green:'#10b981',yellow:'#eab308',orange:'#f97316',purple:'#8b5cf6',indigo:'#6366f1' }; return m[n] || '#7c5cfc'; }
+function hexLight(hex) { try { const r=parseInt(hex.slice(1,3),16),g=parseInt(hex.slice(3,5),16),b=parseInt(hex.slice(5,7),16); return `rgba(${r},${g},${b},0.08)`; } catch { return 'rgba(124,92,252,0.08)'; } }
+
+// ════════════════════════════
+//  HISTORY
+// ════════════════════════════
+async function loadHistory() {
+  S.runs = await (await fetch('/api/runs')).json();
+  renderRecentRuns();
+}
+
+function renderRecentRuns() {
+  const section = $('recent-runs-section');
+  const container = $('recent-runs-cards');
+  if (!S.runs.length) { section.style.display = 'none'; return; }
+  section.style.display = '';
+  $('recent-runs-hint').textContent = `共 ${S.runs.length} 条`;
+  const recent = S.runs.slice(0, 8);
+  container.innerHTML = recent.map(r => {
+    const ts = r.id.match(/(\d{2})-(\d{2})T(\d{2})-(\d{2})/);
+    const t = ts ? `${ts[1]}-${ts[2]} ${ts[3]}:${ts[4]}` : '';
+    return `<div class="recent-card" onclick="viewRunDetail('${esc(r.id)}')">
+      <div class="rc-name">${esc(r.name)}</div>
+      <div class="rc-meta">
+        <span class="rc-status ${r.success ? 'ok' : 'fail'}">${r.success ? '✓' : '✗'}</span>
+        <span>${r.completedCount}/${r.stepCount} 步</span>
+        <span>${r.duration}</span>
+        <span style="margin-left:auto">${t}</span>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function renderHistoryPage() {
+  if (!S.runs.length) { $('history-content').innerHTML = '<p style="color:var(--text-3);padding:20px">暂无运行记录</p>'; return; }
+  const searchHtml = `<div style="margin-bottom:16px;"><input class="search-input" placeholder="搜索运行记录..." id="history-search" oninput="filterHistory()" style="max-width:360px" /></div>`;
+  const tableHtml = (list) => `<table class="h-table"><thead><tr><th>状态</th><th>团队</th><th>步骤</th><th>耗时</th><th>Tokens</th><th>时间</th><th></th></tr></thead><tbody>${list.map(r => {
+    const ts = r.id.match(/(\d{4}-\d{2}-\d{2})T(\d{2})-(\d{2})/); const t = ts ? `${ts[1]} ${ts[2]}:${ts[3]}` : '';
+    const tok = (r.tokens?.input||0)+(r.tokens?.output||0);
+    return `<tr><td class="${r.success?'s-ok':'s-fail'}">${r.success?'✓ 成功':'✗ 失败'}</td><td><strong>${esc(r.name)}</strong></td><td>${r.completedCount}/${r.stepCount}</td><td>${r.duration}</td><td>${tok.toLocaleString()}</td><td>${t}</td><td><span class="link" onclick="viewRunDetail('${esc(r.id)}')">查看详情</span></td></tr>`;
+  }).join('')}</tbody></table>`;
+  $('history-content').innerHTML = searchHtml + tableHtml(S.runs);
+}
+window.filterHistory = function() {
+  const q = ($('history-search')?.value || '').toLowerCase();
+  const filtered = q ? S.runs.filter(r => r.name.toLowerCase().includes(q)) : S.runs;
+  const table = $('history-content').querySelector('.h-table tbody');
+  if (!table) return;
+  table.innerHTML = filtered.map(r => {
+    const ts = r.id.match(/(\d{4}-\d{2}-\d{2})T(\d{2})-(\d{2})/); const t = ts ? `${ts[1]} ${ts[2]}:${ts[3]}` : '';
+    const tok = (r.tokens?.input||0)+(r.tokens?.output||0);
+    return `<tr><td class="${r.success?'s-ok':'s-fail'}">${r.success?'✓ 成功':'✗ 失败'}</td><td><strong>${esc(r.name)}</strong></td><td>${r.completedCount}/${r.stepCount}</td><td>${r.duration}</td><td>${tok.toLocaleString()}</td><td>${t}</td><td><span class="link" onclick="viewRunDetail('${esc(r.id)}')">查看详情</span></td></tr>`;
+  }).join('');
+};
+
+window.viewRunDetail = async function(id) {
+  try {
+    const run = await (await fetch(`/api/runs/${encodeURIComponent(id)}`)).json();
+    const wf = S.workflows.find(w => w.name === run.name);
+    $('rd-title').textContent = run.name;
+    const colors = ['#7c5cfc','#3b82f6','#10b981','#f59e0b','#ef4444','#ec4899','#06b6d4'];
+    const durs = run.steps.map(s => parseFloat(s.duration) || 0); const td = durs.reduce((a,b)=>a+b,0)||1;
+    const tb = `<div class="time-bar" style="margin-bottom:16px">${durs.map((d,i)=>`<div class="seg" style="width:${(d/td*100).toFixed(1)}%;background:${colors[i%colors.length]}" title="${run.steps[i].agentName||run.steps[i].id}: ${d}s"></div>`).join('')}</div>`;
+    const totalTok = (run.totalTokens?.input||0)+(run.totalTokens?.output||0);
+    const stepsHtml = run.steps.map((s,i) => {
+      const icon = s.status==='completed' ? '<span class="icon-s ok">✓</span>' : '<span class="icon-s fail">✗</span>';
+      const rb = wf ? `<button class="resume-btn" onclick="resumeFrom('${esc(wf.file)}','${esc(s.id)}')">🔄 从此步重跑</button>` : '';
+      return `<div class="step-card"><div class="step-card-hd" onclick="togS2(${i})">${icon}<span class="emoji">${esc(s.agentEmoji||'🤖')}</span><span class="title">[${i+1}/${run.steps.length}] ${esc(s.agentName||s.id)}</span><span class="meta">${esc(s.duration||'')}${s.tokens?` · ${(s.tokens.input+s.tokens.output).toLocaleString()} tok`:''}</span><div class="step-actions" onclick="event.stopPropagation()">${rb}</div></div><div class="step-card-bd md ${i===run.steps.length-1?'':'hidden'}" id="ms-${i}">${s.content?marked.parse(s.content):'<em style="color:var(--text-3)">(无)</em>'}</div></div>`;
+    }).join('');
+    $('rd-body').innerHTML = `
+      <div style="display:flex;gap:12px;margin-bottom:16px;flex-wrap:wrap">
+        <span class="btn btn-sm" style="cursor:default">${run.success?'✓ 成功':'✗ 失败'}</span>
+        <span class="btn btn-sm btn-ghost" style="cursor:default">⏱ ${run.totalDuration}</span>
+        <span class="btn btn-sm btn-ghost" style="cursor:default">🪙 ${totalTok.toLocaleString()} tokens</span>
+        ${wf?`<button class="btn btn-sm" onclick="resumeFrom('${esc(wf.file)}',null)">🔄 全部重跑</button>`:''}
+      </div>${tb}${stepsHtml}`;
+    $('run-detail-modal').classList.remove('hidden');
+  } catch (err) { alert('加载失败: ' + err.message); }
+};
+window.togS2 = i => { const el = $('ms-' + i); if (el) el.classList.toggle('hidden'); };
+window.closeRunDetail = () => $('run-detail-modal').classList.add('hidden');
+
+// ── Keyboard ──
+document.addEventListener('keydown', e => {
+  if ((e.metaKey||e.ctrlKey) && e.key === 'Enter') {
+    e.preventDefault();
+    // If role modal is open and task input is focused, run role
+    if (!$('role-modal').classList.contains('hidden') && document.activeElement === $('role-task-input')) {
+      const b = $('role-run-btn'); if (b && !b.disabled) b.click();
+    } else {
+      const b = $('run-btn'); if (b && !b.disabled) b.click();
+    }
+  }
+  if (e.key === 'Escape') { doStop(); stopRole(); closeYaml(); closeRoleModal(); closeRunDetail(); closeRun(); }
+});
+$('results-view')?.addEventListener('scroll', function() { S.autoScroll = (this.scrollHeight - this.scrollTop - this.clientHeight) < 100; });
+
+function esc(s) { return String(s??'').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+
+loadWorkflows(); loadHistory();
+</script>
+</body>
+</html>

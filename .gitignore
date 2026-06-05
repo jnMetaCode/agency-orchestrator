@@ -11,7 +11,7 @@ ao-workflows/
 marketing/
 scripts/fake-*.sh
 *.cast
-web/
+web/demos/
 demo.gif
 serve.json
 eval-output/

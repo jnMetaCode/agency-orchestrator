@@ -1,0 +1,923 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>agency-orchestrator — 1 人公司的 AI 团队</title>
+<script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+<style>
+  :root {
+    --bg: #0b0f14;
+    --bg-2: #121820;
+    --panel: #161d27;
+    --text: #e8edf2;
+    --dim: #8a95a3;
+    --accent: #22d3a8;
+    --accent-2: #38bdf8;
+    --warn: #fbbf24;
+    --err: #f87171;
+    --border: #243142;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body {
+    background: radial-gradient(1200px 600px at 20% 0%, #142030 0%, var(--bg) 60%);
+    color: var(--text);
+    font-family: "SF Mono", "JetBrains Mono", Menlo, Consolas, "PingFang SC", monospace;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+  .wrap {
+    max-width: 1100px;
+    margin: 0 auto;
+    padding: 28px 24px 80px;
+  }
+  header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    flex-wrap: wrap;
+    margin-bottom: 18px;
+  }
+  .brand {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 20px;
+    font-weight: 700;
+  }
+  .brand .dot {
+    width: 12px; height: 12px; border-radius: 50%;
+    background: var(--accent);
+    box-shadow: 0 0 18px var(--accent);
+  }
+  .tag {
+    font-size: 12px;
+    padding: 3px 8px;
+    background: rgba(34, 211, 168, 0.12);
+    color: var(--accent);
+    border: 1px solid rgba(34, 211, 168, 0.35);
+    border-radius: 4px;
+  }
+  .hero {
+    text-align: center;
+    margin: 36px 0 28px;
+  }
+  .hero h1 {
+    font-size: clamp(28px, 4vw, 44px);
+    line-height: 1.2;
+    letter-spacing: -0.5px;
+    margin-bottom: 14px;
+  }
+  .hero h1 .grad {
+    background: linear-gradient(92deg, var(--accent) 0%, var(--accent-2) 100%);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+  .hero p {
+    color: var(--dim);
+    font-size: 16px;
+    max-width: 660px;
+    margin: 0 auto;
+  }
+  .cta-row {
+    display: flex;
+    justify-content: center;
+    gap: 10px;
+    flex-wrap: wrap;
+    margin-top: 22px;
+  }
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 18px;
+    border-radius: 6px;
+    border: 1px solid var(--border);
+    background: var(--panel);
+    color: var(--text);
+    font: inherit;
+    font-size: 14px;
+    cursor: pointer;
+    transition: all .15s ease;
+  }
+  .btn:hover { border-color: var(--accent); transform: translateY(-1px); }
+  .btn.primary {
+    background: linear-gradient(92deg, var(--accent) 0%, #1bbf96 100%);
+    color: #062019;
+    border-color: transparent;
+    font-weight: 600;
+  }
+  .btn.primary:hover { box-shadow: 0 6px 24px rgba(34, 211, 168, 0.35); }
+  .btn.ghost { background: transparent; }
+
+  .demo-picker {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+    justify-content: center;
+    margin: 28px 0 18px;
+  }
+  .chip {
+    padding: 8px 14px;
+    font-size: 13px;
+    border-radius: 20px;
+    border: 1px solid var(--border);
+    background: var(--bg-2);
+    color: var(--dim);
+    cursor: pointer;
+    transition: all .15s ease;
+  }
+  .chip:hover { color: var(--text); border-color: var(--accent-2); }
+  .chip.active {
+    color: #062019;
+    background: var(--accent);
+    border-color: var(--accent);
+    font-weight: 600;
+  }
+
+  .terminal {
+    background: var(--bg-2);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    overflow: hidden;
+    box-shadow: 0 24px 60px rgba(0, 0, 0, 0.35);
+  }
+  .term-head {
+    background: #0e141b;
+    padding: 10px 14px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    border-bottom: 1px solid var(--border);
+  }
+  .term-head .btns {
+    display: flex; gap: 6px;
+  }
+  .term-head .btns span {
+    width: 11px; height: 11px; border-radius: 50%;
+    background: #3d4752;
+  }
+  .term-head .btns span:nth-child(1) { background: #ff5f57; }
+  .term-head .btns span:nth-child(2) { background: #febc2e; }
+  .term-head .btns span:nth-child(3) { background: #28c840; }
+  .term-head .title {
+    flex: 1;
+    font-size: 12px;
+    color: var(--dim);
+    text-align: center;
+  }
+  .term-body {
+    padding: 18px 22px;
+    min-height: 420px;
+    font-size: 14px;
+    line-height: 1.6;
+  }
+  .cmd {
+    color: var(--accent);
+  }
+  .prompt {
+    color: var(--accent-2);
+    margin-right: 6px;
+  }
+  .meta {
+    color: var(--dim);
+    margin: 8px 0 18px;
+    font-size: 13px;
+  }
+  .divider {
+    color: var(--border);
+    margin: 10px 0;
+    user-select: none;
+  }
+  .step {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    margin: 6px 0;
+    padding: 4px 0;
+    font-size: 14px;
+  }
+  .step .icon {
+    min-width: 26px;
+  }
+  .step .name {
+    min-width: 180px;
+    color: var(--text);
+  }
+  .step .time {
+    color: var(--dim);
+    min-width: 60px;
+  }
+  .step .arrow { color: var(--dim); }
+  .step .detail { color: var(--text); flex: 1; }
+  .step.done .icon::before { content: "✅"; }
+  .step.running .icon::before { content: "⏳"; animation: pulse 1.2s ease-in-out infinite; }
+  .step.pending .icon::before { content: "•"; color: var(--dim); }
+  @keyframes pulse {
+    0%,100% { opacity: 1; }
+    50% { opacity: 0.35; }
+  }
+  .summary {
+    margin-top: 20px;
+    padding: 14px 18px;
+    background: rgba(34, 211, 168, 0.08);
+    border: 1px solid rgba(34, 211, 168, 0.25);
+    border-radius: 6px;
+    color: var(--accent);
+    font-size: 13px;
+  }
+  .final-preview {
+    margin-top: 16px;
+    padding: 20px 22px;
+    background: #0f1620;
+    border: 1px solid #1e2a3a;
+    border-left: 3px solid var(--accent);
+    border-radius: 6px;
+    color: var(--text);
+    font-size: 14px;
+    line-height: 1.7;
+    font-family: -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif;
+  }
+  .final-preview .final-head {
+    font-size: 12px;
+    color: var(--accent);
+    font-weight: 600;
+    margin-bottom: 10px;
+    letter-spacing: 0.5px;
+  }
+  .final-preview h1, .final-preview h2, .final-preview h3 { margin: 14px 0 8px; color: var(--accent); }
+  .final-preview h1 { font-size: 18px; }
+  .final-preview h2 { font-size: 16px; }
+  .final-preview h3 { font-size: 15px; }
+  .final-preview ul, .final-preview ol { padding-left: 22px; margin: 6px 0; }
+  .final-preview li { margin: 3px 0; }
+  .final-preview strong { color: #e8f0ff; }
+  .final-preview code { background: #1a2230; padding: 1px 6px; border-radius: 3px; font-size: 12px; }
+  .final-preview blockquote { border-left: 2px solid var(--dim); padding-left: 10px; color: var(--dim); margin: 8px 0; }
+  .final-preview hr { border: none; border-top: 1px solid #1e2a3a; margin: 14px 0; }
+  .final-preview p { margin: 6px 0; }
+  .cursor {
+    display: inline-block;
+    width: 8px; height: 16px;
+    background: var(--accent);
+    vertical-align: middle;
+    margin-left: 2px;
+    animation: blink 1s steps(2, end) infinite;
+  }
+  @keyframes blink { 50% { opacity: 0; } }
+
+  .controls {
+    display: flex;
+    justify-content: center;
+    gap: 10px;
+    margin-top: 18px;
+    flex-wrap: wrap;
+  }
+  .speed-label {
+    color: var(--dim);
+    font-size: 12px;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 12px;
+  }
+  .speed-label select {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    color: var(--text);
+    padding: 4px 8px;
+    border-radius: 4px;
+    font: inherit;
+    font-size: 12px;
+  }
+
+  .features {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 14px;
+    margin-top: 40px;
+  }
+  .feat {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 18px;
+  }
+  .feat .k {
+    font-size: 24px;
+    font-weight: 700;
+    color: var(--accent);
+  }
+  .feat .v {
+    color: var(--dim);
+    font-size: 13px;
+    margin-top: 4px;
+  }
+  footer {
+    text-align: center;
+    color: var(--dim);
+    margin-top: 50px;
+    font-size: 13px;
+  }
+  footer a { color: var(--accent-2); text-decoration: none; }
+  footer a:hover { text-decoration: underline; }
+
+  .install-box {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 14px 18px;
+    margin: 24px auto 0;
+    max-width: 640px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    font-size: 14px;
+  }
+  .install-box code {
+    flex: 1;
+    color: var(--accent);
+  }
+  .copy-btn {
+    background: transparent;
+    border: 1px solid var(--border);
+    color: var(--dim);
+    padding: 4px 10px;
+    border-radius: 4px;
+    font: inherit;
+    font-size: 12px;
+    cursor: pointer;
+  }
+  .copy-btn:hover { color: var(--accent); border-color: var(--accent); }
+  .copy-btn.done { color: var(--accent); border-color: var(--accent); }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header>
+  <div class="brand">
+    <span class="dot"></span>
+    <span>agency-orchestrator</span>
+    <span class="tag">v0.5.2</span>
+  </div>
+  <div style="color: var(--dim); font-size: 13px;">
+    211 中文 + 170 英文 AI 专家角色 · 10 种大模型 · 7 种免 API key
+  </div>
+</header>
+
+<div class="hero">
+  <h1>一个人扛一家公司？<span class="grad">10 个 AI 专家</span> 组队帮你干活</h1>
+  <p>从写内容到做方案到搞分析 — 一句话描述你要啥,AI 团队自动协作,10 分钟交完整结果。不用写代码,不用选角色,不用懂 prompt。</p>
+
+  <div class="install-box">
+    <span class="prompt">$</span>
+    <code id="install-cmd">npm install -g agency-orchestrator</code>
+    <button class="copy-btn" onclick="copyInstall(this)">复制</button>
+  </div>
+</div>
+
+<div class="demo-picker" id="picker"></div>
+
+<div class="terminal">
+  <div class="term-head">
+    <div class="btns"><span></span><span></span><span></span></div>
+    <div class="title" id="term-title">ao compose --run</div>
+  </div>
+  <div class="term-body" id="term"></div>
+</div>
+
+<div class="controls">
+  <button class="btn primary" id="play-btn" onclick="startDemo()">▶ 开始演示</button>
+  <button class="btn ghost" onclick="resetDemo()">⟲ 重置</button>
+  <span class="speed-label">
+    速度:
+    <select id="speed" onchange="setSpeed(this.value)">
+      <option value="0.5">快(0.5x)</option>
+      <option value="1" selected>正常</option>
+      <option value="2">慢(2x,录视频用)</option>
+    </select>
+  </span>
+</div>
+
+<div class="features">
+  <div class="feat"><div class="k">211+</div><div class="v">即插即用的 AI 专家角色</div></div>
+  <div class="feat"><div class="k">10</div><div class="v">种大模型(7 种免 API key)</div></div>
+  <div class="feat"><div class="k">DAG</div><div class="v">自动检测并行,无需手工编排</div></div>
+  <div class="feat"><div class="k">Zero</div><div class="v">代码 · 配置 · 角色选择</div></div>
+</div>
+
+<footer>
+  <p>
+    <a href="https://github.com/jnMetaCode/agency-orchestrator" target="_blank">GitHub</a>
+    &nbsp;·&nbsp;
+    <a href="https://www.npmjs.com/package/agency-orchestrator" target="_blank">npm</a>
+    &nbsp;·&nbsp;
+    <a href="https://github.com/jnMetaCode/agency-orchestrator/blob/main/README.md" target="_blank">文档</a>
+  </p>
+  <p style="margin-top: 10px;">一行命令,立即体验 → <code style="color: var(--accent);">ao compose "帮我分析做一个 AI 工具的可行性" --run</code></p>
+</footer>
+
+</div>
+
+<script>
+const DEMOS = [
+  {
+    id: "xiaohongshu",
+    label: "📱 小红书爆款",
+    cmd: 'ao compose "写一篇关于秋季穿搭的小红书爆款笔记" --run',
+    title: "小红书爆款笔记创作",
+    concurrency: 3,
+    model: "deepseek-chat",
+    roles: ["📱 小红书策略师", "✍️ 文案创作", "🎯 标题+标签专家", "📝 整合发稿"],
+    steps: [
+      { emoji: "📱", name: "小红书策略师", time: "12.4s", detail: "选题切入：3 个爆款角度分析,情绪钩子定位「共鸣+获得感」" },
+      { emoji: "✍️", name: "文案创作",   time: "24.7s", detail: "600 字真实感正文,分 4 个小节,配合场景化 emoji" },
+      { emoji: "🎯", name: "标题专家",   time: "18.3s", detail: "5 个候选标题 + 10 个话题标签,推荐「3 个穿搭公式省去选择困难」" },
+      { emoji: "📝", name: "整合发稿",   time: "9.8s",  detail: "可直接发布的完整笔记(标题+正文+标签+发布建议)" }
+    ],
+    summary: "完成: 4/4 步 | 65.2s | 8,241 tokens · 已保存到 ao-output/xiaohongshu-2025-10-13/",
+    final: `## 📱 秋日氛围感穿搭｜3 个公式让你告别选择困难
+
+**姐妹们我悟了！** 这个秋天穿搭其实就三个万能公式～
+
+### ✨ 公式一：大地色系 × 针织开衫
+基础款白T + 卡其阔腿裤 + 燕麦色开衫，出门 3 分钟搞定，氛围感拉满。
+
+### ✨ 公式二：毛衣叠穿 × 百褶裙
+薄款高领 + 格纹毛背心 + 深色百褶裙，上课通勤都能打，显瘦还显高。
+
+### ✨ 公式三：风衣 × 内搭 Polo
+驼色风衣是秋日神器，里面随便叠一件 Polo 或条纹衫，随手拍都出片。
+
+> 💡 **小 Tips**：鞋子选乐福鞋或玛丽珍，整体质感立刻升级！
+
+**#秋季穿搭 #氛围感 #穿搭公式 #学生党穿搭 #日常ootd**`
+  },
+  {
+    id: "invest",
+    label: "💰 投资分析",
+    cmd: 'ao compose "分析贵州茅台现在值不值得买" --run',
+    title: "投资标的分析（股票/基金/行业）",
+    concurrency: 3,
+    model: "deepseek-chat",
+    roles: ["🔬 投资研究员", "📊 财务分析师", "⚠️ 风控专家", "💼 CFO 顾问"],
+    steps: [
+      { emoji: "🔬", name: "投资研究员",   time: "22.1s", detail: "基本面梳理：核心驱动、竞争格局、估值水位,标注 4 项需核实数据" },
+      { emoji: "📊", name: "财务分析师",   time: "28.5s", detail: "盈利能力稳健,ROE 30%+,同行第一档,关注消费降级压力" },
+      { emoji: "⚠️", name: "风控专家",     time: "19.2s", detail: "主要风险：宏观消费 / 政策 / 估值回落。止损建议 -15%" },
+      { emoji: "💼", name: "CFO 顾问",    time: "16.8s", detail: "建议：分批买入,仓位 ≤ 15%,持有 3 年+,含免责声明" }
+    ],
+    summary: "完成: 4/4 步 | 86.6s | 12,580 tokens · 已保存到 ao-output/invest-2026-04-15/",
+    final: `## 💰 贵州茅台投资意见书（摘要）
+
+**综合评级：⭐⭐⭐⭐☆ 中长期可配置，短期谨慎**
+
+### 核心结论
+- **基本面**：品牌护城河深厚，ROE 30%+，现金流稳健
+- **估值**：PE 25x，处历史中位，不算便宜但未严重高估
+- **风险**：宏观消费疲软、政策扰动、高端白酒渗透见顶
+
+### 操作建议
+| 策略 | 仓位 | 买入方式 | 持有周期 |
+|------|------|----------|----------|
+| 稳健型 | ≤ 10% | 分 3 批左侧 | 3 年+ |
+| 进攻型 | ≤ 15% | 回调 -10% 加仓 | 1-3 年 |
+
+**止损线**：-15%（破位需重新评估逻辑）
+
+> ⚠️ 本报告仅供参考，不构成投资建议。投资有风险，决策需谨慎。`
+  },
+  {
+    id: "resume",
+    label: "📋 简历+面试",
+    cmd: 'ao run workflows/resume-and-interview-prep.yaml -i resume_content=@my.md -i target_role="字节产品经理"',
+    title: "简历优化与面试准备",
+    concurrency: 3,
+    model: "claude-code",
+    roles: ["👔 资深 HR", "✍️ 简历优化师", "❓ 面试官", "🎯 答题教练"],
+    steps: [
+      { emoji: "👔", name: "资深 HR",    time: "18.7s", detail: "诊断：3 个硬伤(缺量化 / 职责堆砌 / 关键词缺失),评分 6/10" },
+      { emoji: "✍️", name: "简历优化师", time: "32.4s", detail: "STAR 结构重写 5 段经历,补齐 12 个 ATS 关键词" },
+      { emoji: "❓", name: "面试官",     time: "25.1s", detail: "预测 10 个高概率问题(基础 / 项目 / 硬伤追问 / 软素质)" },
+      { emoji: "🎯", name: "答题教练",   time: "21.6s", detail: "每题 STAR 答题框架 + ⚠️ 避雷点,共 50 行干货" }
+    ],
+    summary: "完成: 4/4 步 | 97.8s | 15,320 tokens · 已保存到 ao-output/resume-2026-04-15/",
+    final: `## 📋 简历优化报告 + 面试准备包
+
+### 🔧 简历优化（前后对比）
+**修改前**：负责公司 App 首页改版，提升了用户体验
+**修改后**：主导 DAU 500 万 App 首页重构（React + TS），漏斗转化率 +18%，带动订单量周环比增长 ¥230 万
+
+### 💼 预测面试高频问题（Top 5）
+1. 讲讲你最有成就感的项目（考察 STAR 结构 + 量化）
+2. 遇到技术选型分歧你怎么处理？（考察协作）
+3. 为什么从 A 公司离开？（避雷：别吐槽前司）
+4. 你对字节的了解？（考察诚意 + 业务理解）
+5. 3 年规划？（考察稳定性 + 野心）
+
+### 🎯 必答 STAR 模板（示例）
+> **S**: 首页改版项目启动时漏斗转化只有 12%
+> **T**: 3 个月内提到 15%，不影响稳定性
+> **A**: 重构组件 / A/B 测试 / 埋点优化 3 条主线
+> **R**: 转化率 18.3%，超额完成，带动 GMV +¥230 万
+
+⚠️ **避雷 3 条**：别聊薪资 / 别贬低前司 / 不懂就说"我需要查一下"`
+  },
+  {
+    id: "legal",
+    label: "⚖️ 法律咨询",
+    cmd: 'ao run workflows/legal-consultation.yaml -i case_description="..."',
+    title: "法律咨询意见书",
+    concurrency: 3,
+    model: "deepseek-chat",
+    roles: ["📋 法务助理", "📄 合同审查", "⚖️ 诉讼顾问", "💼 主办律师"],
+    steps: [
+      { emoji: "📋", name: "法务助理",     time: "15.3s", detail: "梳理事实链,识别 2 个争议焦点,列出 3 项需补充信息" },
+      { emoji: "📄", name: "合同审查",     time: "22.8s", detail: "审查 Top 3 不利条款,缺失违约责任 / 管辖条款,评级「不利」" },
+      { emoji: "⚖️", name: "诉讼顾问",     time: "19.7s", detail: "胜诉概率「中」,诉讼费 5-8 万,建议先走调解" },
+      { emoji: "💼", name: "主办律师",     time: "24.1s", detail: "出具正式意见书:事实+法律分析+5 条行动建议+免责声明" }
+    ],
+    summary: "完成: 4/4 步 | 81.9s | 14,220 tokens · 已保存到 ao-output/legal-2026-04-15/",
+    final: `## ⚖️ 法律意见书（摘要）
+
+**案情**：乙方拖欠货款 ¥58 万，合同管辖条款缺失
+
+### 核心判断
+- **事实链**：订单 / 发货单 / 对账单齐全，证据链完整
+- **争议点**：对方主张货物瑕疵，但未在约定期内书面通知
+- **胜诉概率**：**中高（65-75%）**
+
+### 三条建议
+1. **优先调解**：先发律师函 + 协商分期，3 周内无果再起诉（成本 ¥0.5-1 万）
+2. **起诉路径**：若调解失败，标的小于 500 万建议简易程序（费用 ¥5-8 万）
+3. **证据补充**：补全书面催收记录、聊天截图公证
+
+### 关键时效
+- ⏰ 诉讼时效剩余 **14 个月**，建议 3 个月内启动
+- 💰 保全措施：可申请财产保全冻结对方账户
+
+> ⚠️ 本意见书仅供参考，正式维权请委托律师出具书面意见。`
+  },
+  {
+    id: "validate",
+    label: "💡 商业点子验证",
+    cmd: 'ao compose "验证做一个 AI 简历优化 SaaS 的商业可行性" --run',
+    title: "1 人公司 · 商业点子可行性验证",
+    concurrency: 3,
+    model: "deepseek-chat",
+    roles: ["🔬 市场调研员", "🎯 竞品分析师", "👥 用户画像师", "💼 商业模式顾问"],
+    steps: [
+      { emoji: "🔬", name: "市场调研员",     time: "21.4s", detail: "规模 / 增速 / 付费意愿：中国求职者 2.3 亿,AI 简历工具渗透率 <5%" },
+      { emoji: "🎯", name: "竞品分析师",     time: "26.8s", detail: "Top 5 竞品定位 / 定价 / 差异化机会,空白位「垂直行业 + 中文优化」" },
+      { emoji: "👥", name: "用户画像师",     time: "18.9s", detail: "3 个核心画像 + 付费意愿分层,应届生价格敏感 / 跳槽期高付费" },
+      { emoji: "💼", name: "商业模式顾问",   time: "17.3s", detail: "推荐：免费 + 单次付费 9.9 元,MVP 成本 <¥5k,半年回本路径" }
+    ],
+    summary: "完成: 4/4 步 | 84.4s | 13,220 tokens · 已保存到 ao-output/validate-2026-04-15/",
+    final: `## 💡 商业可行性报告：AI 简历 SaaS
+
+**综合评级：⭐⭐⭐⭐☆ 可做，但需差异化切入**
+
+### 市场机会
+- **规模**：中国求职者 2.3 亿，年活跃求职 8000 万，AI 简历工具渗透率 <5%
+- **付费意愿**：跳槽期用户愿付 ¥30-100 单次，应届生对价格敏感
+
+### 竞品格局（Top 3）
+| 产品 | 定价 | 短板 |
+|------|------|------|
+| A | ¥199/年 | 模板老套 |
+| B | 免费 + 广告 | AI 能力弱 |
+| C | ¥99/次 | 缺中文优化 |
+
+### 推荐打法
+- **切入点**：**垂直行业 + 中文 AI 深度优化**（互联网/金融/教培 三个赛道）
+- **MVP 成本**：≤ ¥5k（用 GPT-4o API + Next.js + Supabase）
+- **定价**：免费试用 + ¥49 单次 + ¥199 年卡
+- **回本路径**：月 200 单即可覆盖成本，6 个月达到盈亏平衡
+
+### ⚠️ 3 个风险
+1. GPT 直接用也能改简历，差异化靠"行业知识库"
+2. 流量获取成本高，早期靠 SEO + 小红书内容
+3. 大厂（如 Boss）可能做内置功能`
+  },
+  {
+    id: "launch",
+    label: "🚀 产品冷启动",
+    cmd: 'ao compose "给我的 AI 笔记 App 做一套冷启动方案" --run',
+    title: "1 人公司 · 产品冷启动方案",
+    concurrency: 3,
+    model: "deepseek-chat",
+    roles: ["🎯 定位专家", "📣 渠道策略师", "✍️ 冷启文案", "📋 30 天落地"],
+    steps: [
+      { emoji: "🎯", name: "定位专家",     time: "17.6s", detail: "差异化定位「给独立开发者的 AI 笔记」,3 句话价值主张" },
+      { emoji: "📣", name: "渠道策略师",   time: "24.2s", detail: "首发渠道：V2EX / 即刻 / X / PH,按转化成本优先级排序" },
+      { emoji: "✍️", name: "冷启文案",     time: "22.1s", detail: "5 条平台差异化首发文案 + 5 个 KOL 私信模板" },
+      { emoji: "📋", name: "30 天落地",    time: "15.8s", detail: "W1 预热 / W2 发射 / W3 复盘 / W4 迭代,每日动作清单" }
+    ],
+    summary: "完成: 4/4 步 | 79.7s | 11,840 tokens · 已保存到 ao-output/launch-2026-04-15/",
+    final: `## 🚀 AI 笔记 App 冷启动方案
+
+### 🎯 差异化定位
+> "给独立开发者的 AI 笔记 — 代码片段 + 灵感随手记 + AI 自动整理成博客草稿"
+
+### 📣 首发渠道（按优先级）
+1. **V2EX** — 独立开发者浓度最高，首发帖标题钩子「做了半年的独立开发工具，想听点真实反馈」
+2. **即刻** — 冷启动友好，配合话题 #独立开发者日常
+3. **X (Twitter)** — 面向全球开发者，英文 thread 讲开发心路
+4. **Product Hunt** — 第 2 周上榜日发射，冲 Top 10
+5. **掘金/少数派** — 写深度教程软植入
+
+### ✍️ 首发文案模板（V2EX 版）
+> **标题**：做了半年独立开发工具，今天想收集真实反馈
+>
+> **正文**：我是前端，受够了 Notion 太重 / 苹果备忘录太轻，做了个专为独立开发者的 AI 笔记...（500 字故事 + 产品介绍 + 抽 10 个 Pro 名额）
+
+### 📅 30 天行动
+- **W1**：预热 — X 发 7 条开发日志 + V2EX 预告
+- **W2**：首发 — 周二 V2EX / 周四 PH 双发射
+- **W3**：跟进 — 根据反馈 Hotfix，KOL 私信邀测
+- **W4**：复盘 — 写文章「我的首个 100 个用户哪里来」持续引流`
+  },
+  {
+    id: "ip",
+    label: "🎯 个人 IP 定位",
+    cmd: 'ao compose "10 年前端想转独立开发者,帮我做个人 IP 定位" --run',
+    title: "1 人公司 · 个人 IP 定位与内容策略",
+    concurrency: 3,
+    model: "claude-code",
+    roles: ["🧭 定位诊断师", "📚 内容策略师", "📱 平台选择官", "📅 30 天行动"],
+    steps: [
+      { emoji: "🧭", name: "定位诊断师",   time: "19.3s", detail: "三环交集：10 年前端 × AI 工具实战 × 独立开发,标签「会做能写的前端」" },
+      { emoji: "📚", name: "内容策略师", time: "28.4s", detail: "内容四象限：技术硬货 / 踩坑日记 / 工具评测 / 独立开发进度" },
+      { emoji: "📱", name: "平台选择官", time: "16.5s", detail: "主阵地 X + 掘金,辅 B 站长视频,放弃小红书（受众错位）" },
+      { emoji: "📅", name: "30 天行动",  time: "13.2s", detail: "每日 1 条 tweet + 每周 1 篇长文 + 月末 1 期播客" }
+    ],
+    summary: "完成: 4/4 步 | 77.4s | 12,050 tokens · 已保存到 ao-output/ip-2026-04-15/",
+    final: `## 🎯 个人 IP 定位方案
+
+### 🧭 核心定位
+> **「会做能写的前端 · 用 AI 撬动独立开发的 10 年老兵」**
+>
+> 三环交集：**10 年前端经验 × AI 工具实战 × 独立开发故事**
+
+### 📚 内容四象限
+| 类型 | 比例 | 示例选题 |
+|------|------|----------|
+| 🛠 技术硬货 | 30% | 「手把手教你用 Claude Code 写前端」 |
+| 💥 踩坑日记 | 30% | 「独立开发半年，我烧掉的 3 万块」 |
+| 🔍 工具评测 | 20% | 「一周实测 5 个 AI 编程工具」 |
+| 📈 进度直播 | 20% | 「MRR ¥2000 了，下一步干啥」 |
+
+### 📱 平台策略
+- **主阵地**：X（面向国际/独立开发者）+ 掘金（国内技术声量）
+- **辅助**：B 站长视频（季度一期）+ 播客（月度一期）
+- **放弃**：小红书（受众错位）、抖音（ROI 低）
+
+### 📅 30 天冷启动
+- **每日**：1 条 tweet（技术/踩坑/工具任选）
+- **每周**：1 篇 2000 字长文（掘金首发，X 发摘要）
+- **月末**：1 期播客（对谈另一位独立开发者）
+- **目标**：30 天 500 粉 + 1 篇爆文 + 3 个商业询盘`
+  },
+  {
+    id: "douyin",
+    label: "🎬 抖音口播",
+    cmd: 'ao compose "给独立开发者拍一条抖音口播：如何用 AI 做一人公司" --run',
+    title: "1 人公司 · 抖音口播脚本",
+    concurrency: 3,
+    model: "claude-code",
+    roles: ["🎬 选题官", "✍️ 口播编剧", "🎯 标题钩子", "🎥 整合导演"],
+    steps: [
+      { emoji: "🎬", name: "选题官",     time: "14.2s", detail: "切入：从「程序员副业焦虑」入手,差异化打法：晒真实数据" },
+      { emoji: "✍️", name: "口播编剧",   time: "28.9s", detail: "60s 脚本:0-3s 钩子 / 正文 3 要点 / 最后 10s 引流" },
+      { emoji: "🎯", name: "标题钩子",   time: "11.5s", detail: "标题「程序员副业真能月入 2 万？我做了半年交底」+ 5 话题" },
+      { emoji: "🎥", name: "整合导演",   time: "8.3s",  detail: "完整方案：脚本 + 镜头 + 字幕 + BGM + 发布时段" }
+    ],
+    summary: "完成: 4/4 步 | 62.9s | 9,480 tokens · 已保存到 ao-output/douyin-2025-10-13/",
+    final: `## 🎬 抖音口播完整方案
+
+**标题**：《独立开发者真能月入 2 万？我做了半年交底》
+
+### 📝 60 秒口播脚本
+
+**0-3s｜钩子**
+> "一个人做产品能月入 2 万吗？今天把我半年的真实数据全摆出来。"
+
+**3-45s｜正文**
+> "我是小张，前字节前端，去年 10 月裸辞做独立开发。
+> 第一个月：0 收入。第二个月：¥800。第五个月：**¥23,400**。
+> 讲三个我踩过的坑——第一，别一上来就写代码；第二，小工具比大平台好做；第三，得日更。
+> 具体怎么选赛道、怎么冷启动，我整理了个清单..."
+
+**45-60s｜引流**
+> "评论区扣「1 人公司」我私你清单，主页还有完整独立开发日记。"
+
+### 🎥 拍摄方案
+- **镜头**：书房实景 + 显示器背景，无 PPT
+- **字幕**：大号加粗 + 数字高亮
+- **BGM**：轻节奏电子，音量 -20dB
+- **发布时段**：工作日 19:00-21:00（打工人刷手机高峰）
+
+### 🏷 话题标签
+#独立开发 #1 人公司 #程序员副业 #AI 工具 #自由职业`
+  },
+  {
+    id: "pricing",
+    label: "💰 SaaS 定价策略",
+    cmd: 'ao compose "给我的 AI 简历 SaaS 设计定价方案" --run',
+    title: "1 人公司 · SaaS 产品定价策略",
+    concurrency: 3,
+    model: "deepseek-chat",
+    roles: ["📊 市场调研员", "🎯 竞品定价师", "💎 价值锚定师", "📋 落地方案"],
+    steps: [
+      { emoji: "📊", name: "市场调研员",   time: "18.2s", detail: "目标人群支付能力：学生 <¥20 / 职场 ¥30-100 / 高管 >¥300" },
+      { emoji: "🎯", name: "竞品定价师",   time: "22.6s", detail: "Top 5 竞品定价矩阵,空白价位「¥49 / 单次」+「¥199 / 年」" },
+      { emoji: "💎", name: "价值锚定师",   time: "16.7s", detail: "三档锚定：¥9.9 试用 / ¥49 单次 / ¥199 年卡,主推中间档" },
+      { emoji: "📋", name: "落地方案",     time: "14.1s", detail: "上线首月 7 折 + 老用户锁价 + 邀请返现,预估转化 3-5%" }
+    ],
+    summary: "完成: 4/4 步 | 71.6s | 10,930 tokens · 已保存到 ao-output/pricing-2026-04-15/",
+    final: `## 💰 AI 简历 SaaS 定价方案
+
+### 🎯 三档定价（锚定中间档）
+| 档位 | 价格 | 权益 | 目标转化 |
+|------|------|------|---------|
+| 体验版 | **¥9.9** | 1 次 AI 优化 | 30% 新用户 |
+| **推荐版** | **¥49 / 单次** | 3 次优化 + 面试包 | **主推 60%** |
+| 年度版 | ¥199 / 年 | 不限次 + 高级模板 | 跳槽党 10% |
+
+### 💡 价值锚定逻辑
+- 市场客单价集中在 ¥30-100，¥49 卡在心理甜点位
+- ¥199 年卡折算 ¥16.5/月，对比单次便宜 66%
+- ¥9.9 降低决策成本，为后续付费铺路
+
+### 🚀 上线首月策略
+- **7 折首发**：¥49 → ¥34.3（限前 1000 单）
+- **老用户锁价**：年卡永久不涨价
+- **邀请返现**：拉 1 人注册送 ¥5，限返现 ¥50
+
+### 📊 预估数据
+- **首月目标**：新用户 2000，付费转化 3-5%
+- **收入预估**：¥3,000-5,000（覆盖 GPT API 成本 + 小额利润）
+- **3 个月目标**：MRR ¥8,000，付费用户 200+
+
+> 💡 别卷价格战 — 靠「中文优化 + 行业知识库」做差异化，¥49 是行业中位，够用户决策舒适。`
+  }
+];
+
+let current = DEMOS[0];
+let speedMult = 1;
+let running = false;
+
+function renderPicker() {
+  const p = document.getElementById("picker");
+  p.innerHTML = DEMOS.map((d, i) =>
+    `<button class="chip ${d.id === current.id ? 'active' : ''}" onclick="selectDemo(${i})">${d.label}</button>`
+  ).join("");
+}
+
+function selectDemo(i) {
+  if (running) return;
+  current = DEMOS[i];
+  renderPicker();
+  resetDemo();
+}
+
+function setSpeed(v) {
+  speedMult = 1 / parseFloat(v);
+}
+
+function resetDemo() {
+  document.getElementById("term").innerHTML = "";
+  document.getElementById("term-title").textContent = current.cmd;
+  document.getElementById("play-btn").textContent = "▶ 开始演示";
+  document.getElementById("play-btn").disabled = false;
+  running = false;
+}
+
+function sleep(ms) {
+  return new Promise(r => setTimeout(r, ms * speedMult));
+}
+
+async function typewriter(el, text, charDelay = 18) {
+  for (const ch of text) {
+    el.textContent += ch;
+    await sleep(charDelay);
+  }
+}
+
+async function startDemo() {
+  if (running) return;
+  running = true;
+  const btn = document.getElementById("play-btn");
+  btn.textContent = "⏵ 演示中...";
+  btn.disabled = true;
+
+  const term = document.getElementById("term");
+  term.innerHTML = "";
+
+  // prompt + command
+  const p1 = document.createElement("div");
+  p1.innerHTML = `<span class="prompt">$</span><span class="cmd" id="cmd-line"></span><span class="cursor"></span>`;
+  term.appendChild(p1);
+  await typewriter(document.getElementById("cmd-line"), current.cmd, 25);
+  p1.querySelector(".cursor").remove();
+  await sleep(400);
+
+  // launch lines
+  const meta = document.createElement("div");
+  meta.className = "meta";
+  term.appendChild(meta);
+  await typewriter(meta, `  正在用 AI 编排工作流...（211 个角色可选）\n`, 8);
+  await sleep(300);
+
+  const info = document.createElement("div");
+  info.innerHTML = `
+    <div style="margin:10px 0 4px;">  工作流: <b>${current.title}</b></div>
+    <div>  步骤数: ${current.steps.length} | 并发: ${current.concurrency} | 模型: ${current.model}</div>
+    <div>  参与者: ${current.roles.join(" | ")}</div>
+    <div class="divider">──────────────────────────────────────────────────</div>
+  `;
+  term.appendChild(info);
+  await sleep(600);
+
+  // render pending steps
+  const stepsBlock = document.createElement("div");
+  term.appendChild(stepsBlock);
+  current.steps.forEach((s, i) => {
+    const row = document.createElement("div");
+    row.className = "step pending";
+    row.id = `step-${i}`;
+    row.innerHTML = `
+      <span class="icon"></span>
+      <span class="name">${s.emoji} ${s.name}</span>
+      <span class="time"></span>
+      <span class="arrow">→</span>
+      <span class="detail" style="color: var(--dim);">pending</span>
+    `;
+    stepsBlock.appendChild(row);
+  });
+  await sleep(500);
+
+  // run each step
+  for (let i = 0; i < current.steps.length; i++) {
+    const row = document.getElementById(`step-${i}`);
+    row.classList.remove("pending");
+    row.classList.add("running");
+    row.querySelector(".detail").textContent = "running...";
+    row.querySelector(".detail").style.color = "var(--warn)";
+
+    await sleep(700 + Math.random() * 500);
+
+    const s = current.steps[i];
+    row.classList.remove("running");
+    row.classList.add("done");
+    row.querySelector(".time").textContent = s.time;
+    const d = row.querySelector(".detail");
+    d.textContent = "";
+    d.style.color = "var(--text)";
+    await typewriter(d, s.detail, 12);
+    await sleep(250);
+  }
+
+  // summary
+  const summary = document.createElement("div");
+  summary.className = "summary";
+  summary.innerHTML = `<div style="color: var(--accent); font-weight: 600; margin-bottom: 4px;">==================================================</div>
+    <div>  ${current.summary}</div>
+    <div style="color: var(--accent); font-weight: 600; margin-top: 4px;">==================================================</div>`;
+  term.appendChild(summary);
+
+  // final preview — the actual AI deliverable
+  if (current.final) {
+    await sleep(400);
+    const fp = document.createElement("div");
+    fp.className = "final-preview";
+    fp.innerHTML = `<div class="final-head">🎁 最终交付 · AI 团队给你的完整方案</div>` +
+      (window.marked ? window.marked.parse(current.final) : `<pre>${current.final}</pre>`);
+    term.appendChild(fp);
+    fp.scrollIntoView({ behavior: 'smooth', block: 'end' });
+  }
+
+  btn.textContent = "▶ 重新演示";
+  btn.disabled = false;
+  running = false;
+}
+
+function copyInstall(btn) {
+  navigator.clipboard.writeText("npm install -g agency-orchestrator");
+  btn.textContent = "✓ 已复制";
+  btn.classList.add("done");
+  setTimeout(() => {
+    btn.textContent = "复制";
+    btn.classList.remove("done");
+  }, 2000);
+}
+
+renderPicker();
+resetDemo();
+</script>
+
+</body>
+</html>

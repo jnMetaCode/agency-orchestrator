@@ -11,7 +11,7 @@
 import { readFileSync, existsSync } from 'node:fs';
 import { resolve, join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { execSync } from 'node:child_process';
+import { execSync, spawn } from 'node:child_process';
 import { parseWorkflow, validateWorkflow } from './core/parser.js';
 import type { LLMConfig } from './types.js';
 import { buildDAG, formatDAG } from './core/dag.js';
@@ -74,6 +74,9 @@ async function main(): Promise<void> {
     case 'serve':
       await handleServe();
       break;
+    case 'web':
+      await handleWeb();
+      break;
     case 'upgrade':
     case 'self-update':
       await handleUpgrade();
@@ -84,7 +87,7 @@ async function main(): Promise<void> {
       break;
     default: {
       // 容错：用户可能漏了空格，如 "planworkflows/x.yaml"
-      const knownCmds = ['run', 'validate', 'plan', 'explain', 'compose', 'demo', 'roles', 'init', 'serve', 'upgrade'];
+      const knownCmds = ['run', 'validate', 'plan', 'explain', 'compose', 'demo', 'roles', 'init', 'serve', 'web', 'upgrade'];
       const match = knownCmds.find(c => command.startsWith(c) && command.length > c.length);
       if (match) {
         console.error(`看起来少了个空格？试试:\n  ao ${match} ${command.slice(match.length)}\n`);
@@ -444,6 +447,46 @@ async function handleServe(): Promise<void> {
     console.error(`MCP 服务器启动失败: ${err instanceof Error ? err.message : err}`);
     process.exit(1);
   }
+}
+
+function openBrowser(url: string): void {
+  try {
+    const cmd =
+      process.platform === 'darwin' ? `open "${url}"` :
+      process.platform === 'win32' ? `start "" "${url}"` :
+      `xdg-open "${url}"`;
+    execSync(cmd, { stdio: 'ignore' });
+  } catch {
+    /* 打不开浏览器不致命，用户可手动访问 */
+  }
+}
+
+async function handleWeb(): Promise<void> {
+  const pkgRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..');
+  const serverPath = join(pkgRoot, 'web', 'server.js');
+  if (!existsSync(serverPath)) {
+    console.error('错误: 找不到 Web Studio 服务文件 (web/server.js)。\n请在项目仓库根目录运行 `ao web`。');
+    process.exit(1);
+  }
+  const port = getArgValue('--port') || process.env.PORT || '8088';
+  const host = process.env.HOST || '127.0.0.1';
+  const url = `http://${host}:${port}`;
+  const noOpen = args.includes('--no-open');
+
+  console.log(`\n🌐 启动 AO Web Studio … ${url}`);
+  console.log('   按 Ctrl+C 停止\n');
+
+  const child = spawn(process.execPath, [serverPath], {
+    stdio: 'inherit',
+    env: { ...process.env, PORT: String(port), HOST: host },
+  });
+
+  if (!noOpen) setTimeout(() => openBrowser(url), 1500);
+
+  const stop = () => { try { child.kill('SIGINT'); } catch { /* noop */ } };
+  process.on('SIGINT', stop);
+  process.on('SIGTERM', stop);
+  child.on('exit', (code) => process.exit(code ?? 0));
 }
 
 async function handleDemo(): Promise<void> {

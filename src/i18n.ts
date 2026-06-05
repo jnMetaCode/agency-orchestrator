@@ -199,6 +199,7 @@ const dict: Dict = {
     compose "描述"                    AI 智能编排工作流（一句话生成 YAML）
     compose "描述" --run              生成并立即运行（一句话出结果）
     serve                             启动 MCP Server（供 Claude Code / Cursor 调用）
+    web                               启动可视化 Web Studio（浏览器里勾角色组队、跑工作流）
     run <workflow.yaml>               执行工作流
     validate <workflow.yaml>          校验工作流定义（加 --json 输出结构化结果）
     plan <workflow.yaml>              查看执行计划
@@ -254,6 +255,7 @@ const dict: Dict = {
     compose "desc"                    AI-compose a workflow from one sentence
     compose "desc" --run              Compose and run immediately
     serve                             Start MCP server (for Claude Code / Cursor)
+    web                               Launch the visual Web Studio (pick roles & run in the browser)
     run <workflow.yaml>               Execute a workflow
     validate <workflow.yaml>          Validate a workflow definition (--json for structured output)
     plan <workflow.yaml>              Show execution plan
