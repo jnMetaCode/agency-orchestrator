@@ -1,13 +1,14 @@
-import { Check, Copy, Loader2, Minus, Square, Terminal, X } from "lucide-react";
+import { Check, Copy, Download, Loader2, Minus, Square, Terminal, X } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { useCopy } from "@/components/ui/copy-button";
 import { StepList } from "./StepList";
 import { useRunManager } from "./RunManager";
+import { downloadText, safeFilename } from "@/lib/download";
 import { cn } from "@/lib/utils";
 
 export function RunViewer({ onViewHistory }: { onViewHistory?: () => void }) {
-  const { runs, openId, open, stop } = useRunManager();
+  const { runs, openId, open, stop, rerunWithFeedback } = useRunManager();
   const run = runs.find((r) => r.id === openId) || null;
   const [showTerminal, setShowTerminal] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -99,7 +100,14 @@ export function RunViewer({ onViewHistory }: { onViewHistory?: () => void }) {
               <p className="text-sm">正在唤起团队、规划步骤…</p>
             </div>
           ) : (
-            <StepList steps={run.steps} />
+            <StepList
+              steps={run.steps}
+              onFeedback={
+                run.kind === "workflow" && !running && run.state === "done" && run.source
+                  ? (stepId, feedback) => rerunWithFeedback(run.id, stepId, feedback)
+                  : undefined
+              }
+            />
           )}
           {run.summary && !running && (
             <div className="mt-4 rounded-xl border border-primary/30 bg-primary/[0.06] px-4 py-3 text-sm font-medium text-primary">
@@ -115,10 +123,20 @@ export function RunViewer({ onViewHistory }: { onViewHistory?: () => void }) {
           </span>
           <div className="flex shrink-0 gap-2">
             {!!fullText && (
-              <Button size="sm" variant="outline" onClick={() => copy(fullText)}>
-                {copied ? <Check className="size-3.5 text-emerald-500" /> : <Copy className="size-3.5" />}
-                {copied ? "已复制" : "复制全部结果"}
-              </Button>
+              <>
+                <Button size="sm" variant="outline" onClick={() => copy(fullText)}>
+                  {copied ? <Check className="size-3.5 text-emerald-500" /> : <Copy className="size-3.5" />}
+                  {copied ? "已复制" : "复制"}
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => downloadText(safeFilename(`${run.title}-${new Date().toISOString().slice(0, 10)}`), fullText)}
+                >
+                  <Download className="size-3.5" />
+                  下载 .md
+                </Button>
+              </>
             )}
             {!running && run.state === "done" && onViewHistory && (
               <Button size="sm" variant="ghost" onClick={() => onViewHistory()}>

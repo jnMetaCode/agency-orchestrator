@@ -26,9 +26,12 @@ export type RunRequest =
       provider?: string;
       resume?: string | boolean;
       fromStep?: string;
+      feedback?: string;
       cast?: WorkflowStepMeta[];
     }
   | { kind: "role"; title: string; role: string; emoji?: string; name?: string; task: string; provider?: string };
+
+type WorkflowRequest = Extract<RunRequest, { kind: "workflow" }>;
 
 export interface RunInstance {
   id: string;
@@ -42,6 +45,8 @@ export interface RunInstance {
   startedAt: number;
   ctrl: AbortController;
   _stderr: string;
+  /** 工作流运行才有：原始请求，供「对某步提意见重做」复用 file/provider/cast/inputs */
+  source?: WorkflowRequest;
 }
 
 interface RunManagerValue {
@@ -51,6 +56,8 @@ interface RunManagerValue {
   stop: (id: string) => void;
   remove: (id: string) => void;
   open: (id: string | null) => void;
+  /** 对已完成工作流运行中的某一步提意见，带着「上一版产出 + 意见」让该专家返工 */
+  rerunWithFeedback: (id: string, stepId: string, feedback: string) => string | null;
 }
 
 const Ctx = createContext<RunManagerValue | null>(null);
@@ -93,6 +100,7 @@ export function RunProvider({ children }: { children: ReactNode }) {
         startedAt: Date.now(),
         ctrl,
         _stderr: "",
+        source: request.kind === "workflow" ? request : undefined,
       };
       runsRef.current.set(id, inst);
       openRef.current = id;
@@ -176,7 +184,7 @@ export function RunProvider({ children }: { children: ReactNode }) {
       const starter =
         request.kind === "workflow"
           ? runWorkflow(
-              { file: request.file, inputs: request.inputs, provider: request.provider, resume: request.resume, fromStep: request.fromStep },
+              { file: request.file, inputs: request.inputs, provider: request.provider, resume: request.resume, fromStep: request.fromStep, feedback: request.feedback },
               onEvent,
               ctrl.signal,
             )
@@ -224,6 +232,24 @@ export function RunProvider({ children }: { children: ReactNode }) {
     [touch],
   );
 
+  const rerunWithFeedback = useCallback(
+    (id: string, stepId: string, feedback: string): string | null => {
+      const inst = runsRef.current.get(id);
+      if (!inst?.source || !feedback.trim()) return null;
+      const src = inst.source;
+      const stepName = inst.steps.find((s) => s.id === stepId)?.name ?? stepId;
+      // resume: "last" → 复用本次刚跑完的输出（mtime 最新），只重跑该步及其下游
+      return start({
+        ...src,
+        title: `${src.title}（返工·${stepName}）`,
+        resume: "last",
+        fromStep: stepId,
+        feedback: feedback.trim(),
+      });
+    },
+    [start],
+  );
+
   const value: RunManagerValue = {
     runs: Array.from(runsRef.current.values()),
     openId: openRef.current,
@@ -231,6 +257,7 @@ export function RunProvider({ children }: { children: ReactNode }) {
     stop,
     remove,
     open,
+    rerunWithFeedback,
   };
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;

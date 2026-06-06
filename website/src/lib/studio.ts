@@ -93,22 +93,70 @@ async function postJSON<T>(path: string, body: unknown): Promise<T> {
 }
 
 export interface ProviderKeyStatus {
-  hasKey: boolean;
-  fromEnv: boolean;
+  family: "api" | "local";
+  hasKey?: boolean;
+  fromEnv?: boolean;
   baseUrl: string;
-  supportsBaseUrl: boolean;
+  model?: string;
+  supportsBaseUrl?: boolean;
+  configured?: boolean;
 }
 
 export interface ConfigResponse {
   providers: Record<string, ProviderKeyStatus>;
+  cli: string[];
   defaultProvider: string;
 }
 
+const ACTIVE_KEY = "ao-active-provider";
+export function getActiveProvider(): string {
+  if (typeof window === "undefined") return "";
+  return window.localStorage.getItem(ACTIVE_KEY) ?? "";
+}
+export function setActiveProvider(p: string) {
+  window.localStorage.setItem(ACTIVE_KEY, p);
+}
+
+export interface UsageDay {
+  date: string;
+  input: number;
+  output: number;
+  runs: number;
+}
+export interface UsageRole {
+  role: string;
+  name: string;
+  runs: number;
+  input: number;
+  output: number;
+}
+export interface UsageResponse {
+  totalRuns: number;
+  totalInput: number;
+  totalOutput: number;
+  totalTokens: number;
+  byDay: UsageDay[];
+  byRole: UsageRole[];
+  firstDate: string | null;
+  lastDate: string | null;
+}
+
+/** Rough USD price per 1M tokens (input/output) for cost estimation. */
+export const PRICING: Record<string, { label: string; in: number; out: number }> = {
+  deepseek: { label: "DeepSeek", in: 0.27, out: 1.1 },
+  "gpt-4o": { label: "OpenAI GPT-4o", in: 2.5, out: 10 },
+  "claude-sonnet": { label: "Claude Sonnet", in: 3, out: 15 },
+  gemini: { label: "Gemini 1.5 Pro", in: 1.25, out: 5 },
+};
+
 export const api = {
   health: () => getJSON<{ ok: boolean; version: string }>("/health"),
+  usage: () => getJSON<UsageResponse>("/usage"),
   config: () => getJSON<ConfigResponse>("/config"),
-  saveConfig: (body: { provider: string; apiKey?: string; baseUrl?: string }) =>
+  saveConfig: (body: { provider: string; apiKey?: string; baseUrl?: string; model?: string }) =>
     postJSON<{ ok: boolean }>("/config", body),
+  testProvider: (provider: string) =>
+    postJSON<{ ok: boolean; latencyMs?: number; error?: string; note?: string }>("/test-provider", { provider }),
   roles: () => getJSON<Role[]>("/roles"),
   role: (category: string, id: string) => getJSON<Role>(`/roles/${category}/${id}`),
   workflows: () => getJSON<Workflow[]>("/workflows"),
@@ -178,7 +226,7 @@ async function streamSse(
 }
 
 export function runWorkflow(
-  body: { file: string; inputs?: Record<string, string>; provider?: string; resume?: string | boolean; fromStep?: string },
+  body: { file: string; inputs?: Record<string, string>; provider?: string; resume?: string | boolean; fromStep?: string; feedback?: string },
   onEvent: SseHandler,
   signal?: AbortSignal,
 ) {
@@ -193,4 +241,15 @@ export function runRole(
   return streamSse("/run-role", body, onEvent, signal);
 }
 
-export const PROVIDERS = ["", "claude-code", "deepseek", "openclaw-cli", "gemini-cli"];
+export const PROVIDERS = ["", "deepseek", "openai", "claude", "claude-code", "gemini-cli", "openclaw-cli", "ollama"];
+
+export const PROVIDER_LABELS: Record<string, string> = {
+  "": "默认 (DeepSeek)",
+  deepseek: "DeepSeek",
+  openai: "OpenAI",
+  claude: "Claude",
+  "claude-code": "Claude Code CLI",
+  "gemini-cli": "Gemini CLI",
+  "openclaw-cli": "OpenClaw CLI",
+  ollama: "Ollama (本地)",
+};

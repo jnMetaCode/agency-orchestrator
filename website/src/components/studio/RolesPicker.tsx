@@ -1,16 +1,26 @@
 import { Check, Loader2, MessageSquare, Search, Sparkles, Users, X } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
-import { api, type Role } from "@/lib/studio";
+import { api, type ComposeResult, type Role, type Workflow } from "@/lib/studio";
 import { cn } from "@/lib/utils";
+import { ComposePreview } from "./ComposePreview";
 import { RoleAvatar } from "./RoleAvatar";
+import { RoleDetail } from "./RoleDetail";
 import type { RunRequest } from "./RunManager";
 
 function roleKey(r: Role) {
   return `${r.category}/${r.id}`;
 }
 
-export function RolesPicker({ provider, onRun }: { provider: string; onRun: (r: RunRequest) => void }) {
+export function RolesPicker({
+  provider,
+  onRun,
+  onGoToWorkflows,
+}: {
+  provider: string;
+  onRun: (r: RunRequest) => void;
+  onGoToWorkflows?: () => void;
+}) {
   const [roles, setRoles] = useState<Role[]>([]);
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState<string | null>(null);
@@ -23,6 +33,8 @@ export function RolesPicker({ provider, onRun }: { provider: string; onRun: (r: 
   const [teamName, setTeamName] = useState("");
   const [composing, setComposing] = useState(false);
   const [composeErr, setComposeErr] = useState<string | null>(null);
+  const [detail, setDetail] = useState<Role | null>(null);
+  const [preview, setPreview] = useState<{ result: ComposeResult; meta: Workflow | null; loading: boolean } | null>(null);
 
   useEffect(() => {
     api
@@ -80,7 +92,15 @@ export function RolesPicker({ provider, onRun }: { provider: string; onRun: (r: 
         name: teamName.trim() || undefined,
         provider: provider || undefined,
       });
-      onRun({ kind: "workflow", title: teamName.trim() || "临时团队", file: res.file, provider: provider || undefined });
+      // Preview the composed team before running (not a black box).
+      setPreview({ result: res, meta: null, loading: true });
+      try {
+        const wfs = await api.workflows();
+        const meta = wfs.find((w) => w.file === res.file) ?? null;
+        setPreview({ result: res, meta, loading: false });
+      } catch {
+        setPreview({ result: res, meta: null, loading: false });
+      }
     } catch (e: any) {
       setComposeErr(e?.message || "合成失败");
     } finally {
@@ -98,6 +118,14 @@ export function RolesPicker({ provider, onRun }: { provider: string; onRun: (r: 
 
   return (
     <div className="pb-40">
+      {/* onboarding hint */}
+      <div className="mb-4 flex flex-wrap items-center gap-x-4 gap-y-1 rounded-xl border border-border/60 bg-muted/30 px-4 py-2.5 text-xs text-muted-foreground">
+        <span>💡 用法:</span>
+        <span><b className="text-foreground">勾 1 个</b> → 单独对话</span>
+        <span><b className="text-foreground">勾 2 个以上</b> → AI 合成团队并运行</span>
+        <span>点<b className="text-foreground">头像</b>看角色详情</span>
+      </div>
+
       {/* filter bar */}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
         <div className="relative flex-1">
@@ -159,7 +187,18 @@ export function RolesPicker({ provider, onRun }: { provider: string; onRun: (r: 
                 {on && <Check className="size-3.5" />}
               </span>
               <div className="flex items-center gap-3">
-                <RoleAvatar seed={key} name={r.name} color={r.color} className="size-12" />
+                <span
+                  role="button"
+                  tabIndex={0}
+                  title="查看角色详情"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setDetail(r);
+                  }}
+                  className="rounded-full ring-offset-2 ring-offset-card transition-shadow hover:ring-2 hover:ring-primary/50"
+                >
+                  <RoleAvatar seed={key} name={r.name} color={r.color} className="size-12" />
+                </span>
                 <div className="min-w-0 pr-5">
                   <span className="block text-xs font-medium text-primary">{r.categoryName}</span>
                   <span className="block truncate font-semibold">{r.name}</span>
@@ -232,6 +271,26 @@ export function RolesPicker({ provider, onRun }: { provider: string; onRun: (r: 
             {composeErr && <p className="mt-2 text-xs text-red-500">{composeErr}</p>}
           </div>
         </div>
+      )}
+
+      {detail && <RoleDetail role={detail} provider={provider} onClose={() => setDetail(null)} onRun={onRun} />}
+      {preview && (
+        <ComposePreview
+          result={preview.result}
+          meta={preview.meta}
+          loadingMeta={preview.loading}
+          provider={provider}
+          onRun={onRun}
+          onClose={() => setPreview(null)}
+          onGoToWorkflows={
+            onGoToWorkflows
+              ? () => {
+                  setPreview(null);
+                  onGoToWorkflows();
+                }
+              : undefined
+          }
+        />
       )}
     </div>
   );

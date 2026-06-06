@@ -1,5 +1,7 @@
 node_modules/
 dist/
+desktop/release/
+desktop/dist/
 ao-output/
 .ao-output/
 ao-workflows/

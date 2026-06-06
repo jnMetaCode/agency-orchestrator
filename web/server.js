@@ -22,11 +22,19 @@ const WORKFLOWS_DIR = join(ROOT, 'workflows');
 const USER_WORKFLOWS_DIR = process.env.AO_USER_WORKFLOWS_DIR
   ? resolve(ROOT, process.env.AO_USER_WORKFLOWS_DIR)
   : '';
+// Writable data dir. In dev this is the repo root; in the packaged desktop app
+// the bundle is read-only, so the Electron shell passes AO_DATA_DIR (userData)
+// and we redirect all writes (outputs, composed workflows, keys) there.
+const DATA_DIR = process.env.AO_DATA_DIR ? resolve(process.env.AO_DATA_DIR) : ROOT;
 // User-composed / saved workflows (gitignored). Always writable & runnable.
-const COMPOSED_DIR = join(ROOT, 'ao-workflows');
+const COMPOSED_DIR = join(DATA_DIR, 'ao-workflows');
 const AGENTS_DIR = join(ROOT, 'node_modules', 'agency-agents-zh');
-const OUTPUT_DIR = join(ROOT, 'ao-output');
+const OUTPUT_DIR = join(DATA_DIR, 'ao-output');
 const CLI = join(ROOT, 'dist', 'cli.js');
+// Node binary used to spawn the engine. Plain `node` normally; in the packaged
+// Electron app there is no `node` on PATH, so the desktop shell passes AO_NODE
+// (Electron's own binary, run with ELECTRON_RUN_AS_NODE=1 inherited via env).
+const NODE_BIN = process.env.AO_NODE || 'node';
 const PORT = process.env.PORT || 8088;
 // Local single-user tool — bind to loopback by default. Set HOST=0.0.0.0 to expose (not recommended).
 const HOST = process.env.HOST || '127.0.0.1';
@@ -43,25 +51,28 @@ function isInside(child, parent) {
 }
 const ALLOWED_WORKFLOW_DIRS = [WORKFLOWS_DIR, USER_WORKFLOWS_DIR, COMPOSED_DIR].filter(Boolean);
 
-// LLM config for in-process compose; keys are read from env by the connector factory.
+const CLI_PROVIDERS = ['claude-code', 'gemini-cli', 'copilot-cli', 'codex-cli', 'openclaw-cli', 'hermes-cli'];
+// LLM config: provider + (model/base_url where the runtime needs them). Reads any
+// per-provider overrides the user saved in the Studio (model name, custom base_url).
+// Already YAML-safe (no undefined fields) — used for compose, run args and run-role.
 function buildLLMConfig(provider) {
   const p = provider || process.env.AO_PROVIDER || 'deepseek';
-  const cliProviders = ['claude-code', 'gemini-cli', 'copilot-cli', 'codex-cli', 'openclaw-cli', 'hermes-cli'];
-  const model = cliProviders.includes(p) ? undefined
-    : p === 'deepseek' ? 'deepseek-chat'
+  const cfg = { provider: p, max_tokens: 4096 };
+  if (CLI_PROVIDERS.includes(p)) return cfg; // local CLI: no model/key/base needed
+  let saved = {};
+  try { saved = readKeys()[p] || {}; } catch {}
+  const defModel = p === 'deepseek' ? 'deepseek-chat'
     : p === 'claude' ? 'claude-sonnet-4-20250514'
     : p === 'openai' ? 'gpt-4o'
-    : undefined;
-  return { provider: p, model, max_tokens: 4096 };
+    : undefined; // ollama / custom: model must come from saved config
+  const model = saved.model || defModel;
+  if (model) cfg.model = model;
+  const defBase = p === 'ollama' ? (saved.baseUrl || process.env.OLLAMA_BASE_URL || 'http://localhost:11434') : undefined;
+  const base = saved.baseUrl || defBase;
+  if (base) cfg.base_url = base;
+  return cfg;
 }
-// Same as buildLLMConfig but safe to dump to YAML: omit model when undefined
-// (CLI providers don't need it; keyed providers get it from buildLLMConfig).
-function cleanLLMConfig(provider) {
-  const c = buildLLMConfig(provider);
-  const out = { provider: c.provider, max_tokens: c.max_tokens };
-  if (c.model) out.model = c.model;
-  return out;
-}
+const cleanLLMConfig = buildLLMConfig;
 const isAllowedWorkflow = (file) => ALLOWED_WORKFLOW_DIRS.some(d => isInside(file, d));
 
 // ── API key management (local-only) ──────────────────────────────────────────
@@ -69,7 +80,7 @@ const isAllowedWorkflow = (file) => ALLOWED_WORKFLOW_DIRS.some(d => isInside(fil
 // into this server's process.env. That way BOTH spawned `ao` processes (they
 // inherit env) and the in-process compose (factory reads process.env) pick them
 // up — no per-call wiring needed. Keys never leave this machine.
-const KEYS_FILE = join(ROOT, '.local', 'web-keys.json');
+const KEYS_FILE = join(DATA_DIR, '.local', 'web-keys.json');
 const KEY_ENV = {
   deepseek: { key: 'DEEPSEEK_API_KEY', base: 'DEEPSEEK_BASE_URL' },
   openai: { key: 'OPENAI_API_KEY', base: 'OPENAI_BASE_URL' },
@@ -89,6 +100,7 @@ function applyKeys(obj) {
     if (entry.apiKey) process.env[cfg.key] = entry.apiKey;
     if (cfg.base && entry.baseUrl) process.env[cfg.base] = entry.baseUrl;
   }
+  if (obj.ollama?.baseUrl) process.env.OLLAMA_BASE_URL = obj.ollama.baseUrl;
 }
 applyKeys(readKeys());
 
@@ -274,7 +286,7 @@ app.get('/api/workflows/yaml', (req, res) => {
 
 // ── Run workflow (with optional resume) ──
 app.post('/api/run', (req, res) => {
-  const { file, inputs, provider, resume, fromStep } = req.body || {};
+  const { file, inputs, provider, resume, fromStep, feedback } = req.body || {};
   if (!file || typeof file !== 'string') {
     return res.status(400).json({ error: 'invalid workflow file' });
   }
@@ -299,14 +311,21 @@ app.post('/api/run', (req, res) => {
   const args = [CLI, 'run', resolvedFile];
   if (provider) {
     args.push('--provider', provider);
-    // Keyed providers (deepseek/openai/claude) require a model. A bare --provider
-    // override clears the YAML model → API 400. Supply the matching model too.
-    const m = cleanLLMConfig(provider).model;
-    if (m) args.push('--model', m);
+    // A bare --provider override clears the YAML model/base → supply them so
+    // keyed providers (deepseek/openai), ollama and custom endpoints all work.
+    const llm = cleanLLMConfig(provider);
+    if (llm.model) args.push('--model', llm.model);
+    if (llm.base_url) args.push('--base-url', llm.base_url);
   }
   if (resume) {
     args.push('--resume', resume === true ? 'last' : resume);
     if (fromStep) args.push('--from', fromStep);
+  }
+  // 对话式返工：把某一步的修改意见交回给该专家在原稿基础上重做。
+  // --feedback 在 CLI 侧会自动隐含 --resume last（未显式 resume 时），并要求 --from。
+  if (feedback && typeof feedback === 'string' && feedback.trim()) {
+    if (fromStep && !resume) args.push('--from', fromStep);
+    args.push('--feedback', feedback);
   }
   for (const [k, v] of Object.entries(inputs || {})) {
     if (v !== '' && v !== undefined && v !== null) {
@@ -375,9 +394,9 @@ app.post('/api/run', (req, res) => {
     }
   }
 
-  console.log('[run]', 'node', args.join(' '));
-  const child = spawn('node', args, {
-    cwd: ROOT,
+  console.log('[run]', NODE_BIN, args.join(' '));
+  const child = spawn(NODE_BIN, args, {
+    cwd: DATA_DIR,
     env: { ...process.env, FORCE_COLOR: '0' },
   });
 
@@ -528,7 +547,7 @@ app.post('/api/run-role', (req, res) => {
   }
 
   console.log('[run-role]', role, task.slice(0, 60));
-  const child = spawn('node', args, { cwd: ROOT, env: { ...process.env, FORCE_COLOR: '0' } });
+  const child = spawn(NODE_BIN, args, { cwd: DATA_DIR, env: { ...process.env, FORCE_COLOR: '0' } });
 
   child.stdout.on('data', chunk => {
     const text = chunk.toString();
@@ -596,39 +615,145 @@ app.post('/api/workflows/save', (req, res) => {
   res.json({ file });
 });
 
+// ── Usage / cost stats: aggregate token usage from ao-output metadata ──
+app.get('/api/usage', (_req, res) => {
+  const byDay = {};
+  const byRole = {};
+  let totalRuns = 0, totalInput = 0, totalOutput = 0, firstDate = null, lastDate = null;
+  try {
+    if (existsSync(OUTPUT_DIR)) {
+      for (const d of readdirSync(OUTPUT_DIR, { withFileTypes: true })) {
+        if (!d.isDirectory()) continue;
+        const metaPath = join(OUTPUT_DIR, d.name, 'metadata.json');
+        if (!existsSync(metaPath)) continue;
+        let m;
+        try { m = JSON.parse(readFileSync(metaPath, 'utf-8')); } catch { continue; }
+        const inTok = m?.totalTokens?.input || 0;
+        const outTok = m?.totalTokens?.output || 0;
+        totalRuns++; totalInput += inTok; totalOutput += outTok;
+        const dm = d.name.match(/(\d{4}-\d{2}-\d{2})T\d{2}-\d{2}-\d{2}$/);
+        let day;
+        try { day = dm ? dm[1] : new Date(statSync(metaPath).mtimeMs).toISOString().slice(0, 10); }
+        catch { day = '未知'; }
+        if (!byDay[day]) byDay[day] = { date: day, input: 0, output: 0, runs: 0 };
+        byDay[day].input += inTok; byDay[day].output += outTok; byDay[day].runs++;
+        if (day !== '未知') {
+          if (!firstDate || day < firstDate) firstDate = day;
+          if (!lastDate || day > lastDate) lastDate = day;
+        }
+        for (const s of (m.steps || [])) {
+          const role = s.role || s.id;
+          if (!byRole[role]) byRole[role] = { role, name: s.agentName || role, runs: 0, input: 0, output: 0 };
+          byRole[role].runs++;
+          byRole[role].input += s?.tokens?.input || 0;
+          byRole[role].output += s?.tokens?.output || 0;
+        }
+      }
+    }
+  } catch (e) { return res.status(500).json({ error: e?.message || String(e) }); }
+  res.json({
+    totalRuns, totalInput, totalOutput, totalTokens: totalInput + totalOutput,
+    byDay: Object.values(byDay).sort((a, b) => (a.date < b.date ? -1 : 1)),
+    byRole: Object.values(byRole).sort((a, b) => (b.input + b.output) - (a.input + a.output)).slice(0, 12),
+    firstDate, lastDate,
+  });
+});
+
 // ── Key config: report which providers have a key (never returns the key) ──
 app.get('/api/config', (_req, res) => {
   const saved = readKeys();
   const providers = {};
   for (const [provider, cfg] of Object.entries(KEY_ENV)) {
     providers[provider] = {
+      family: 'api',
       hasKey: !!(saved[provider]?.apiKey || process.env[cfg.key]),
       fromEnv: !saved[provider]?.apiKey && !!process.env[cfg.key],
       baseUrl: saved[provider]?.baseUrl || (cfg.base ? process.env[cfg.base] : '') || '',
+      model: saved[provider]?.model || '',
       supportsBaseUrl: !!cfg.base,
     };
   }
-  res.json({ providers, defaultProvider: process.env.AO_PROVIDER || 'deepseek' });
+  providers.ollama = {
+    family: 'local',
+    baseUrl: saved.ollama?.baseUrl || process.env.OLLAMA_BASE_URL || 'http://localhost:11434',
+    model: saved.ollama?.model || '',
+    configured: !!saved.ollama?.model,
+  };
+  res.json({ providers, cli: CLI_PROVIDERS, defaultProvider: process.env.AO_PROVIDER || 'deepseek' });
 });
 
 app.post('/api/config', (req, res) => {
-  const { provider, apiKey, baseUrl } = req.body || {};
-  if (!provider || !KEY_ENV[provider]) return res.status(400).json({ error: 'unknown provider' });
+  const { provider, apiKey, baseUrl, model } = req.body || {};
+  const isKeyed = !!KEY_ENV[provider];
+  if (!provider || (!isKeyed && provider !== 'ollama')) return res.status(400).json({ error: 'unknown provider' });
   const saved = readKeys();
-  const cfg = KEY_ENV[provider];
-  if (typeof apiKey === 'string' && apiKey.trim() === '' && baseUrl == null) {
-    // explicit clear
+  // explicit clear (empty apiKey for keyed / empty model for ollama, nothing else)
+  const clearing = isKeyed
+    ? (typeof apiKey === 'string' && apiKey.trim() === '' && baseUrl == null && model == null)
+    : (typeof model === 'string' && model.trim() === '' && baseUrl == null);
+  if (clearing) {
     delete saved[provider];
-    delete process.env[cfg.key];
-    if (cfg.base) delete process.env[cfg.base];
+    if (isKeyed) { delete process.env[KEY_ENV[provider].key]; if (KEY_ENV[provider].base) delete process.env[KEY_ENV[provider].base]; }
+    else delete process.env.OLLAMA_BASE_URL;
   } else {
     saved[provider] = saved[provider] || {};
     if (typeof apiKey === 'string' && apiKey.trim()) saved[provider].apiKey = apiKey.trim();
     if (typeof baseUrl === 'string') saved[provider].baseUrl = baseUrl.trim();
+    if (typeof model === 'string') saved[provider].model = model.trim();
   }
   writeKeys(saved);
   applyKeys(saved);
   res.json({ ok: true });
+});
+
+// ── Test a provider's key with a minimal real API call ──
+app.post('/api/test-provider', async (req, res) => {
+  const { provider } = req.body || {};
+  if (!provider || (!KEY_ENV[provider] && provider !== 'ollama')) return res.status(400).json({ ok: false, error: 'unknown provider' });
+  const key = provider === 'ollama' ? 'n/a' : process.env[KEY_ENV[provider].key];
+  if (!key) return res.json({ ok: false, error: '未设置 API key' });
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), 12000);
+  const t0 = Date.now();
+  try {
+    if (provider === 'ollama') {
+      const base = (readKeys().ollama?.baseUrl || process.env.OLLAMA_BASE_URL || 'http://localhost:11434').replace(/\/$/, '');
+      const r = await fetch(`${base}/api/tags`, { signal: ctrl.signal });
+      if (!r.ok) return res.json({ ok: false, error: `HTTP ${r.status}` });
+      const j = await r.json().catch(() => ({}));
+      const n = Array.isArray(j.models) ? j.models.length : 0;
+      return res.json({ ok: true, latencyMs: Date.now() - t0, note: `${n} 个本地模型` });
+    }
+    let r;
+    if (provider === 'claude') {
+      r = await fetch('https://api.anthropic.com/v1/messages', {
+        method: 'POST', signal: ctrl.signal,
+        headers: { 'content-type': 'application/json', 'x-api-key': key, 'anthropic-version': '2023-06-01' },
+        body: JSON.stringify({ model: 'claude-3-5-haiku-20241022', max_tokens: 1, messages: [{ role: 'user', content: 'hi' }] }),
+      });
+    } else {
+      const saved = readKeys()[provider] || {};
+      const base = (provider === 'deepseek'
+        ? (saved.baseUrl || process.env.DEEPSEEK_BASE_URL || 'https://api.deepseek.com/v1')
+        : (saved.baseUrl || process.env.OPENAI_BASE_URL || 'https://api.openai.com/v1')).replace(/\/$/, '');
+      const model = provider === 'deepseek' ? 'deepseek-chat' : 'gpt-4o-mini';
+      r = await fetch(`${base}/chat/completions`, {
+        method: 'POST', signal: ctrl.signal,
+        headers: { 'content-type': 'application/json', authorization: `Bearer ${key}` },
+        body: JSON.stringify({ model, max_tokens: 1, messages: [{ role: 'user', content: 'hi' }] }),
+      });
+    }
+    const latencyMs = Date.now() - t0;
+    if (!r.ok) {
+      const txt = (await r.text().catch(() => '')).slice(0, 200);
+      return res.json({ ok: false, error: `HTTP ${r.status} ${txt}` });
+    }
+    return res.json({ ok: true, latencyMs });
+  } catch (e) {
+    return res.json({ ok: false, error: e?.name === 'AbortError' ? '超时（12s）' : (e?.message || String(e)) });
+  } finally {
+    clearTimeout(timer);
+  }
 });
 
 app.get('/api/health', (_req, res) => res.json({ ok: true, version: PKG_VERSION }));

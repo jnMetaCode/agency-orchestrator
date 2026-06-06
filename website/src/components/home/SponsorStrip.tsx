@@ -9,12 +9,13 @@ export function SponsorStrip() {
   return (
     <section className="border-t border-border/60 bg-muted/20 py-16">
       <div className="container-page">
-        <div className="flex flex-col items-center gap-2 text-center">
+        <div className="mx-auto flex max-w-2xl flex-col items-center gap-2 text-center">
           <div className="inline-flex items-center gap-2 text-sm font-semibold text-primary">
             <Heart className="size-4 fill-primary/20" />
             {t.sponsors.heroBadge}
           </div>
-          <h2 className="text-2xl font-bold tracking-tight sm:text-3xl">{t.sponsors.heroTitle}</h2>
+          <h2 className="text-2xl font-bold tracking-tight sm:text-3xl">{t.sponsors.stripTitle}</h2>
+          <p className="text-sm text-muted-foreground">{t.sponsors.stripSubtitle}</p>
         </div>
 
         <div className="mt-8 flex flex-wrap items-stretch justify-center gap-4">
@@ -42,7 +43,7 @@ export function SponsorStrip() {
             to={prefix("/sponsors")}
             className="inline-flex items-center gap-1.5 text-sm font-semibold text-primary hover:underline"
           >
-            {t.sponsors.nav} & {t.sponsors.becomeCta}
+            {t.sponsors.viewAll}
             <ArrowRight className="size-4" />
           </Link>
         </div>

@@ -34,6 +34,9 @@ export default defineConfig({
           if (/[\\/]node_modules[\\/](framer-motion|motion-dom|motion-utils)[\\/]/.test(id)) {
             return "vendor-framer-motion";
           }
+          if (/[\\/]node_modules[\\/](recharts|d3-|victory-vendor|internmap)/.test(id)) {
+            return "vendor-charts";
+          }
           if (/[\\/]node_modules[\\/]@radix-ui[\\/]/.test(id)) {
             return "vendor-radix";
           }

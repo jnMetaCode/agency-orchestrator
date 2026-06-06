@@ -12,9 +12,12 @@ export function SponsorTierSection({ tier }: { tier: SponsorTier }) {
 
   return (
     <section className="container-page py-10">
-      <div className="mb-6 flex items-center gap-3">
-        <h2 className="text-xl font-bold">{title}</h2>
-        <span className="h-px flex-1 bg-border/70" />
+      <div className="mb-6">
+        <div className="flex items-center gap-3">
+          <h2 className="text-xl font-bold">{title}</h2>
+          <span className="h-px flex-1 bg-border/70" />
+        </div>
+        <p className="mt-1.5 text-sm text-muted-foreground">{isFlagship ? t.sponsors.flagshipDesc : t.sponsors.standardDesc}</p>
       </div>
 
       <div className="grid gap-5 md:grid-cols-2 lg:grid-cols-3">
