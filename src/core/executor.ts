@@ -336,6 +336,11 @@ async function executeStep(
     return await handleApproval(node, opts.context);
   }
 
+  // 人工输入节点：跑到这步暂停、读取用户输入，作为该步产出注入下游
+  if (node.step.type === 'human_input') {
+    return await handleHumanInput(node, opts.context);
+  }
+
   // 加载角色定义（步骤级 name/emoji 优先）
   const agent = loadAgent(opts.agentsDir, node.step.role);
   node.agentName = node.step.name || agent.name;
@@ -483,6 +488,48 @@ async function handleApproval(
 
   return new Promise((resolve) => {
     rl.question(`\n⏸️  ${prompt} `, (answer) => {
+      rl.close();
+      resolve(answer.trim());
+    });
+  });
+}
+
+/**
+ * 人工输入节点：跑到这步时暂停，读取用户自由输入，作为该步产出注入下游。
+ * 与 approval 的区别——approval 是"放行/拦截"的闸门，human_input 是把人写的内容
+ * 喂进工作流（如"往哪个方向写""补一段背景"）。
+ *
+ * 若该步的 output 变量已被预填（`-i 变量=值` 或 --resume 恢复），直接采用、不阻塞，
+ * 这样自动化 / 测试 / 断点续跑都能跳过交互。Web 模式下 server 向子进程 stdin 写入即可复用同一路径。
+ */
+async function handleHumanInput(
+  node: DAGNode,
+  context: Map<string, string>
+): Promise<string> {
+  // 预填即采用：避免在非交互场景（CI/测试/resume）卡在 stdin
+  const outVar = node.step.output;
+  if (outVar) {
+    const pre = context.get(outVar);
+    if (pre && pre.trim()) return pre;
+  }
+
+  const prompt = node.step.prompt
+    ? renderTemplate(node.step.prompt, context)
+    : '请输入：';
+
+  // 可选的 task 作为给用户看的上下文提示
+  if (node.step.task) {
+    const content = renderTemplate(node.step.task, context).trim();
+    if (content) console.log('\n' + content);
+  }
+
+  const rl = createInterface({
+    input: process.stdin,
+    output: process.stdout,
+  });
+
+  return new Promise((resolve) => {
+    rl.question(`\n📝 ${prompt} `, (answer) => {
       rl.close();
       resolve(answer.trim());
     });

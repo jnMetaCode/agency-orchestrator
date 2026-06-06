@@ -44,10 +44,12 @@ export function parseWorkflow(filePath: string): WorkflowDefinition {
     if (stepIds.has(step.id)) throw new Error(`step id 重复: ${step.id}`);
     stepIds.add(step.id);
 
-    if (step.type !== 'approval' && !step.role) {
+    // approval / human_input 是无角色的人工节点，不需要 role / task
+    const isHumanNode = step.type === 'approval' || step.type === 'human_input';
+    if (!isHumanNode && !step.role) {
       throw new Error(`step "${step.id}" 缺少 role`);
     }
-    if (!step.task && step.type !== 'approval') {
+    if (!step.task && !isHumanNode) {
       throw new Error(`step "${step.id}" 缺少 task`);
     }
 

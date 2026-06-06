@@ -402,8 +402,8 @@ ao serve --verbose    # 带调试日志
 | `depends_on` | string[] | 否 | 依赖的步骤 ID |
 | `depends_on_mode` | string | 否 | `"all"`（默认）或 `"any_completed"`（任一完成即可） |
 | `condition` | string | 否 | 条件表达式，不满足则跳过（如 `"{{var}} contains 技术"`） |
-| `type` | string | 否 | `"approval"` 表示人工审批节点 |
-| `prompt` | string | 否 | 审批节点的提示文本 |
+| `type` | string | 否 | `"approval"` 人工审批节点 / `"human_input"` 人工输入节点（跑到该步暂停，读取你的输入作为该步产出注入下游） |
+| `prompt` | string | 否 | `approval` / `human_input` 节点的提示文本 |
 | `loop` | object | 否 | 循环配置 |
 | `loop.back_to` | string | 否 | 循环回到的步骤 ID |
 | `loop.max_iterations` | number | 否 | 最大循环次数（1-10） |

@@ -36,8 +36,8 @@ export interface StepDefinition {
   task: string;               // 任务描述，支持 {{变量}} 模板
   output?: string;            // 输出变量名
   depends_on?: string[];      // 依赖的步骤 id
-  type?: 'normal' | 'approval'; // 节点类型
-  prompt?: string;            // approval 类型的提示文本
+  type?: 'normal' | 'approval' | 'human_input'; // 节点类型
+  prompt?: string;            // approval / human_input 类型的提示文本
   condition?: string;           // 如 "{{category}} contains bug"
   depends_on_mode?: 'all' | 'any_completed';  // 默认 'all'（任一跳过→跳过），'any_completed' = 只要有一个完成就执行
   llm?: Partial<LLMConfig>;   // 步骤级 LLM 配置，覆盖全局 llm
