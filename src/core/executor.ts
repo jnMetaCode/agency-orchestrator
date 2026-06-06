@@ -31,6 +31,11 @@ export interface ExecutorOptions {
   onBatchComplete?: (nodes: DAGNode[]) => void;
   /** resume 模式: 跳过这些步骤（使用 context 中已有的输出） */
   skipStepIds?: Set<string>;
+  /**
+   * 对话式返工：对指定步骤注入"用户修改意见 + 上一版产出"，让该专家在原稿基础上
+   * 按意见修改重做（而非从零重写）。配合 --resume --from <stepId> 使用。
+   */
+  feedback?: { stepId: string; text: string; previousOutput?: string };
 }
 
 export async function executeDAG(dag: DAG, options: ExecutorOptions): Promise<WorkflowResult> {
@@ -133,6 +138,7 @@ export async function executeDAG(dag: DAG, options: ExecutorOptions): Promise<Wo
           timeout,
           maxRetry,
           onStepStart,
+          feedback: options.feedback,
         }))
       );
 
@@ -304,6 +310,7 @@ async function executeStep(
     timeout: number;
     maxRetry: number;
     onStepStart?: (node: DAGNode) => void;
+    feedback?: { stepId: string; text: string; previousOutput?: string };
   }
 ): Promise<string> {
   node.status = 'running';
@@ -336,7 +343,13 @@ async function executeStep(
   const systemPrompt = agent.systemPrompt;
 
   // 渲染任务模板
-  const userMessage = renderTemplate(node.step.task, opts.context);
+  let userMessage = renderTemplate(node.step.task, opts.context);
+
+  // 对话式返工：若本步是反馈目标，把"上一版产出 + 用户意见"追加到任务后，
+  // 引导专家在原稿基础上按意见修改，而不是从零重写。
+  if (opts.feedback && opts.feedback.stepId === node.step.id && opts.feedback.text.trim()) {
+    userMessage += buildFeedbackBlock(opts.feedback.text, opts.feedback.previousOutput);
+  }
 
   // 步骤级 LLM 配置覆盖
   const stepLlm = node.step.llm;
@@ -426,6 +439,27 @@ async function executeStep(
     lastError.message += timeoutFailureHint(effectiveConfig.provider);
   }
   throw lastError || new Error(`step "${node.step.id}" 执行失败`);
+}
+
+/**
+ * 构造"对话式返工"追加块：把用户意见（必有）和上一版产出（可选）拼到任务后面，
+ * 指示专家在原稿基础上按意见修改、只动该动的地方、输出完整结果。
+ */
+export function buildFeedbackBlock(feedback: string, previousOutput?: string): string {
+  const parts = ['\n\n---\n'];
+  if (previousOutput && previousOutput.trim()) {
+    parts.push(
+      '以下是你上一版的产出，请在此基础上修改，不要从零重写：\n\n',
+      previousOutput.trim(),
+      '\n\n---\n',
+    );
+  }
+  parts.push(
+    '用户对上一版的修改意见：\n\n',
+    feedback.trim(),
+    '\n\n请严格针对上述意见修改：保留没问题的部分，只改需要改的地方，直接输出修改后的完整结果。',
+  );
+  return parts.join('');
 }
 
 async function handleApproval(

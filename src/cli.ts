@@ -113,6 +113,9 @@ async function handleRun(): Promise<void> {
   const watch = args.includes('--watch');
   let resumeDir = getArgValue('--resume');
   const fromStep = getArgValue('--from');
+  const feedback = getArgValue('--feedback');
+  // --feedback 默认对"上一次运行"返工：未显式 --resume 时自动取 last，少敲一个参数
+  if (feedback && !resumeDir) resumeDir = 'last';
   // Precedence: CLI flag > .env (AO_PROVIDER/AO_MODEL) > YAML
   const provider = (getArgValue('--provider') || process.env.AO_PROVIDER) as LLMConfig['provider'] | undefined;
   const model = getArgValue('--model') || process.env.AO_MODEL;
@@ -166,6 +169,7 @@ async function handleRun(): Promise<void> {
       watch,
       resumeDir: resumeDir ? resolve(resumeDir) : undefined,
       fromStep,
+      feedback,
       llmOverride,
     });
     process.exit(result.success ? 0 : 1);

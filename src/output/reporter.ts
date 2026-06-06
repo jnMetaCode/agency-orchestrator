@@ -227,6 +227,32 @@ export function loadPreviousContext(outputDir: string): Map<string, string> {
 }
 
 /**
+ * 读取上一次运行中某个步骤的产出正文（用于 --feedback 对话式返工：把"上一版产出"
+ * 交回给同一专家，让它带着用户意见在原稿基础上修改，而不是从零重写）。
+ * 找不到 / 无内容时返回 null（调用方退化为纯反馈，不附旧稿）。
+ */
+export function loadStepOutput(outputDir: string, stepId: string): string | null {
+  const metadataPath = join(outputDir, 'metadata.json');
+  if (!existsSync(metadataPath)) return null;
+  let metadata: { steps?: { id: string }[] };
+  try {
+    metadata = JSON.parse(readFileSync(metadataPath, 'utf-8'));
+  } catch {
+    return null;
+  }
+  const idx = (metadata.steps || []).findIndex(s => s.id === stepId);
+  if (idx < 0) return null;
+  const stepFile = join(outputDir, 'steps', `${idx + 1}-${stepId}.md`);
+  if (!existsSync(stepFile)) return null;
+  let content = readFileSync(stepFile, 'utf-8');
+  // 去掉文件头部（> emoji **name** | ... 后跟 \n---\n），只留正文
+  const headerEnd = content.indexOf('\n---\n');
+  if (headerEnd >= 0) content = content.slice(headerEnd + 5);
+  content = content.trim();
+  return content && content !== '(无输出)' ? content : null;
+}
+
+/**
  * 获取上一次运行的步骤 ID 列表（已完成的）
  */
 export function getCompletedStepIds(outputDir: string): string[] {

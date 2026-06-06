@@ -264,6 +264,7 @@ ao serve                             # 启动 MCP Server（供 Claude Code / Cur
 | `--output dir` | 输出目录（默认 `ao-output/`） |
 | `--resume <dir\|last>` | 从上次运行恢复（加载已完成步骤的输出） |
 | `--from <step-id>` | 配合 `--resume`，从指定步骤重新执行 |
+| `--feedback "意见"` | 对话式返工：把修改意见交给 `--from` 指定的专家，让它带着「上一版产出 + 你的意见」在原稿基础上修改（不指定 `--resume` 时默认对上一次运行返工） |
 | `--watch` | 实时终端进度显示 |
 | `--quiet` | 静默模式 |
 
@@ -306,6 +307,22 @@ ao run workflows/一人公司全员大会.yaml --resume last --from launch_decis
 | 从某步重跑 | `ao run workflow.yaml --resume last --from <步骤ID>` |
 | 只重跑失败的步骤 | `ao run workflow.yaml --resume last` |
 | 基于指定版本重跑 | `ao run workflow.yaml --resume ao-output/具体目录/ --from <步骤ID>` |
+
+### 对话式返工（Feedback）
+
+`--resume --from` 是「让某个专家重做」，但默认是**从零重写**。如果你只是想说一句「这里改一下」，用 `--feedback`——它把你的意见 + 这个专家**上一版的产出**一起交回去，让它在原稿基础上改，而不是推倒重来：
+
+```bash
+# 觉得故事结尾太平淡 —— 直接跟"写故事"那个专家说怎么改
+ao run workflows/story-creation.yaml --from write_story \
+  --feedback "结尾太平淡，加一个反转，并收束前面埋的伏笔"
+
+# 觉得营销方案不接地气
+ao run workflows/一人公司全员大会.yaml --from marketing_plan \
+  --feedback "预算改成 5000 以内，渠道聚焦小红书 + 私域"
+```
+
+不写 `--resume` 时默认对**上一次运行**返工（等价于 `--resume last`）。该专家改完后，它的下游步骤会自动用新产出重跑。
 
 ## 编程 API
 

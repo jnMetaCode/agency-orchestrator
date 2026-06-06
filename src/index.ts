@@ -64,7 +64,7 @@ import { buildDAG, formatDAG } from './core/dag.js';
 import { executeDAG, type ExecutorOptions } from './core/executor.js';
 import { createConnector } from './connectors/factory.js';
 import { loadAgent } from './agents/loader.js';
-import { saveResults, printStepResult, printStepRunning, clearRunningLine, printSummary, loadPreviousContext, getCompletedStepIds, findLatestOutput, computeResumeSkipIds } from './output/reporter.js';
+import { saveResults, printStepResult, printStepRunning, clearRunningLine, printSummary, loadPreviousContext, getCompletedStepIds, findLatestOutput, computeResumeSkipIds, loadStepOutput } from './output/reporter.js';
 import { existsSync, readFileSync } from 'node:fs';
 import { resolve, dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -84,6 +84,11 @@ export async function run(
     resumeDir?: string;
     /** 从指定步骤开始重新执行（跳过之前的步骤） */
     fromStep?: string;
+    /**
+     * 对话式返工：对 fromStep 步骤注入修改意见，让该专家带着"上一版产出 + 你的意见"
+     * 在原稿基础上修改重做。需配合 resumeDir + fromStep 使用。
+     */
+    feedback?: string;
     /** 覆盖 LLM 配置（例如来自 ao demo） */
     llmOverride?: Partial<import('./types.js').LLMConfig>;
   }
@@ -101,6 +106,18 @@ export async function run(
 
   // 构建 DAG
   const dag = buildDAG(workflow);
+
+  // --feedback 早校验：在创建 connector / 真正执行前就把用法错误说清楚，
+  // 避免被"缺少 API key"之类的下游报错掩盖。
+  const feedbackTextEarly = options?.feedback?.trim();
+  if (feedbackTextEarly) {
+    if (!options?.fromStep) {
+      throw new Error('--feedback 需要配合 --from <步骤ID> 使用：指定要把意见交给哪个专家返工');
+    }
+    if (!workflow.steps.some(s => s.id === options.fromStep)) {
+      throw new Error(`--from 指定的步骤 "${options.fromStep}" 不存在，无法应用 --feedback`);
+    }
+  }
 
   // Apply LLM override (e.g., from ao demo)
   if (options?.llmOverride) {
@@ -179,6 +196,16 @@ export async function run(
     }
   }
 
+  // 对话式返工：把修改意见 + 上一版产出注入到 fromStep 步骤（用法已在前面早校验）
+  let feedbackOption: ExecutorOptions['feedback'];
+  if (feedbackTextEarly && fromStep) {
+    const previousOutput = resumeDir ? loadStepOutput(resumeDir, fromStep) ?? undefined : undefined;
+    feedbackOption = { stepId: fromStep, text: feedbackTextEarly, previousOutput };
+    if (!options?.quiet) {
+      console.log(`  💬 已向步骤 [${fromStep}] 提交修改意见${previousOutput ? '（含上一版产出）' : ''}`);
+    }
+  }
+
   // 执行
   let stepCounter = 0;
   const totalSteps = workflow.steps.length;
@@ -232,6 +259,7 @@ export async function run(
     concurrency: workflow.concurrency || 2,
     inputs: inputMap,
     skipStepIds,
+    feedback: feedbackOption,
     onBatchStart: quiet ? undefined : useWatch ? (nodes) => {
       for (const node of nodes) {
         watchCallback!({ type: 'step_start', stepId: node.step.id, role: node.step.role, total: totalSteps, completed: stepCounter });

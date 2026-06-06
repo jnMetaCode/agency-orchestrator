@@ -35,6 +35,16 @@ After a workflow finishes, **always tell the user they can iterate**:
 - "The tech review missed something" → suggest `--resume last --from tech_review`
 - "Start over from scratch" → just run without `--resume`
 
+### `--feedback` — revise in place vs. regenerate
+
+`--resume --from <step>` re-runs a step **from scratch**. When the user has a *specific note* ("ending too flat", "budget too high") rather than wanting a blank redo, use `--feedback`: it hands the expert its **previous output + the note** so it edits the draft instead of rewriting:
+
+```
+ao run <workflow.yaml> --from <step-id> --feedback "你的具体意见"
+```
+
+`--feedback` implies `--resume last` when `--resume` is omitted. It requires `--from`. Downstream steps re-run automatically with the revised output.
+
 ### Reading previous outputs
 
 Before suggesting changes, read the actual outputs:
