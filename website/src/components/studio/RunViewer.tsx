@@ -1,14 +1,14 @@
-import { Check, Copy, Download, Loader2, Minus, Square, Terminal, X } from "lucide-react";
+import { Check, Copy, Download, Loader2, MessageSquare, Minus, Square, Terminal, X } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { useCopy } from "@/components/ui/copy-button";
 import { StepList } from "./StepList";
-import { useRunManager } from "./RunManager";
+import { useRunManager, type PendingInput } from "./RunManager";
 import { downloadText, safeFilename } from "@/lib/download";
 import { cn } from "@/lib/utils";
 
 export function RunViewer({ onViewHistory }: { onViewHistory?: () => void }) {
-  const { runs, openId, open, stop, rerunWithFeedback } = useRunManager();
+  const { runs, openId, open, stop, rerunWithFeedback, submitInput } = useRunManager();
   const run = runs.find((r) => r.id === openId) || null;
   const [showTerminal, setShowTerminal] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -109,6 +109,9 @@ export function RunViewer({ onViewHistory }: { onViewHistory?: () => void }) {
               }
             />
           )}
+          {run.pendingInput && running && (
+            <RunInputBox pending={run.pendingInput} onSubmit={(text) => submitInput(run.id, text)} />
+          )}
           {run.summary && !running && (
             <div className="mt-4 rounded-xl border border-primary/30 bg-primary/[0.06] px-4 py-3 text-sm font-medium text-primary">
               {run.summary}
@@ -151,6 +154,54 @@ export function RunViewer({ onViewHistory }: { onViewHistory?: () => void }) {
           </div>
         </div>
       </div>
+    </div>
+  );
+}
+
+/** 运行中某步暂停等待人工输入时的弹层：human_input 给输入框，approval 给通过/驳回。 */
+function RunInputBox({ pending, onSubmit }: { pending: PendingInput; onSubmit: (text: string) => void }) {
+  const [text, setText] = useState("");
+  const isApproval = pending.type === "approval";
+
+  const submit = (val?: string) => {
+    const v = val ?? text;
+    if (!isApproval && !v.trim()) return;
+    onSubmit(v);
+    setText("");
+  };
+
+  return (
+    <div className="mt-4 rounded-xl border border-primary/45 bg-primary/[0.06] px-4 py-3 shadow-sm">
+      <div className="mb-1.5 flex items-center gap-2 text-sm font-semibold text-primary">
+        <MessageSquare className="size-4" />
+        {isApproval ? "需要你确认才能继续" : "需要你的输入才能继续"}
+      </div>
+      <p className="mb-2.5 whitespace-pre-wrap text-sm text-foreground">{pending.prompt}</p>
+      {isApproval ? (
+        <div className="flex gap-2">
+          <Button size="sm" onClick={() => submit("yes")}>通过，继续</Button>
+          <Button size="sm" variant="outline" onClick={() => submit("no")}>驳回</Button>
+        </div>
+      ) : (
+        <>
+          <textarea
+            autoFocus
+            rows={2}
+            value={text}
+            onChange={(e) => setText(e.target.value)}
+            onKeyDown={(e) => {
+              if ((e.metaKey || e.ctrlKey) && e.key === "Enter") submit();
+            }}
+            placeholder="输入后提交，工作流带着它继续往下跑…（⌘/Ctrl+Enter 提交）"
+            className="w-full resize-none rounded-lg border border-border/70 bg-background px-3 py-2 text-sm outline-none focus:border-primary/60"
+          />
+          <div className="mt-2 flex justify-end">
+            <Button size="sm" disabled={!text.trim()} onClick={() => submit()}>
+              提交并继续
+            </Button>
+          </div>
+        </>
+      )}
     </div>
   );
 }

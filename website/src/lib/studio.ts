@@ -164,6 +164,9 @@ export const api = {
   run: (id: string) => getJSON<RunSummary>(`/runs/${encodeURIComponent(id)}`),
   compose: (body: { description: string; roles: string[]; name?: string; provider?: string }) =>
     postJSON<ComposeResult>("/compose", body),
+  // 把人工输入写回正在等待的运行（human_input / approval 节点暂停时）
+  runInput: (runId: string, text: string) =>
+    postJSON<{ ok: boolean }>("/run-input", { runId, text }),
 };
 
 /** Parse a Server-Sent-Events stream coming from a POST response body. */

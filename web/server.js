@@ -284,6 +284,11 @@ app.get('/api/workflows/yaml', (req, res) => {
   res.type('text/yaml').send(readFileSync(resolved, 'utf-8'));
 });
 
+// Active workflow child processes by runId, so POST /api/run-input can write to
+// the right process's stdin when a human_input / approval node pauses for input.
+let runSeq = 0;
+const activeRuns = new Map();
+
 // ── Run workflow (with optional resume) ──
 app.post('/api/run', (req, res) => {
   const { file, inputs, provider, resume, fromStep, feedback } = req.body || {};
@@ -333,7 +338,8 @@ app.post('/api/run', (req, res) => {
     }
   }
 
-  send('start', { cmd: `ao run ${args.slice(2).join(' ')}`, resume: !!resume, fromStep });
+  const runId = String(++runSeq);
+  send('start', { cmd: `ao run ${args.slice(2).join(' ')}`, resume: !!resume, fromStep, runId });
 
   // Parse CLI output into structured events
   let lineBuffer = '';
@@ -342,6 +348,14 @@ app.post('/api/run', (req, res) => {
   function parseLine(raw) {
     const clean = raw.replace(/\x1b\[[0-9;]*[a-zA-Z]/g, '').replace(/\r/g, '').trim();
     if (!clean) return;
+
+    // human_input / approval 节点暂停等待输入：引擎在 AO_WEB_INPUT 模式下发的机器标记。
+    // 转成 await-input 事件，前端弹框，用户输入经 POST /api/run-input 写回子进程 stdin。
+    const inputReq = clean.match(/^__AO_INPUT_REQUEST__(\{.*\})$/);
+    if (inputReq) {
+      try { send('await-input', { runId, ...JSON.parse(inputReq[1]) }); } catch { /* ignore malformed */ }
+      return;
+    }
 
     // Step start: "⏳ emoji name 执行中 ..."
     const startMatch = clean.match(/^⏳\s+(\S+)\s+(.+?)\s+执行中/);
@@ -397,8 +411,10 @@ app.post('/api/run', (req, res) => {
   console.log('[run]', NODE_BIN, args.join(' '));
   const child = spawn(NODE_BIN, args, {
     cwd: DATA_DIR,
-    env: { ...process.env, FORCE_COLOR: '0' },
+    // AO_WEB_INPUT=1 → 引擎遇到 human_input/approval 会发机器标记而非在终端等输入
+    env: { ...process.env, FORCE_COLOR: '0', AO_WEB_INPUT: '1' },
   });
+  activeRuns.set(runId, child);
 
   child.stdout.on('data', chunk => {
     const text = chunk.toString();
@@ -428,13 +444,28 @@ app.post('/api/run', (req, res) => {
   });
 
   let finished = false;
-  child.on('exit', () => { finished = true; });
+  child.on('exit', () => { finished = true; activeRuns.delete(runId); });
   res.on('close', () => {
     if (!finished && !child.killed) {
       console.log('[abort] client closed');
       child.kill('SIGTERM');
     }
   });
+});
+
+// ── Feed input to a paused run (human_input / approval node awaiting stdin) ──
+app.post('/api/run-input', (req, res) => {
+  const { runId, text } = req.body || {};
+  const child = runId != null ? activeRuns.get(String(runId)) : null;
+  if (!child || child.killed || !child.stdin || !child.stdin.writable) {
+    return res.status(404).json({ error: 'run not found or not awaiting input' });
+  }
+  try {
+    child.stdin.write(String(text ?? '') + '\n');
+    res.json({ ok: true });
+  } catch (e) {
+    res.status(500).json({ error: e?.message || String(e) });
+  }
 });
 
 // ── Roles / Agents ──

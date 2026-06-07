@@ -1,5 +1,12 @@
 import { createContext, useCallback, useContext, useReducer, useRef, type ReactNode } from "react";
-import { runRole, runWorkflow, type SseHandler, type WorkflowStepMeta } from "@/lib/studio";
+import { api, runRole, runWorkflow, type SseHandler, type WorkflowStepMeta } from "@/lib/studio";
+
+/** 某步暂停等待人工输入（human_input / approval 节点）。 */
+export interface PendingInput {
+  stepId: string;
+  prompt: string;
+  type: "human_input" | "approval";
+}
 
 export type StepStatus = "pending" | "running" | "done";
 
@@ -47,6 +54,10 @@ export interface RunInstance {
   _stderr: string;
   /** 工作流运行才有：原始请求，供「对某步提意见重做」复用 file/provider/cast/inputs */
   source?: WorkflowRequest;
+  /** 服务端运行 id，用于把人工输入写回该子进程 stdin */
+  runId?: string;
+  /** 非空时表示某步正等待人工输入，前端应弹输入框 */
+  pendingInput?: PendingInput | null;
 }
 
 interface RunManagerValue {
@@ -58,6 +69,8 @@ interface RunManagerValue {
   open: (id: string | null) => void;
   /** 对已完成工作流运行中的某一步提意见，带着「上一版产出 + 意见」让该专家返工 */
   rerunWithFeedback: (id: string, stepId: string, feedback: string) => string | null;
+  /** 把人工输入提交回正在等待的运行（human_input / approval 节点） */
+  submitInput: (id: string, text: string) => void;
 }
 
 const Ctx = createContext<RunManagerValue | null>(null);
@@ -122,7 +135,15 @@ export function RunProvider({ children }: { children: ReactNode }) {
 
       const onEvent: SseHandler = (event, data) => {
         switch (event) {
+          case "start":
+            inst.runId = data.runId;
+            break;
+          case "await-input":
+            inst.pendingInput = { stepId: data.stepId, prompt: data.prompt, type: data.type };
+            break;
           case "step-header":
+            // 某步推进了 → 清掉等待态（用户已提交、或本就不需要输入）
+            inst.pendingInput = null;
             upsert(data.id, {
               emoji: data.emoji,
               name: data.name,
@@ -162,6 +183,7 @@ export function RunProvider({ children }: { children: ReactNode }) {
             inst.terminal += data.text;
             break;
           case "done": {
+            inst.pendingInput = null;
             inst.steps = inst.steps.map((s) => (s.status === "running" ? { ...s, status: "done" } : s));
             const hasContent = inst.steps.some((s) => s.content.trim());
             if (data?.code && data.code !== 0 && !hasContent) {
@@ -250,6 +272,21 @@ export function RunProvider({ children }: { children: ReactNode }) {
     [start],
   );
 
+  const submitInput = useCallback(
+    (id: string, text: string) => {
+      const inst = runsRef.current.get(id);
+      if (!inst?.runId || !inst.pendingInput) return;
+      // 乐观清除等待态；引擎收到输入后会继续推进
+      inst.pendingInput = null;
+      touch();
+      api.runInput(inst.runId, text).catch((e) => {
+        inst.error = e?.message || String(e);
+        touch();
+      });
+    },
+    [touch],
+  );
+
   const value: RunManagerValue = {
     runs: Array.from(runsRef.current.values()),
     openId: openRef.current,
@@ -258,6 +295,7 @@ export function RunProvider({ children }: { children: ReactNode }) {
     remove,
     open,
     rerunWithFeedback,
+    submitInput,
   };
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;

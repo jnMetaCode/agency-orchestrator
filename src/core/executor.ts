@@ -467,6 +467,18 @@ export function buildFeedbackBlock(feedback: string, previousOutput?: string): s
   return parts.join('');
 }
 
+/**
+ * Web 模式（AO_WEB_INPUT=1，由 web/server.js spawn 时注入）下，向 stdout 发一行机器可读
+ * 标记，server 解析后转成 SSE `await-input` 事件推给前端弹框；用户输入再经 server 写回
+ * 子进程 stdin，被这里的 readline 读到。CLI（无该 env）下不发标记，行为不变。
+ * 标记必须换行结尾，确保 server 的按行解析能立刻 flush。
+ */
+function emitWebInputRequest(stepId: string, prompt: string, kind: 'human_input' | 'approval'): void {
+  if (process.env.AO_WEB_INPUT === '1') {
+    process.stdout.write(`\n__AO_INPUT_REQUEST__${JSON.stringify({ type: kind, stepId, prompt })}\n`);
+  }
+}
+
 async function handleApproval(
   node: DAGNode,
   context: Map<string, string>
@@ -481,13 +493,17 @@ async function handleApproval(
     console.log('\n' + content);
   }
 
+  emitWebInputRequest(node.step.id, prompt, 'approval');
+
   const rl = createInterface({
     input: process.stdin,
     output: process.stdout,
   });
 
   return new Promise((resolve) => {
-    rl.question(`\n⏸️  ${prompt} `, (answer) => {
+    // Web 模式由前端弹框驱动，不在终端再打印人类提示
+    const display = process.env.AO_WEB_INPUT === '1' ? '' : `\n⏸️  ${prompt} `;
+    rl.question(display, (answer) => {
       rl.close();
       resolve(answer.trim());
     });
@@ -523,13 +539,16 @@ async function handleHumanInput(
     if (content) console.log('\n' + content);
   }
 
+  emitWebInputRequest(node.step.id, prompt, 'human_input');
+
   const rl = createInterface({
     input: process.stdin,
     output: process.stdout,
   });
 
   return new Promise((resolve) => {
-    rl.question(`\n📝 ${prompt} `, (answer) => {
+    const display = process.env.AO_WEB_INPUT === '1' ? '' : `\n📝 ${prompt} `;
+    rl.question(display, (answer) => {
       rl.close();
       resolve(answer.trim());
     });
