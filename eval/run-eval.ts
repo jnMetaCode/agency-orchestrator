@@ -14,11 +14,13 @@
  *    取平均 → 抵消 LLM 评审最大的位置偏置。judge 不知道哪份来自 ao。
  */
 import { resolve, basename } from 'node:path';
-import { mkdirSync, writeFileSync } from 'node:fs';
+import { mkdirSync, writeFileSync, readFileSync, existsSync } from 'node:fs';
 import { run } from '../src/index.js';
 import { parseWorkflow } from '../src/core/parser.js';
 import { createConnector } from '../src/connectors/factory.js';
 import type { LLMConfig, WorkflowResult, InputDefinition } from '../src/types.js';
+import { GOLDEN_FIXTURES } from './golden-tasks.js';
+import { decideGate, formatGate, type EvalSummary, type BaselineSnapshot } from './gate.js';
 
 const isCli = (p: string) => p.endsWith('-cli') || p === 'claude-code';
 const modelFor = (p: string, env?: string) => env || (isCli(p) ? '' : 'llama3');
@@ -39,32 +41,16 @@ const judgeLlm: LLMConfig = { provider: JUDGE_PROVIDER, model: JUDGE_MODEL, max_
 const JUDGE_TRUNC = 20000;
 const trunc = (s: string) => (s.length > JUDGE_TRUNC ? s.slice(0, JUDGE_TRUNC) + '\n…[截断]' : s);
 
-/**
- * 旗舰模板的示例输入（required 无默认的字段在这里给）。覆盖 5 类任务，
- * 用于看多智能体在"哪类任务"上稳赢、哪类不如 one-shot。
- */
-const FIXTURES: Record<string, Record<string, string>> = {
-  'story-creation.yaml': {}, // 用默认 premise 即可
-  'tech-blog.yaml': { topic: '用 Rust 重写 Python 数据处理热点函数：从 12 秒到 0.8 秒的实战与踩坑' },
-  'xiaohongshu-viral-post.yaml': { topic: '职场新人前 3 个月避坑指南' },
-  'douyin-script.yaml': { topic: '30 岁转行做程序员还来得及吗' },
-  'ai-opinion-article.yaml': { topic: '为什么大多数人用不好 AI：不是模型不行，是不会提问' },
-  'pitch-deck-outline.yaml': { startup_idea: '用 AI 帮跨境电商中小卖家自动生成多语言商品详情页，降低本地化成本' },
-  'okr-decomposition.yaml': { annual_goal: '让 SaaS 产品年度经常性收入 ARR 从 200 万做到 1000 万' },
-  'investment-analysis.yaml': { target: '纳斯达克100指数ETF' },
-  'product-review.yaml': {
-    prd_content: [
-      '# PRD：工作流执行结果一键分享',
-      '## 背景：用户跑完多智能体工作流后想把成果分享给同事/客户，目前只能复制粘贴文本，排版丢失、不美观。',
-      '## 目标：让用户一键把某次运行结果生成一个可分享的网页链接（含各步骤产出、可折叠）。',
-      '## 范围：1) 运行结束后 CLI 给出"生成分享链接"提示；2) 上传到对象存储生成短链；3) 网页端只读展示，支持按步骤折叠、复制单步。',
-      '## 非目标：不做评论/协作编辑；不做权限系统（链接即访问）。',
-      '## 指标：分享转化率（跑完→生成链接）>20%；被分享链接的人均打开数。',
-    ].join('\n'),
-  },
-};
+// 黄金任务集（filename → 输入）来自 eval/golden-tasks.ts，覆盖创作/社媒/商业/分析/产品五类。
+const FIXTURES = GOLDEN_FIXTURES;
 
-const workflows = process.argv.slice(2);
+// 解析参数：--xxx 为开关，其余位置参数为指定的工作流路径。
+const flags = new Set(process.argv.slice(2).filter((a) => a.startsWith('--')));
+const GATE = flags.has('--gate');                 // 跑完后做回归门禁判定，失败 exit 1
+const SAVE_BASELINE = flags.has('--save-baseline'); // 把本次结果写入 eval/baseline.json 作为基线
+const BASELINE_PATH = resolve(import.meta.dirname!, 'baseline.json');
+
+const workflows = process.argv.slice(2).filter((a) => !a.startsWith('--'));
 if (workflows.length === 0) {
   for (const name of Object.keys(FIXTURES)) workflows.push(`workflows/${name}`);
 }
@@ -215,4 +201,29 @@ async function evalOne(wfPath: string): Promise<EvalRow> {
   mkdirSync('eval-output', { recursive: true });
   writeFileSync('eval-output/report.md', report + '\n', 'utf-8');
   console.log('报告已写入 eval-output/report.md');
+
+  // ── 回归门禁 / 基线 ──
+  const summary: EvalSummary = { evaluated, multiWins, baseWins, ties, reliable: evaluated - lowConf };
+  const winRate = evaluated > 0 ? summary.multiWins / summary.evaluated : 0;
+
+  if (SAVE_BASELINE) {
+    const snap: BaselineSnapshot = {
+      winRate,
+      reliability: evaluated > 0 ? summary.reliable / summary.evaluated : 0,
+      date: new Date().toISOString().slice(0, 10),
+    };
+    writeFileSync(BASELINE_PATH, JSON.stringify(snap, null, 2) + '\n', 'utf-8');
+    console.log(`基线已保存到 ${BASELINE_PATH}`);
+  }
+
+  if (GATE) {
+    let baseline: BaselineSnapshot | null = null;
+    if (existsSync(BASELINE_PATH)) {
+      try { baseline = JSON.parse(readFileSync(BASELINE_PATH, 'utf-8')); } catch { /* 无效基线则忽略 */ }
+    }
+    const result = decideGate(summary, baseline);
+    console.log('\n' + formatGate(result) + '\n');
+    // 不可信或失败都不放行（exit 1）；只有明确 PASS 才 exit 0
+    process.exit(result.pass ? 0 : 1);
+  }
 })().catch(e => { console.error('评测失败:', e); process.exit(1); });
