@@ -3,6 +3,7 @@
  */
 import {
   autoFixVariableRefs,
+  repairInvalidRolesInYaml,
   buildComposeSystemPrompt,
   buildComposeUserPrompt,
   extractYamlFromResponse,
@@ -384,6 +385,48 @@ steps:
   // 这是已知 limitation，由 LLM repair 兜底。autoFix 自身只确保不指向"下游"
   assert(r.fixed === 1, `应仅记录 1 次替换（全局），实际 ${r.fixed}`);
   assert(r.details[0].from === 'review', `期望 from=review，实际 ${r.details[0].from}`);
+});
+
+// ─── repairInvalidRolesInYaml（确定性角色修复）───
+
+console.log('\n─── repairInvalidRolesInYaml ───');
+
+const validPaths = [
+  'engineering/engineering-code-reviewer',
+  'product/product-trend-researcher',
+  'marketing/marketing-content-creator',
+];
+
+await test('有可信匹配 → 直接替换为真实角色路径', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'ao-rolefix-'));
+  const p = join(dir, 'wf.yaml');
+  writeFileSync(p, `name: "t"
+steps:
+  - id: a
+    role: "engineering/engineering-reviewer"
+    task: "review"
+`);
+  const r = repairInvalidRolesInYaml(p, ['engineering/engineering-reviewer'], validPaths);
+  assert(r.replaced.length === 1, `应替换 1 个，实际 ${r.replaced.length}`);
+  assert(r.replaced[0].to === 'engineering/engineering-code-reviewer', `应替换为最接近路径，实际 ${r.replaced[0].to}`);
+  assert(r.unresolved.length === 0, '不应有无法解析的角色');
+  const out = readFileSync(p, 'utf-8');
+  assert(out.includes('"engineering/engineering-code-reviewer"'), 'YAML 应写入真实角色');
+  assert(!out.includes('engineering-reviewer"'), '不应残留假角色');
+});
+
+await test('无可信匹配 → 留给 unresolved（不乱替换）', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'ao-rolefix-'));
+  const p = join(dir, 'wf.yaml');
+  writeFileSync(p, `name: "t"
+steps:
+  - id: a
+    role: "zzz/qqq-nonexistent-xyz"
+    task: "x"
+`);
+  const r = repairInvalidRolesInYaml(p, ['zzz/qqq-nonexistent-xyz'], validPaths);
+  assert(r.replaced.length === 0, '无匹配不应替换');
+  assert(r.unresolved.length === 1, '应记入 unresolved');
 });
 
 // ─── 汇总 ───

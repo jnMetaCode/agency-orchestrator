@@ -443,11 +443,22 @@ export async function composeWorkflow(options: {
     return { errors, invalidRoles };
   }
 
-  const first = await validateGenerated(savedPath);
+  let first = await validateGenerated(savedPath);
 
-  // 发现幻觉角色 → 让 LLM 修一次
+  // 幻觉角色 → 先做确定性替换：有"够接近"的真实角色就直接改 YAML，不花一次 LLM 调用，
+  // 且保证替换结果一定是库里真实存在、可运行的角色。
   if (first.invalidRoles.length > 0) {
-    console.log(`  检测到 ${first.invalidRoles.length} 个不存在的角色，自动重新生成...`);
+    const det = repairInvalidRolesInYaml(savedPath, first.invalidRoles, [...validRolePaths]);
+    if (det.replaced.length > 0) {
+      console.log(`  自动替换 ${det.replaced.length} 个不存在的角色为最接近的真实角色：`);
+      for (const r of det.replaced) console.log(`    ${r.from} → ${r.to}`);
+      first = await validateGenerated(savedPath);
+    }
+  }
+
+  // 仍有幻觉角色（无可信匹配）→ 让 LLM 修一次
+  if (first.invalidRoles.length > 0) {
+    console.log(`  仍有 ${first.invalidRoles.length} 个角色无法自动匹配，调 LLM 重新生成...`);
     // 把"你是不是想用 X"喂回 LLM：从实际提供的目录里找最接近的真实角色，
     // 让模型做定向替换而非盲目重生成，显著提高一次修复成功率
     const catalogPaths = [...validRolePaths];
@@ -472,7 +483,18 @@ export async function composeWorkflow(options: {
       const retryYaml = extractYamlFromResponse(retryResult.content);
       if (retryYaml && retryYaml.includes('steps:')) {
         writeFileSync(savedPath, retryYaml + '\n', 'utf-8');
-        const second = await validateGenerated(savedPath);
+        let second = await validateGenerated(savedPath);
+        // LLM 重试后若仍残留幻觉角色 → 再用确定性替换兜底，堵住"重试后仍坏、却被当成功"的缺口
+        if (second.invalidRoles.length > 0) {
+          const det2 = repairInvalidRolesInYaml(savedPath, second.invalidRoles, catalogPaths);
+          if (det2.replaced.length > 0) {
+            for (const r of det2.replaced) console.log(`    ${r.from} → ${r.to}`);
+            second = await validateGenerated(savedPath);
+          }
+          if (second.invalidRoles.length > 0) {
+            warnings.push(`仍有无法解析的角色: ${second.invalidRoles.join(', ')}`);
+          }
+        }
         // 重试后仍有变量引用错误 → 走 fix 链（autoFix → LLM 二次修复）
         const finalErrors = await runVariableFixChain(savedPath, second.errors, validateGenerated, llmConfig, lang);
         warnings.push(...finalErrors);
@@ -489,6 +511,32 @@ export async function composeWorkflow(options: {
   warnings.push(...finalErrors);
   const finalYaml = readFileSync(savedPath, 'utf-8').trim();
   return { yaml: finalYaml, savedPath, relativePath, warnings };
+}
+
+/**
+ * 确定性修复幻觉角色：对每个不存在的 role，从角色库找到"够接近"的真实路径，直接在 YAML 文本里替换。
+ * 不依赖再调一次 LLM——只要有可信匹配，就保证替换为库里真实存在、可运行的角色。
+ * 仅替换 role 值中的精确路径（双/单引号包裹），避免误伤任务描述等其它文本。
+ * 返回已替换列表与仍无匹配（需 LLM 兜底）的角色。
+ */
+export function repairInvalidRolesInYaml(
+  yamlPath: string,
+  invalidRoles: string[],
+  validRolePaths: string[],
+): { replaced: { from: string; to: string }[]; unresolved: string[] } {
+  let content = readFileSync(yamlPath, 'utf-8');
+  const replaced: { from: string; to: string }[] = [];
+  const unresolved: string[] = [];
+  for (const bad of [...new Set(invalidRoles)]) {
+    const to = suggestFromPaths(bad, validRolePaths)[0];
+    if (!to) { unresolved.push(bad); continue; }
+    const before = content;
+    content = content.split(`"${bad}"`).join(`"${to}"`).split(`'${bad}'`).join(`'${to}'`);
+    if (content !== before) replaced.push({ from: bad, to });
+    else unresolved.push(bad);
+  }
+  if (replaced.length > 0) writeFileSync(yamlPath, content, 'utf-8');
+  return { replaced, unresolved };
 }
 
 /**
