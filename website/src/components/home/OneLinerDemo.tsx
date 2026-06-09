@@ -30,10 +30,10 @@ export function OneLinerDemo() {
         <div className="space-y-1 p-5 font-mono text-[13px] leading-relaxed">
           <p className="text-white/60">
             <span className="text-emerald-400">$</span> ao compose{" "}
-            <span className="text-amber-300">"程序员想用 AI 做副业，月入 2 万，做完整规划"</span> --run
+            <span className="text-amber-300">"{d.prompt}"</span> --run
           </p>
           <p className="pt-2 text-white/40">
-            工作流: 自动编排 · 步骤数 {d.steps.length} · 模型 deepseek-chat
+            {d.meta.replace("{n}", String(d.steps.length))}
           </p>
           <p className="flex flex-wrap gap-x-3 gap-y-1 pb-2 text-white/70">
             {d.roles.map((r) => (
@@ -58,7 +58,7 @@ export function OneLinerDemo() {
             </motion.p>
           ))}
           <div className="my-2 h-px bg-white/10" />
-          <p className="text-emerald-400/90">✓ 完成 · 产物已保存到 ao-output/</p>
+          <p className="text-emerald-400/90">✓ {d.done}</p>
         </div>
       </motion.div>
     </section>

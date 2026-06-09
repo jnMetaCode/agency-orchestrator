@@ -36,6 +36,9 @@ const zh = {
   oneLiner: {
     title: "一句话出结果",
     desc: "最快的用法不是写 YAML，而是 compose——一句话，AI 帮你把整条工作流配好并直接跑。",
+    prompt: "程序员想用 AI 做副业，月入 2 万，做完整规划",
+    meta: "工作流: 自动编排 · 步骤数 {n} · 模型 deepseek-chat",
+    done: "完成 · 产物已保存到 ao-output/",
     roles: ["🔭 趋势研究员", "📱 平台分析师", "💰 财务规划师", "✍️ 内容策略师", "📋 执行规划师"],
     steps: [
       { emoji: "🔭", name: "趋势研究员", time: "31.3s", out: "6 个赛道竞争度 / 变现天花板 / AI 提效倍数对比" },
@@ -263,6 +266,9 @@ const en: typeof zh = {
   oneLiner: {
     title: "One sentence → full plan",
     desc: "The fastest way isn't writing YAML — it's compose: one sentence and AO wires up the whole workflow and runs it.",
+    prompt: "A developer wants an AI side business at $3k/mo — plan it end to end",
+    meta: "Workflow: auto-orchestrated · {n} steps · deepseek-chat",
+    done: "Done · outputs saved to ao-output/",
     roles: ["🔭 Trend Researcher", "📱 Platform Analyst", "💰 Finance Planner", "✍️ Content Strategist", "📋 Exec Planner"],
     steps: [
       { emoji: "🔭", name: "Trend Researcher", time: "31.3s", out: "6 niches compared on competition / ceiling / AI leverage" },
