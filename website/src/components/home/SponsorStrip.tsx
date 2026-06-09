@@ -27,9 +27,15 @@ export function SponsorStrip() {
               rel="noreferrer"
               className="flex w-[260px] items-center gap-3 rounded-2xl border border-border/70 bg-card/60 p-4 transition-colors hover:border-primary/40"
             >
-              <span className={`grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-gradient-to-br text-xl ${s.accent ?? "from-primary to-fuchsia-500"}`}>
-                {s.badge}
-              </span>
+              {s.logo ? (
+                <span className="grid h-11 w-11 shrink-0 place-items-center overflow-hidden rounded-xl border border-border/60 bg-white">
+                  <img src={s.logo} alt={s.name} className="h-8 w-8 object-contain" />
+                </span>
+              ) : (
+                <span className={`grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-gradient-to-br text-xl ${s.accent ?? "from-primary to-fuchsia-500"}`}>
+                  {s.badge}
+                </span>
+              )}
               <span className="min-w-0">
                 <span className="block truncate font-semibold">{s.name}</span>
                 <span className="block truncate text-xs text-muted-foreground">{s.tagline[lang]}</span>

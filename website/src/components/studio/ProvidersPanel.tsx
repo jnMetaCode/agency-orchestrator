@@ -5,7 +5,7 @@ import { api, PROVIDER_LABELS, type ConfigResponse } from "@/lib/studio";
 import { cn } from "@/lib/utils";
 
 const API_META = [
-  { id: "deepseek", name: "DeepSeek", hint: "推荐 · 性价比甜区 · platform.deepseek.com", recommended: true },
+  { id: "deepseek", name: "DeepSeek", hint: "platform.deepseek.com" },
   { id: "openai", name: "OpenAI", hint: "gpt-4o 等 · platform.openai.com" },
   { id: "claude", name: "Claude (Anthropic)", hint: "console.anthropic.com" },
 ];
@@ -112,7 +112,6 @@ function ApiCard({
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
           <span className="font-semibold">{meta.name}</span>
-          {meta.recommended && <span className="rounded-full bg-primary/15 px-2 py-0.5 text-[11px] font-medium text-primary">推荐</span>}
         </div>
         <ActiveButton on={active} onClick={onSetActive} />
       </div>

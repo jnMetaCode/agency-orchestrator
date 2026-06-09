@@ -22,7 +22,7 @@ export function SiteFooter() {
       links: [
         { label: f.links.github, href: SITE.repo, external: true },
         { label: f.links.roles, href: SITE.rolesRepo, external: true },
-        { label: f.links.changelog, href: SITE.changelog, external: true },
+        { label: f.links.changelog, href: prefix("/changelog"), external: false },
         { label: f.links.license, href: SITE.license, external: true },
       ],
     },
@@ -44,6 +44,17 @@ export function SiteFooter() {
             Agency Orchestrator
           </Link>
           <p className="mt-3 max-w-xs text-sm text-muted-foreground">{f.tagline}</p>
+          <p className="mt-2 max-w-xs text-sm text-muted-foreground">
+            {f.supportLine}{" "}
+            <a
+              href={SITE.rolesRepo}
+              target="_blank"
+              rel="noreferrer"
+              className="font-medium text-foreground underline-offset-2 hover:underline"
+            >
+              agency-agents ↗
+            </a>
+          </p>
           <a
             href={SITE.repo}
             target="_blank"

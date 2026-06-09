@@ -35,9 +35,15 @@ export function SponsorPerksTable() {
               <tr key={sp.id} className={i % 2 ? "bg-muted/20" : ""}>
                 <td className="px-5 py-3.5">
                   <span className="flex items-center gap-2.5">
-                    <span className={`grid size-8 shrink-0 place-items-center rounded-lg bg-gradient-to-br text-base ${sp.accent ?? "from-primary to-fuchsia-500"}`}>
-                      {sp.badge}
-                    </span>
+                    {sp.logo ? (
+                      <span className="grid size-8 shrink-0 place-items-center overflow-hidden rounded-lg border border-border/60 bg-white">
+                        <img src={sp.logo} alt={sp.name} className="size-6 object-contain" />
+                      </span>
+                    ) : (
+                      <span className={`grid size-8 shrink-0 place-items-center rounded-lg bg-gradient-to-br text-base ${sp.accent ?? "from-primary to-fuchsia-500"}`}>
+                        {sp.badge}
+                      </span>
+                    )}
                     <span className="font-medium">{sp.name}</span>
                   </span>
                 </td>

@@ -8,6 +8,8 @@ export default defineConfig({
   server: {
     host: "::",
     port: 5273,
+    // 允许读取仓库根的 CHANGELOG.md（更新日志页通过 ?raw 导入并解析）
+    fs: { allow: [".."] },
     proxy: {
       // Studio talks to the local engine backend (web/server.js, default :8088).
       // Override with AO_BACKEND when running the backend on another port.

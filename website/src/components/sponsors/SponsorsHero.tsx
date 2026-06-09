@@ -21,7 +21,7 @@ export function SponsorsHero() {
         <p className="mx-auto mt-5 max-w-2xl text-pretty leading-relaxed text-muted-foreground">{s.heroSubtitle}</p>
         <div className="mt-7">
           <Button asChild size="lg" variant="gold">
-            <a href={SITE.sponsorContact} target="_blank" rel="noreferrer">
+            <a href={SITE.sponsorContact}>
               <Heart className="size-4" />
               {s.becomeCta}
             </a>

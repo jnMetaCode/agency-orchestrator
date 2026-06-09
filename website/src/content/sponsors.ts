@@ -3,13 +3,8 @@ import type { Language } from "@/i18n/translations";
 /**
  * 赞助商数据。
  *
- * 目前为「首发推荐 provider」种子数据——这些是 AO README 里真实支持、且与 DeepSeek 甜区
- * 定位契合的模型 / API 服务商，作为诚实的展示样例，不编造付费关系或假优惠码。
- *
- * 接到真实赞助商后：
- *   1. 在下面新增 Sponsor 条目，tier 设为 'flagship' 或 'standard'；
- *   2. 有专属优惠码就填 couponCode，否则留空；
- *   3. 把 placeholder 设为 false（或删除该字段）。
+ * 当前唯一赞助商：优云智算（UCloud 旗下 AI 云平台）。
+ * 真实付费赞助，非占位样例。新增赞助商时按 Sponsor 结构追加即可。
  */
 
 export type SponsorTier = "flagship" | "standard";
@@ -23,6 +18,8 @@ export interface Sponsor {
   badge: string;
   /** 头像底色（tailwind 渐变类），可选 */
   accent?: string;
+  /** 小 logo 图（public 目录下的路径），优先于 badge 作为头像 */
+  logo?: string;
   url: string;
   tier: SponsorTier;
   tagline: LocalizedText;
@@ -37,48 +34,26 @@ export interface Sponsor {
 
 export const sponsors: Sponsor[] = [
   {
-    id: "deepseek",
-    name: "DeepSeek",
-    badge: "🐬",
-    accent: "from-indigo-500 to-blue-500",
-    url: "https://platform.deepseek.com/",
+    id: "youyun",
+    name: "优云智算",
+    badge: "☁️",
+    accent: "from-sky-500 to-indigo-500",
+    logo: "/sponsors/logo-compshare-icon.png",
+    url: "https://passport.compshare.cn/register?referral_code=ETD3L5JBM13CtKARkMORot&ytag=GPU_YY_YX_git_agency-agents",
     tier: "standard",
     since: "2026-06",
-    featured: true,
-    placeholder: true,
+    featured: false,
     tagline: {
-      zh: "AO 默认推荐的性价比甜区模型",
-      en: "AO's recommended price-quality sweet spot",
+      zh: "UCloud 旗下 AI 云平台 · 高性价比国产模型 Agent Plan",
+      en: "AI cloud platform by UCloud · cost-effective Agent Plans",
     },
     description: {
-      zh: "DeepSeek 是 AO 默认推荐的 provider——够强又不贵。我们的盲评显示，正是在这一档上，多智能体协作的产出明显优于单次 prompt。充值少量即可跑很久。",
-      en: "DeepSeek is AO's recommended provider — capable yet cheap. Our blind evals show this is exactly the tier where multi-agent collaboration beats a one-shot prompt. A small top-up runs a long way.",
+      zh: "感谢优云智算赞助了本项目！优云智算是 UCloud 旗下 AI 云平台，主打包月、按次的高性价比国产模型 Agent Plan 套餐，低至 49 元/月起。同时提供官转稳定海外模型，支持接入 Claude Code、Codex 及 API 调用。企业级高并发、7×24 技术支持、自助开票。",
+      en: "Thanks to CompShare (优云智算) for sponsoring this project! CompShare is UCloud's AI cloud platform, offering cost-effective monthly / pay-per-call Agent Plans for Chinese models from ¥49/mo, plus stable official relays for overseas models. Works with Claude Code, Codex and direct API calls — with enterprise-grade concurrency, 24/7 support and self-service invoicing.",
     },
     perk: {
-      zh: "AO 工作流默认 provider，开箱即用",
-      en: "Default provider for AO workflows, works out of the box",
-    },
-  },
-  {
-    id: "siliconflow",
-    name: "硅基流动 SiliconFlow",
-    badge: "🧊",
-    accent: "from-sky-500 to-cyan-500",
-    url: "https://siliconflow.cn/",
-    tier: "standard",
-    since: "2026-06",
-    placeholder: true,
-    tagline: {
-      zh: "OpenAI 兼容的多模型聚合平台",
-      en: "OpenAI-compatible multi-model platform",
-    },
-    description: {
-      zh: "硅基流动提供 OpenAI 兼容接口，可一键接入 DeepSeek-V3 等多种模型。在 AO 里通过 base_url 即可作为自定义 provider 使用。",
-      en: "SiliconFlow offers an OpenAI-compatible endpoint with one-click access to DeepSeek-V3 and more. Plug it into AO as a custom provider via base_url.",
-    },
-    perk: {
-      zh: "OpenAI 兼容，配置 base_url 即可接入",
-      en: "OpenAI-compatible — set base_url to connect",
+      zh: "新用户注册立得 5 元平台体验金",
+      en: "¥5 free platform credit for new sign-ups",
     },
   },
 ];

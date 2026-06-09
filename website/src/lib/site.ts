@@ -9,7 +9,8 @@ export const SITE = {
   license: "https://github.com/jnMetaCode/agency-orchestrator/blob/main/LICENSE",
   evalFindings: "https://github.com/jnMetaCode/agency-orchestrator/blob/main/EVAL_FINDINGS.md",
   install: "npm i -g agency-orchestrator",
-  sponsorContact: "https://github.com/jnMetaCode/agency-orchestrator/issues/new?title=Sponsorship",
+  sponsorEmail: "jnMetaCode@qq.com",
+  sponsorContact: "mailto:jnMetaCode@qq.com?subject=Sponsorship%20-%20agency-agents",
   providersKeyed: ["DeepSeek", "Claude", "OpenAI", "Gemini", "Ollama", "Moonshot", "硅基流动", "OpenRouter"],
   providersKeyfree: ["claude-code CLI", "gemini-cli", "openclaw-cli", "Ollama 本地", "LM Studio", "免费聚合", "演示模式"],
 };

@@ -39,15 +39,15 @@ export function SponsorBenefits() {
 
         <div className="mt-10 flex flex-col items-center justify-center gap-3 sm:flex-row">
           <Button asChild size="lg" variant="gold">
-            <a href={SITE.sponsorContact} target="_blank" rel="noreferrer">
+            <a href={SITE.sponsorContact}>
               <Heart className="size-4" />
               {s.becomeCta}
             </a>
           </Button>
           <Button asChild size="lg" variant="outline">
-            <a href={SITE.issues} target="_blank" rel="noreferrer">
+            <a href={SITE.sponsorContact}>
               <Mail className="size-4" />
-              GitHub Issue
+              {SITE.sponsorEmail}
             </a>
           </Button>
         </div>

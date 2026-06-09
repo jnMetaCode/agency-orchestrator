@@ -8,6 +8,8 @@ const Sponsors = lazy(() => import("@/pages/Sponsors"));
 const Studio = lazy(() => import("@/pages/Studio"));
 const Docs = lazy(() => import("@/pages/Docs"));
 const Tutorials = lazy(() => import("@/pages/Tutorials"));
+const TutorialDetail = lazy(() => import("@/pages/TutorialDetail"));
+const Changelog = lazy(() => import("@/pages/Changelog"));
 const NotFound = lazy(() => import("@/pages/NotFound"));
 
 function ScrollToTop() {
@@ -45,8 +47,17 @@ export default function App() {
           {["/docs", "/zh/docs", "/en/docs"].map((p) => (
             <Route key={p} path={p} element={<Docs />} />
           ))}
+          {["/docs/:slug", "/zh/docs/:slug", "/en/docs/:slug"].map((p) => (
+            <Route key={p} path={p} element={<Docs />} />
+          ))}
           {["/tutorials", "/zh/tutorials", "/en/tutorials"].map((p) => (
             <Route key={p} path={p} element={<Tutorials />} />
+          ))}
+          {["/tutorials/:slug", "/zh/tutorials/:slug", "/en/tutorials/:slug"].map((p) => (
+            <Route key={p} path={p} element={<TutorialDetail />} />
+          ))}
+          {["/changelog", "/zh/changelog", "/en/changelog"].map((p) => (
+            <Route key={p} path={p} element={<Changelog />} />
           ))}
           <Route path="*" element={<NotFound />} />
         </Routes>
