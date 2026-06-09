@@ -95,6 +95,48 @@ function resolveWorkflowPath(): string {
   return p;
 }
 
+/**
+ * 首跑向导文案：根据检测到的 provider，给出个性化的"下一步"。
+ * 纯函数，便于测试。ao init 在角色库装好后调用。
+ */
+export function buildFirstRunGuidance(llms: DetectedLLM[], lang: 'zh' | 'en' = 'zh'): string {
+  const ready = llms.filter(l => l.available);
+  const lines: string[] = [];
+  if (ready.length > 0) {
+    const names = ready.map(l => l.name).join(lang === 'en' ? ', ' : '、');
+    if (lang === 'en') {
+      lines.push(`✅ Ready to go — detected: ${names}`);
+      lines.push('');
+      lines.push('Try it now:');
+      lines.push('  ao demo                                  see it run in ~60s');
+      lines.push('  ao compose "your goal in one sentence" --run');
+    } else {
+      lines.push(`✅ 已就绪 —— 检测到可用 provider：${names}`);
+      lines.push('');
+      lines.push('现在就试：');
+      lines.push('  ao demo                                60 秒看效果');
+      lines.push('  ao compose "用一句话描述你的需求" --run');
+    }
+  } else {
+    if (lang === 'en') {
+      lines.push('⚠ No usable LLM detected yet — pick the easiest path:');
+      lines.push('  • Key-free: a CLI you already pay for —');
+      lines.push('      npm i -g @anthropic-ai/claude-code   (Claude Max/Pro)');
+      lines.push('      or run a local model with Ollama (ollama.com)');
+      lines.push('  • API key:  ao init --provider deepseek --api-key sk-...');
+      lines.push('Then run:  ao demo');
+    } else {
+      lines.push('⚠ 还没检测到可用的 LLM，选最省事的一条：');
+      lines.push('  • 免 key：装一个你已付费的 CLI——');
+      lines.push('      npm i -g @anthropic-ai/claude-code   (Claude Max/Pro 会员)');
+      lines.push('      或用 Ollama 跑本地模型 (ollama.com)');
+      lines.push('  • 用 API key：ao init --provider deepseek --api-key sk-...');
+      lines.push('  配好后运行：ao demo');
+    }
+  }
+  return lines.join('\n');
+}
+
 /** 没检测到 LLM 时：展示 DAG + 行动指引 */
 async function showDagAndGuide(): Promise<void> {
   console.log('  ❌ 没检测到可用 LLM。先看一下 ao 工作流的 DAG 结构:\n');

@@ -644,10 +644,16 @@ async function handleInit(): Promise<void> {
   // 显示角色数量
   const agents = listAgents(targetDir);
   console.log(`  共 ${agents.length} 个角色可用\n`);
-  console.log('  接下来你可以:');
-  console.log('    ao roles                              查看所有角色');
-  console.log('    ao plan workflows/product-review.yaml  查看执行计划');
-  console.log('    ao run workflows/story-creation.yaml   运行工作流');
+
+  // 首跑向导：按检测到的 provider 给个性化的下一步（就绪→直接 demo/compose；没有→最省事的获取路径）
+  const { detectAvailableLLMs, buildFirstRunGuidance } = await import('./cli/demo.js');
+  const llms = await detectAvailableLLMs();
+  for (const line of buildFirstRunGuidance(llms, lang).split('\n')) console.log(`  ${line}`);
+  console.log('');
+  console.log(lang === 'en' ? '  More:' : '  更多：');
+  console.log(lang === 'en'
+    ? '    ao roles                               list all roles'
+    : '    ao roles                               查看所有角色');
 }
 
 function handleRoles(): void {
