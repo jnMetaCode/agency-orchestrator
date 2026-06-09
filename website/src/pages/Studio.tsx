@@ -9,6 +9,7 @@ import { RunProvider, useRunManager } from "@/components/studio/RunManager";
 import { RunViewer } from "@/components/studio/RunViewer";
 import { RunsPanel } from "@/components/studio/RunsPanel";
 import { StudioGate } from "@/components/studio/StudioGate";
+import { StudioDemo } from "@/components/studio/StudioDemo";
 import { UsagePanel } from "@/components/studio/UsagePanel";
 import { WorkflowsPanel } from "@/components/studio/WorkflowsPanel";
 import { useBackend } from "@/components/studio/useBackend";
@@ -144,7 +145,10 @@ function StudioInner() {
             </div>
           )}
           {status !== "online" ? (
-            <StudioGate checking={status === "checking"} onRetry={recheck} />
+            <>
+              <StudioGate checking={status === "checking"} onRetry={recheck} />
+              <StudioDemo />
+            </>
           ) : tab === "roles" ? (
             <RolesPicker provider={provider} onRun={start} onGoToWorkflows={() => setTab("workflows")} />
           ) : tab === "workflows" ? (

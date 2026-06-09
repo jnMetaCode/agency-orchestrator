@@ -92,6 +92,16 @@ const zh = {
     keyed: "API Key 接入",
     keyfree: "免 Key 方式",
   },
+  studioDemo: {
+    title: "在线演示（无需安装）",
+    desc: "点一下，看 agency-agents 的专家如何按 DAG 协作。纯前端演示，不调用真实模型。",
+    prompt: "程序员想用 AI 做副业，月入 2 万，做完整规划",
+    play: "试跑演示",
+    replay: "重新播放",
+    running: "运行中",
+    done: "完成 · 产物已保存到 ao-output/",
+    note: "想真跑？本地安装 ao 并连上引擎，即可用真实模型执行。",
+  },
   sponsors: {
     nav: "赞助商",
     heroBadge: "开源 · 社区驱动",
@@ -284,6 +294,16 @@ const en: typeof zh = {
     subtitle: "A small top-up runs a long way; or start at zero cost via CLI / local models.",
     keyed: "API key providers",
     keyfree: "Key-free options",
+  },
+  studioDemo: {
+    title: "Live demo (no install)",
+    desc: "Click to watch agency-agents' experts collaborate along the DAG. Front-end only — no real model calls.",
+    prompt: "A developer wants an AI side business at $3k/mo — plan it end to end",
+    play: "Run the demo",
+    replay: "Replay",
+    running: "running",
+    done: "Done · outputs saved to ao-output/",
+    note: "Want a real run? Install ao locally and connect the engine to use real models.",
   },
   sponsors: {
     nav: "Sponsors",
