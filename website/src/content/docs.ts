@@ -232,8 +232,8 @@ steps:
           {
             heading: { zh: "loop 块", en: "loop block" },
             body: {
-              zh: "`loop` 块放在循环的**最后一步**，`back_to` 指回起点，`exit_condition` 命中就退出，`max_iterations` 兜底。注意：`exit_condition` 不能引用循环自身这一步的输出。",
-              en: "Put the `loop` block on the **last step** of the loop; `back_to` points to the start, `exit_condition` ends it, `max_iterations` is the safety cap. Note: `exit_condition` cannot reference this step's own output.",
+              zh: "`loop` 块放在循环的**最后一步**，`back_to` 指回起点，`exit_condition` 命中就退出，`max_iterations` 是必填的兜底次数（上限 10）。注意：`exit_condition` 不能引用循环自身这一步的输出。",
+              en: "Put the `loop` block on the **last step** of the loop; `back_to` points to the start, `exit_condition` ends it, and `max_iterations` is the required safety cap (max 10). Note: `exit_condition` cannot reference this step's own output.",
             },
             code: `  - id: review
     role: "product/product-feedback-synthesizer"
@@ -247,8 +247,8 @@ steps:
           {
             heading: { zh: "condition 条件分支", en: "condition branching" },
             body: {
-              zh: "用 `condition` 让某步按上游产出有条件地执行；不满足时跳过该步及其下游。",
-              en: "Use `condition` to run a step only when an upstream output matches; otherwise the step (and its downstream) is skipped.",
+              zh: "用 `condition` 让某步按上游产出有条件地执行；不满足时跳过该步及其下游。支持 `contains`（包含）和 `equals`（相等）两种判断，`exit_condition` 同此语法。",
+              en: "Use `condition` to run a step only when an upstream output matches; otherwise the step (and its downstream) is skipped. Supports `contains` and `equals`; `exit_condition` uses the same syntax.",
             },
             code: 'condition: "{{review}} contains 需要修改"',
           },
