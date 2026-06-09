@@ -15,7 +15,7 @@ import { execSync, spawn } from 'node:child_process';
 import { parseWorkflow, validateWorkflow } from './core/parser.js';
 import type { LLMConfig } from './types.js';
 import { buildDAG, formatDAG } from './core/dag.js';
-import { listAgents } from './agents/loader.js';
+import { listAgents, filterAgentsByKeyword } from './agents/loader.js';
 import { run, findAgentsDir } from './index.js';
 import { formatValidationReport, buildValidationReport } from './cli/validate-report.js';
 import { scheduleUpdateCheck, fetchLatestVersion, isNewer, detectUpgradeCommand, PKG } from './utils/version-check.js';
@@ -658,10 +658,23 @@ async function handleInit(): Promise<void> {
 
 function handleRoles(): void {
   const agentsDir = getArgValue('--agents-dir') || resolveAgentsDir();
+  // 关键词：--search <kw> 或第一个非 flag 位置参数（ao roles seo）
+  const keyword = getArgValue('--search')
+    || (args[1] && !args[1].startsWith('-') ? args[1] : '');
 
   try {
-    const agents = listAgents(resolve(agentsDir));
-    console.log(`\n  共 ${agents.length} 个角色 (${agentsDir}):\n`);
+    const all = listAgents(resolve(agentsDir));
+    const agents = keyword ? filterAgentsByKeyword(all, keyword) : all;
+
+    if (keyword) {
+      console.log(`\n  搜索 "${keyword}"：匹配 ${agents.length} / ${all.length} 个角色 (${agentsDir})\n`);
+      if (agents.length === 0) {
+        console.log('  没有匹配的角色。换个关键词，或用 `ao roles` 查看全部。\n');
+        return;
+      }
+    } else {
+      console.log(`\n  共 ${agents.length} 个角色 (${agentsDir}):\n`);
+    }
 
     // 按分类分组
     const byCategory = new Map<string, typeof agents>();

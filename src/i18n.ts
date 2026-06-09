@@ -204,7 +204,7 @@ const dict: Dict = {
     validate <workflow.yaml>          校验工作流定义（加 --json 输出结构化结果）
     plan <workflow.yaml>              查看执行计划
     explain <workflow.yaml>           用自然语言解释执行计划
-    roles [--agents-dir path]         列出可用角色
+    roles [关键词] [--agents-dir path] 列出可用角色（带关键词则按 路径/名称/描述 搜索）
     upgrade [--check]                 自我升级到最新版（--check 只检查不安装）
 
   选项:
@@ -260,7 +260,7 @@ const dict: Dict = {
     validate <workflow.yaml>          Validate a workflow definition (--json for structured output)
     plan <workflow.yaml>              Show execution plan
     explain <workflow.yaml>           Explain the plan in natural language
-    roles [--agents-dir path]         List available roles
+    roles [keyword] [--agents-dir path] List roles (with a keyword: search path/name/description)
     upgrade [--check]                 Self-update to the latest version (--check: check only)
 
   Options:

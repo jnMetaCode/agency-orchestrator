@@ -187,3 +187,20 @@ export function suggestFromPaths(badPath: string, allPaths: string[], limit = 3)
 export function suggestRoles(badPath: string, agentsDir: string, limit = 3): string[] {
   return suggestFromPaths(badPath, listRolePaths(agentsDir), limit);
 }
+
+/**
+ * 按关键词过滤角色：匹配 rolePath / name / description（不区分大小写）。
+ * 空关键词返回原列表。供 `ao roles <keyword>` 使用，方便手动找专家。
+ */
+export function filterAgentsByKeyword<T extends { name?: string; rolePath?: string; description?: string }>(
+  agents: T[],
+  keyword: string,
+): T[] {
+  const kw = keyword.trim().toLowerCase();
+  if (!kw) return agents;
+  return agents.filter(a =>
+    (a.rolePath || '').toLowerCase().includes(kw) ||
+    (a.name || '').toLowerCase().includes(kw) ||
+    (a.description || '').toLowerCase().includes(kw)
+  );
+}
