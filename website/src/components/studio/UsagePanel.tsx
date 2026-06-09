@@ -1,15 +1,23 @@
 import { Activity, Coins, DollarSign, Loader2, TrendingUp } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { Area, AreaChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
+import { useLanguage } from "@/i18n/LanguageProvider";
 import { api, PRICING, type UsageResponse } from "@/lib/studio";
 
-function fmt(n: number) {
+function fmt(n: number, lang: string) {
+  if (lang === "en") {
+    if (n >= 1e9) return (n / 1e9).toFixed(2) + "B";
+    if (n >= 1e6) return (n / 1e6).toFixed(2) + "M";
+    if (n >= 1e3) return (n / 1e3).toFixed(1) + "K";
+    return n.toLocaleString();
+  }
   if (n >= 1e8) return (n / 1e8).toFixed(2) + " 亿";
   if (n >= 1e4) return (n / 1e4).toFixed(1) + " 万";
   return n.toLocaleString();
 }
 
 export function UsagePanel() {
+  const { t, lang } = useLanguage();
   const [data, setData] = useState<UsageResponse | null>(null);
   const [err, setErr] = useState<string | null>(null);
   const [model, setModel] = useState("deepseek");
@@ -24,31 +32,31 @@ export function UsagePanel() {
     return (data.totalInput * p.in + data.totalOutput * p.out) / 1e6;
   }, [data, model]);
 
-  if (err) return <p className="py-20 text-center text-sm text-red-500">加载失败：{err}</p>;
+  if (err) return <p className="py-20 text-center text-sm text-red-500">{t.studio.usage.loadFailed}{err}</p>;
   if (!data)
     return (
       <div className="flex items-center justify-center gap-2 py-20 text-muted-foreground">
-        <Loader2 className="size-4 animate-spin" /> 统计中…
+        <Loader2 className="size-4 animate-spin" /> {t.studio.usage.loading}
       </div>
     );
   if (!data.totalRuns)
-    return <p className="py-20 text-center text-sm text-muted-foreground">还没有运行记录,跑几个工作流后这里会有用量统计。</p>;
+    return <p className="py-20 text-center text-sm text-muted-foreground">{t.studio.usage.empty}</p>;
 
   const cards = [
-    { icon: Coins, label: "累计 Tokens", value: fmt(data.totalTokens), sub: `${data.totalRuns} 次运行` },
-    { icon: TrendingUp, label: "输入 Tokens", value: fmt(data.totalInput), sub: "input" },
-    { icon: Activity, label: "输出 Tokens", value: fmt(data.totalOutput), sub: "output" },
-    { icon: DollarSign, label: "估算成本", value: `$${cost.toFixed(2)}`, sub: `按 ${PRICING[model].label} 估算` },
+    { icon: Coins, label: t.studio.usage.totalTokens, value: fmt(data.totalTokens, lang), sub: `${data.totalRuns} ${t.studio.usage.runs}` },
+    { icon: TrendingUp, label: t.studio.usage.inputTokens, value: fmt(data.totalInput, lang), sub: "input" },
+    { icon: Activity, label: t.studio.usage.outputTokens, value: fmt(data.totalOutput, lang), sub: "output" },
+    { icon: DollarSign, label: t.studio.usage.estimatedCost, value: `$${cost.toFixed(2)}`, sub: `${t.studio.usage.estimatedByPrefix}${PRICING[model].label}${t.studio.usage.estimatedBySuffix}` },
   ];
 
   return (
     <div className="space-y-5">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <p className="text-sm text-muted-foreground">
-          {data.firstDate && data.lastDate ? `${data.firstDate} ~ ${data.lastDate}` : "全部运行"}
+          {data.firstDate && data.lastDate ? `${data.firstDate} ~ ${data.lastDate}` : t.studio.usage.allRuns}
         </p>
         <label className="flex items-center gap-2 text-xs text-muted-foreground">
-          成本按模型估算
+          {t.studio.usage.costByModel}
           <select
             value={model}
             onChange={(e) => setModel(e.target.value)}
@@ -80,7 +88,7 @@ export function UsagePanel() {
       </div>
 
       <div className="rounded-2xl border border-border/70 bg-card/60 p-5">
-        <h3 className="mb-3 text-sm font-semibold">每日 Token 用量</h3>
+        <h3 className="mb-3 text-sm font-semibold">{t.studio.usage.dailyUsage}</h3>
         <div className="h-64 w-full">
           <ResponsiveContainer width="100%" height="100%">
             <AreaChart data={data.byDay} margin={{ top: 4, right: 8, left: -8, bottom: 0 }}>
@@ -96,10 +104,10 @@ export function UsagePanel() {
               </defs>
               <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" vertical={false} />
               <XAxis dataKey="date" tick={{ fontSize: 11 }} stroke="hsl(var(--muted-foreground))" tickFormatter={(d) => String(d).slice(5)} />
-              <YAxis tick={{ fontSize: 11 }} stroke="hsl(var(--muted-foreground))" tickFormatter={(v) => fmt(Number(v))} width={48} />
+              <YAxis tick={{ fontSize: 11 }} stroke="hsl(var(--muted-foreground))" tickFormatter={(v) => fmt(Number(v), lang)} width={48} />
               <Tooltip
                 contentStyle={{ background: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: 12, fontSize: 12 }}
-                formatter={(v: number, n) => [fmt(Number(v)), n === "input" ? "输入" : "输出"]}
+                formatter={(v: number, n) => [fmt(Number(v), lang), n === "input" ? t.studio.usage.input : t.studio.usage.output]}
               />
               <Area type="monotone" dataKey="input" stroke="hsl(var(--primary))" fill="url(#gIn)" strokeWidth={2} />
               <Area type="monotone" dataKey="output" stroke="#f59e0b" fill="url(#gOut)" strokeWidth={2} />
@@ -109,7 +117,7 @@ export function UsagePanel() {
       </div>
 
       <div className="rounded-2xl border border-border/70 bg-card/60 p-5">
-        <h3 className="mb-3 text-sm font-semibold">用量最高的角色 Top {data.byRole.length}</h3>
+        <h3 className="mb-3 text-sm font-semibold">{t.studio.usage.topRolesPrefix}{data.byRole.length}</h3>
         <div className="space-y-2">
           {data.byRole.map((r, i) => {
             const tot = r.input + r.output;
@@ -121,8 +129,8 @@ export function UsagePanel() {
                 <div className="h-2.5 flex-1 overflow-hidden rounded-full bg-muted">
                   <div className="h-full rounded-full bg-primary/70" style={{ width: `${Math.max(3, (tot / max) * 100)}%` }} />
                 </div>
-                <span className="w-16 shrink-0 text-right text-xs text-muted-foreground">{fmt(tot)}</span>
-                <span className="w-12 shrink-0 text-right text-[11px] text-muted-foreground/70">{r.runs}次</span>
+                <span className="w-16 shrink-0 text-right text-xs text-muted-foreground">{fmt(tot, lang)}</span>
+                <span className="w-12 shrink-0 text-right text-[11px] text-muted-foreground/70">{r.runs}{t.studio.usage.runsSuffix}</span>
               </div>
             );
           })}

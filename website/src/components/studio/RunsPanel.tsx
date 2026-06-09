@@ -4,11 +4,13 @@ import { Button } from "@/components/ui/button";
 import { CopyButton } from "@/components/ui/copy-button";
 import { api, type RunSummary } from "@/lib/studio";
 import { downloadText, safeFilename } from "@/lib/download";
+import { useLanguage } from "@/i18n/LanguageProvider";
 import { cn } from "@/lib/utils";
 import { Markdown } from "./Markdown";
 import type { RunRequest } from "./RunManager";
 
 function DetailPane({ id, provider, onRun }: { id: string; provider: string; onRun: (r: RunRequest) => void }) {
+  const { t } = useLanguage();
   const [run, setRun] = useState<RunSummary | null>(null);
   const [err, setErr] = useState<string | null>(null);
   const [open, setOpen] = useState<string | null>(null);
@@ -52,7 +54,7 @@ function DetailPane({ id, provider, onRun }: { id: string; provider: string; onR
   if (!run)
     return (
       <p className="flex items-center justify-center gap-2 p-10 text-sm text-muted-foreground">
-        <Loader2 className="size-4 animate-spin" /> 加载详情…
+        <Loader2 className="size-4 animate-spin" /> {t.studio.runs.loadingDetail}
       </p>
     );
 
@@ -75,24 +77,24 @@ function DetailPane({ id, provider, onRun }: { id: string; provider: string; onR
               </span>
             )}
             {run.tokens && <span>{(run.tokens.input ?? 0) + (run.tokens.output ?? 0)} tokens</span>}
-            <span>{(run.steps ?? []).length} 步</span>
+            <span>{(run.steps ?? []).length} {t.studio.runs.stepsUnit}</span>
           </p>
         </div>
         {finalStep && (
           <div className="flex shrink-0 flex-wrap justify-end gap-2">
-            <CopyButton value={finalStep.content!} label="复制成品" copiedLabel="已复制" />
+            <CopyButton value={finalStep.content!} label={t.studio.runs.copyResult} copiedLabel={t.studio.runs.copied} />
             <Button size="sm" onClick={() => downloadText(safeFilename(baseName), finalStep.content!)}>
-              <Download className="size-3.5" /> 下载成品
+              <Download className="size-3.5" /> {t.studio.runs.downloadResult}
             </Button>
-            <Button size="sm" variant="ghost" title="含全部步骤过程" onClick={() => downloadText(safeFilename(baseName + "-全过程"), fullText)}>
-              下载全部
+            <Button size="sm" variant="ghost" title={t.studio.runs.downloadAllTitle} onClick={() => downloadText(safeFilename(baseName + t.studio.runs.fullProcessSuffix), fullText)}>
+              {t.studio.runs.downloadAll}
             </Button>
           </div>
         )}
       </div>
 
       <div className="flex-1 space-y-2.5 overflow-auto p-5">
-        {!canResume && <p className="text-xs text-muted-foreground">该记录缺少源文件路径，无法重跑。</p>}
+        {!canResume && <p className="text-xs text-muted-foreground">{t.studio.runs.cannotResume}</p>}
         {(run.steps ?? []).map((s, i) => {
           const isOpen = open === s.id;
           const isFinal = finalStep?.id === s.id && (run.steps ?? []).length > 1;
@@ -107,7 +109,7 @@ function DetailPane({ id, provider, onRun }: { id: string; provider: string; onR
                   <span className="w-4 shrink-0 text-right text-xs text-muted-foreground">{i + 1}</span>
                   <span className="shrink-0">{s.agentEmoji ?? "•"}</span>
                   <span className="truncate">{s.agentName ?? s.id}</span>
-                  {isFinal && <span className="shrink-0 rounded-full bg-primary/15 px-2 py-0.5 text-[11px] font-semibold text-primary">✦ 最终成品</span>}
+                  {isFinal && <span className="shrink-0 rounded-full bg-primary/15 px-2 py-0.5 text-[11px] font-semibold text-primary">✦ {t.studio.runs.finalResult}</span>}
                   {s.duration && <span className="shrink-0 text-xs text-muted-foreground">{s.duration}</span>}
                 </button>
                 <div className="flex shrink-0 items-center gap-1.5">
@@ -115,7 +117,7 @@ function DetailPane({ id, provider, onRun }: { id: string; provider: string; onR
                   {s.content && (
                     <button
                       type="button"
-                      title="下载本步 .md"
+                      title={t.studio.runs.downloadStep}
                       onClick={() => downloadText(safeFilename(`${baseName}-${i + 1}-${s.agentName ?? s.id}`), s.content!)}
                       className="inline-flex items-center rounded-lg border border-border/70 bg-muted/50 px-2.5 py-1.5 text-xs text-muted-foreground transition-colors hover:text-foreground"
                     >
@@ -129,7 +131,7 @@ function DetailPane({ id, provider, onRun }: { id: string; provider: string; onR
                       onClick={() =>
                         onRun({
                           kind: "workflow",
-                          title: `从「${s.agentName ?? s.id}」重跑 · ${run.name}`,
+                          title: `${t.studio.runs.resumeFromPrefix}${s.agentName ?? s.id}${t.studio.runs.resumeFromSuffix} · ${run.name}`,
                           file: run.file!,
                           provider: provider || undefined,
                           resume: run.id,
@@ -138,7 +140,7 @@ function DetailPane({ id, provider, onRun }: { id: string; provider: string; onR
                       }
                     >
                       <RotateCcw className="size-3.5" />
-                      <span className="hidden sm:inline">重跑</span>
+                      <span className="hidden sm:inline">{t.studio.runs.resume}</span>
                     </Button>
                   )}
                 </div>
@@ -157,6 +159,7 @@ function DetailPane({ id, provider, onRun }: { id: string; provider: string; onR
 }
 
 export function RunsPanel({ provider, onRun }: { provider: string; onRun: (r: RunRequest) => void }) {
+  const { t } = useLanguage();
   const [runs, setRuns] = useState<RunSummary[]>([]);
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState<string | null>(null);
@@ -179,11 +182,11 @@ export function RunsPanel({ provider, onRun }: { provider: string; onRun: (r: Ru
   if (loading)
     return (
       <div className="flex items-center justify-center gap-2 py-20 text-muted-foreground">
-        <Loader2 className="size-4 animate-spin" /> 加载历史…
+        <Loader2 className="size-4 animate-spin" /> {t.studio.runs.loadingHistory}
       </div>
     );
-  if (err) return <p className="py-20 text-center text-sm text-red-500">加载失败：{err}</p>;
-  if (!runs.length) return <p className="py-20 text-center text-sm text-muted-foreground">还没有运行记录。去「角色组队」或「工作流」跑一个吧。</p>;
+  if (err) return <p className="py-20 text-center text-sm text-red-500">{t.studio.runs.loadFailed}{err}</p>;
+  if (!runs.length) return <p className="py-20 text-center text-sm text-muted-foreground">{t.studio.runs.empty}</p>;
 
   return (
     <div className="grid gap-4 md:grid-cols-[300px_1fr]">
@@ -192,7 +195,7 @@ export function RunsPanel({ provider, onRun }: { provider: string; onRun: (r: Ru
         <input
           value={q}
           onChange={(e) => setQ(e.target.value)}
-          placeholder="搜索历史…"
+          placeholder={t.studio.runs.searchPlaceholder}
           className="mb-2 h-9 w-full rounded-lg border border-border/70 bg-card/60 px-3 text-sm outline-none focus:border-primary/50"
         />
         <div className="max-h-[70vh] space-y-1.5 overflow-auto pr-1">
@@ -211,7 +214,7 @@ export function RunsPanel({ provider, onRun }: { provider: string; onRun: (r: Ru
                 <span className="min-w-0 flex-1">
                   <span className="block truncate text-sm font-medium">{r.name}</span>
                   <span className="mt-0.5 flex items-center gap-2 text-[11px] text-muted-foreground">
-                    <span>{(r.completedCount ?? r.stepCount ?? 0)}/{r.stepCount ?? 0} 步</span>
+                    <span>{(r.completedCount ?? r.stepCount ?? 0)}/{r.stepCount ?? 0} {t.studio.runs.stepsUnit}</span>
                     {r.duration && <span>· {r.duration}</span>}
                   </span>
                   <span className="block truncate text-[11px] text-muted-foreground/70">{r.id.replace(`${r.name}-`, "")}</span>
@@ -228,13 +231,13 @@ export function RunsPanel({ provider, onRun }: { provider: string; onRun: (r: Ru
           <>
             <button onClick={() => setSel(null)} className="flex items-center gap-1.5 px-5 pt-4 text-xs text-muted-foreground hover:text-foreground md:hidden">
               <ArrowLeft className="size-3.5" />
-              返回列表
+              {t.studio.runs.backToList}
             </button>
             <DetailPane id={sel} provider={provider} onRun={onRun} />
           </>
         ) : (
           <div className="grid h-full place-items-center p-10 text-center text-sm text-muted-foreground">
-            ← 选择左侧一条记录查看结果
+            {t.studio.runs.selectHint}
           </div>
         )}
       </section>

@@ -1,5 +1,6 @@
 import { CheckCircle2, Loader2, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
+import { useLanguage } from "@/i18n/LanguageProvider";
 import { Button } from "@/components/ui/button";
 import { runWorkflow, type Workflow } from "@/lib/studio";
 import { Markdown } from "./Markdown";
@@ -11,6 +12,7 @@ interface ColState {
 }
 
 export function CompareOverlay({ workflows, provider, onClose }: { workflows: Workflow[]; provider: string; onClose: () => void }) {
+  const { t } = useLanguage();
   const [cols, setCols] = useState<Record<string, ColState>>(() =>
     Object.fromEntries(workflows.map((w) => [w.file, { status: "pending", text: "" }])),
   );
@@ -40,7 +42,7 @@ export function CompareOverlay({ workflows, provider, onClose }: { workflows: Wo
           },
           ctrl.signal,
         ).catch(() => {
-          if (!ctrl.signal.aborted) setCols((c) => ({ ...c, [w.file]: { ...c[w.file], status: "error", error: "运行失败" } }));
+          if (!ctrl.signal.aborted) setCols((c) => ({ ...c, [w.file]: { ...c[w.file], status: "error", error: t.studio.workflows.runFailed } }));
         });
       }
     })();
@@ -55,7 +57,7 @@ export function CompareOverlay({ workflows, provider, onClose }: { workflows: Wo
   return (
     <div className="fixed inset-0 z-[60] flex flex-col bg-black/50 backdrop-blur-sm">
       <div className="flex items-center justify-between border-b border-border/60 bg-background px-5 py-3.5">
-        <h3 className="font-semibold">对比运行 · {workflows.length} 个模板（顺序执行）</h3>
+        <h3 className="font-semibold">{`${t.studio.workflows.compareRun} · ${workflows.length} ${t.studio.workflows.templatesSequential}`}</h3>
         <Button size="sm" variant="ghost" onClick={onClose}>
           <X className="size-4" />
         </Button>
@@ -69,15 +71,15 @@ export function CompareOverlay({ workflows, provider, onClose }: { workflows: Wo
                 <span className="truncate text-sm font-semibold">{w.name}</span>
                 {col.status === "running" && <Loader2 className="size-4 shrink-0 animate-spin text-primary" />}
                 {col.status === "done" && <CheckCircle2 className="size-4 shrink-0 text-emerald-500" />}
-                {col.status === "pending" && <span className="shrink-0 text-xs text-muted-foreground">等待</span>}
-                {col.status === "error" && <span className="shrink-0 text-xs text-red-500">出错</span>}
+                {col.status === "pending" && <span className="shrink-0 text-xs text-muted-foreground">{t.studio.workflows.waiting}</span>}
+                {col.status === "error" && <span className="shrink-0 text-xs text-red-500">{t.studio.workflows.errored}</span>}
               </div>
               <div className="flex-1 overflow-auto p-4">
                 {col.error && <p className="text-sm text-red-500">{col.error}</p>}
                 {col.text ? (
                   <Markdown>{col.text}</Markdown>
                 ) : (
-                  !col.error && <p className="text-sm text-muted-foreground">{col.status === "running" ? "生成中…" : "等待执行"}</p>
+                  !col.error && <p className="text-sm text-muted-foreground">{col.status === "running" ? t.studio.workflows.generating : t.studio.workflows.waitingToRun}</p>
                 )}
               </div>
             </div>

@@ -1,5 +1,6 @@
 import { createContext, useCallback, useContext, useReducer, useRef, type ReactNode } from "react";
 import { api, runRole, runWorkflow, type SseHandler, type WorkflowStepMeta } from "@/lib/studio";
+import { useLanguage } from "@/i18n/LanguageProvider";
 
 /** 某步暂停等待人工输入（human_input / approval 节点）。 */
 export interface PendingInput {
@@ -78,6 +79,7 @@ const Ctx = createContext<RunManagerValue | null>(null);
 let counter = 0;
 
 export function RunProvider({ children }: { children: ReactNode }) {
+  const { t } = useLanguage();
   const runsRef = useRef<Map<string, RunInstance>>(new Map());
   const openRef = useRef<string | null>(null);
   const [, force] = useReducer((x) => x + 1, 0);
@@ -188,7 +190,7 @@ export function RunProvider({ children }: { children: ReactNode }) {
             const hasContent = inst.steps.some((s) => s.content.trim());
             if (data?.code && data.code !== 0 && !hasContent) {
               const msg = inst._stderr.trim();
-              inst.error = msg ? msg.split("\n").filter(Boolean).slice(-3).join("\n") : `运行失败（退出码 ${data.code}）`;
+              inst.error = msg ? msg.split("\n").filter(Boolean).slice(-3).join("\n") : `${t.studio.run.runFailedExitCodePrefix}${data.code}${t.studio.run.runFailedExitCodeSuffix}`;
               inst.state = "error";
             } else if (inst.state !== "error") {
               inst.state = "done";
@@ -196,7 +198,7 @@ export function RunProvider({ children }: { children: ReactNode }) {
             break;
           }
           case "error":
-            inst.error = data.message || "运行出错";
+            inst.error = data.message || t.studio.run.runError;
             inst.state = "error";
             break;
         }
@@ -221,7 +223,7 @@ export function RunProvider({ children }: { children: ReactNode }) {
 
       return id;
     },
-    [touch],
+    [touch, t],
   );
 
   const stop = useCallback(
@@ -263,13 +265,13 @@ export function RunProvider({ children }: { children: ReactNode }) {
       // resume: "last" → 复用本次刚跑完的输出（mtime 最新），只重跑该步及其下游
       return start({
         ...src,
-        title: `${src.title}（返工·${stepName}）`,
+        title: `${src.title}${t.studio.run.reworkTitlePrefix}${stepName}${t.studio.run.reworkTitleSuffix}`,
         resume: "last",
         fromStep: stepId,
         feedback: feedback.trim(),
       });
     },
-    [start],
+    [start, t],
   );
 
   const submitInput = useCallback(

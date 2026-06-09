@@ -1,8 +1,10 @@
 import { CheckCircle2, Loader2, X, XCircle } from "lucide-react";
 import { useRunManager } from "./RunManager";
+import { useLanguage } from "@/i18n/LanguageProvider";
 import { cn } from "@/lib/utils";
 
 export function RunDock() {
+  const { t } = useLanguage();
   const { runs, openId, open, remove } = useRunManager();
   // Show every run that isn't currently open in the viewer.
   const docked = runs.filter((r) => r.id !== openId);
@@ -32,7 +34,7 @@ export function RunDock() {
             <span className="min-w-0 flex-1">
               <span className="block truncate text-sm font-medium">{r.title}</span>
               <span className="block truncate text-[11px] text-muted-foreground">
-                {running ? (r.steps.length ? `运行中 · ${done}/${r.steps.length} 步` : "运行中…") : r.state === "error" ? "出错" : "已完成 · 点击查看"}
+                {running ? (r.steps.length ? `${t.studio.run.running} · ${done}/${r.steps.length} ${t.studio.run.stepsUnit}` : t.studio.run.runningEllipsis) : r.state === "error" ? t.studio.run.error : t.studio.run.doneClickToView}
               </span>
             </span>
             <span
@@ -43,7 +45,7 @@ export function RunDock() {
                 remove(r.id);
               }}
               className="shrink-0 rounded-md p-1 text-muted-foreground opacity-0 transition-opacity hover:bg-muted hover:text-foreground group-hover:opacity-100"
-              title="移除"
+              title={t.studio.run.remove}
             >
               <X className="size-3.5" />
             </span>

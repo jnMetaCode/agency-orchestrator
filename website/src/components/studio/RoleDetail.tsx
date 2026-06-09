@@ -1,6 +1,7 @@
 import { Loader2, MessageSquare, X } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
+import { useLanguage } from "@/i18n/LanguageProvider";
 import { api, type Role } from "@/lib/studio";
 import { Markdown } from "./Markdown";
 import { RoleAvatar } from "./RoleAvatar";
@@ -17,6 +18,7 @@ export function RoleDetail({
   onClose: () => void;
   onRun: (r: RunRequest) => void;
 }) {
+  const { t } = useLanguage();
   const seed = `${role.category}/${role.id}`;
   const [full, setFull] = useState<Role | null>(role.content ? role : null);
   const [loading, setLoading] = useState(!role.content);
@@ -33,7 +35,7 @@ export function RoleDetail({
 
   const chat = () => {
     if (!task.trim()) return;
-    onRun({ kind: "role", title: `单独对话 · ${role.name}`, role: seed, name: role.name, task: task.trim(), provider: provider || undefined });
+    onRun({ kind: "role", title: `${t.studio.roles.singleChat} · ${role.name}`, role: seed, name: role.name, task: task.trim(), provider: provider || undefined });
     onClose();
   };
 
@@ -61,12 +63,12 @@ export function RoleDetail({
           <div className="mt-4 rounded-xl border border-border/60 bg-muted/20 px-4 py-3">
             {loading ? (
               <p className="flex items-center gap-2 text-sm text-muted-foreground">
-                <Loader2 className="size-4 animate-spin" /> 加载角色能力…
+                <Loader2 className="size-4 animate-spin" /> {t.studio.roles.loadingAbilities}
               </p>
             ) : full?.content ? (
               <Markdown>{full.content}</Markdown>
             ) : (
-              <p className="text-sm text-muted-foreground">（无更多说明）</p>
+              <p className="text-sm text-muted-foreground">{t.studio.roles.noMoreInfo}</p>
             )}
           </div>
         </div>
@@ -79,12 +81,12 @@ export function RoleDetail({
               onKeyDown={(e) => {
                 if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) chat();
               }}
-              placeholder={`想问 ${role.name} 什么？`}
+              placeholder={`${t.studio.roles.askPrefix}${role.name}${t.studio.roles.askSuffix}`}
               className="h-10 flex-1 rounded-xl border border-border/70 bg-card/60 px-3 text-sm outline-none focus:border-primary/50"
             />
             <Button onClick={chat} disabled={!task.trim()}>
               <MessageSquare className="size-4" />
-              对话
+              {t.studio.roles.chat}
             </Button>
           </div>
         </div>

@@ -2,12 +2,14 @@ import { Check, Copy, Download, Loader2, MessageSquare, Minus, Square, Terminal,
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { useCopy } from "@/components/ui/copy-button";
+import { useLanguage } from "@/i18n/LanguageProvider";
 import { StepList } from "./StepList";
 import { useRunManager, type PendingInput } from "./RunManager";
 import { downloadText, safeFilename } from "@/lib/download";
 import { cn } from "@/lib/utils";
 
 export function RunViewer({ onViewHistory }: { onViewHistory?: () => void }) {
+  const { t } = useLanguage();
   const { runs, openId, open, stop, rerunWithFeedback, submitInput } = useRunManager();
   const run = runs.find((r) => r.id === openId) || null;
   const [showTerminal, setShowTerminal] = useState(false);
@@ -59,23 +61,23 @@ export function RunViewer({ onViewHistory }: { onViewHistory?: () => void }) {
                 run.state === "error" && "bg-red-500/15 text-red-500",
               )}
             >
-              {running ? (run.steps.length ? `运行中 ${doneCount}/${run.steps.length}` : "运行中") : run.state === "done" ? "完成" : "出错"}
+              {running ? (run.steps.length ? `${t.studio.run.running} ${doneCount}/${run.steps.length}` : t.studio.run.running) : run.state === "done" ? t.studio.run.done : t.studio.run.error}
             </span>
           </div>
           <div className="flex shrink-0 items-center gap-1">
-            <Button size="icon" variant="ghost" title="终端输出" onClick={() => setShowTerminal((v) => !v)}>
+            <Button size="icon" variant="ghost" title={t.studio.run.terminalOutput} onClick={() => setShowTerminal((v) => !v)}>
               <Terminal className="size-4" />
             </Button>
             {running && (
-              <Button size="sm" variant="ghost" title="后台运行（继续在后台跑）" onClick={() => open(null)}>
+              <Button size="sm" variant="ghost" title={t.studio.run.backgroundTitle} onClick={() => open(null)}>
                 <Minus className="size-4" />
-                后台
+                {t.studio.run.background}
               </Button>
             )}
             {running ? (
               <Button size="sm" variant="outline" onClick={() => stop(run.id)}>
                 <Square className="size-3.5" />
-                停止
+                {t.studio.run.stop}
               </Button>
             ) : (
               <Button size="icon" variant="ghost" onClick={() => open(null)}>
@@ -92,12 +94,12 @@ export function RunViewer({ onViewHistory }: { onViewHistory?: () => void }) {
           )}
           {showTerminal ? (
             <pre className="overflow-auto rounded-xl border border-border/70 bg-[#0b0e16] p-4 font-mono text-xs leading-relaxed text-white/80">
-              {run.terminal || "（暂无终端输出）"}
+              {run.terminal || t.studio.run.noTerminalOutput}
             </pre>
           ) : run.steps.length === 0 && running ? (
             <div className="flex flex-col items-center justify-center gap-3 py-16 text-muted-foreground">
               <Loader2 className="size-6 animate-spin text-primary" />
-              <p className="text-sm">正在唤起团队、规划步骤…</p>
+              <p className="text-sm">{t.studio.run.summoningTeam}</p>
             </div>
           ) : (
             <StepList
@@ -122,14 +124,14 @@ export function RunViewer({ onViewHistory }: { onViewHistory?: () => void }) {
         {/* footer */}
         <div className="flex items-center justify-between gap-2 border-t border-border/60 px-5 py-3">
           <span className="truncate text-xs text-muted-foreground">
-            {running ? "可点「后台」离开，任务继续跑" : run.state === "done" ? "✓ 已存入运行历史" : ""}
+            {running ? t.studio.run.backgroundHint : run.state === "done" ? t.studio.run.savedToHistory : ""}
           </span>
           <div className="flex shrink-0 gap-2">
             {!!fullText && (
               <>
                 <Button size="sm" variant="outline" onClick={() => copy(fullText)}>
                   {copied ? <Check className="size-3.5 text-emerald-500" /> : <Copy className="size-3.5" />}
-                  {copied ? "已复制" : "复制"}
+                  {copied ? t.studio.run.copied : t.studio.run.copy}
                 </Button>
                 <Button
                   size="sm"
@@ -137,18 +139,18 @@ export function RunViewer({ onViewHistory }: { onViewHistory?: () => void }) {
                   onClick={() => downloadText(safeFilename(`${run.title}-${new Date().toISOString().slice(0, 10)}`), fullText)}
                 >
                   <Download className="size-3.5" />
-                  下载 .md
+                  {t.studio.run.downloadMd}
                 </Button>
               </>
             )}
             {!running && run.state === "done" && onViewHistory && (
               <Button size="sm" variant="ghost" onClick={() => onViewHistory()}>
-                查看历史
+                {t.studio.run.viewHistory}
               </Button>
             )}
             {!running && (
               <Button size="sm" onClick={() => open(null)}>
-                关闭
+                {t.studio.run.close}
               </Button>
             )}
           </div>
@@ -160,6 +162,7 @@ export function RunViewer({ onViewHistory }: { onViewHistory?: () => void }) {
 
 /** 运行中某步暂停等待人工输入时的弹层：human_input 给输入框，approval 给通过/驳回。 */
 function RunInputBox({ pending, onSubmit }: { pending: PendingInput; onSubmit: (text: string) => void }) {
+  const { t } = useLanguage();
   const [text, setText] = useState("");
   const isApproval = pending.type === "approval";
 
@@ -174,13 +177,13 @@ function RunInputBox({ pending, onSubmit }: { pending: PendingInput; onSubmit: (
     <div className="mt-4 rounded-xl border border-primary/45 bg-primary/[0.06] px-4 py-3 shadow-sm">
       <div className="mb-1.5 flex items-center gap-2 text-sm font-semibold text-primary">
         <MessageSquare className="size-4" />
-        {isApproval ? "需要你确认才能继续" : "需要你的输入才能继续"}
+        {isApproval ? t.studio.run.needApproval : t.studio.run.needInput}
       </div>
       <p className="mb-2.5 whitespace-pre-wrap text-sm text-foreground">{pending.prompt}</p>
       {isApproval ? (
         <div className="flex gap-2">
-          <Button size="sm" onClick={() => submit("yes")}>通过，继续</Button>
-          <Button size="sm" variant="outline" onClick={() => submit("no")}>驳回</Button>
+          <Button size="sm" onClick={() => submit("yes")}>{t.studio.run.approveContinue}</Button>
+          <Button size="sm" variant="outline" onClick={() => submit("no")}>{t.studio.run.reject}</Button>
         </div>
       ) : (
         <>
@@ -192,12 +195,12 @@ function RunInputBox({ pending, onSubmit }: { pending: PendingInput; onSubmit: (
             onKeyDown={(e) => {
               if ((e.metaKey || e.ctrlKey) && e.key === "Enter") submit();
             }}
-            placeholder="输入后提交，工作流带着它继续往下跑…（⌘/Ctrl+Enter 提交）"
+            placeholder={t.studio.run.inputPlaceholder}
             className="w-full resize-none rounded-lg border border-border/70 bg-background px-3 py-2 text-sm outline-none focus:border-primary/60"
           />
           <div className="mt-2 flex justify-end">
             <Button size="sm" disabled={!text.trim()} onClick={() => submit()}>
-              提交并继续
+              {t.studio.run.submitContinue}
             </Button>
           </div>
         </>

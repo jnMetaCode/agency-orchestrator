@@ -4,6 +4,7 @@ import { CopyButton } from "@/components/ui/copy-button";
 import { Markdown } from "./Markdown";
 import { RoleAvatar } from "./RoleAvatar";
 import type { LiveStep } from "./RunManager";
+import { useLanguage } from "@/i18n/LanguageProvider";
 import { downloadText, safeFilename } from "@/lib/download";
 import { cn } from "@/lib/utils";
 
@@ -15,6 +16,7 @@ export function StepList({
   /** 提供时，已完成的步骤会显示「提意见重做」入口（仅工作流运行、且运行已结束时传入） */
   onFeedback?: (stepId: string, feedback: string) => void;
 }) {
+  const { t } = useLanguage();
   if (!steps.length) return null;
   return (
     <div className="space-y-3">
@@ -49,11 +51,11 @@ export function StepList({
               </div>
               <div className="flex shrink-0 items-center gap-1.5">
                 {s.meta && <span className="hidden text-xs text-muted-foreground sm:inline">{s.meta}</span>}
-                {s.content && <CopyButton value={s.content} label="复制" copiedLabel="已复制" />}
+                {s.content && <CopyButton value={s.content} label={t.studio.shell.copy} copiedLabel={t.studio.shell.copied} />}
                 {s.content && (
                   <button
                     type="button"
-                    title="下载本步 .md"
+                    title={t.studio.shell.downloadStep}
                     onClick={() => downloadText(safeFilename(s.name ?? s.id), s.content)}
                     className="inline-flex items-center gap-1.5 rounded-lg border border-border/70 bg-muted/50 px-2.5 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:text-foreground"
                   >
@@ -73,7 +75,7 @@ export function StepList({
                 ) : (
                   <p className="flex items-center gap-2 text-sm text-muted-foreground">
                     {running && <Loader2 className="size-3.5 animate-spin" />}
-                    {running ? "思考中…" : "—"}
+                    {running ? t.studio.shell.thinking : "—"}
                   </p>
                 )}
               </div>
@@ -91,6 +93,7 @@ export function StepList({
 
 /** 单个步骤的「提意见重做」入口：折叠态一个按钮，展开后输入意见交回给该专家。 */
 function StepFeedback({ stepName, onSubmit }: { stepName: string; onSubmit: (text: string) => void }) {
+  const { t } = useLanguage();
   const [open, setOpen] = useState(false);
   const [text, setText] = useState("");
 
@@ -103,7 +106,7 @@ function StepFeedback({ stepName, onSubmit }: { stepName: string; onSubmit: (tex
           className="inline-flex items-center gap-1.5 rounded-lg px-2 py-1 text-xs font-medium text-muted-foreground transition-colors hover:text-primary"
         >
           <MessageSquarePlus className="size-3.5" />
-          提意见重做
+          {t.studio.shell.feedbackOpen}
         </button>
       </div>
     );
@@ -127,18 +130,18 @@ function StepFeedback({ stepName, onSubmit }: { stepName: string; onSubmit: (tex
           if ((e.metaKey || e.ctrlKey) && e.key === "Enter") submit();
           if (e.key === "Escape") setOpen(false);
         }}
-        placeholder={`想让「${stepName}」怎么改？例如：结尾加个反转 / 预算压到 5000 以内…`}
+        placeholder={`${t.studio.shell.feedbackPlaceholderPrefix}「${stepName}」${t.studio.shell.feedbackPlaceholderSuffix}`}
         className="w-full resize-none rounded-lg border border-border/70 bg-background px-3 py-2 text-sm outline-none focus:border-primary/60"
       />
       <div className="flex items-center justify-between">
-        <span className="text-[11px] text-muted-foreground">带着这步上一版产出 + 你的意见，让 Ta 在原稿上改</span>
+        <span className="text-[11px] text-muted-foreground">{t.studio.shell.feedbackHint}</span>
         <div className="flex gap-2">
           <button
             type="button"
             onClick={() => setOpen(false)}
             className="rounded-lg px-2.5 py-1.5 text-xs font-medium text-muted-foreground hover:text-foreground"
           >
-            取消
+            {t.studio.shell.cancel}
           </button>
           <button
             type="button"
@@ -147,7 +150,7 @@ function StepFeedback({ stepName, onSubmit }: { stepName: string; onSubmit: (tex
             className="inline-flex items-center gap-1.5 rounded-lg bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground transition-opacity hover:opacity-90 disabled:opacity-40"
           >
             <RotateCw className="size-3.5" />
-            交给 Ta 重做
+            {t.studio.shell.feedbackSubmit}
           </button>
         </div>
       </div>

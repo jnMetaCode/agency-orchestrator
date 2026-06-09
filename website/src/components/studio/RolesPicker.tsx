@@ -1,6 +1,7 @@
 import { Check, Loader2, MessageSquare, Search, Sparkles, Users, X } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
+import { useLanguage } from "@/i18n/LanguageProvider";
 import { api, type ComposeResult, type Role, type Workflow } from "@/lib/studio";
 import { cn } from "@/lib/utils";
 import { ComposePreview } from "./ComposePreview";
@@ -21,6 +22,7 @@ export function RolesPicker({
   onRun: (r: RunRequest) => void;
   onGoToWorkflows?: () => void;
 }) {
+  const { t } = useLanguage();
   const [roles, setRoles] = useState<Role[]>([]);
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState<string | null>(null);
@@ -78,7 +80,7 @@ export function RolesPicker({
   const doSingleChat = () => {
     const r = selectedList[0];
     if (!r || !task.trim()) return;
-    onRun({ kind: "role", title: `单独对话 · ${r.name}`, role: roleKey(r), emoji: undefined, name: r.name, task: task.trim(), provider });
+    onRun({ kind: "role", title: `${t.studio.roles.singleChat} · ${r.name}`, role: roleKey(r), emoji: undefined, name: r.name, task: task.trim(), provider });
   };
 
   const doComposeRun = async () => {
@@ -102,7 +104,7 @@ export function RolesPicker({
         setPreview({ result: res, meta: null, loading: false });
       }
     } catch (e: any) {
-      setComposeErr(e?.message || "合成失败");
+      setComposeErr(e?.message || t.studio.roles.composeFailed);
     } finally {
       setComposing(false);
     }
@@ -111,19 +113,19 @@ export function RolesPicker({
   if (loading)
     return (
       <div className="flex items-center justify-center gap-2 py-20 text-muted-foreground">
-        <Loader2 className="size-4 animate-spin" /> 加载角色…
+        <Loader2 className="size-4 animate-spin" /> {t.studio.roles.loading}
       </div>
     );
-  if (err) return <p className="py-20 text-center text-sm text-red-500">加载角色失败：{err}</p>;
+  if (err) return <p className="py-20 text-center text-sm text-red-500">{t.studio.roles.loadFailed}{err}</p>;
 
   return (
     <div className="pb-40">
       {/* onboarding hint */}
       <div className="mb-4 flex flex-wrap items-center gap-x-4 gap-y-1 rounded-xl border border-border/60 bg-muted/30 px-4 py-2.5 text-xs text-muted-foreground">
-        <span>💡 用法:</span>
-        <span><b className="text-foreground">勾 1 个</b> → 单独对话</span>
-        <span><b className="text-foreground">勾 2 个以上</b> → AI 合成团队并运行</span>
-        <span>点<b className="text-foreground">头像</b>看角色详情</span>
+        <span>💡 {t.studio.roles.hintLabel}</span>
+        <span><b className="text-foreground">{t.studio.roles.hintPickOneBold}</b> {t.studio.roles.hintPickOneRest}</span>
+        <span><b className="text-foreground">{t.studio.roles.hintPickManyBold}</b> {t.studio.roles.hintPickManyRest}</span>
+        <span>{t.studio.roles.hintAvatarPre}<b className="text-foreground">{t.studio.roles.hintAvatarBold}</b>{t.studio.roles.hintAvatarPost}</span>
       </div>
 
       {/* filter bar */}
@@ -133,11 +135,11 @@ export function RolesPicker({
           <input
             value={q}
             onChange={(e) => setQ(e.target.value)}
-            placeholder="搜索角色…"
+            placeholder={t.studio.roles.searchPlaceholder}
             className="h-10 w-full rounded-xl border border-border/70 bg-card/60 pl-9 pr-3 text-sm outline-none focus:border-primary/50"
           />
         </div>
-        <span className="text-sm text-muted-foreground">{filtered.length} 个角色</span>
+        <span className="text-sm text-muted-foreground">{filtered.length} {t.studio.roles.rolesCountSuffix}</span>
       </div>
 
       <div className="mt-3 flex flex-wrap gap-1.5">
@@ -148,7 +150,7 @@ export function RolesPicker({
             cat === "all" ? "bg-primary text-primary-foreground" : "bg-muted/60 text-muted-foreground hover:text-foreground",
           )}
         >
-          全部
+          {t.studio.roles.categoryAll}
         </button>
         {categories.map((c) => (
           <button
@@ -190,7 +192,7 @@ export function RolesPicker({
                 <span
                   role="button"
                   tabIndex={0}
-                  title="查看角色详情"
+                  title={t.studio.roles.viewDetail}
                   onClick={(e) => {
                     e.stopPropagation();
                     setDetail(r);
@@ -218,7 +220,7 @@ export function RolesPicker({
               <div className="flex min-w-0 items-center gap-2">
                 <span className="inline-flex items-center gap-1.5 rounded-full bg-primary/15 px-3 py-1 text-sm font-semibold text-primary">
                   {count >= 2 ? <Users className="size-4" /> : <MessageSquare className="size-4" />}
-                  已选 {count}
+                  {t.studio.roles.selectedPrefix} {count}
                 </span>
                 <div className="hidden min-w-0 gap-1.5 overflow-x-auto sm:flex">
                   {selectedList.map((r) => (
@@ -234,7 +236,7 @@ export function RolesPicker({
               </div>
               <button onClick={clearSel} className="shrink-0 text-xs text-muted-foreground hover:text-foreground">
                 <X className="mr-1 inline size-3.5" />
-                清空
+                {t.studio.roles.clear}
               </button>
             </div>
 
@@ -243,7 +245,7 @@ export function RolesPicker({
                 <input
                   value={teamName}
                   onChange={(e) => setTeamName(e.target.value)}
-                  placeholder="团队名称（可留空自动命名）"
+                  placeholder={t.studio.roles.teamNamePlaceholder}
                   className="h-10 rounded-xl border border-border/70 bg-card/60 px-3 text-sm outline-none focus:border-primary/50 sm:w-56"
                 />
               )}
@@ -253,18 +255,18 @@ export function RolesPicker({
                 onKeyDown={(e) => {
                   if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) (count >= 2 ? doComposeRun() : doSingleChat());
                 }}
-                placeholder={count >= 2 ? "这个团队要完成什么？（AI 据此设计步骤）" : "想问这个角色什么？"}
+                placeholder={count >= 2 ? t.studio.roles.teamTaskPlaceholder : t.studio.roles.roleTaskPlaceholder}
                 className="h-10 flex-1 rounded-xl border border-border/70 bg-card/60 px-3 text-sm outline-none focus:border-primary/50"
               />
               {count >= 2 ? (
                 <Button onClick={doComposeRun} disabled={composing || !task.trim()}>
                   {composing ? <Loader2 className="size-4 animate-spin" /> : <Sparkles className="size-4" />}
-                  合成团队并运行
+                  {t.studio.roles.composeAndRun}
                 </Button>
               ) : (
                 <Button onClick={doSingleChat} disabled={!task.trim()}>
                   <MessageSquare className="size-4" />
-                  单独对话
+                  {t.studio.roles.singleChat}
                 </Button>
               )}
             </div>

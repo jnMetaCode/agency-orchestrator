@@ -1,5 +1,6 @@
 import { Check, GitCompare, Loader2, Play, Search, X } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
+import { useLanguage } from "@/i18n/LanguageProvider";
 import { Button } from "@/components/ui/button";
 import { api, type Workflow } from "@/lib/studio";
 import { cn } from "@/lib/utils";
@@ -30,6 +31,7 @@ function CastStack({ steps }: { steps: NonNullable<Workflow["steps"]> }) {
 }
 
 function InputsDialog({ wf, provider, onClose, onRun }: { wf: Workflow; provider: string; onClose: () => void; onRun: (r: RunRequest) => void }) {
+  const { t } = useLanguage();
   const inputs = wf.inputs ?? [];
   const [vals, setVals] = useState<Record<string, string>>(() => {
     const init: Record<string, string> = {};
@@ -68,15 +70,15 @@ function InputsDialog({ wf, provider, onClose, onRun }: { wf: Workflow; provider
               />
             </label>
           ))}
-          {!inputs.length && <p className="text-sm text-muted-foreground">该工作流无需输入，可直接运行。</p>}
+          {!inputs.length && <p className="text-sm text-muted-foreground">{t.studio.workflows.noInputsNeeded}</p>}
         </div>
         <div className="mt-5 flex justify-end gap-2">
           <Button variant="ghost" onClick={onClose}>
-            取消
+            {t.studio.workflows.cancel}
           </Button>
           <Button onClick={submit}>
             <Play className="size-4" />
-            运行
+            {t.studio.workflows.run}
           </Button>
         </div>
       </div>
@@ -85,6 +87,7 @@ function InputsDialog({ wf, provider, onClose, onRun }: { wf: Workflow; provider
 }
 
 export function WorkflowsPanel({ provider, onRun }: { provider: string; onRun: (r: RunRequest) => void }) {
+  const { t } = useLanguage();
   const [wfs, setWfs] = useState<Workflow[]>([]);
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState<string | null>(null);
@@ -124,10 +127,10 @@ export function WorkflowsPanel({ provider, onRun }: { provider: string; onRun: (
   if (loading)
     return (
       <div className="flex items-center justify-center gap-2 py-20 text-muted-foreground">
-        <Loader2 className="size-4 animate-spin" /> 加载工作流…
+        <Loader2 className="size-4 animate-spin" /> {t.studio.workflows.loading}
       </div>
     );
-  if (err) return <p className="py-20 text-center text-sm text-red-500">加载失败：{err}</p>;
+  if (err) return <p className="py-20 text-center text-sm text-red-500">{`${t.studio.workflows.loadFailed}${err}`}</p>;
 
   return (
     <div className="pb-28">
@@ -136,7 +139,7 @@ export function WorkflowsPanel({ provider, onRun }: { provider: string; onRun: (
         <input
           value={q}
           onChange={(e) => setQ(e.target.value)}
-          placeholder="搜索工作流模板…"
+          placeholder={t.studio.workflows.searchPlaceholder}
           className="h-10 w-full rounded-xl border border-border/70 bg-card/60 pl-9 pr-3 text-sm outline-none focus:border-primary/50"
         />
       </div>
@@ -156,7 +159,7 @@ export function WorkflowsPanel({ provider, onRun }: { provider: string; onRun: (
                 <h3 className="font-semibold leading-snug">{w.name}</h3>
                 <button
                   onClick={() => togglePick(w)}
-                  title="勾选以对比运行"
+                  title={t.studio.workflows.checkToCompare}
                   className={cn(
                     "grid size-5 shrink-0 place-items-center rounded-md border transition-colors",
                     on ? "border-primary bg-primary text-primary-foreground" : "border-border bg-background",
@@ -173,11 +176,12 @@ export function WorkflowsPanel({ provider, onRun }: { provider: string; onRun: (
               )}
               <div className="mt-3 flex items-center justify-between">
                 <span className="text-xs text-muted-foreground">
-                  {w.steps?.length ?? 0} 步{w.private ? " · 我的" : ""}
+                  {`${w.steps?.length ?? 0} ${t.studio.workflows.steps}`}
+                  {w.private ? ` · ${t.studio.workflows.mine}` : ""}
                 </span>
                 <Button size="sm" onClick={() => runOne(w)}>
                   <Play className="size-3.5" />
-                  运行
+                  {t.studio.workflows.run}
                 </Button>
               </div>
             </div>
@@ -190,15 +194,15 @@ export function WorkflowsPanel({ provider, onRun }: { provider: string; onRun: (
           <div className="container-page flex items-center justify-between gap-3 py-4">
             <span className="inline-flex items-center gap-1.5 rounded-full bg-primary/15 px-3 py-1 text-sm font-semibold text-primary">
               <GitCompare className="size-4" />
-              已勾选 {pickedList.length} 个模板
+              {`${t.studio.workflows.checkedPrefix}${pickedList.length}${t.studio.workflows.checkedSuffix}`}
             </span>
             <div className="flex items-center gap-2">
               <button onClick={() => setPicked({})} className="text-xs text-muted-foreground hover:text-foreground">
-                清空
+                {t.studio.workflows.clear}
               </button>
               <Button onClick={() => setCompare(pickedList)}>
                 <GitCompare className="size-4" />
-                对比运行
+                {t.studio.workflows.compareRun}
               </Button>
             </div>
           </div>

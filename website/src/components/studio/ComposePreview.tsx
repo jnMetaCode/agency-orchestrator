@@ -1,5 +1,6 @@
 import { Boxes, Check, ChevronDown, Loader2, Play, Sparkles, TriangleAlert, X } from "lucide-react";
 import { useState } from "react";
+import { useLanguage } from "@/i18n/LanguageProvider";
 import { Button } from "@/components/ui/button";
 import { CopyButton } from "@/components/ui/copy-button";
 import type { ComposeResult, Workflow } from "@/lib/studio";
@@ -23,9 +24,10 @@ export function ComposePreview({
   onClose: () => void;
   onGoToWorkflows?: () => void;
 }) {
+  const { t } = useLanguage();
   const [showYaml, setShowYaml] = useState(false);
   const steps = meta?.steps ?? [];
-  const name = meta?.name || "新团队";
+  const name = meta?.name || t.studio.workflows.newTeam;
 
   const run = () => {
     onRun({ kind: "workflow", title: name, file: result.file, provider: provider || undefined, cast: meta?.steps });
@@ -41,7 +43,7 @@ export function ComposePreview({
         <div className="flex items-center justify-between gap-3 border-b border-border/60 bg-gradient-to-r from-primary/[0.07] to-transparent px-5 py-4">
           <h3 className="flex items-center gap-2 font-bold">
             <Sparkles className="size-4 text-primary" />
-            AI 合成了一支团队
+            {t.studio.workflows.composedTeam}
           </h3>
           <button onClick={onClose} className="text-muted-foreground hover:text-foreground">
             <X className="size-5" />
@@ -52,7 +54,7 @@ export function ComposePreview({
           {!!result.warnings?.length && (
             <div className="mb-4 rounded-xl border border-amber-500/40 bg-amber-500/[0.08] px-4 py-2.5 text-xs text-amber-600 dark:text-amber-400">
               <TriangleAlert className="mr-1 inline size-3.5" />
-              {result.warnings.join("；")}
+              {result.warnings.join(t.studio.workflows.warningSeparator)}
             </div>
           )}
 
@@ -61,7 +63,7 @@ export function ComposePreview({
 
           {loadingMeta ? (
             <p className="flex items-center gap-2 py-6 text-sm text-muted-foreground">
-              <Loader2 className="size-4 animate-spin" /> 解析编排…
+              <Loader2 className="size-4 animate-spin" /> {t.studio.workflows.parsingPlan}
             </p>
           ) : steps.length ? (
             <ol className="space-y-2">
@@ -77,7 +79,7 @@ export function ComposePreview({
               ))}
             </ol>
           ) : (
-            <p className="py-4 text-sm text-muted-foreground">已生成工作流，展开下方 YAML 查看详情。</p>
+            <p className="py-4 text-sm text-muted-foreground">{t.studio.workflows.generatedExpandYaml}</p>
           )}
 
           <button
@@ -85,7 +87,7 @@ export function ComposePreview({
             className="mt-4 flex items-center gap-1.5 text-xs font-medium text-muted-foreground hover:text-foreground"
           >
             <ChevronDown className={`size-3.5 transition-transform ${showYaml ? "rotate-180" : ""}`} />
-            查看工作流 YAML
+            {t.studio.workflows.viewYaml}
           </button>
           {showYaml && (
             <div className="relative mt-2">
@@ -102,21 +104,22 @@ export function ComposePreview({
         <div className="flex flex-wrap items-center justify-between gap-2 border-t border-border/60 px-5 py-3">
           <span className="inline-flex items-center gap-1.5 text-xs text-emerald-500">
             <Check className="size-3.5" />
-            已存入「工作流」,下次可直接用{steps.length ? ` · ${steps.length} 步` : ""}
+            {t.studio.workflows.savedToWorkflows}
+            {steps.length ? ` · ${steps.length} ${t.studio.workflows.steps}` : ""}
           </span>
           <div className="flex gap-2">
             <Button variant="ghost" onClick={onClose}>
-              取消
+              {t.studio.workflows.cancel}
             </Button>
             {onGoToWorkflows && (
               <Button variant="outline" onClick={onGoToWorkflows}>
                 <Boxes className="size-4" />
-                去工作流
+                {t.studio.workflows.goToWorkflows}
               </Button>
             )}
             <Button onClick={run}>
               <Play className="size-4" />
-              运行这支团队
+              {t.studio.workflows.runThisTeam}
             </Button>
           </div>
         </div>
