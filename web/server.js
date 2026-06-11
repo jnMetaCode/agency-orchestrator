@@ -85,6 +85,8 @@ const KEY_ENV = {
   deepseek: { key: 'DEEPSEEK_API_KEY', base: 'DEEPSEEK_BASE_URL' },
   openai: { key: 'OPENAI_API_KEY', base: 'OPENAI_BASE_URL' },
   claude: { key: 'ANTHROPIC_API_KEY', base: null },
+  // 优云智算 / CompShare（赞助商）—— OpenAI 兼容，base 默认 api.modelverse.cn，用户只需填 key + 模型
+  compshare: { key: 'COMPSHARE_API_KEY', base: 'COMPSHARE_BASE_URL' },
 };
 function readKeys() {
   try { return JSON.parse(readFileSync(KEYS_FILE, 'utf-8')) || {}; } catch { return {}; }

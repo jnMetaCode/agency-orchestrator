@@ -113,5 +113,33 @@ test('自定义 provider 名含中文也能用', () => {
   assert(c.constructor.name === 'OpenAICompatibleConnector', `got ${c.constructor.name}`);
 });
 
+test('compshare（优云智算）→ OpenAI 兼容，base_url 默认写死 api.modelverse.cn', () => {
+  const saved = process.env.COMPSHARE_BASE_URL;
+  delete process.env.COMPSHARE_BASE_URL;
+  try {
+    const c = createConnector({
+      provider: 'compshare',
+      model: 'deepseek-ai/DeepSeek-R1',
+      api_key: 'test-key',
+    } as LLMConfig) as any;
+    assert(c.constructor.name === 'OpenAICompatibleConnector', `got ${c.constructor.name}`);
+    assert(c.baseUrl === 'https://api.modelverse.cn/v1', `compshare 应默认 modelverse base_url，实际: ${c.baseUrl}`);
+  } finally {
+    if (saved !== undefined) process.env.COMPSHARE_BASE_URL = saved;
+  }
+});
+
+test('compshare 支持 COMPSHARE_BASE_URL 自定义覆盖', () => {
+  const saved = process.env.COMPSHARE_BASE_URL;
+  try {
+    process.env.COMPSHARE_BASE_URL = 'https://proxy.example.com/v1';
+    const c = createConnector({ provider: 'compshare', model: 'x', api_key: 'k' } as LLMConfig) as any;
+    assert(c.baseUrl === 'https://proxy.example.com/v1', `应使用自定义值，实际: ${c.baseUrl}`);
+  } finally {
+    if (saved !== undefined) process.env.COMPSHARE_BASE_URL = saved;
+    else delete process.env.COMPSHARE_BASE_URL;
+  }
+});
+
 console.log(`\n  结果: ${passed} 通过, ${failed} 失败\n`);
 if (failed > 0) process.exit(1);

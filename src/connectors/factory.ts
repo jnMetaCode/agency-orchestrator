@@ -45,6 +45,13 @@ export function createConnector(config: LLMConfig): LLMConnector {
         apiKey: config.api_key || process.env.OPENAI_API_KEY,
         baseUrl: config.base_url || process.env.OPENAI_BASE_URL || 'https://api.openai.com/v1',
       });
+    case 'compshare':
+      // 优云智算 / CompShare ModelVerse —— OpenAI 兼容，base_url 写死，用户只需填 key + 模型名
+      // （模型如 deepseek-ai/DeepSeek-R1；key 在 console.compshare.cn 获取）
+      return new OpenAICompatibleConnector({
+        apiKey: config.api_key || process.env.COMPSHARE_API_KEY,
+        baseUrl: config.base_url || process.env.COMPSHARE_BASE_URL || 'https://api.modelverse.cn/v1',
+      });
     default:
       // 未知 provider：如果提供了 base_url，当作 OpenAI 兼容 API 处理
       if (config.base_url) {
