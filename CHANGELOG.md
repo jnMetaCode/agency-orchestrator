@@ -2,6 +2,19 @@
 
 本项目采用 [语义化版本](https://semver.org/lang/zh-CN/)。
 
+## [Unreleased]
+
+### Added
+- **`ao roles <关键词>` 角色搜索**：按 角色路径 / 名称 / 描述 不区分大小写过滤（也支持 `--search`），方便从 211 位专家里手动定位；无匹配给友好提示。
+- **`ao init` 首跑向导**：角色库装好后自动探测可用 provider（优先免 key 的 claude-code CLI / Ollama），按环境给出个性化下一步（就绪→直接 `ao demo` / `ao compose`；没有→最省事的获取路径），缩短「安装→价值」。
+- **评测回归门禁**：黄金任务集抽到 `eval/golden-tasks.ts`（9 个旗舰工作流，覆盖创作/社媒/商业/分析/产品）；新增 `eval/gate.ts` 与 `npm run eval:gate` / `eval:baseline`——胜率阈值 + judge 双向一致率阈值 + 基线快照回归判定，judge 太弱时判 INCONCLUSIVE（绝不当通过）。
+
+### Changed
+- **`ao compose` 幻觉角色确定性修复**：生成的工作流引用不存在的角色时，优先用最接近的**真实角色直接改写 YAML**（不再多花一次 LLM 调用、保证产物可运行），无可信匹配才回退 LLM；并在 LLM 重试后再做确定性兜底，堵住「重试后仍残留坏角色却被当成功」的缺口。
+
+### Tests
+- 新增 `test/roles.ts`、`test/init.ts`、`test/eval-gate.ts` 并并入 `npm test`；`test/compose.ts` 覆盖确定性角色修复。
+
 ## [0.6.17] - 2026-04-29
 
 ### Added

@@ -39,7 +39,7 @@ export default function Changelog() {
                   <div className="flex flex-wrap items-center gap-3">
                     <a href={`#${anchor}`} className="inline-flex items-center gap-1.5 text-xl font-bold hover:text-primary">
                       <Tag className="size-4 text-primary" />
-                      v{entry.version}
+                      {/^\d/.test(entry.version) ? `v${entry.version}` : entry.version}
                     </a>
                     {i === 0 && (
                       <Badge className="border-primary/30 bg-primary/10 text-primary">{c.latest}</Badge>
