@@ -33,6 +33,54 @@ export interface Tutorial {
 
 export const tutorials: Tutorial[] = [
   {
+    slug: "agency-agents",
+    category: "start",
+    source: "official",
+    author: "AO Team",
+    min: "6",
+    accent: "from-violet-200 to-purple-200 dark:from-violet-500/20 dark:to-purple-500/20",
+    icons: ["🎭", "🤝"],
+    title: { zh: "玩转 agency-agents 专家库", en: "Master the agency-agents library" },
+    summary: {
+      zh: "agency-agents 是 AO 的主角——211 位 AI 专家。这篇讲清：库随 AO 自带、怎么搜专家、怎么让专家协作、怎么加自己的专家。",
+      en: "agency-agents is the star of AO — 211 AI experts. Learn how the library ships with AO, how to search experts, put them to work, and add your own.",
+    },
+    sections: [
+      {
+        heading: { zh: "1. 装 AO 就自带，无需单独安装", en: "1. Bundled with AO — no separate install" },
+        body: {
+          zh: "agency-agents 是 AO 的依赖（`agency-agents-zh`），全局安装 AO 时会一并装好——你不用再单独安装或克隆。`ao roles` 能列出 211 位专家，就说明库已就绪。",
+          en: "agency-agents is a dependency of AO (`agency-agents-zh`), installed automatically when you install AO globally — no separate install or clone. If `ao roles` lists 211 experts, the library is ready.",
+        },
+        code: "npm i -g agency-orchestrator\nao roles            # 应列出 211 位专家",
+      },
+      {
+        heading: { zh: "2. 搜专家", en: "2. Search experts" },
+        body: {
+          zh: "211 位不用一个个翻。`ao roles <关键词>` 在 agency-agents 全库按 路径/名称/描述 搜索（不区分大小写）：",
+          en: "No need to scroll all 211. `ao roles <keyword>` searches the whole agency-agents library by path / name / description (case-insensitive):",
+        },
+        code: "ao roles seo        # 找 SEO 相关专家\nao roles 小红书     # 找小红书相关专家",
+      },
+      {
+        heading: { zh: "3. 让专家协作", en: "3. Put experts to work together" },
+        body: {
+          zh: "最省事是一句话 `compose`——AO 自动从库里选专家、排 DAG、生成并运行；也可以在 YAML 的 step 里用 `category/role-name` 手动指定。",
+          en: "The easiest is a one-sentence `compose` — AO auto-picks experts from the library, designs the DAG, generates and runs; or name `category/role-name` in a YAML step manually.",
+        },
+        code: 'ao compose "调研一个细分市场并写一份进入策略" --run',
+      },
+      {
+        heading: { zh: "4. 加自己的专家", en: "4. Add your own experts" },
+        body: {
+          zh: "专家库可扩展。把你自己的专家写成同样格式的 `.md`（frontmatter + 系统提示词）放进一个目录，用 `--agents-dir`（或工作流顶层 `agents_dir`）指向它，AO 就会从那里加载——可补充 agency-agents，也可完全用私有专家库。",
+          en: "The library is extensible. Write your own expert as a `.md` (frontmatter + system prompt), put it in a folder, and point `--agents-dir` (or the workflow's `agents_dir`) at it — alongside or instead of agency-agents.",
+        },
+        code: "ao roles --agents-dir ./my-agents\nao run workflow.yaml --agents-dir ./my-agents",
+      },
+    ],
+  },
+  {
     slug: "first-workflow",
     category: "start",
     source: "official",
