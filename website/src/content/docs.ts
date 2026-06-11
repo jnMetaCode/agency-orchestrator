@@ -372,6 +372,17 @@ steps:
   model: "deepseek-chat"`,
           },
           {
+            heading: { zh: "优云智算 CompShare（赞助商）", en: "CompShare (优云智算 · sponsor)" },
+            body: {
+              zh: "本项目的赞助商**优云智算（UCloud）** 提供 OpenAI 兼容的模型 API，已作为内置 provider `compshare` 接入——base_url 已写死，你**只需填自己的 key 和模型名**即可使用（key 在 console.compshare.cn 获取，模型如 `deepseek-ai/DeepSeek-R1`）。在网页 Studio 的「供应商」面板里粘贴 key 即可；命令行设 `COMPSHARE_API_KEY` 环境变量。",
+              en: "Our sponsor **CompShare (优云智算 / UCloud)** offers an OpenAI-compatible model API, wired in as the built-in `compshare` provider — the base URL is baked in, so you **just supply your own key and a model name** (get the key at console.compshare.cn; models like `deepseek-ai/DeepSeek-R1`). Paste the key in the Studio Providers panel, or set the `COMPSHARE_API_KEY` env var for the CLI.",
+            },
+            code: `llm:
+  provider: "compshare"
+  model: "deepseek-ai/DeepSeek-R1"
+# 或命令行：COMPSHARE_API_KEY=sk-... ao run workflow.yaml --provider compshare --model deepseek-ai/DeepSeek-R1`,
+          },
+          {
             heading: { zh: "7 种免 key 方式", en: "7 key-free options" },
             body: {
               zh: "想零成本起步，不必配 API key：claude-code CLI、gemini-cli、openclaw-cli、Ollama 本地、LM Studio、免费聚合、演示模式都可用。装好对应 CLI / 本地模型后用 `--provider` 指定即可。",

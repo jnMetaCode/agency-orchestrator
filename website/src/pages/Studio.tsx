@@ -17,7 +17,7 @@ import { useLanguage } from "@/i18n/LanguageProvider";
 import { api, getActiveProvider, PROVIDER_LABELS, PROVIDERS, setActiveProvider } from "@/lib/studio";
 import { cn } from "@/lib/utils";
 
-const KEYED = ["deepseek", "openai", "claude"];
+const KEYED = ["deepseek", "compshare", "openai", "claude"];
 
 type Tab = "roles" | "workflows" | "runs" | "usage" | "providers";
 

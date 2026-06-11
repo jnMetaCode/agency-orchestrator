@@ -7,6 +7,7 @@ import { cn } from "@/lib/utils";
 
 const API_META = [
   { id: "deepseek", name: "DeepSeek", hint: "platform.deepseek.com" },
+  { id: "compshare", name: "优云智算 CompShare · 赞助商", hint: "OpenAI 兼容 · 模型如 deepseek-ai/DeepSeek-R1 · key 在 console.compshare.cn" },
   { id: "openai", name: "OpenAI", hint: "gpt-4o {etc} · platform.openai.com" },
   { id: "claude", name: "Claude (Anthropic)", hint: "console.anthropic.com" },
 ];

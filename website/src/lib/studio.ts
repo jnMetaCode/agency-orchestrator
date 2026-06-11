@@ -244,11 +244,12 @@ export function runRole(
   return streamSse("/run-role", body, onEvent, signal);
 }
 
-export const PROVIDERS = ["", "deepseek", "openai", "claude", "claude-code", "gemini-cli", "openclaw-cli", "ollama"];
+export const PROVIDERS = ["", "deepseek", "compshare", "openai", "claude", "claude-code", "gemini-cli", "openclaw-cli", "ollama"];
 
 export const PROVIDER_LABELS: Record<string, string> = {
   "": "默认 (DeepSeek)",
   deepseek: "DeepSeek",
+  compshare: "优云智算 CompShare",
   openai: "OpenAI",
   claude: "Claude",
   "claude-code": "Claude Code CLI",
