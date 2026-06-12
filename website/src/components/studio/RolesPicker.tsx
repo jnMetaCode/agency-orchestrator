@@ -22,7 +22,7 @@ export function RolesPicker({
   onRun: (r: RunRequest) => void;
   onGoToWorkflows?: () => void;
 }) {
-  const { t } = useLanguage();
+  const { t, lang } = useLanguage();
   const [roles, setRoles] = useState<Role[]>([]);
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState<string | null>(null);
@@ -39,12 +39,13 @@ export function RolesPicker({
   const [preview, setPreview] = useState<{ result: ComposeResult; meta: Workflow | null; loading: boolean } | null>(null);
 
   useEffect(() => {
+    setLoading(true);
     api
-      .roles()
+      .roles(lang)
       .then((r) => setRoles(r))
       .catch((e) => setErr(e.message))
       .finally(() => setLoading(false));
-  }, []);
+  }, [lang]);
 
   const categories = useMemo(() => {
     const map = new Map<string, string>();
@@ -80,7 +81,7 @@ export function RolesPicker({
   const doSingleChat = () => {
     const r = selectedList[0];
     if (!r || !task.trim()) return;
-    onRun({ kind: "role", title: `${t.studio.roles.singleChat} · ${r.name}`, role: roleKey(r), emoji: undefined, name: r.name, task: task.trim(), provider });
+    onRun({ kind: "role", title: `${t.studio.roles.singleChat} · ${r.name}`, role: roleKey(r), emoji: undefined, name: r.name, task: task.trim(), provider, lang });
   };
 
   const doComposeRun = async () => {
@@ -93,6 +94,7 @@ export function RolesPicker({
         roles: selectedList.map(roleKey),
         name: teamName.trim() || undefined,
         provider: provider || undefined,
+        lang,
       });
       // Preview the composed team before running (not a black box).
       setPreview({ result: res, meta: null, loading: true });

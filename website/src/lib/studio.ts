@@ -157,12 +157,13 @@ export const api = {
     postJSON<{ ok: boolean }>("/config", body),
   testProvider: (provider: string) =>
     postJSON<{ ok: boolean; latencyMs?: number; error?: string; note?: string }>("/test-provider", { provider }),
-  roles: () => getJSON<Role[]>("/roles"),
-  role: (category: string, id: string) => getJSON<Role>(`/roles/${category}/${id}`),
+  roles: (lang?: string) => getJSON<Role[]>(`/roles${lang === "en" ? "?lang=en" : ""}`),
+  role: (category: string, id: string, lang?: string) =>
+    getJSON<Role>(`/roles/${category}/${id}${lang === "en" ? "?lang=en" : ""}`),
   workflows: () => getJSON<Workflow[]>("/workflows"),
   runs: () => getJSON<RunSummary[]>("/runs"),
   run: (id: string) => getJSON<RunSummary>(`/runs/${encodeURIComponent(id)}`),
-  compose: (body: { description: string; roles: string[]; name?: string; provider?: string }) =>
+  compose: (body: { description: string; roles: string[]; name?: string; provider?: string; lang?: string }) =>
     postJSON<ComposeResult>("/compose", body),
   // 把人工输入写回正在等待的运行（human_input / approval 节点暂停时）
   runInput: (runId: string, text: string) =>
@@ -237,7 +238,7 @@ export function runWorkflow(
 }
 
 export function runRole(
-  body: { role: string; task: string; provider?: string },
+  body: { role: string; task: string; provider?: string; lang?: string },
   onEvent: SseHandler,
   signal?: AbortSignal,
 ) {

@@ -37,7 +37,7 @@ export type RunRequest =
       feedback?: string;
       cast?: WorkflowStepMeta[];
     }
-  | { kind: "role"; title: string; role: string; emoji?: string; name?: string; task: string; provider?: string };
+  | { kind: "role"; title: string; role: string; emoji?: string; name?: string; task: string; provider?: string; lang?: string };
 
 type WorkflowRequest = Extract<RunRequest, { kind: "workflow" }>;
 
@@ -212,7 +212,7 @@ export function RunProvider({ children }: { children: ReactNode }) {
               onEvent,
               ctrl.signal,
             )
-          : runRole({ role: request.role, task: request.task, provider: request.provider }, onEvent, ctrl.signal);
+          : runRole({ role: request.role, task: request.task, provider: request.provider, lang: request.lang }, onEvent, ctrl.signal);
 
       starter.catch((e: any) => {
         if (ctrl.signal.aborted) return;

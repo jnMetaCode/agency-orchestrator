@@ -29,6 +29,12 @@ const DATA_DIR = process.env.AO_DATA_DIR ? resolve(process.env.AO_DATA_DIR) : RO
 // User-composed / saved workflows (gitignored). Always writable & runnable.
 const COMPOSED_DIR = join(DATA_DIR, 'ao-workflows');
 const AGENTS_DIR = join(ROOT, 'node_modules', 'agency-agents-zh');
+// 英文角色库（随包发布的 agency-agents）。英文站按语言加载它，避免 /en 显示中文角色。
+const AGENTS_DIR_EN = join(ROOT, 'agency-agents');
+function agentsDirFor(lang) {
+  if (lang === 'en' && existsSync(AGENTS_DIR_EN)) return AGENTS_DIR_EN;
+  return existsSync(AGENTS_DIR) ? AGENTS_DIR : AGENTS_DIR_EN;
+}
 const OUTPUT_DIR = join(DATA_DIR, 'ao-output');
 const CLI = join(ROOT, 'dist', 'cli.js');
 // Node binary used to spawn the engine. Plain `node` normally; in the packaged
@@ -471,17 +477,28 @@ app.post('/api/run-input', (req, res) => {
 });
 
 // ── Roles / Agents ──
-function loadRoles() {
-  const agentsDir = join(ROOT, 'node_modules', 'agency-agents-zh');
-  if (!existsSync(agentsDir)) return [];
-
-  const categoryNames = {
+const CATEGORY_NAMES = {
+  zh: {
     marketing: '市场营销', 'paid-media': '付费媒体', sales: '销售', product: '产品',
     'project-management': '项目管理', testing: '质量测试', support: '运营支持',
     'spatial-computing': '空间计算', specialized: '专业服务', 'game-development': '游戏开发',
     engineering: '工程开发', design: '设计', academic: '学术研究', finance: '财务金融',
     hr: '人力资源', legal: '法务', strategy: '战略', 'supply-chain': '供应链',
-  };
+  },
+  en: {
+    marketing: 'Marketing', 'paid-media': 'Paid Media', sales: 'Sales', product: 'Product',
+    'project-management': 'Project Management', testing: 'Testing', support: 'Support',
+    'spatial-computing': 'Spatial Computing', specialized: 'Specialized', 'game-development': 'Game Dev',
+    engineering: 'Engineering', design: 'Design', academic: 'Academic', finance: 'Finance',
+    hr: 'HR', legal: 'Legal', strategy: 'Strategy', 'supply-chain': 'Supply Chain',
+  },
+};
+
+function loadRoles(lang) {
+  const agentsDir = agentsDirFor(lang);
+  if (!existsSync(agentsDir)) return [];
+
+  const categoryNames = CATEGORY_NAMES[lang === 'en' ? 'en' : 'zh'];
 
   const roles = [];
   for (const cat of readdirSync(agentsDir)) {
@@ -508,14 +525,15 @@ function loadRoles() {
   return roles;
 }
 
-let rolesCache = null;
-app.get('/api/roles', (_req, res) => {
-  if (!rolesCache) rolesCache = loadRoles();
-  res.json(rolesCache);
+const rolesCache = {};
+app.get('/api/roles', (req, res) => {
+  const lang = req.query.lang === 'en' ? 'en' : 'zh';
+  if (!rolesCache[lang]) rolesCache[lang] = loadRoles(lang);
+  res.json(rolesCache[lang]);
 });
 
 app.get('/api/roles/:category/:id', (req, res) => {
-  const agentsDir = join(ROOT, 'node_modules', 'agency-agents-zh');
+  const agentsDir = agentsDirFor(req.query.lang === 'en' ? 'en' : 'zh');
   const filePath = join(agentsDir, req.params.category, req.params.id + '.md');
   if (!isInside(filePath, agentsDir) || !existsSync(filePath)) return res.status(404).json({ error: 'not found' });
   const raw = readFileSync(filePath, 'utf-8');
@@ -527,14 +545,14 @@ app.get('/api/roles/:category/:id', (req, res) => {
 
 // ── Run single role ──
 app.post('/api/run-role', (req, res) => {
-  const { role, task, provider } = req.body || {};
+  const { role, task, provider, lang } = req.body || {};
   if (!role || !task) return res.status(400).json({ error: 'role and task required' });
 
   // Build a temp single-step workflow. Top-level llm is required; keyed providers
   // (deepseek/openai/claude) also require a model — buildLLMConfig fills it.
   const wfDoc = {
     name: `专家咨询: ${role.split('/').pop()}`,
-    agents_dir: 'agency-agents-zh',
+    agents_dir: agentsDirFor(lang === 'en' ? 'en' : 'zh'),
     llm: cleanLLMConfig(provider),
     steps: [{ id: 'consult', role, task, output: 'result' }],
   };
@@ -605,21 +623,22 @@ app.post('/api/run-role', (req, res) => {
 
 // ── Compose a workflow from picked roles (LLM orchestrates the chosen cast) ──
 app.post('/api/compose', async (req, res) => {
-  const { description, roles, name, provider } = req.body || {};
+  const { description, roles, name, provider, lang } = req.body || {};
   if (!description || typeof description !== 'string') return res.status(400).json({ error: 'description required' });
   if (!Array.isArray(roles) || roles.length === 0) return res.status(400).json({ error: 'at least one role required' });
   try {
     mkdirSync(COMPOSED_DIR, { recursive: true });
     const { composeWorkflow } = await import('../dist/cli/compose.js');
     const trimmedName = name && String(name).trim() ? String(name).trim() : undefined;
+    const composeLang = lang === 'en' ? 'en' : 'zh';
     const result = await composeWorkflow({
       description,
-      agentsDir: AGENTS_DIR,
+      agentsDir: agentsDirFor(composeLang),
       llmConfig: buildLLMConfig(provider),
       pinnedRoles: roles.map(String),
       outputName: trimmedName,
       saveDir: COMPOSED_DIR,
-      lang: 'zh',
+      lang: composeLang,
     });
     res.json({ file: result.savedPath, yaml: result.yaml, warnings: result.warnings || [] });
   } catch (err) {

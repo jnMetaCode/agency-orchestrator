@@ -18,7 +18,7 @@ export function RoleDetail({
   onClose: () => void;
   onRun: (r: RunRequest) => void;
 }) {
-  const { t } = useLanguage();
+  const { t, lang } = useLanguage();
   const seed = `${role.category}/${role.id}`;
   const [full, setFull] = useState<Role | null>(role.content ? role : null);
   const [loading, setLoading] = useState(!role.content);
@@ -27,15 +27,15 @@ export function RoleDetail({
   useEffect(() => {
     if (role.content) return;
     api
-      .role(role.category, role.id)
+      .role(role.category, role.id, lang)
       .then(setFull)
       .catch(() => setFull(role))
       .finally(() => setLoading(false));
-  }, [role]);
+  }, [role, lang]);
 
   const chat = () => {
     if (!task.trim()) return;
-    onRun({ kind: "role", title: `${t.studio.roles.singleChat} · ${role.name}`, role: seed, name: role.name, task: task.trim(), provider: provider || undefined });
+    onRun({ kind: "role", title: `${t.studio.roles.singleChat} · ${role.name}`, role: seed, name: role.name, task: task.trim(), provider: provider || undefined, lang });
     onClose();
   };
 
