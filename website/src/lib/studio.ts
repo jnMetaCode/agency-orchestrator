@@ -246,14 +246,15 @@ export function runRole(
 
 export const PROVIDERS = ["", "deepseek", "compshare", "openai", "claude", "claude-code", "gemini-cli", "openclaw-cli", "ollama"];
 
+// 仅品牌名（语言无关）；"" 默认项与本地标注在下拉框里用 t 渲染，避免英文站露中文。
 export const PROVIDER_LABELS: Record<string, string> = {
-  "": "默认 (DeepSeek)",
+  "": "DeepSeek",
   deepseek: "DeepSeek",
-  compshare: "优云智算 CompShare",
+  compshare: "CompShare",
   openai: "OpenAI",
   claude: "Claude",
   "claude-code": "Claude Code CLI",
   "gemini-cli": "Gemini CLI",
   "openclaw-cli": "OpenClaw CLI",
-  ollama: "Ollama (本地)",
+  ollama: "Ollama",
 };

@@ -7,7 +7,7 @@ import { cn } from "@/lib/utils";
 
 const API_META = [
   { id: "deepseek", name: "DeepSeek", hint: "platform.deepseek.com" },
-  { id: "compshare", name: "优云智算 CompShare · 赞助商", hint: "OpenAI 兼容 · 模型如 deepseek-ai/DeepSeek-R1 · key 在 console.compshare.cn" },
+  { id: "compshare", name: "CompShare", hint: "console.compshare.cn" },
   { id: "openai", name: "OpenAI", hint: "gpt-4o {etc} · platform.openai.com" },
   { id: "claude", name: "Claude (Anthropic)", hint: "console.anthropic.com" },
 ];
@@ -112,16 +112,20 @@ function ApiCard({
     }
   };
 
+  // 赞助商 CompShare 的名称/说明走 i18n（英文站不露中文）；其余 provider 是品牌名+URL，语言无关
+  const displayName = meta.id === "compshare" ? t.studio.providers.compshareName : meta.name;
+  const displayHint = meta.id === "compshare" ? t.studio.providers.compshareHint : meta.hint.replace("{etc}", t.studio.providers.etc);
+
   return (
     <div className={cn("rounded-2xl border bg-card/60 p-5", active ? "border-primary/60" : "border-border/70")}>
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <span className="font-semibold">{meta.name}</span>
+          <span className="font-semibold">{displayName}</span>
         </div>
         <ActiveButton on={active} onClick={onSetActive} />
       </div>
       <p className="mt-1 text-xs text-muted-foreground">
-        {meta.hint.replace("{etc}", t.studio.providers.etc)} · {status?.hasKey ? <span className="text-emerald-500">{t.studio.providers.keySet}{status.fromEnv ? t.studio.providers.fromEnv : ""}</span> : t.studio.providers.keyNotSet}
+        {displayHint} · {status?.hasKey ? <span className="text-emerald-500">{t.studio.providers.keySet}{status.fromEnv ? t.studio.providers.fromEnv : ""}</span> : t.studio.providers.keyNotSet}
       </p>
 
       <div className="mt-3 flex gap-2">

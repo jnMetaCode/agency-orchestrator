@@ -126,7 +126,7 @@ function StudioInner() {
               >
                 {PROVIDERS.map((p) => (
                   <option key={p} value={p}>
-                    {PROVIDER_LABELS[p] ?? p}
+                    {p === "" ? t.studio.shell.providerDefault : (PROVIDER_LABELS[p] ?? p)}
                   </option>
                 ))}
               </select>

@@ -138,6 +138,8 @@ const zh = {
       localCliTitle: "本地 CLI",
       localCliHint: "免 key,走已登录的工具",
       cliRequirement: "需已安装并登录",
+      compshareName: "优云智算 CompShare · 赞助商",
+      compshareHint: "OpenAI 兼容 · 模型如 deepseek-ai/DeepSeek-R1 · key 在 console.compshare.cn",
     },
     run: {
       running: "运行中",
@@ -287,6 +289,7 @@ const zh = {
       statusOffline: "离线",
       statusChecking: "检测",
       providerSelectTitle: "运行用的模型 provider",
+      providerDefault: "默认 (DeepSeek)",
       keys: "密钥",
       noKeyWarningPrefix: "当前 provider",
       noKeyWarningSuffix: "还没配置 API key，运行会失败。",
@@ -549,6 +552,8 @@ const en: typeof zh = {
       localCliTitle: "Local CLI",
       localCliHint: "No key, uses your logged-in tools",
       cliRequirement: "Must be installed and logged in",
+      compshareName: "CompShare · Sponsor",
+      compshareHint: "OpenAI-compatible · model e.g. deepseek-ai/DeepSeek-R1 · get key at console.compshare.cn",
     },
     run: {
       running: "Running",
@@ -698,6 +703,7 @@ const en: typeof zh = {
       statusOffline: "Offline",
       statusChecking: "Checking",
       providerSelectTitle: "Model provider used for runs",
+      providerDefault: "Default (DeepSeek)",
       keys: "Keys",
       noKeyWarningPrefix: "Provider",
       noKeyWarningSuffix: "has no API key configured — runs will fail.",
