@@ -1,0 +1,56 @@
+name: "Tech Blog"
+description: "Research → outline → draft → polish: a deep, credible technical blog post."
+
+agents_dir: "agency-agents"
+
+llm:
+  provider: "deepseek"
+  model: "deepseek-chat"
+
+concurrency: 2
+
+inputs:
+  - name: topic
+    description: "The technical topic / angle"
+    required: true
+    default: "Rewriting a hot Python data path in Rust: from 12s to 0.8s, and the traps along the way"
+
+steps:
+  - id: research
+    role: "product/product-trend-researcher"
+    task: |
+      Build a research brief for a technical blog post on: {{topic}}
+      Cover: who reads this and why, the core claim, prior art / common misconceptions,
+      and the concrete examples or benchmarks the post should include.
+    output: research_brief
+
+  - id: outline
+    role: "engineering/engineering-technical-writer"
+    task: |
+      From the research brief, write a section-by-section outline with a strong hook and
+      a clear arc (problem → approach → results → caveats).
+
+      {{research_brief}}
+    output: outline_doc
+    depends_on: [research]
+
+  - id: draft
+    role: "engineering/engineering-senior-developer"
+    task: |
+      Write the full draft from the outline. Be technically precise; include realistic code
+      snippets and numbers where relevant; call out trade-offs honestly.
+
+      Research: {{research_brief}}
+      Outline: {{outline_doc}}
+    output: blog_draft
+    depends_on: [research, outline]
+
+  - id: polish
+    role: "engineering/engineering-technical-writer"
+    task: |
+      Polish the draft into a final post: tighten prose, fix flow, ensure the hook and
+      conclusion land, and verify every claim is supported by the body.
+
+      {{blog_draft}}
+    output: final_blog
+    depends_on: [draft]

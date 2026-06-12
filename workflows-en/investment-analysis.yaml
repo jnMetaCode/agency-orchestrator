@@ -1,0 +1,47 @@
+name: "Investment Analysis"
+description: "Research → fundamentals → financial modeling: a structured analysis of a target."
+
+agents_dir: "agency-agents"
+
+llm:
+  provider: "deepseek"
+  model: "deepseek-chat"
+
+concurrency: 2
+
+inputs:
+  - name: target
+    description: "Stock / fund / sector to analyze"
+    required: true
+    default: "The Nasdaq-100 index ETF"
+
+steps:
+  - id: research
+    role: "finance/finance-investment-researcher"
+    task: |
+      Research the target and produce an objective brief: {{target}}
+      Cover: what it is, the bull case, the bear case, key drivers, and the main risks.
+      Be balanced — surface counter-arguments, not just upside.
+    output: research
+
+  - id: fundamentals
+    role: "finance/finance-financial-analyst"
+    task: |
+      Analyze the fundamentals based on the research. Where exact figures aren't given,
+      reason from public, well-known facts and clearly label assumptions.
+
+      {{research}}
+    output: fundamentals
+    depends_on: [research]
+
+  - id: plan
+    role: "finance/finance-fpa-analyst"
+    task: |
+      Synthesize a clear, decision-ready summary for an individual investor:
+      thesis in one paragraph, scenarios (base / bull / bear), key metrics to watch,
+      and an explicit "this is not financial advice" note.
+
+      Research: {{research}}
+      Fundamentals: {{fundamentals}}
+    output: summary
+    depends_on: [fundamentals]

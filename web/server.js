@@ -17,6 +17,8 @@ import yaml from 'js-yaml';
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT = resolve(__dirname, '..');
 const WORKFLOWS_DIR = join(ROOT, 'workflows');
+// 英文内置模板库（curated）。英文站按语言 serve；没有英文版的模板不混中文进来。
+const WORKFLOWS_DIR_EN = join(ROOT, 'workflows-en');
 // Optional extra workflows dir for your own/team workflows, e.g. set
 // AO_USER_WORKFLOWS_DIR=marketing/workflows (absolute or ROOT-relative). Off by default.
 const USER_WORKFLOWS_DIR = process.env.AO_USER_WORKFLOWS_DIR
@@ -55,7 +57,7 @@ function isInside(child, parent) {
   const p = resolve(parent);
   return c === p || c.startsWith(p + sep);
 }
-const ALLOWED_WORKFLOW_DIRS = [WORKFLOWS_DIR, USER_WORKFLOWS_DIR, COMPOSED_DIR].filter(Boolean);
+const ALLOWED_WORKFLOW_DIRS = [WORKFLOWS_DIR, WORKFLOWS_DIR_EN, USER_WORKFLOWS_DIR, COMPOSED_DIR].filter(Boolean);
 
 const CLI_PROVIDERS = ['claude-code', 'gemini-cli', 'copilot-cli', 'codex-cli', 'openclaw-cli', 'hermes-cli'];
 // LLM config: provider + (model/base_url where the runtime needs them). Reads any
@@ -214,9 +216,11 @@ function loadWorkflowMeta(dir, tagPrivate = false) {
 }
 
 // ── Workflow list ──
-app.get('/api/workflows', (_req, res) => {
+app.get('/api/workflows', (req, res) => {
+  // 英文站优先用英文模板库（workflows-en）；没有英文版的就不混中文进来，保持一致体验。
+  const builtinDir = (req.query.lang === 'en' && existsSync(WORKFLOWS_DIR_EN)) ? WORKFLOWS_DIR_EN : WORKFLOWS_DIR;
   const all = [
-    ...loadWorkflowMeta(WORKFLOWS_DIR, false),
+    ...loadWorkflowMeta(builtinDir, false),
     ...(USER_WORKFLOWS_DIR ? loadWorkflowMeta(USER_WORKFLOWS_DIR, true) : []),
     ...(existsSync(COMPOSED_DIR) ? loadWorkflowMeta(COMPOSED_DIR, true) : []),
   ];

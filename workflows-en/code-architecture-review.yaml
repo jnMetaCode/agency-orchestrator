@@ -1,0 +1,46 @@
+name: "Code Architecture Review"
+description: "Architecture design → backend deep-dive → code review for a feature or system."
+
+agents_dir: "agency-agents"
+
+llm:
+  provider: "deepseek"
+  model: "deepseek-chat"
+
+concurrency: 2
+
+inputs:
+  - name: feature
+    description: "The feature / system to design and review"
+    required: true
+    default: "A rate-limited public API that lets users run jobs with their own API key, isolated per user"
+
+steps:
+  - id: architecture
+    role: "engineering/engineering-software-architect"
+    task: |
+      Propose a clean architecture for: {{feature}}
+      Cover: components and their responsibilities, data flow, key trade-offs, and the
+      top failure modes with how the design handles them.
+    output: architecture
+
+  - id: backend
+    role: "engineering/engineering-backend-architect"
+    task: |
+      Detail the backend for this architecture: API surface, data model, auth/isolation,
+      concurrency and rate-limiting, and where state lives.
+
+      {{architecture}}
+    output: backend
+    depends_on: [architecture]
+
+  - id: review
+    role: "engineering/engineering-code-reviewer"
+    task: |
+      Critically review the proposed design and backend plan: security, correctness under
+      concurrency, scalability, and operational risks. Give concrete, actionable findings.
+
+      Architecture: {{architecture}}
+      Backend: {{backend}}
+    output: review
+    depends_on: [backend]

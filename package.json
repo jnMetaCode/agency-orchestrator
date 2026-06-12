@@ -73,6 +73,7 @@
   "files": [
     "dist/",
     "workflows/",
+    "workflows-en/",
     "examples/",
     "integrations/",
     "agency-agents/",

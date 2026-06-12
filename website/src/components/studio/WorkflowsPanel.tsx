@@ -87,7 +87,7 @@ function InputsDialog({ wf, provider, onClose, onRun }: { wf: Workflow; provider
 }
 
 export function WorkflowsPanel({ provider, onRun }: { provider: string; onRun: (r: RunRequest) => void }) {
-  const { t } = useLanguage();
+  const { t, lang } = useLanguage();
   const [wfs, setWfs] = useState<Workflow[]>([]);
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState<string | null>(null);
@@ -97,12 +97,13 @@ export function WorkflowsPanel({ provider, onRun }: { provider: string; onRun: (
   const [compare, setCompare] = useState<Workflow[] | null>(null);
 
   useEffect(() => {
+    setLoading(true);
     api
-      .workflows()
+      .workflows(lang)
       .then(setWfs)
       .catch((e) => setErr(e.message))
       .finally(() => setLoading(false));
-  }, []);
+  }, [lang]);
 
   const filtered = useMemo(() => {
     const n = q.trim().toLowerCase();

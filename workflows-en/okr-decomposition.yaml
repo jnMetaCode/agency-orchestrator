@@ -1,0 +1,45 @@
+name: "OKR Decomposition"
+description: "Annual goal → quarterly KRs → a concrete Q1 action plan."
+
+agents_dir: "agency-agents"
+
+llm:
+  provider: "deepseek"
+  model: "deepseek-chat"
+
+concurrency: 2
+
+inputs:
+  - name: annual_goal
+    description: "The annual objective"
+    required: true
+    default: "Grow a SaaS product's ARR from $2M to $10M"
+
+steps:
+  - id: analyze
+    role: "product/product-manager"
+    task: |
+      Analyze the annual goal and the current situation it implies: {{annual_goal}}
+      Identify the few levers that actually move this number and the biggest risks to it.
+    output: analysis
+
+  - id: kr_design
+    role: "project-management/project-manager-senior"
+    task: |
+      From the analysis, design 3-4 quarterly Key Results that are measurable, ambitious but
+      realistic, and clearly ladder up to the annual goal.
+
+      {{analysis}}
+    output: krs
+    depends_on: [analyze]
+
+  - id: q1_plan
+    role: "project-management/project-management-project-shepherd"
+    task: |
+      Turn the KRs into a concrete Q1 action plan: weekly milestones, owners (by role),
+      dependencies, and how each week's progress is measured.
+
+      Annual goal: {{annual_goal}}
+      KRs: {{krs}}
+    output: q1_plan
+    depends_on: [kr_design]

@@ -160,7 +160,7 @@ export const api = {
   roles: (lang?: string) => getJSON<Role[]>(`/roles${lang === "en" ? "?lang=en" : ""}`),
   role: (category: string, id: string, lang?: string) =>
     getJSON<Role>(`/roles/${category}/${id}${lang === "en" ? "?lang=en" : ""}`),
-  workflows: () => getJSON<Workflow[]>("/workflows"),
+  workflows: (lang?: string) => getJSON<Workflow[]>(`/workflows${lang === "en" ? "?lang=en" : ""}`),
   runs: () => getJSON<RunSummary[]>("/runs"),
   run: (id: string) => getJSON<RunSummary>(`/runs/${encodeURIComponent(id)}`),
   compose: (body: { description: string; roles: string[]; name?: string; provider?: string; lang?: string }) =>
