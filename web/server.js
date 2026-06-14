@@ -643,6 +643,9 @@ app.post('/api/compose', async (req, res) => {
       outputName: trimmedName,
       saveDir: COMPOSED_DIR,
       lang: composeLang,
+      // Studio「组队 → 直接跑」= compose --run 语义：不生成必填 inputs，把描述嵌进 task，
+      // 否则生成的工作流带 required input、直接运行会报「请用 -i 传入」缺参数错。
+      autoRun: true,
     });
     res.json({ file: result.savedPath, yaml: result.yaml, warnings: result.warnings || [] });
   } catch (err) {
