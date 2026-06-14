@@ -47,10 +47,10 @@ export const docGroups: DocGroup[] = [
             },
           },
           {
-            heading: { zh: "两种用法", en: "Two ways to use it" },
+            heading: { zh: "怎么用（本地运行）", en: "How to use it (runs locally)" },
             body: {
-              zh: "1. **一句话 compose（推荐新手）**：描述需求，AO 自动选专家、生成并运行工作流。\n2. **手写 YAML（推荐进阶）**：自己定义角色、任务、依赖、循环，完全可控、可版本管理。\n\n两种都用同一个引擎执行，产物都落盘到 `ao-output/`，都能断点续跑与返工。",
-              en: "1. **One-sentence compose (great for beginners)**: describe the need, AO picks experts, generates and runs the workflow.\n2. **Hand-written YAML (for power users)**: define roles, tasks, dependencies, and loops yourself — fully controllable and versionable.\n\nBoth run on the same engine, save outputs to `ao-output/`, and support resume and rework.",
+              zh: "AO 在**你自己机器上**运行。三种入口：\n1. **网页 Studio（推荐，最友好）**：本地跑 `ao web`，浏览器里选专家/模板、点击运行、实时介入——图形界面，不用碰命令行。\n2. **一句话 compose**：`ao compose \"你的需求\" --run`，自动选专家、生成并运行。\n3. **手写 YAML（进阶）**：自定义角色/任务/依赖/循环，完全可控、可版本管理。\n\n> 注意：本站是**公开演示**——`Studio` 标签在线上没有后端、不能真跑、也不要在上面填 key。要真用请按上面任一方式**本地运行**。三种入口同一引擎，产物都落 `ao-output/`，都支持断点续跑与返工。",
+              en: "AO runs **on your own machine**. Three entry points:\n1. **Web Studio (recommended, friendliest)**: run `ao web` locally and pick experts/templates, click run, and intervene live — a GUI, no command line needed.\n2. **One-sentence compose**: `ao compose \"your need\" --run` — auto-picks experts, generates and runs.\n3. **Hand-written YAML (advanced)**: define roles/tasks/dependencies/loops yourself — fully controllable and versionable.\n\n> Note: this site is a **public demo** — the Studio tab here has no backend, can't run for real, and you should never enter a key on it. To actually use AO, **run locally** via any option above. All three share one engine, save to `ao-output/`, and support resume & rework.",
             },
           },
         ],
@@ -395,6 +395,13 @@ steps:
             body: {
               zh: "盲评显示：在有能力的模型上，多专家协作明显优于单次 prompt；但本地小模型（如 llama3 8B 级）能力不足时，多角色交接反而会放大漂移。追求质量请用有能力的模型。",
               en: "Blind evals show: on a capable model, multi-expert collaboration clearly beats a one-shot prompt; but with weak local models (llama3 8B class), hand-offs amplify drift. For quality, use a capable model.",
+            },
+          },
+          {
+            heading: { zh: "Key 安全：只存本机，绝不提交", en: "Key safety: local only, never commit" },
+            body: {
+              zh: "你的 API key **只留在你自己机器上**：\n- `ao init --provider X --api-key ...` 写入项目下的 `.env`，并**自动把 `.env` 加进 `.gitignore`**——不会被提交。\n- 网页 Studio 里粘贴的 key 存到 `.local/web-keys.json`（已 gitignore），**不上传任何服务器**。\n- **公开演示官网没有后端，请不要在上面填 key**；要真跑请本地运行。\n\n⚠️ 一条铁律：**任何 API key 都不要提交进 git**。AO 默认已帮你 gitignore 了 `.env` 和 `.local/`，但若你手动改了配置，发版/推送前再确认一遍。",
+              en: "Your API key **stays only on your own machine**:\n- `ao init --provider X --api-key ...` writes to a project `.env` and **auto-adds `.env` to `.gitignore`** — it won't be committed.\n- Keys pasted in the web Studio are saved to `.local/web-keys.json` (gitignored) and are **never uploaded to any server**.\n- **The public demo site has no backend — never enter a key there**; run locally to actually use AO.\n\n⚠️ Golden rule: **never commit any API key**. AO gitignores `.env` and `.local/` for you by default, but if you edit configs manually, double-check before pushing.",
             },
           },
         ],
