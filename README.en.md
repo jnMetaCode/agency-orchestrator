@@ -23,6 +23,24 @@
 
 ---
 
+## Web Studio (GUI)
+
+Prefer not to use the command line? Run `ao web` locally and pick experts, run workflows, view outputs, and intervene live — all in a GUI, fully bilingual (EN/中文).
+
+<p align="center">
+  <img src="./docs/screenshots/studio-roles-en.png" alt="Studio · Build a Team: pick from 200+ experts, AI composes the team" width="800"><br/>
+  <em>Build a Team: pick from 200+ experts; AI composes and runs the team</em>
+</p>
+
+<p align="center">
+  <img src="./docs/screenshots/studio-workflows-en.png" alt="Studio · Workflows: run built-in templates with one click" width="800"><br/>
+  <em>Workflows: run built-in templates with one click, or compare several</em>
+</p>
+
+> Launch: `ao web` (local — your API key stays on your machine, never uploaded). A [desktop client](./desktop) (Electron) is also available.
+
+---
+
 ## One Sentence, Full Result
 
 ```bash

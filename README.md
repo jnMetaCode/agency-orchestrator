@@ -21,6 +21,25 @@
 
 ---
 
+## 网页 Studio（图形界面）
+
+不想敲命令行？本地跑一条 `ao web`，浏览器里勾选专家、运行工作流、查看产物、实时介入——全程图形界面，全中英双语。
+
+<p align="center">
+  <img src="./docs/screenshots/studio-roles-zh.png" alt="Studio · 角色组队：从 200+ 专家里勾选，AI 自动合成团队" width="800"><br/>
+  <em>角色组队：从 200+ 专家里勾选，AI 自动合成团队并运行</em>
+</p>
+
+<p align="center">
+  <img src="./docs/screenshots/studio-workflows-zh.png" alt="Studio · 工作流模板：内置模板一键运行" width="800"><br/>
+  <em>工作流：内置模板一键运行，也能对比多个模板</em>
+</p>
+
+> 启动：`ao web`（本地，密钥只存你自己机器、绝不外传）。也有 [桌面客户端](./desktop)（Electron）。
+> 英文界面同样完整 → 见 [English README](./README.en.md)。
+
+---
+
 ## 一句话出结果
 
 ```bash
