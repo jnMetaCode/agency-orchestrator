@@ -24,7 +24,9 @@ export function saveResults(result: WorkflowResult, outputDir: string): string {
     const emoji = step.agentEmoji || '🤖';
     const name = step.agentName || step.role || step.id;
     const duration = step.duration ? `${(step.duration / 1000).toFixed(1)}s` : '';
-    const header = `> ${emoji} **${name}** | 步骤 ${i + 1}/${result.steps.length}${duration ? ` | ${duration}` : ''}\n\n---\n\n`;
+    // 标签按该步内容语言自动选：英文角色/产出 → "Step"，中文 → "步骤"
+    const stepLabel = /[一-鿿]/.test(`${name}${step.output || ''}`) ? '步骤' : 'Step';
+    const header = `> ${emoji} **${name}** | ${stepLabel} ${i + 1}/${result.steps.length}${duration ? ` | ${duration}` : ''}\n\n---\n\n`;
     const body = step.output || step.error || '(无输出)';
     writeFileSync(join(stepsDir, filename), header + body, 'utf-8');
   }
