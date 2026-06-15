@@ -1,7 +1,7 @@
 {
   "name": "agency-orchestrator-desktop",
   "private": true,
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "Agency Orchestrator — desktop app (Electron)",
   "main": "main.cjs",
   "scripts": {
@@ -17,23 +17,55 @@
   "build": {
     "appId": "com.jnmetacode.agency-orchestrator",
     "productName": "Agency Orchestrator",
-    "directories": { "output": "release" },
-    "files": ["main.cjs"],
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "main.cjs"
+    ],
     "npmRebuild": false,
     "extraResources": [
-      { "from": "../web", "to": "app/web" },
-      { "from": "../website/dist", "to": "app/website/dist" },
-      { "from": "../dist", "to": "app/dist" },
-      { "from": "../workflows", "to": "app/workflows" },
-      { "from": "../package.json", "to": "app/package.json" },
-      { "from": "../node_modules", "to": "app/node_modules" }
+      {
+        "from": "../web",
+        "to": "app/web"
+      },
+      {
+        "from": "../website/dist",
+        "to": "app/website/dist"
+      },
+      {
+        "from": "../dist",
+        "to": "app/dist"
+      },
+      {
+        "from": "../workflows",
+        "to": "app/workflows"
+      },
+      {
+        "from": "../package.json",
+        "to": "app/package.json"
+      },
+      {
+        "from": "../node_modules",
+        "to": "app/node_modules"
+      }
     ],
     "mac": {
       "category": "public.app-category.developer-tools",
-      "target": ["dmg"],
+      "target": [
+        "dmg"
+      ],
       "identity": null
     },
-    "win": { "target": ["nsis"] },
-    "linux": { "target": ["AppImage"] }
+    "win": {
+      "target": [
+        "nsis"
+      ]
+    },
+    "linux": {
+      "target": [
+        "AppImage"
+      ]
+    }
   }
 }

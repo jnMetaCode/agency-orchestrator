@@ -4,13 +4,21 @@
 
 ## [Unreleased]
 
+## [0.7.0] - 2026-06-16
+
 ### Added
-- **`ao roles <关键词>` 角色搜索**：按 角色路径 / 名称 / 描述 不区分大小写过滤（也支持 `--search`），方便从 211 位专家里手动定位；无匹配给友好提示。
-- **`ao init` 首跑向导**：角色库装好后自动探测可用 provider（优先免 key 的 claude-code CLI / Ollama），按环境给出个性化下一步（就绪→直接 `ao demo` / `ao compose`；没有→最省事的获取路径），缩短「安装→价值」。
-- **评测回归门禁**：黄金任务集抽到 `eval/golden-tasks.ts`（9 个旗舰工作流，覆盖创作/社媒/商业/分析/产品）；新增 `eval/gate.ts` 与 `npm run eval:gate` / `eval:baseline`——胜率阈值 + judge 双向一致率阈值 + 基线快照回归判定，judge 太弱时判 INCONCLUSIVE（绝不当通过）。
+- **网页 Studio + 桌面客户端**：本地 `ao web` 启动可视化 Studio（角色组队 / 工作流 / 运行历史 / 用量 / 密钥）；同一套 UI 打包为 Electron 桌面客户端（macOS arm64+Intel · Windows · Linux），经 GitHub Actions 一键发布到 Releases，官网提供下载入口。key 只存本机。
+- **Studio / 官网全面双语化 + 英文资源**：UI、角色库、工作流模板按语言切换（`/en` 读英文 `agency-agents` 库与 `workflows-en/` 模板，不再混中文）。
+- **CompShare（优云智算）provider 内置**：OpenAI 兼容接入，填 key 即用（`COMPSHARE_API_KEY` / `COMPSHARE_BASE_URL`）。
+- **一键复制完整提示词**：Studio 专家详情与公开站「专家库」页都能查看 / 复制每位专家的完整系统提示词（公开站读静态 `experts.json` + `/prompts/*.md`）。
+- **公开站 `/studio` 演示模式**：无后端也能浏览全部专家、查看 / 复制提示词；填 key 与运行被引导到「安装客户端 / 本地运行」。
+- **`ao roles <关键词>` 角色搜索**：按 角色路径 / 名称 / 描述 不区分大小写过滤（也支持 `--search`）；无匹配给友好提示。
+- **`ao init` 首跑向导**：角色库装好后自动探测可用 provider（优先免 key 的 claude-code CLI / Ollama），按环境给出个性化下一步，缩短「安装→价值」。
+- **评测回归门禁**：黄金任务集抽到 `eval/golden-tasks.ts`；新增 `eval/gate.ts` 与 `npm run eval:gate` / `eval:baseline`——胜率阈值 + judge 双向一致率阈值 + 基线快照回归判定，judge 太弱时判 INCONCLUSIVE（绝不当通过）。
 
 ### Changed
 - **`ao compose` 幻觉角色确定性修复**：生成的工作流引用不存在的角色时，优先用最接近的**真实角色直接改写 YAML**（不再多花一次 LLM 调用、保证产物可运行），无可信匹配才回退 LLM；并在 LLM 重试后再做确定性兜底，堵住「重试后仍残留坏角色却被当成功」的缺口。
+- **打包内容**：npm 包额外纳入 `web/`、`website/dist/`、`workflows-en/`，`prepublishOnly` 自动构建引擎 + Studio。
 
 ### Tests
 - 新增 `test/roles.ts`、`test/init.ts`、`test/eval-gate.ts` 并并入 `npm test`；`test/compose.ts` 覆盖确定性角色修复。
