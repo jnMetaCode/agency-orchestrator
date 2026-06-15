@@ -26,10 +26,13 @@ jobs:
         include:
           - os: macos-latest
             builder_flag: "--mac --arm64 --x64"
+            plat: mac
           - os: windows-latest
             builder_flag: "--win"
+            plat: win
           - os: ubuntu-latest
             builder_flag: "--linux"
+            plat: linux
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
@@ -61,6 +64,19 @@ jobs:
           APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
 
+      # 为本平台产物生成 SHA256 校验和（mac 用 shasum，linux/win-gitbash 用 sha256sum）
+      - name: Generate checksums
+        shell: bash
+        working-directory: desktop/release
+        run: |
+          shopt -s nullglob
+          files=( *.dmg *.exe *.AppImage )
+          if [ ${#files[@]} -gt 0 ]; then
+            if command -v sha256sum >/dev/null 2>&1; then HASH="sha256sum"; else HASH="shasum -a 256"; fi
+            $HASH "${files[@]}" > "SHA256SUMS-${{ matrix.plat }}.txt"
+            cat "SHA256SUMS-${{ matrix.plat }}.txt"
+          fi
+
       - name: Upload to GitHub Release
         uses: softprops/action-gh-release@v2
         with:
@@ -68,11 +84,40 @@ jobs:
           name: ${{ inputs.tag }}
           draft: false
           fail_on_unmatched_files: false
+          body: |
+            ## 安装 / Install
+
+            下载对应平台的安装包并安装：
+
+            - **macOS (Apple Silicon)** — `*-arm64.dmg`
+            - **macOS (Intel)** — `*.dmg`（不带 arm64 的那个）
+            - **Windows** — `*Setup*.exe`
+            - **Linux** — `*.AppImage`
+
+            桌面端**自带引擎与 Node，双击即用，无需 `npm i -g agency-orchestrator`**。只有想在终端用 `ao` 命令或接进脚本 / CI 时才需要安装 CLI。
+
+            ### macOS 提示「已损坏，无法打开」？
+            未签名版的正常提示，不是真的损坏。先把 App 拖进「应用程序」，再在「终端」运行：
+
+                sudo xattr -cr "/Applications/Agency Orchestrator.app"
+
+            之后双击即可打开。
+
+            ### Windows 弹「Windows 已保护你的电脑」？
+            点「更多信息」→「仍要运行」。
+
+            ### 校验完整性（可选）
+            每个平台附带 `SHA256SUMS-<平台>.txt`，对照下载文件：
+
+                shasum -a 256 <下载的文件名>
+
+            > 当前为未签名版（无 Apple 公证 / Windows 签名），以上提示在后续签名版本中会自动消失。
           files: |
             desktop/release/*.dmg
             desktop/release/*.dmg.blockmap
             desktop/release/*.exe
             desktop/release/*.exe.blockmap
             desktop/release/*.AppImage
+            desktop/release/SHA256SUMS-*.txt
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
