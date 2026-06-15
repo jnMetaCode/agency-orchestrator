@@ -6,6 +6,7 @@ import { LanguageProvider, useLanguage } from "@/i18n/LanguageProvider";
 const Home = lazy(() => import("@/pages/Home"));
 const Sponsors = lazy(() => import("@/pages/Sponsors"));
 const Studio = lazy(() => import("@/pages/Studio"));
+const Experts = lazy(() => import("@/pages/Experts"));
 const Docs = lazy(() => import("@/pages/Docs"));
 const Tutorials = lazy(() => import("@/pages/Tutorials"));
 const TutorialDetail = lazy(() => import("@/pages/TutorialDetail"));
@@ -43,6 +44,9 @@ export default function App() {
           ))}
           {["/studio", "/zh/studio", "/en/studio"].map((p) => (
             <Route key={p} path={p} element={<Studio />} />
+          ))}
+          {["/experts", "/zh/experts", "/en/experts"].map((p) => (
+            <Route key={p} path={p} element={<Experts />} />
           ))}
           {["/docs", "/zh/docs", "/en/docs"].map((p) => (
             <Route key={p} path={p} element={<Docs />} />

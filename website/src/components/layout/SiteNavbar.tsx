@@ -15,6 +15,7 @@ export function SiteNavbar() {
   const links = [
     { to: prefix("/#features"), label: t.nav.features, hash: true },
     { to: prefix("/studio"), label: t.nav.studio },
+    { to: prefix("/experts"), label: t.nav.experts },
     { to: prefix("/docs"), label: t.nav.docs },
     { to: prefix("/tutorials"), label: t.nav.tutorials },
     { to: prefix("/changelog"), label: t.nav.changelog },
