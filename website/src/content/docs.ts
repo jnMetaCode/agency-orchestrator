@@ -82,6 +82,13 @@ export const docGroups: DocGroup[] = [
               en: "No key needed to start: AO supports 7 key-free paths such as the claude-code CLI, gemini-cli, and local Ollama. Install the CLI or local model, then point to it with `--provider`.",
             },
           },
+          {
+            heading: { zh: "不想用命令行？下载桌面客户端", en: "Prefer no terminal? Download the desktop app" },
+            body: {
+              zh: "不熟悉命令行可以直接下载**桌面客户端**（原生 App，免装 Node）：[**前往下载 →**](https://github.com/jnMetaCode/agency-orchestrator/releases/latest)（macOS / Windows / Linux）。\n\n> macOS 提示：当前为未签名版，首次打开请**右键 →「打开」**绕过 Gatekeeper 提示。桌面端把网页 Studio 包成原生应用，体验和 `ao web` 一致，key 同样只存本机。",
+              en: "Not comfortable with the command line? Just download the **desktop app** (native, no Node needed): [**Download →**](https://github.com/jnMetaCode/agency-orchestrator/releases/latest) (macOS / Windows / Linux).\n\n> macOS note: the current build is unsigned — on first open, **right-click → Open** to bypass Gatekeeper. The desktop app wraps the web Studio natively; same experience as `ao web`, and your key still stays on your machine.",
+            },
+          },
         ],
       },
       {

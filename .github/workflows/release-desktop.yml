@@ -1,0 +1,77 @@
+name: Release Desktop App
+
+# 手动触发：在 Actions 页面点 "Run workflow"，填一个 tag（如 desktop-v0.1.1）。
+# 三平台(mac arm64 / win / linux)各自构建桌面安装包并上传到对应 GitHub Release。
+# 当前为未签名版（desktop/package.json 里 mac.identity=null）。要启用 mac 签名/公证：
+#   1) 去掉 desktop/package.json 的 "identity": null
+#   2) 在仓库 Secrets 加 CSC_LINK / CSC_KEY_PASSWORD / APPLE_ID / APPLE_APP_SPECIFIC_PASSWORD / APPLE_TEAM_ID
+#   下面的步骤已透传这些 env，有就自动签、没有就出未签名版。
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Release tag (e.g. desktop-v0.1.1)"
+        required: true
+        default: "desktop-v0.1.1"
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: macos-latest
+            builder_flag: "--mac"
+          - os: windows-latest
+            builder_flag: "--win"
+          - os: ubuntu-latest
+            builder_flag: "--linux"
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      # 引擎 + 官网 Studio（桌面 App 通过 extraResources 打包 ../dist 与 ../website/dist）
+      - name: Install root deps & build engine
+        run: |
+          npm ci
+          npm run build
+      - name: Build Studio (website/dist)
+        run: npm run build:studio
+
+      - name: Install desktop deps
+        working-directory: desktop
+        run: npm ci
+
+      - name: Build desktop installer
+        working-directory: desktop
+        run: npx electron-builder ${{ matrix.builder_flag }} --publish never
+        env:
+          # 有证书/公证 Secrets 时 electron-builder 自动签名+公证；没有就出未签名版
+          CSC_LINK: ${{ secrets.CSC_LINK }}
+          CSC_KEY_PASSWORD: ${{ secrets.CSC_KEY_PASSWORD }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+
+      - name: Upload to GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ inputs.tag }}
+          name: ${{ inputs.tag }}
+          draft: false
+          fail_on_unmatched_files: false
+          files: |
+            desktop/release/*.dmg
+            desktop/release/*.dmg.blockmap
+            desktop/release/*.exe
+            desktop/release/*.exe.blockmap
+            desktop/release/*.AppImage
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

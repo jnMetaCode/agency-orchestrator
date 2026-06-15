@@ -8,6 +8,7 @@ export const SITE = {
   changelog: "https://github.com/jnMetaCode/agency-orchestrator/blob/main/CHANGELOG.md",
   license: "https://github.com/jnMetaCode/agency-orchestrator/blob/main/LICENSE",
   evalFindings: "https://github.com/jnMetaCode/agency-orchestrator/blob/main/EVAL_FINDINGS.md",
+  releases: "https://github.com/jnMetaCode/agency-orchestrator/releases/latest",
   install: "npm i -g agency-orchestrator",
   sponsorEmail: "jnMetaCode@qq.com",
   sponsorContact: "mailto:jnMetaCode@qq.com?subject=Sponsorship%20-%20agency-agents",
