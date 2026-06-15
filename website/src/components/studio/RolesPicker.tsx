@@ -3,6 +3,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { useLanguage } from "@/i18n/LanguageProvider";
 import { api, type ComposeResult, type Role, type Workflow } from "@/lib/studio";
+import { demoRoles } from "@/lib/demo";
 import { cn } from "@/lib/utils";
 import { ComposePreview } from "./ComposePreview";
 import { RoleAvatar } from "./RoleAvatar";
@@ -17,10 +18,14 @@ export function RolesPicker({
   provider,
   onRun,
   onGoToWorkflows,
+  demo,
+  onInstallPrompt,
 }: {
   provider: string;
   onRun: (r: RunRequest) => void;
   onGoToWorkflows?: () => void;
+  demo?: boolean;
+  onInstallPrompt?: () => void;
 }) {
   const { t, lang } = useLanguage();
   const [roles, setRoles] = useState<Role[]>([]);
@@ -39,13 +44,18 @@ export function RolesPicker({
   const [preview, setPreview] = useState<{ result: ComposeResult; meta: Workflow | null; loading: boolean } | null>(null);
 
   useEffect(() => {
+    if (demo) {
+      setRoles(demoRoles(lang));
+      setLoading(false);
+      return;
+    }
     setLoading(true);
     api
       .roles(lang)
       .then((r) => setRoles(r))
       .catch((e) => setErr(e.message))
       .finally(() => setLoading(false));
-  }, [lang]);
+  }, [lang, demo]);
 
   const categories = useMemo(() => {
     const map = new Map<string, string>();
@@ -81,11 +91,19 @@ export function RolesPicker({
   const doSingleChat = () => {
     const r = selectedList[0];
     if (!r || !task.trim()) return;
+    if (demo) {
+      onInstallPrompt?.();
+      return;
+    }
     onRun({ kind: "role", title: `${t.studio.roles.singleChat} · ${r.name}`, role: roleKey(r), emoji: undefined, name: r.name, task: task.trim(), provider, lang });
   };
 
   const doComposeRun = async () => {
     if (count < 2 || !task.trim()) return;
+    if (demo) {
+      onInstallPrompt?.();
+      return;
+    }
     setComposing(true);
     setComposeErr(null);
     try {
@@ -277,7 +295,7 @@ export function RolesPicker({
         </div>
       )}
 
-      {detail && <RoleDetail role={detail} provider={provider} onClose={() => setDetail(null)} onRun={onRun} />}
+      {detail && <RoleDetail role={detail} provider={provider} onClose={() => setDetail(null)} onRun={onRun} demo={demo} onInstallPrompt={onInstallPrompt} />}
       {preview && (
         <ComposePreview
           result={preview.result}

@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { useLanguage } from "@/i18n/LanguageProvider";
 import { api, type Role } from "@/lib/studio";
+import { demoRoleContent } from "@/lib/demo";
 import { Markdown } from "./Markdown";
 import { RoleAvatar } from "./RoleAvatar";
 import type { RunRequest } from "./RunManager";
@@ -33,11 +34,15 @@ export function RoleDetail({
   provider,
   onClose,
   onRun,
+  demo,
+  onInstallPrompt,
 }: {
   role: Role;
   provider: string;
   onClose: () => void;
   onRun: (r: RunRequest) => void;
+  demo?: boolean;
+  onInstallPrompt?: () => void;
 }) {
   const { t, lang } = useLanguage();
   const seed = `${role.category}/${role.id}`;
@@ -55,15 +60,21 @@ export function RoleDetail({
 
   useEffect(() => {
     if (role.content) return;
-    api
-      .role(role.category, role.id, lang)
+    const load = demo
+      ? demoRoleContent(lang, role.category, role.id).then((content) => ({ ...role, content }))
+      : api.role(role.category, role.id, lang);
+    load
       .then(setFull)
       .catch(() => setFull(role))
       .finally(() => setLoading(false));
-  }, [role, lang]);
+  }, [role, lang, demo]);
 
   const chat = () => {
     if (!task.trim()) return;
+    if (demo) {
+      onInstallPrompt?.();
+      return;
+    }
     onRun({ kind: "role", title: `${t.studio.roles.singleChat} · ${role.name}`, role: seed, name: role.name, task: task.trim(), provider: provider || undefined, lang });
     onClose();
   };

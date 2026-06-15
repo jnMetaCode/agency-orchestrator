@@ -1,4 +1,4 @@
-import { BarChart3, Boxes, History, KeyRound, Plug, TriangleAlert, Users } from "lucide-react";
+import { BarChart3, Boxes, Download, History, KeyRound, Plug, TriangleAlert, Users } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { SiteFooter } from "@/components/layout/SiteFooter";
@@ -8,8 +8,8 @@ import { RunDock } from "@/components/studio/RunDock";
 import { RunProvider, useRunManager } from "@/components/studio/RunManager";
 import { RunViewer } from "@/components/studio/RunViewer";
 import { RunsPanel } from "@/components/studio/RunsPanel";
-import { StudioGate } from "@/components/studio/StudioGate";
 import { StudioDemo } from "@/components/studio/StudioDemo";
+import { InstallPrompt } from "@/components/studio/InstallPrompt";
 import { UsagePanel } from "@/components/studio/UsagePanel";
 import { WorkflowsPanel } from "@/components/studio/WorkflowsPanel";
 import { useBackend } from "@/components/studio/useBackend";
@@ -31,7 +31,7 @@ const TAB_META: { id: Tab; icon: typeof Users }[] = [
 
 function StudioInner() {
   const { t } = useLanguage();
-  const { status, version, recheck } = useBackend();
+  const { status, version } = useBackend();
   const TABS = TAB_META.map((tb) => ({
     ...tb,
     label: t.studio.shell.tabs[tb.id].label,
@@ -41,6 +41,8 @@ function StudioInner() {
   const [tab, setTabState] = useState<Tab>("roles");
   const [provider, setProviderState] = useState(getActiveProvider);
   const [keyedHas, setKeyedHas] = useState<Record<string, boolean>>({});
+  const [installOpen, setInstallOpen] = useState(false);
+  const offline = status !== "online";
 
   const setProvider = useCallback((p: string) => {
     setActiveProvider(p);
@@ -121,8 +123,9 @@ function StudioInner() {
               <select
                 value={provider}
                 onChange={(e) => setProvider(e.target.value)}
+                disabled={offline}
                 title={t.studio.shell.providerSelectTitle}
-                className="h-8 rounded-lg border border-border/70 bg-card/60 px-2 text-sm text-foreground outline-none"
+                className="h-8 rounded-lg border border-border/70 bg-card/60 px-2 text-sm text-foreground outline-none disabled:cursor-not-allowed disabled:opacity-60"
               >
                 {PROVIDERS.map((p) => (
                   <option key={p} value={p}>
@@ -130,7 +133,7 @@ function StudioInner() {
                   </option>
                 ))}
               </select>
-              <Button size="sm" variant="outline" onClick={() => setTab("providers")}>
+              <Button size="sm" variant="outline" onClick={() => (offline ? setInstallOpen(true) : setTab("providers"))}>
                 <KeyRound className="size-4" />
                 <span className="hidden sm:inline">{t.studio.shell.keys}</span>
               </Button>
@@ -151,10 +154,20 @@ function StudioInner() {
               </Button>
             </div>
           )}
-          {status !== "online" ? (
+          {offline ? (
             <>
+              <div className="mb-5 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-amber-500/40 bg-amber-500/[0.07] px-4 py-3">
+                <div className="min-w-0">
+                  <span className="text-sm font-semibold text-amber-600 dark:text-amber-400">{t.studio.demo.bannerTitle}</span>
+                  <p className="mt-0.5 text-xs leading-relaxed text-muted-foreground">{t.studio.demo.bannerDesc}</p>
+                </div>
+                <Button size="sm" onClick={() => setInstallOpen(true)}>
+                  <Download className="size-4" />
+                  {t.studio.demo.bannerInstall}
+                </Button>
+              </div>
+              <RolesPicker provider={provider} onRun={() => setInstallOpen(true)} demo onInstallPrompt={() => setInstallOpen(true)} />
               <StudioDemo />
-              <StudioGate checking={status === "checking"} onRetry={recheck} />
             </>
           ) : tab === "roles" ? (
             <RolesPicker provider={provider} onRun={start} onGoToWorkflows={() => setTab("workflows")} />
@@ -177,6 +190,7 @@ function StudioInner() {
         }}
       />
       <RunDock />
+      {installOpen && <InstallPrompt onClose={() => setInstallOpen(false)} />}
       <SiteFooter />
     </>
   );
