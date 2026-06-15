@@ -14,16 +14,19 @@ const CATEGORY_NAMES = {
   en: { marketing: "Marketing", "paid-media": "Paid Media", sales: "Sales", product: "Product", "project-management": "Project Management", testing: "Testing", support: "Support", "spatial-computing": "Spatial Computing", specialized: "Specialized", "game-development": "Game Dev", engineering: "Engineering", design: "Design", academic: "Academic", finance: "Finance", hr: "HR", legal: "Legal", strategy: "Strategy", "supply-chain": "Supply Chain" },
 };
 
-function parseFrontmatter(raw) {
-  const m = raw.match(/^---\n([\s\S]*?)\n---/);
+function parseRole(raw) {
+  const m = raw.match(/^---\n([\s\S]*?)\n---\n?([\s\S]*)$/);
   if (!m) return null;
   const fm = {};
   for (const line of m[1].split("\n")) {
     const mm = line.match(/^([a-zA-Z_]+):\s*(.*)$/);
     if (mm) fm[mm[1]] = mm[2].trim().replace(/^["']|["']$/g, "");
   }
-  return fm;
+  return { fm, body: m[2].trim() };
 }
+
+// 每个角色的完整提示词正文写成静态文件，供官网点击复制（按需 fetch，不塞进 JSON）。
+const promptsRoot = join(__dirname, "..", "public", "prompts");
 
 function loadLib(dir, lang) {
   if (!existsSync(dir)) return null;
@@ -34,17 +37,22 @@ function loadLib(dir, lang) {
     try { if (!statSync(catDir).isDirectory()) continue; } catch { continue; }
     for (const f of readdirSync(catDir)) {
       if (!f.endsWith(".md")) continue;
-      const fm = parseFrontmatter(readFileSync(join(catDir, f), "utf-8"));
-      if (!fm || !fm.name) continue;
+      const parsed = parseRole(readFileSync(join(catDir, f), "utf-8"));
+      if (!parsed || !parsed.fm.name) continue;
+      const fm = parsed.fm;
+      const id = f.replace(/\.md$/, "");
       out.push({
         category: cat,
         categoryName: cats[cat] || cat,
-        id: f.replace(/\.md$/, ""),
+        id,
         name: fm.name,
         description: fm.description || "",
         emoji: fm.emoji || "",
         color: fm.color || "#888",
       });
+      const outDir = join(promptsRoot, lang, cat);
+      mkdirSync(outDir, { recursive: true });
+      writeFileSync(join(outDir, `${id}.md`), parsed.body + "\n", "utf-8");
     }
   }
   out.sort((a, b) => a.category.localeCompare(b.category) || a.name.localeCompare(b.name));
@@ -63,3 +71,4 @@ const outFile = join(__dirname, "..", "src", "content", "experts.json");
 mkdirSync(dirname(outFile), { recursive: true });
 writeFileSync(outFile, JSON.stringify({ zh, en }, null, 0) + "\n", "utf-8");
 console.log(`✅ 生成 ${outFile}\n   zh: ${zh.length} 个专家 | en: ${en.length} 个专家`);
+console.log(`✅ 提示词正文 → ${promptsRoot}/<lang>/<category>/<id>.md`);

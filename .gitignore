@@ -10,7 +10,7 @@ ao-workflows/
 .private/
 .local/
 .claude/
-marketing/
+/marketing/
 scripts/fake-*.sh
 *.cast
 web/demos/
