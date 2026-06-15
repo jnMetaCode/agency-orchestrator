@@ -1,7 +1,8 @@
 name: Release Desktop App
 
-# 手动触发：在 Actions 页面点 "Run workflow"，填一个 tag（如 desktop-v0.1.1）。
-# 三平台(mac arm64 / win / linux)各自构建桌面安装包并上传到对应 GitHub Release。
+# 手动触发：在 Actions 页面点 "Run workflow"，填一个 tag（如 desktop-v0.2.0）。
+# 三平台各自构建桌面安装包并上传到对应 GitHub Release：
+#   mac 同时出 arm64(Apple Silicon) 与 x64(Intel) 两个 dmg / win exe / linux AppImage。
 # 当前为未签名版（desktop/package.json 里 mac.identity=null）。要启用 mac 签名/公证：
 #   1) 去掉 desktop/package.json 的 "identity": null
 #   2) 在仓库 Secrets 加 CSC_LINK / CSC_KEY_PASSWORD / APPLE_ID / APPLE_APP_SPECIFIC_PASSWORD / APPLE_TEAM_ID
@@ -10,9 +11,9 @@ on:
   workflow_dispatch:
     inputs:
       tag:
-        description: "Release tag (e.g. desktop-v0.1.1)"
+        description: "Release tag (e.g. desktop-v0.2.0)"
         required: true
-        default: "desktop-v0.1.1"
+        default: "desktop-v0.2.0"
 
 permissions:
   contents: write
@@ -24,7 +25,7 @@ jobs:
       matrix:
         include:
           - os: macos-latest
-            builder_flag: "--mac"
+            builder_flag: "--mac --arm64 --x64"
           - os: windows-latest
             builder_flag: "--win"
           - os: ubuntu-latest
