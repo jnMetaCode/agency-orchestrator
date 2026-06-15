@@ -7,7 +7,7 @@ export function StudioGate({ checking, onRetry }: { checking: boolean; onRetry: 
   const { t } = useLanguage();
   const cmd = "node web/server.js";
   return (
-    <div className="mx-auto max-w-xl py-20 text-center">
+    <div className="mx-auto mt-12 max-w-xl rounded-2xl border border-border/60 bg-card/30 px-6 py-12 text-center">
       <div className="mx-auto grid size-14 place-items-center rounded-2xl bg-primary/10 text-primary">
         <TerminalSquare className="size-7" />
       </div>

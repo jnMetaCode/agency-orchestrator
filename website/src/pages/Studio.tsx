@@ -111,11 +111,11 @@ function StudioInner() {
                 className={cn(
                   "inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium",
                   status === "online" && "bg-emerald-500/15 text-emerald-500",
-                  status === "offline" && "bg-red-500/15 text-red-500",
+                  status === "offline" && "bg-amber-500/15 text-amber-600 dark:text-amber-400",
                   status === "checking" && "bg-muted text-muted-foreground",
                 )}
               >
-                <span className={cn("size-1.5 rounded-full", status === "online" ? "bg-emerald-500" : status === "offline" ? "bg-red-500" : "bg-muted-foreground")} />
+                <span className={cn("size-1.5 rounded-full", status === "online" ? "bg-emerald-500" : status === "offline" ? "bg-amber-500" : "bg-muted-foreground")} />
                 {status === "online" ? t.studio.shell.statusOnline : status === "offline" ? t.studio.shell.statusOffline : t.studio.shell.statusChecking}
               </span>
               <select
@@ -153,8 +153,8 @@ function StudioInner() {
           )}
           {status !== "online" ? (
             <>
-              <StudioGate checking={status === "checking"} onRetry={recheck} />
               <StudioDemo />
+              <StudioGate checking={status === "checking"} onRetry={recheck} />
             </>
           ) : tab === "roles" ? (
             <RolesPicker provider={provider} onRun={start} onGoToWorkflows={() => setTab("workflows")} />
