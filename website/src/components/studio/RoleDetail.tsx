@@ -1,4 +1,4 @@
-import { Loader2, MessageSquare, X } from "lucide-react";
+import { Check, Copy, Loader2, MessageSquare, X } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { useLanguage } from "@/i18n/LanguageProvider";
@@ -6,6 +6,27 @@ import { api, type Role } from "@/lib/studio";
 import { Markdown } from "./Markdown";
 import { RoleAvatar } from "./RoleAvatar";
 import type { RunRequest } from "./RunManager";
+
+async function copyText(text: string): Promise<boolean> {
+  try {
+    await navigator.clipboard.writeText(text);
+    return true;
+  } catch {
+    try {
+      const ta = document.createElement("textarea");
+      ta.value = text;
+      ta.style.position = "fixed";
+      ta.style.opacity = "0";
+      document.body.appendChild(ta);
+      ta.select();
+      const ok = document.execCommand("copy");
+      document.body.removeChild(ta);
+      return ok;
+    } catch {
+      return false;
+    }
+  }
+}
 
 export function RoleDetail({
   role,
@@ -23,6 +44,14 @@ export function RoleDetail({
   const [full, setFull] = useState<Role | null>(role.content ? role : null);
   const [loading, setLoading] = useState(!role.content);
   const [task, setTask] = useState("");
+  const [copied, setCopied] = useState<"ok" | "fail" | null>(null);
+
+  const copyPrompt = async () => {
+    if (!full?.content) return;
+    const ok = await copyText(full.content);
+    setCopied(ok ? "ok" : "fail");
+    setTimeout(() => setCopied(null), 1800);
+  };
 
   useEffect(() => {
     if (role.content) return;
@@ -66,7 +95,26 @@ export function RoleDetail({
                 <Loader2 className="size-4 animate-spin" /> {t.studio.roles.loadingAbilities}
               </p>
             ) : full?.content ? (
-              <Markdown>{full.content}</Markdown>
+              <>
+                <div className="mb-2 flex justify-end">
+                  <button
+                    type="button"
+                    onClick={copyPrompt}
+                    className={
+                      "inline-flex items-center gap-1.5 rounded-lg border px-2.5 py-1 text-xs font-medium transition-colors " +
+                      (copied === "ok"
+                        ? "border-emerald-500/40 bg-emerald-500/10 text-emerald-500"
+                        : copied === "fail"
+                          ? "border-red-500/40 bg-red-500/10 text-red-500"
+                          : "border-border/70 text-muted-foreground hover:border-primary/40 hover:text-foreground")
+                    }
+                  >
+                    {copied === "ok" ? <Check className="size-3.5" /> : <Copy className="size-3.5" />}
+                    {copied === "ok" ? t.studio.roles.copied : copied === "fail" ? t.studio.roles.copyFailed : t.studio.roles.copyPrompt}
+                  </button>
+                </div>
+                <Markdown>{full.content}</Markdown>
+              </>
             ) : (
               <p className="text-sm text-muted-foreground">{t.studio.roles.noMoreInfo}</p>
             )}

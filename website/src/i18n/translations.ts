@@ -225,6 +225,9 @@ const zh = {
       askPrefix: "想问 ",
       askSuffix: " 什么？",
       chat: "对话",
+      copyPrompt: "复制提示词",
+      copied: "已复制",
+      copyFailed: "复制失败",
     },
     usage: {
       loadFailed: "加载失败：",
@@ -656,6 +659,9 @@ const en: typeof zh = {
       askPrefix: "Ask ",
       askSuffix: " anything…",
       chat: "Chat",
+      copyPrompt: "Copy prompt",
+      copied: "Copied",
+      copyFailed: "Copy failed",
     },
     usage: {
       loadFailed: "Failed to load: ",
