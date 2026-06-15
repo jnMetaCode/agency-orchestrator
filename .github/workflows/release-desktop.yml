@@ -83,6 +83,9 @@ jobs:
           tag_name: ${{ inputs.tag }}
           name: ${{ inputs.tag }}
           draft: false
+          # 桌面包始终标记为 latest：官网「下载桌面客户端」走 /releases/latest，
+          # 引擎(npm)版本另发 v* release 时用 --latest=false，避免抢走下载入口。
+          make_latest: "true"
           fail_on_unmatched_files: false
           body: |
             ## 安装 / Install
