@@ -96,6 +96,8 @@ jobs:
 
             桌面端**自带引擎与 Node，双击即用，无需 `npm i -g agency-orchestrator`**。只有想在终端用 `ao` 命令或接进脚本 / CI 时才需要安装 CLI。
 
+            > 不想装、嫌下面的签名提示麻烦？**用网页版也行**：`npm i -g agency-orchestrator && ao web`（功能和桌面版一样，key 只存本机），或直接打开 https://ao.aiolaola.com 演示体验。
+
             ### macOS 提示「已损坏，无法打开」？
             未签名版的正常提示，不是真的损坏。先把 App 拖进「应用程序」，再在「终端」运行：
 
