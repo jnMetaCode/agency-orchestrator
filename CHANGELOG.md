@@ -4,6 +4,14 @@
 
 ## [Unreleased]
 
+## [0.7.2] - 2026-06-16
+
+### Changed
+- **角色库升级到 agency-agents-zh 1.2.2**：中文角色 **211 → 216**（新增服装厂排产工程师等；并带来 Hermes Windows 目录修复、Qoder 集成、ai-citation-strategist 中文化）。全站计数统一为 **216 中文 / 184 英文**（README / 官网 / 文档 / 教程 / About）。
+
+### Fixed
+- 官网专家库清理一个失效角色的孤儿提示词（`support-supply-chain-strategist`，1.2.x 已移除）。
+
 ## [0.7.1] - 2026-06-16
 
 ### Fixed

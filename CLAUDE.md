@@ -9,7 +9,7 @@ ao run <workflow.yaml> [options]      # Execute workflow
 ao run <workflow.yaml> --resume last --from <step-id>  # Re-run from a specific step
 ao validate <workflow.yaml>           # Validate without running
 ao plan <workflow.yaml>               # Show DAG execution plan
-ao roles                              # List all 211 available roles
+ao roles                              # List all 216 available roles
 ```
 
 ## Resume — Iterative Optimization
@@ -85,7 +85,7 @@ steps:
 
 ## Role Directory
 
-Roles are in `agency-agents-zh/` (or `node_modules/agency-agents-zh/`). Each role is a `.md` file with frontmatter + system prompt. Use `ao roles` to list all 211 roles.
+Roles are in `agency-agents-zh/` (or `node_modules/agency-agents-zh/`). Each role is a `.md` file with frontmatter + system prompt. Use `ao roles` to list all 216 roles.
 
 ## Project Structure
 

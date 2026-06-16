@@ -35,15 +35,15 @@ export const docGroups: DocGroup[] = [
           {
             heading: { zh: "什么是 Agency Orchestrator", en: "What is Agency Orchestrator" },
             body: {
-              zh: "Agency Orchestrator（`ao`）是 **agency-agents 专家角色库的编排器**。\n\nagency-agents 里有 211 位打磨好的 AI 专家——营销、工程、设计、产品、财务、法律、销售、学术……每一位都是一段精调过的系统提示词，让模型稳定地以该领域专家的身份输出。但单独一位专家只能解决一个环节；真实任务往往要**多位专家分工协作**：研究员先调研、分析师再拆解、撰稿人成文、收口角色把关。\n\nAO 就是把这些专家组队起来的那一层：你用一句话或一份 YAML 描述需求，AO 自动选出合适的专家、按依赖关系排成 DAG、并行执行、在专家之间传递产出，几分钟交付一份完整方案。**你来用 agency-agents 的专家，AO 让「用专家」这件事零门槛。**",
-              en: "Agency Orchestrator (`ao`) is **the orchestrator for the agency-agents expert library**.\n\nagency-agents ships 211 finely-tuned AI experts — marketing, engineering, design, product, finance, legal, sales, academic… each a carefully crafted system prompt that makes a model reliably act as that domain expert. But one expert only handles one step; real tasks need **several experts working together**: a researcher scopes it, an analyst breaks it down, a writer drafts it, a finalizer reviews.\n\nAO is the layer that teams them up: describe your need in one sentence or a YAML file, and AO picks the right experts, arranges them into a DAG by dependency, runs them in parallel, passes outputs between them, and delivers a full plan in minutes. **You come to use agency-agents' experts; AO makes using them effortless.**",
+              zh: "Agency Orchestrator（`ao`）是 **agency-agents 专家角色库的编排器**。\n\nagency-agents 里有 216 位打磨好的 AI 专家——营销、工程、设计、产品、财务、法律、销售、学术……每一位都是一段精调过的系统提示词，让模型稳定地以该领域专家的身份输出。但单独一位专家只能解决一个环节；真实任务往往要**多位专家分工协作**：研究员先调研、分析师再拆解、撰稿人成文、收口角色把关。\n\nAO 就是把这些专家组队起来的那一层：你用一句话或一份 YAML 描述需求，AO 自动选出合适的专家、按依赖关系排成 DAG、并行执行、在专家之间传递产出，几分钟交付一份完整方案。**你来用 agency-agents 的专家，AO 让「用专家」这件事零门槛。**",
+              en: "Agency Orchestrator (`ao`) is **the orchestrator for the agency-agents expert library**.\n\nagency-agents ships 216 finely-tuned AI experts — marketing, engineering, design, product, finance, legal, sales, academic… each a carefully crafted system prompt that makes a model reliably act as that domain expert. But one expert only handles one step; real tasks need **several experts working together**: a researcher scopes it, an analyst breaks it down, a writer drafts it, a finalizer reviews.\n\nAO is the layer that teams them up: describe your need in one sentence or a YAML file, and AO picks the right experts, arranges them into a DAG by dependency, runs them in parallel, passes outputs between them, and delivers a full plan in minutes. **You come to use agency-agents' experts; AO makes using them effortless.**",
             },
           },
           {
             heading: { zh: "解决什么问题", en: "What problems it solves" },
             body: {
-              zh: "- **让 agency-agents 的专家真正协作起来**：单个专家只解决一个环节，AO 让多位专家按 DAG 分工、并行、交接\n- 单次 prompt 难以覆盖复杂任务，多专家分工 + 收口质量更高\n- 不想写编排代码：用 YAML 声明依赖，引擎自动并行；或一句话 `compose` 自动选专家、生成并运行\n- 211 位专家覆盖营销、工程、设计、产品、财务、法律、销售、学术等领域\n- 10 个 provider，7 个免 API key",
-              en: "- **Make agency-agents' experts actually collaborate**: one expert handles one step; AO has many experts divide work, run in parallel, and hand off via a DAG\n- A single prompt struggles with complex tasks; multi-expert division + a finalizer yields higher quality\n- No orchestration code: declare dependencies in YAML, or `compose` from one sentence to auto-pick experts, generate and run\n- 211 experts across marketing, engineering, design, product, finance, legal, sales, academic, and more\n- 10 providers, 7 of them need no API key",
+              zh: "- **让 agency-agents 的专家真正协作起来**：单个专家只解决一个环节，AO 让多位专家按 DAG 分工、并行、交接\n- 单次 prompt 难以覆盖复杂任务，多专家分工 + 收口质量更高\n- 不想写编排代码：用 YAML 声明依赖，引擎自动并行；或一句话 `compose` 自动选专家、生成并运行\n- 216 位专家覆盖营销、工程、设计、产品、财务、法律、销售、学术等领域\n- 10 个 provider，7 个免 API key",
+              en: "- **Make agency-agents' experts actually collaborate**: one expert handles one step; AO has many experts divide work, run in parallel, and hand off via a DAG\n- A single prompt struggles with complex tasks; multi-expert division + a finalizer yields higher quality\n- No orchestration code: declare dependencies in YAML, or `compose` from one sentence to auto-pick experts, generate and run\n- 216 experts across marketing, engineering, design, product, finance, legal, sales, academic, and more\n- 10 providers, 7 of them need no API key",
             },
           },
           {
@@ -70,10 +70,10 @@ export const docGroups: DocGroup[] = [
           {
             heading: { zh: "专家库随装随用，无需单独安装", en: "Experts come bundled — no separate install" },
             body: {
-              zh: "**装 AO 就自带 agency-agents 专家库**——它是 AO 的依赖（`agency-agents-zh`），`npm i -g` 时会一并装好，你不用再单独安装或克隆。`ao roles` 能列出 211 位专家，就说明专家库已就绪。需要升级时重新全局安装即可：",
-              en: "**Installing AO bundles the agency-agents library** — it's a dependency (`agency-agents-zh`) installed automatically by `npm i -g`, so you never install or clone it separately. If `ao roles` lists all 211 experts, the library is ready. To upgrade, reinstall globally:",
+              zh: "**装 AO 就自带 agency-agents 专家库**——它是 AO 的依赖（`agency-agents-zh`），`npm i -g` 时会一并装好，你不用再单独安装或克隆。`ao roles` 能列出 216 位专家，就说明专家库已就绪。需要升级时重新全局安装即可：",
+              en: "**Installing AO bundles the agency-agents library** — it's a dependency (`agency-agents-zh`) installed automatically by `npm i -g`, so you never install or clone it separately. If `ao roles` lists all 216 experts, the library is ready. To upgrade, reinstall globally:",
             },
-            code: "ao roles            # 验证专家库（应列出 211 位专家）\nnpm i -g agency-orchestrator@latest   # 升级",
+            code: "ao roles            # 验证专家库（应列出 216 位专家）\nnpm i -g agency-orchestrator@latest   # 升级",
           },
           {
             heading: { zh: "无需 API Key 起步", en: "Start without an API key" },
@@ -114,8 +114,8 @@ export const docGroups: DocGroup[] = [
           {
             heading: { zh: "为什么 compose 有效", en: "Why compose works" },
             body: {
-              zh: "compose 底层也是一次 LLM 调用——它读取 211 位专家的能力清单，按你的需求挑人、排依赖。生成质量取决于底层模型能力，建议用有能力的模型跑 compose。生成的 DAG 是**确定性**执行的：谁先谁后、谁并行由依赖图决定，不靠模型即兴。",
-              en: "compose is itself an LLM call — it reads the 211 experts' capabilities and picks/sequences them for your need. Generation quality depends on the underlying model, so use a capable one for compose. The generated DAG executes **deterministically**: order and parallelism come from the dependency graph, not improvisation.",
+              zh: "compose 底层也是一次 LLM 调用——它读取 216 位专家的能力清单，按你的需求挑人、排依赖。生成质量取决于底层模型能力，建议用有能力的模型跑 compose。生成的 DAG 是**确定性**执行的：谁先谁后、谁并行由依赖图决定，不靠模型即兴。",
+              en: "compose is itself an LLM call — it reads the 216 experts' capabilities and picks/sequences them for your need. Generation quality depends on the underlying model, so use a capable one for compose. The generated DAG executes **deterministically**: order and parallelism come from the dependency graph, not improvisation.",
             },
           },
         ],
@@ -322,10 +322,10 @@ steps:
           {
             heading: { zh: "agency-agents 是什么", en: "What is agency-agents" },
             body: {
-              zh: "agency-agents 是一套开源的 **AI 专家角色库**，收录了 211 位打磨好的专家。每一位专家是一个带 frontmatter 的 `.md` 文件，核心是一段精心调过的系统提示词——它约束模型的身份、视角、输出格式与专业边界，让模型稳定地以「市场研究员」「资深编辑」「财务分析师」「风控专家」等真实身份产出，而不是泛泛而谈的通用助手。\n\n角色按领域分门别类，覆盖营销、工程、设计、产品、财务、法律、销售、学术、项目管理、客服、测试等领域。AO 默认从 `node_modules/agency-agents-zh`（或仓库同级目录）加载这套库。",
-              en: "agency-agents is an open-source **library of AI expert roles** — 211 finely-tuned experts. Each expert is a `.md` file with frontmatter, centered on a carefully tuned system prompt that fixes the model's identity, perspective, output format, and domain boundaries — so the model reliably acts as a 'trend researcher', 'technical writer', 'financial analyst', 'narratologist', etc., instead of a generic assistant.\n\nRoles are organized by domain across marketing, engineering, design, product, finance, legal, sales, academic, project management, support, testing, and more. AO loads this library from `node_modules/agency-agents-zh` (or a sibling repo) by default.",
+              zh: "agency-agents 是一套开源的 **AI 专家角色库**，收录了 216 位打磨好的专家。每一位专家是一个带 frontmatter 的 `.md` 文件，核心是一段精心调过的系统提示词——它约束模型的身份、视角、输出格式与专业边界，让模型稳定地以「市场研究员」「资深编辑」「财务分析师」「风控专家」等真实身份产出，而不是泛泛而谈的通用助手。\n\n角色按领域分门别类，覆盖营销、工程、设计、产品、财务、法律、销售、学术、项目管理、客服、测试等领域。AO 默认从 `node_modules/agency-agents-zh`（或仓库同级目录）加载这套库。",
+              en: "agency-agents is an open-source **library of AI expert roles** — 216 finely-tuned experts. Each expert is a `.md` file with frontmatter, centered on a carefully tuned system prompt that fixes the model's identity, perspective, output format, and domain boundaries — so the model reliably acts as a 'trend researcher', 'technical writer', 'financial analyst', 'narratologist', etc., instead of a generic assistant.\n\nRoles are organized by domain across marketing, engineering, design, product, finance, legal, sales, academic, project management, support, testing, and more. AO loads this library from `node_modules/agency-agents-zh` (or a sibling repo) by default.",
             },
-            code: "ao roles   # 列出全部 211 位专家",
+            code: "ao roles   # 列出全部 216 位专家",
           },
           {
             heading: { zh: "AO 与 agency-agents 的关系", en: "How AO and agency-agents relate" },
@@ -337,8 +337,8 @@ steps:
           {
             heading: { zh: "找专家：ao roles 搜索", en: "Find an expert: ao roles search" },
             body: {
-              zh: "211 位专家不用一个个翻。`ao roles <关键词>`（或 `--search`）会在 **agency-agents 全库**里按 角色路径 / 名称 / 描述 搜索（不区分大小写），秒定位你要的专家：",
-              en: "No need to scroll all 211. `ao roles <keyword>` (or `--search`) searches the **entire agency-agents library** by path / name / description (case-insensitive) to find the expert you need:",
+              zh: "216 位专家不用一个个翻。`ao roles <关键词>`（或 `--search`）会在 **agency-agents 全库**里按 角色路径 / 名称 / 描述 搜索（不区分大小写），秒定位你要的专家：",
+              en: "No need to scroll all 216. `ao roles <keyword>` (or `--search`) searches the **entire agency-agents library** by path / name / description (case-insensitive) to find the expert you need:",
             },
             code: "ao roles seo        # 找 SEO 相关专家\nao roles 财务       # 找财务相关专家",
           },

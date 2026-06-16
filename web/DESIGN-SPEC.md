@@ -20,7 +20,7 @@
 | GET | `/api/workflows` | 列出所有工作流（内置 + private），含 steps/inputs 元数据 |
 | GET | `/api/workflows/yaml?file=` | 返回指定工作流的 YAML 原文 |
 | POST | `/api/run` | 运行工作流（SSE 流式），支持 resume/fromStep |
-| GET | `/api/roles` | 列出所有角色（211 个），含分类/名称/描述/颜色 |
+| GET | `/api/roles` | 列出所有角色（216 个），含分类/名称/描述/颜色 |
 | GET | `/api/roles/:category/:id` | 获取单个角色详情（含完整 system prompt） |
 | POST | `/api/run-role` | 单角色对话（SSE 流式），后端自动生成临时单步 workflow |
 | GET | `/api/runs` | 列出运行历史（从 ao-output/ 读取） |
@@ -147,7 +147,7 @@
   - 执行总结
   - 最终交付（Markdown 渲染的完整方案）
 - 速度控制：快(0.5x) / 正常(1x) / 慢(2x)
-- 底部特性展示：211+ 角色 / 10 种大模型 / DAG 自动并行 / Zero 代码
+- 底部特性展示：216+ 角色 / 10 种大模型 / DAG 自动并行 / Zero 代码
 
 ---
 

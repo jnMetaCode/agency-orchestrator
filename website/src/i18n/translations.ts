@@ -21,14 +21,14 @@ const zh = {
     title: "一句话，让 agency-agents 的专家",
     titleHighlight: "自动组队协作",
     subtitle:
-      "描述需求 → AI 自动拆解任务 → 从 211 位专家中选角 → 按 DAG 并行执行 → 几分钟出一份完整方案。专家来自开源库 agency-agents，AO 负责把他们编排成一支团队。",
+      "描述需求 → AI 自动拆解任务 → 从 216 位专家中选角 → 按 DAG 并行执行 → 几分钟出一份完整方案。专家来自开源库 agency-agents，AO 负责把他们编排成一支团队。",
     ctaPrimary: "在 GitHub 上查看",
     ctaSecondary: "看赞助商权益",
     installHint: "一行命令开始：",
     copy: "复制",
     copied: "已复制",
     stats: [
-      { value: "211", label: "agency-agents 专家" },
+      { value: "216", label: "agency-agents 专家" },
       { value: "10", label: "种大模型" },
       { value: "DAG", label: "自动并行编排" },
       { value: "YAML", label: "零代码定义" },
@@ -60,7 +60,7 @@ const zh = {
       },
       {
         icon: "users",
-        title: "211 位 agency-agents 专家",
+        title: "216 位 agency-agents 专家",
         desc: "全部来自开源专家库 agency-agents：营销 / 工程 / 设计 / 产品 / 财务 / 法律……即插即用，含中国本土平台角色（小红书 / 抖音 / 知乎 / B站 / 微信）。",
       },
       {
@@ -413,7 +413,7 @@ const zh = {
           'name: "我的工作流"\nllm:\n  provider: "deepseek"\n  model: "deepseek-chat"\nsteps:\n  - id: research\n    role: "product/product-trend-researcher"\n    task: "调研 {{topic}} 的市场"\n    output: research\n  - id: write\n    role: "marketing/marketing-content-creator"\n    task: "基于 {{research}} 写方案"\n    depends_on: [research]',
       },
     ],
-    moreInRepo: "完整文档与 211 个角色清单见 GitHub 仓库。",
+    moreInRepo: "完整文档与 216 个角色清单见 GitHub 仓库。",
   },
   tutorials: {
     badge: "官方 + 社区",
@@ -493,14 +493,14 @@ const en: typeof zh = {
     title: "One sentence in, agency-agents' experts",
     titleHighlight: "team up automatically",
     subtitle:
-      "Describe what you need → AI decomposes the task → picks from 211 experts → runs them in parallel as a DAG → a full plan in minutes. The experts come from the open-source agency-agents library; AO orchestrates them into a team.",
+      "Describe what you need → AI decomposes the task → picks from 216 experts → runs them in parallel as a DAG → a full plan in minutes. The experts come from the open-source agency-agents library; AO orchestrates them into a team.",
     ctaPrimary: "View on GitHub",
     ctaSecondary: "Sponsor perks",
     installHint: "Start with one command:",
     copy: "Copy",
     copied: "Copied",
     stats: [
-      { value: "211", label: "agency-agents experts" },
+      { value: "216", label: "agency-agents experts" },
       { value: "10", label: "LLM providers" },
       { value: "DAG", label: "auto parallelism" },
       { value: "YAML", label: "zero-code" },
@@ -526,7 +526,7 @@ const en: typeof zh = {
     subtitle: "Blind-eval tested: on a capable-but-cheap model tier, expert-divided output clearly beats a one-shot prompt.",
     items: [
       { icon: "workflow", title: "Automatic DAG parallelism", desc: "The engine derives the execution graph from dependencies; independent steps run in parallel — not naive serial." },
-      { icon: "users", title: "211 agency-agents experts", desc: "All from the open-source agency-agents library: marketing / engineering / design / product / finance / legal… plus China-native platform roles (Xiaohongshu / Douyin / Zhihu / Bilibili)." },
+      { icon: "users", title: "216 agency-agents experts", desc: "All from the open-source agency-agents library: marketing / engineering / design / product / finance / legal… plus China-native platform roles (Xiaohongshu / Douyin / Zhihu / Bilibili)." },
       { icon: "file-code", title: "Zero-code YAML", desc: "A workflow is one YAML: roles, tasks, dependencies, loops, conditions — readable, editable, versionable." },
       { icon: "repeat", title: "Resume from any step", desc: "All step outputs are saved. Re-run from a single step (--resume), reuse upstream — iterate without wasting tokens." },
       { icon: "boxes", title: "10 LLM providers", desc: "DeepSeek / Claude / OpenAI / Gemini / Ollama… switch with one field. Pick whatever model fits your needs." },
@@ -840,7 +840,7 @@ const en: typeof zh = {
       { heading: "Iterate (resume)", body: "Outputs are saved to ao-output/. Unhappy with one step? Re-run just that step and downstream, reusing upstream.", code: "ao run workflow.yaml --resume last --from character_design" },
       { heading: "Workflow YAML shape", body: "A workflow is roles + tasks + dependencies. Minimal skeleton:", code: 'name: "My workflow"\nllm:\n  provider: "deepseek"\n  model: "deepseek-chat"\nsteps:\n  - id: research\n    role: "product/product-trend-researcher"\n    task: "Research the market for {{topic}}"\n    output: research\n  - id: write\n    role: "marketing/marketing-content-creator"\n    task: "Write a plan from {{research}}"\n    depends_on: [research]' },
     ],
-    moreInRepo: "Full docs and the list of 211 roles live in the GitHub repo.",
+    moreInRepo: "Full docs and the list of 216 roles live in the GitHub repo.",
   },
   tutorials: {
     badge: "Official + Community",
