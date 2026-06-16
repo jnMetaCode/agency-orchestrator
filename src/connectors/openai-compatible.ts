@@ -84,9 +84,9 @@ export class OpenAICompatibleConnector implements LLMConnector {
         throw new Error(`API error ${response.status}: ${text}`);
       }
 
-      let chunk: string;
+      let streamResult: { content: string; finishReason: string | null };
       try {
-        chunk = await this.readStream(response);
+        streamResult = await this.readStream(response);
       } catch (err) {
         clearTimeout(timer);
         // stream 断开，检查是否有部分内容
@@ -104,8 +104,12 @@ export class OpenAICompatibleConnector implements LLMConnector {
         clearTimeout(timer);
       }
 
-      // 正常完成
-      fullContent += chunk;
+      fullContent += streamResult.content;
+      // 干净结束但命中 max_tokens 上限（finish_reason=length）→ 自动续写，避免静默截断
+      if (streamResult.finishReason === 'length' && continuation < maxContinuations) {
+        process.stderr.write(`  🔄 输出达 max_tokens 上限，自动续写 (${continuation + 1}/${maxContinuations})，已累计 ${fullContent.length} 字符...\n`);
+        continue;
+      }
       break;
     }
 
@@ -125,13 +129,14 @@ export class OpenAICompatibleConnector implements LLMConnector {
    * 格式: data: {"choices":[{"delta":{"content":"token"}}]}\n\n
    * 结束: data: [DONE]\n\n
    */
-  private async readStream(response: Response): Promise<string> {
+  private async readStream(response: Response): Promise<{ content: string; finishReason: string | null }> {
     const reader = response.body?.getReader();
     if (!reader) throw new Error('Response body is null');
 
     const decoder = new TextDecoder();
     let content = '';
     let buffer = '';
+    let finishReason: string | null = null;
     let lastProgressTime = 0;
 
     try {
@@ -167,6 +172,8 @@ export class OpenAICompatibleConnector implements LLMConnector {
             }
             const delta = chunk.choices?.[0]?.delta?.content;
             if (delta) content += delta;
+            const fr = chunk.choices?.[0]?.finish_reason;
+            if (fr) finishReason = fr;
           } catch (e) {
             // 重新抛出 API 错误，忽略 JSON 解析失败
             if (e instanceof Error && e.message.startsWith('API stream error')) throw e;
@@ -184,6 +191,6 @@ export class OpenAICompatibleConnector implements LLMConnector {
     }
 
     reader.cancel().catch(() => {});  // 正常结束也释放 reader
-    return content;
+    return { content, finishReason };
   }
 }

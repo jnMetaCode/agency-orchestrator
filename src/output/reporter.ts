@@ -217,7 +217,12 @@ export function loadPreviousContext(outputDir: string): Map<string, string> {
       const stepFiles = existsSync(stepsDir) ? readdirSync(stepsDir) : [];
       const stepFile = stepFiles.find(f => f.endsWith(`-${step.id}.md`));
       if (stepFile) {
-        const content = readFileSync(join(stepsDir, stepFile), 'utf-8');
+        let content = readFileSync(join(stepsDir, stepFile), 'utf-8');
+        // 去掉文件头部（> emoji **name** | 步骤 i/n 后跟 \n---\n），只把正文回灌给下游，
+        // 否则 --resume 时下游专家会收到带 markdown 头的"上一版产出"（与 loadStepOutput 一致）
+        const headerEnd = content.indexOf('\n---\n');
+        if (headerEnd >= 0) content = content.slice(headerEnd + 5);
+        content = content.trim();
         if (content && content !== '(无输出)') {
           context.set(step.output_var, content);
         }

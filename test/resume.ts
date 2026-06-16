@@ -131,6 +131,10 @@ await test('loadPreviousContext 恢复 inputs + 各步 output', () => {
   assert(!!ctx.get('requirements'), 'analyze 的 output(requirements) 应恢复');
   assert(!!ctx.get('tech_report') && !!ctx.get('design_report'), 'L1 两步 output 应恢复');
   assert(!!ctx.get('final_report'), 'final_summary 的 output 应恢复');
+  // 回归：恢复的产出必须是正文，不能带 step 文件头（> emoji **name** | 步骤 i/n ... ---）
+  const restored = ctx.get('requirements') as string;
+  assert(!restored.startsWith('>'), `resume 产出不应带文件头，实际开头: ${restored.slice(0, 40)}`);
+  assert(!restored.includes('\n---\n'), 'resume 产出不应残留文件头分隔符 \\n---\\n');
 });
 
 await test('--from final_summary：仅重跑 1 步，上游复用旧输出', async () => {

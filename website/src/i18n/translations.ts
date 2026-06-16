@@ -493,14 +493,14 @@ const en: typeof zh = {
     title: "One sentence in, agency-agents' experts",
     titleHighlight: "team up automatically",
     subtitle:
-      "Describe what you need → AI decomposes the task → picks from 216 experts → runs them in parallel as a DAG → a full plan in minutes. The experts come from the open-source agency-agents library; AO orchestrates them into a team.",
+      "Describe what you need → AI decomposes the task → picks from 184 experts → runs them in parallel as a DAG → a full plan in minutes. The experts come from the open-source agency-agents library; AO orchestrates them into a team.",
     ctaPrimary: "View on GitHub",
     ctaSecondary: "Sponsor perks",
     installHint: "Start with one command:",
     copy: "Copy",
     copied: "Copied",
     stats: [
-      { value: "216", label: "agency-agents experts" },
+      { value: "184", label: "agency-agents experts" },
       { value: "10", label: "LLM providers" },
       { value: "DAG", label: "auto parallelism" },
       { value: "YAML", label: "zero-code" },
@@ -526,7 +526,7 @@ const en: typeof zh = {
     subtitle: "Blind-eval tested: on a capable-but-cheap model tier, expert-divided output clearly beats a one-shot prompt.",
     items: [
       { icon: "workflow", title: "Automatic DAG parallelism", desc: "The engine derives the execution graph from dependencies; independent steps run in parallel — not naive serial." },
-      { icon: "users", title: "216 agency-agents experts", desc: "All from the open-source agency-agents library: marketing / engineering / design / product / finance / legal… plus China-native platform roles (Xiaohongshu / Douyin / Zhihu / Bilibili)." },
+      { icon: "users", title: "184 agency-agents experts", desc: "All from the open-source agency-agents library: marketing / engineering / design / product / finance / legal / game-dev and more — each a finely-tuned system prompt." },
       { icon: "file-code", title: "Zero-code YAML", desc: "A workflow is one YAML: roles, tasks, dependencies, loops, conditions — readable, editable, versionable." },
       { icon: "repeat", title: "Resume from any step", desc: "All step outputs are saved. Re-run from a single step (--resume), reuse upstream — iterate without wasting tokens." },
       { icon: "boxes", title: "10 LLM providers", desc: "DeepSeek / Claude / OpenAI / Gemini / Ollama… switch with one field. Pick whatever model fits your needs." },
@@ -840,7 +840,7 @@ const en: typeof zh = {
       { heading: "Iterate (resume)", body: "Outputs are saved to ao-output/. Unhappy with one step? Re-run just that step and downstream, reusing upstream.", code: "ao run workflow.yaml --resume last --from character_design" },
       { heading: "Workflow YAML shape", body: "A workflow is roles + tasks + dependencies. Minimal skeleton:", code: 'name: "My workflow"\nllm:\n  provider: "deepseek"\n  model: "deepseek-chat"\nsteps:\n  - id: research\n    role: "product/product-trend-researcher"\n    task: "Research the market for {{topic}}"\n    output: research\n  - id: write\n    role: "marketing/marketing-content-creator"\n    task: "Write a plan from {{research}}"\n    depends_on: [research]' },
     ],
-    moreInRepo: "Full docs and the list of 216 roles live in the GitHub repo.",
+    moreInRepo: "Full docs and the list of 184 roles live in the GitHub repo.",
   },
   tutorials: {
     badge: "Official + Community",

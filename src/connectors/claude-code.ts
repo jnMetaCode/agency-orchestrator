@@ -24,7 +24,8 @@ export class ClaudeCodeConnector implements LLMConnector {
     let systemPromptFile: string | undefined;
     if (systemPrompt) {
       systemPromptFile = join(tmpdir(), `ao-sysprompt-${Date.now()}-${Math.random().toString(36).slice(2)}.txt`);
-      writeFileSync(systemPromptFile, systemPrompt, 'utf-8');
+      // 0600：系统提示词可能含专有角色定义，限制为仅当前用户可读
+      writeFileSync(systemPromptFile, systemPrompt, { encoding: 'utf-8', mode: 0o600 });
     }
 
     // 使用 json 格式：text 格式在管道中会缓冲挂起
