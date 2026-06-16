@@ -11,8 +11,42 @@
  * ...system prompt 内容...
  */
 import { readFileSync, existsSync, readdirSync } from 'node:fs';
-import { join, resolve } from 'node:path';
+import { join, resolve, relative, sep } from 'node:path';
 import type { AgentDefinition } from '../types.js';
+
+// 枚举角色时跳过的非角色目录
+const SKIP_DIRS = new Set(['node_modules', 'scripts', 'integrations', 'examples']);
+
+/** 一个 .md 是否是「角色」：必须有带 name 的 frontmatter（排除 README / 攻略 / 模板等文档）。 */
+function isAgentFile(fullPath: string): boolean {
+  try {
+    const m = readFileSync(fullPath, 'utf-8').match(/^---\s*\n([\s\S]*?)\n---/);
+    return !!m && /^\s*name\s*:/m.test(m[1]);
+  } catch {
+    return false;
+  }
+}
+
+/** 递归收集所有角色路径（如 "engineering/x"、"game-development/unity/unity-architect"）。 */
+function collectRolePaths(baseDir: string): string[] {
+  const out: string[] = [];
+  const walk = (dir: string) => {
+    for (const e of readdirSync(dir, { withFileTypes: true })) {
+      if (e.name.startsWith('.') || SKIP_DIRS.has(e.name)) continue;
+      const full = join(dir, e.name);
+      if (e.isDirectory()) walk(full);
+      else if (e.isFile() && e.name.endsWith('.md') && isAgentFile(full)) {
+        out.push(relative(baseDir, full).split(sep).join('/').replace(/\.md$/, ''));
+      }
+    }
+  };
+  // 只从顶层「部门」子目录往下走，忽略根目录散落的 .md（README 等）
+  for (const dept of readdirSync(baseDir, { withFileTypes: true })) {
+    if (!dept.isDirectory() || dept.name.startsWith('.') || SKIP_DIRS.has(dept.name)) continue;
+    walk(join(baseDir, dept.name));
+  }
+  return out;
+}
 
 /**
  * 加载指定角色的定义
@@ -87,25 +121,14 @@ export function listAgents(agentsDir: string): AgentDefinition[] {
   }
 
   const agents: AgentDefinition[] = [];
-
-  // 遍历子目录
-  for (const dept of readdirSync(dir, { withFileTypes: true })) {
-    if (!dept.isDirectory()) continue;
-    // 跳过非 agent 目录
-    if (dept.name.startsWith('.') || dept.name === 'node_modules' || dept.name === 'scripts' ||
-        dept.name === 'integrations' || dept.name === 'examples') continue;
-    const deptDir = join(dir, dept.name);
-
-    for (const file of readdirSync(deptDir, { withFileTypes: true })) {
-      if (!file.isFile() || !file.name.endsWith('.md')) continue;
-      const rolePath = `${dept.name}/${file.name.replace('.md', '')}`;
-      try {
-        const agent = loadAgent(agentsDir, rolePath);
-        agent.rolePath = rolePath;
-        agents.push(agent);
-      } catch {
-        // 跳过无法解析的文件
-      }
+  // 递归收集（含 game-development/unity/* 等嵌套角色），只取带 name frontmatter 的真角色
+  for (const rolePath of collectRolePaths(dir)) {
+    try {
+      const agent = loadAgent(agentsDir, rolePath);
+      agent.rolePath = rolePath;
+      agents.push(agent);
+    } catch {
+      // 跳过无法解析的文件
     }
   }
 
@@ -119,16 +142,7 @@ export function listAgents(agentsDir: string): AgentDefinition[] {
 export function listRolePaths(agentsDir: string): string[] {
   const dir = resolve(agentsDir);
   if (!existsSync(dir)) return [];
-  const paths: string[] = [];
-  for (const dept of readdirSync(dir, { withFileTypes: true })) {
-    if (!dept.isDirectory()) continue;
-    if (dept.name.startsWith('.') || dept.name === 'node_modules' || dept.name === 'scripts' ||
-        dept.name === 'integrations' || dept.name === 'examples') continue;
-    for (const file of readdirSync(join(dir, dept.name), { withFileTypes: true })) {
-      if (!file.isFile() || !file.name.endsWith('.md')) continue;
-      paths.push(`${dept.name}/${file.name.replace('.md', '')}`);
-    }
-  }
+  const paths: string[] = collectRolePaths(dir);
   return paths;
 }
 

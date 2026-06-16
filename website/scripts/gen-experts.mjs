@@ -28,19 +28,26 @@ function parseRole(raw) {
 // 每个角色的完整提示词正文写成静态文件，供官网点击复制（按需 fetch，不塞进 JSON）。
 const promptsRoot = join(__dirname, "..", "public", "prompts");
 
+const SKIP_DIRS = new Set(["node_modules", "scripts", "integrations", "examples"]);
+
 function loadLib(dir, lang) {
   if (!existsSync(dir)) return null;
   const cats = CATEGORY_NAMES[lang];
   const out = [];
-  for (const cat of readdirSync(dir)) {
-    const catDir = join(dir, cat);
-    try { if (!statSync(catDir).isDirectory()) continue; } catch { continue; }
+  // 在某「部门」目录下递归收集角色（含 game-development/unity/* 等嵌套），id 带子路径
+  const walk = (catDir, cat, relDir) => {
     for (const f of readdirSync(catDir)) {
+      if (f.startsWith(".") || SKIP_DIRS.has(f)) continue;
+      const full = join(catDir, f);
+      let isDir = false;
+      try { isDir = statSync(full).isDirectory(); } catch { continue; }
+      if (isDir) { walk(full, cat, relDir ? `${relDir}/${f}` : f); continue; }
       if (!f.endsWith(".md")) continue;
-      const parsed = parseRole(readFileSync(join(catDir, f), "utf-8"));
-      if (!parsed || !parsed.fm.name) continue;
+      const parsed = parseRole(readFileSync(full, "utf-8"));
+      if (!parsed || !parsed.fm.name) continue; // 只收真角色（有 name frontmatter）
       const fm = parsed.fm;
-      const id = f.replace(/\.md$/, "");
+      const base = f.replace(/\.md$/, "");
+      const id = relDir ? `${relDir}/${base}` : base;
       out.push({
         category: cat,
         categoryName: cats[cat] || cat,
@@ -50,10 +57,16 @@ function loadLib(dir, lang) {
         emoji: fm.emoji || "",
         color: fm.color || "#888",
       });
-      const outDir = join(promptsRoot, lang, cat);
-      mkdirSync(outDir, { recursive: true });
-      writeFileSync(join(outDir, `${id}.md`), parsed.body + "\n", "utf-8");
+      const outFile = join(promptsRoot, lang, cat, `${id}.md`);
+      mkdirSync(dirname(outFile), { recursive: true });
+      writeFileSync(outFile, parsed.body + "\n", "utf-8");
     }
+  };
+  for (const cat of readdirSync(dir)) {
+    if (cat.startsWith(".") || SKIP_DIRS.has(cat)) continue;
+    const catDir = join(dir, cat);
+    try { if (!statSync(catDir).isDirectory()) continue; } catch { continue; }
+    walk(catDir, cat, "");
   }
   out.sort((a, b) => a.category.localeCompare(b.category) || a.name.localeCompare(b.name));
   return out;

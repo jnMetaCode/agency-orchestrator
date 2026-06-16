@@ -4,6 +4,13 @@
 
 ## [Unreleased]
 
+## [0.7.1] - 2026-06-16
+
+### Fixed
+- **嵌套角色现在可枚举 / 可用**：角色加载改为**递归**子目录，`game-development/unity/*`、`unreal-engine/*`、`roblox-studio/*`、`godot/*`、`blender/*` 等 15 个嵌套智能体此前无法被 `listAgents` / `ao roles` / compose 建议发现（loader 只扫一层）——现在补齐，中文库角色数与官方一致达到 **211**（英文库 184）。
+- **枚举只认真角色**：仅纳入带 `name:` frontmatter 的 `.md`，排除 `QUICKSTART` / `EXECUTIVE-BRIEF` 等攻略 / 模板文档（此前会被当成"角色"混入列表）。
+- **官网专家库补齐**：`gen-experts.mjs` 同步递归，专家浏览 / 复制提示词覆盖全部 211（zh）+ 184（en），不再漏掉游戏开发类嵌套专家。
+
 ## [0.7.0] - 2026-06-16
 
 ### Added
