@@ -11,7 +11,7 @@
 
 **One sentence → full plan · 216 expert AI roles · Zero-code YAML · 10 LLM providers · key supported (DeepSeek recommended), plus 7 key-free options**
 
-> **Note:** `ao compose --run` auto-detects your language. Both 216 Chinese roles and 184 English roles ([agency-agents](https://github.com/msitarzewski/agency-agents), MIT) are **bundled in the npm package — no extra download needed**. **6 English workflow templates** are ready in `workflows/en/` — more coming in v0.6.
+> **Note:** `ao compose --run` auto-detects your language. Both 216 Chinese roles and 184 English roles ([agency-agents](https://github.com/msitarzewski/agency-agents), MIT) are **bundled in the npm package — no extra download needed**. **10 English workflow templates** are ready in `workflows/en/`.
 
 > 📖 [Full Tutorial](https://dev.to/jnmetacode/agency-orchestrator-one-sentence-five-ai-agents-a-complete-plan-in-3-minutes-1ij6) — from install to real-world use in 10 minutes
 
@@ -120,7 +120,7 @@ ao compose "Analyze the feasibility of building an AI budgeting app" --run
 ### Step 3: Use built-in templates or integrate with AI coding tools
 
 ```bash
-# 6 English workflow templates in workflows/en/
+# 10 English workflow templates in workflows/en/
 ao run workflows/en/solo-founder-plan.yaml -i idea="AI-powered resume builder for job seekers"
 ao run workflows/en/pr-review.yaml -i pr_diff=@mypr.diff -i pr_description="Add auth middleware"
 ao run workflows/en/business-plan.yaml -i idea="B2B SaaS for remote-team project tracking"

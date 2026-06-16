@@ -18,7 +18,7 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT = resolve(__dirname, '..');
 const WORKFLOWS_DIR = join(ROOT, 'workflows');
 // 英文内置模板库（curated）。英文站按语言 serve；没有英文版的模板不混中文进来。
-const WORKFLOWS_DIR_EN = join(ROOT, 'workflows-en');
+const WORKFLOWS_DIR_EN = join(ROOT, 'workflows', 'en');
 // Optional extra workflows dir for your own/team workflows, e.g. set
 // AO_USER_WORKFLOWS_DIR=marketing/workflows (absolute or ROOT-relative). Off by default.
 const USER_WORKFLOWS_DIR = process.env.AO_USER_WORKFLOWS_DIR
@@ -217,7 +217,7 @@ function loadWorkflowMeta(dir, tagPrivate = false) {
 
 // ── Workflow list ──
 app.get('/api/workflows', (req, res) => {
-  // 英文站优先用英文模板库（workflows-en）；没有英文版的就不混中文进来，保持一致体验。
+  // 英文站优先用英文模板库（workflows/en）；没有英文版的就不混中文进来，保持一致体验。
   const builtinDir = (req.query.lang === 'en' && existsSync(WORKFLOWS_DIR_EN)) ? WORKFLOWS_DIR_EN : WORKFLOWS_DIR;
   const all = [
     ...loadWorkflowMeta(builtinDir, false),
