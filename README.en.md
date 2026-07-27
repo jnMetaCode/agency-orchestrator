@@ -30,6 +30,8 @@
 
 Prefer not to use the command line? Run `ao web` locally and pick experts, run workflows, view outputs, and intervene live — all in a GUI, fully bilingual (EN/中文).
 
+> 🆕 **Safe provider switching + one-click rescue**: switch your system Claude to any relay in one click — written to global config so `claude` **just works in any terminal** — with an **automatic backup first**, a **one-click revert to official login**, and it never touches your official OAuth credentials. Broke `~/.claude` with another switcher or by hand (fake token overriding login → CLI unusable machine-wide)? The "System Claude health" card fixes it in one click. **Other tools switch everything but may break your setup; AO does one thing — switch safely, and fix what others broke.**
+
 <p align="center">
   <img src="./docs/screenshots/studio-role-lib-ko.png" alt="Studio · Build a Team: role-library dropdown (Korean library shown)" width="800"><br/>
   <em>Build a Team: ☆ favorites, My Roles, and a role-library dropdown — Chinese / English / Korean / Russian / pt-BR / Indonesian / Arabic</em>

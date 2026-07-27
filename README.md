@@ -35,6 +35,7 @@
 > 🆕 **零配置首跑**：本机已登录 Claude Code / Gemini CLI 等？AO 自动探测并直接用，连 API key 都不用配。
 > 🆕 **我的角色 + 提示生成**：「提示生成」页产出的 system prompt 一键存为自建角色（`~/.ao/roles`），组队页「我的」分类直接用；角色卡可 ☆ 收藏常用。
 > 🆕 **多语言角色库**：`npm i agency-agents-ko`（ko / ru / pt-br / id / ar）后，Studio「角色库」下拉一键切换，工作流 `agents_dir` 写包名即可跑。
+> 🆕 **安全切换服务商 + 一键急救**：把系统 Claude 一键切到任意中转，写进全局配置、**任意终端 `claude` 直接生效**——写前**自动备份**、可**一键切回官方登录**、绝不碰你的官方 OAuth 凭据。被别的切换器/手动写坏了 `~/.claude`（假 token 顶掉登录、整机 CLI 用不了）？「系统 Claude Code 体检」卡一键修复。**别的工具什么都能切，但可能把你环境切坏；AO 只做一件事——安全地切，还能修好被切坏的。**
 
 <p align="center">
   <img src="./docs/screenshots/studio-workflows-zh.png" alt="Studio · 工作流模板：内置模板一键运行" width="800"><br/>
