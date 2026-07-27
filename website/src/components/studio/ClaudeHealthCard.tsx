@@ -1,4 +1,4 @@
-import { LifeBuoy, Loader2, RotateCw, ShieldAlert, ShieldCheck, Undo2 } from "lucide-react";
+import { Globe, LifeBuoy, Loader2, RotateCw, ShieldAlert, ShieldCheck, Undo2 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Tip } from "@/components/ui/tip";
@@ -21,12 +21,15 @@ export function ClaudeHealthCard() {
   const [failed, setFailed] = useState(false);
   const [repairing, setRepairing] = useState(false);
   const [restoring, setRestoring] = useState(false);
+  const [applying, setApplying] = useState(false);
+  const [applyError, setApplyError] = useState<string | null>(null);
   const [result, setResult] = useState<ClaudeRepairResult | null>(null);
 
   const check = () => {
     setLoading(true);
     setFailed(false);
     setResult(null);
+    setApplyError(null);
     Promise.all([
       api.claudeHealth(),
       // status 端点在旧后端可能不存在 —— 拿不到就当"未管理"，不影响体检主流程
@@ -65,6 +68,21 @@ export function ClaudeHealthCard() {
       })
       .catch(() => setFailed(true))
       .finally(() => setRestoring(false));
+  };
+
+  // 写入全局：把已配置的 Claude Code 中转写进 ~/.claude/settings.json，让系统 claude 直接用。
+  // key 存服务端，前端只传 provider id；未配置中转时后端会返回友好错误提示。
+  const applyGlobal = () => {
+    setApplying(true);
+    setApplyError(null);
+    api
+      .applyClaude("claude-code")
+      .then((r) => {
+        setStatus(r.status);
+        check(); // 刷新为"已切换（蓝色）"状态
+      })
+      .catch((e) => setApplyError(e?.message || String(e)))
+      .finally(() => setApplying(false));
   };
 
   // 无后端（演示站）：体检失败就整卡隐藏，不干扰主流程。
@@ -143,8 +161,18 @@ export function ClaudeHealthCard() {
             </>
           )}
 
-          {/* 绿灯 */}
-          {!hijacked && !aoManaged && !result && <p className="font-medium text-emerald-500">{tr.healthy}</p>}
+          {/* 绿灯 + 写入全局（从官方切到已配置的中转） */}
+          {!hijacked && !aoManaged && !result && (
+            <>
+              <p className="font-medium text-emerald-500">{tr.healthy}</p>
+              <p className="text-muted-foreground">{tr.applyHint}</p>
+              <Button size="sm" variant="outline" onClick={applyGlobal} disabled={applying} className="mt-1">
+                {applying ? <Loader2 className="mr-1.5 size-3.5 animate-spin" /> : <Globe className="mr-1.5 size-3.5" />}
+                {applying ? tr.applying : tr.applyBtn}
+              </Button>
+              {applyError && <p className="text-red-500">{applyError}</p>}
+            </>
+          )}
 
           {/* 红灯：被劫持 */}
           {hijacked && (

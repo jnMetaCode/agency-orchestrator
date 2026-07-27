@@ -435,6 +435,13 @@ export interface ClaudeRestoreResult {
   removedAoMarker: boolean;
   status: ClaudeSwitchStatus;
 }
+export interface ClaudeApplyResult {
+  ok: boolean;
+  path: string;
+  backup: string | null;
+  writtenKeys: string[];
+  status: ClaudeSwitchStatus;
+}
 
 // 从模型 id 推断所属厂商，给「获取模型列表」的大列表分组用（对齐 cc-switch 的按 vendor 分组）。
 // 聚合商 /models 常有上百个还混各家，扁平一堆没法扫；按厂商分组后一眼定位。
@@ -558,6 +565,8 @@ export const api = {
   repairClaude: () => postJSON<ClaudeRepairResult>("/claude/repair", {}),
   claudeSwitchStatus: () => getJSON<ClaudeSwitchStatus>("/claude/status"),
   restoreClaude: () => postJSON<ClaudeRestoreResult>("/claude/restore", {}),
+  // 把已配置的中转写入全局 ~/.claude/settings.json（后端从 web-keys.json 解析 key，前端只传 provider id）
+  applyClaude: (provider: string) => postJSON<ClaudeApplyResult>("/claude/apply", { provider }),
   prompts: () => getJSON<{ prompts: PromptRecord[] }>("/prompts").then((r) => r.prompts),
   savePrompt: (body: { name: string; mode: PromptMode; versions: PromptVersion[]; favorite?: boolean }) =>
     postJSON<{ ok: boolean; slug: string }>("/prompts", body),

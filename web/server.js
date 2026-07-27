@@ -1697,22 +1697,31 @@ app.get('/api/claude/status', (_req, res) => {
 });
 app.post('/api/claude/apply', (req, res) => {
   try {
-    const { providerId, baseUrl, apiKey, apiKeyField, model, sonnetModel, opusModel, haikuModel } = req.body || {};
+    const b = req.body || {};
+    const pid = b.providerId || b.provider;
+    if (!pid) return res.status(400).json({ error: 'providerId 必填' });
+    // 前端只需传 provider id —— base_url / key / 模型映射未显式传时，从已保存配置 + 注册表默认值解析。
+    // key 存在服务端 web-keys.json，不经前端往返，更安全。
+    const saved = readKeys()[pid] || {};
+    const spec = API_PROVIDER_MAP[pid] || remoteProviderSpec(pid);
+    const pickStr = (k, fallback) => (typeof b[k] === 'string' && b[k].trim() ? b[k].trim() : fallback);
+    const baseUrl = pickStr('baseUrl', saved.baseUrl || spec?.defaultBaseUrl || '');
+    const apiKey = pickStr('apiKey', saved.apiKey || '');
     if (typeof apiKey === 'string' && /[^\x20-\x7E]/.test(apiKey)) {
       return res.status(400).json({ error: 'API key 含中文/全角字符——通常是复制时把说明文字一起带上了，请只粘贴 key 本身' });
     }
-    if (!providerId || typeof baseUrl !== 'string' || !baseUrl.trim() || typeof apiKey !== 'string' || !apiKey.trim()) {
-      return res.status(400).json({ error: 'providerId、baseUrl、apiKey 必填' });
+    if (!baseUrl || !apiKey) {
+      return res.status(400).json({ error: `缺少 ${pid} 的 base_url 或 API key —— 请先在服务商配置里填好再写入全局` });
     }
     const result = applyClaudeProvider({
-      providerId: String(providerId),
-      baseUrl: baseUrl.trim(),
-      apiKey: apiKey.trim(),
-      apiKeyField: apiKeyField === 'ANTHROPIC_API_KEY' ? 'ANTHROPIC_API_KEY' : undefined,
-      model: typeof model === 'string' && model.trim() ? model.trim() : undefined,
-      sonnetModel: typeof sonnetModel === 'string' && sonnetModel.trim() ? sonnetModel.trim() : undefined,
-      opusModel: typeof opusModel === 'string' && opusModel.trim() ? opusModel.trim() : undefined,
-      haikuModel: typeof haikuModel === 'string' && haikuModel.trim() ? haikuModel.trim() : undefined,
+      providerId: String(pid),
+      baseUrl,
+      apiKey,
+      apiKeyField: b.apiKeyField === 'ANTHROPIC_API_KEY' ? 'ANTHROPIC_API_KEY' : undefined,
+      model: pickStr('model', saved.model),
+      sonnetModel: pickStr('sonnetModel', saved.sonnetModel),
+      opusModel: pickStr('opusModel', saved.opusModel),
+      haikuModel: pickStr('haikuModel', saved.haikuModel),
     });
     res.json({ ok: true, ...result, status: readClaudeSwitchStatus() });
   } catch (err) {
