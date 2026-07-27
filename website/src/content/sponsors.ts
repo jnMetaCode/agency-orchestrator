@@ -45,7 +45,7 @@ export const sponsors: Sponsor[] = [
     accent: "from-violet-600 to-indigo-500",
     logo: "/sponsors/logo-apinebula-icon.png",
     banner: "/sponsors/banner-apinebula.jpeg",
-    url: "https://apinebula.com/V6ekjG",
+    url: "https://apinebula.ai/V6ekjG",
     tier: "flagship",
     since: "2026-06",
     featured: true,
