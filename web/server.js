@@ -17,6 +17,7 @@ import { detectInstalledCliProviders } from '../dist/providers/detect.js';
 import { API_PROVIDERS, API_PROVIDER_MAP } from '../dist/connectors/api-providers.js';
 import { applyCodexRelay, clearCodexRelay, readCodexRelayStatus } from '../dist/utils/codex-relay.js';
 import { diagnoseClaudeConfig, repairClaudeConfig } from '../dist/utils/claude-repair.js';
+import { applyClaudeProvider, restoreClaudeToOfficial, readClaudeSwitchStatus } from '../dist/utils/claude-apply.js';
 import { validateCustomProviderId, readCustomProviders, addCustomProvider, removeCustomProvider, updateCustomProvider } from '../dist/utils/custom-providers.js';
 import { rotatingSponsors } from '../dist/utils/sponsor-guide.js';
 
@@ -1679,6 +1680,48 @@ app.get('/api/claude/health', (_req, res) => {
 app.post('/api/claude/repair', (_req, res) => {
   try {
     res.json({ ok: true, ...repairClaudeConfig(), health: diagnoseClaudeConfig() });
+  } catch (err) {
+    res.status(500).json({ error: err?.message || String(err) });
+  }
+});
+
+// 系统 Claude Code「安全切换」：把选中中转 provider 写入全局 ~/.claude/settings.json，
+// 让**任意终端**的 claude 直接用该中转（区别于 /api/config —— 那个只注入 AO 自己子进程的 env）。
+// 安全：claude-apply 写前必备份、merge 保留用户其它配置、打 _aoManagedProvider 标记、绝不碰 .credentials.json。
+app.get('/api/claude/status', (_req, res) => {
+  try {
+    res.json(readClaudeSwitchStatus());
+  } catch (err) {
+    res.status(500).json({ error: err?.message || String(err) });
+  }
+});
+app.post('/api/claude/apply', (req, res) => {
+  try {
+    const { providerId, baseUrl, apiKey, apiKeyField, model, sonnetModel, opusModel, haikuModel } = req.body || {};
+    if (typeof apiKey === 'string' && /[^\x20-\x7E]/.test(apiKey)) {
+      return res.status(400).json({ error: 'API key 含中文/全角字符——通常是复制时把说明文字一起带上了，请只粘贴 key 本身' });
+    }
+    if (!providerId || typeof baseUrl !== 'string' || !baseUrl.trim() || typeof apiKey !== 'string' || !apiKey.trim()) {
+      return res.status(400).json({ error: 'providerId、baseUrl、apiKey 必填' });
+    }
+    const result = applyClaudeProvider({
+      providerId: String(providerId),
+      baseUrl: baseUrl.trim(),
+      apiKey: apiKey.trim(),
+      apiKeyField: apiKeyField === 'ANTHROPIC_API_KEY' ? 'ANTHROPIC_API_KEY' : undefined,
+      model: typeof model === 'string' && model.trim() ? model.trim() : undefined,
+      sonnetModel: typeof sonnetModel === 'string' && sonnetModel.trim() ? sonnetModel.trim() : undefined,
+      opusModel: typeof opusModel === 'string' && opusModel.trim() ? opusModel.trim() : undefined,
+      haikuModel: typeof haikuModel === 'string' && haikuModel.trim() ? haikuModel.trim() : undefined,
+    });
+    res.json({ ok: true, ...result, status: readClaudeSwitchStatus() });
+  } catch (err) {
+    res.status(500).json({ error: err?.message || String(err) });
+  }
+});
+app.post('/api/claude/restore', (_req, res) => {
+  try {
+    res.json({ ok: true, ...restoreClaudeToOfficial(), status: readClaudeSwitchStatus() });
   } catch (err) {
     res.status(500).json({ error: err?.message || String(err) });
   }
