@@ -419,6 +419,22 @@ export interface ClaudeRepairResult {
   skipped: { path: string; reason: string }[];
   health: ClaudeHealth;
 }
+// 系统 Claude Code 全局切换状态 / 切回官方（后端 src/utils/claude-apply.ts）
+export interface ClaudeSwitchStatus {
+  managed: boolean;            // 是否由 AO 主动切换（有 _aoManagedProvider 标记）
+  managedProviderId?: string;
+  baseUrl?: string;
+  active: boolean;            // env 里是否存在 ANTHROPIC_BASE_URL（已切到中转）
+}
+export interface ClaudeRestoreResult {
+  ok: boolean;
+  changed: boolean;
+  files: { path: string; removedKeys: string[]; backup: string | null; removedEmptyEnv: boolean }[];
+  shellOverridesRemaining: string[];
+  skipped: { path: string; reason: string }[];
+  removedAoMarker: boolean;
+  status: ClaudeSwitchStatus;
+}
 
 // 从模型 id 推断所属厂商，给「获取模型列表」的大列表分组用（对齐 cc-switch 的按 vendor 分组）。
 // 聚合商 /models 常有上百个还混各家，扁平一堆没法扫；按厂商分组后一眼定位。
@@ -540,6 +556,8 @@ export const api = {
   // ── 系统 Claude Code 急救：诊断/修复被别的软件或手动写坏的全局 ~/.claude/settings.json ──
   claudeHealth: () => getJSON<ClaudeHealth>("/claude/health"),
   repairClaude: () => postJSON<ClaudeRepairResult>("/claude/repair", {}),
+  claudeSwitchStatus: () => getJSON<ClaudeSwitchStatus>("/claude/status"),
+  restoreClaude: () => postJSON<ClaudeRestoreResult>("/claude/restore", {}),
   prompts: () => getJSON<{ prompts: PromptRecord[] }>("/prompts").then((r) => r.prompts),
   savePrompt: (body: { name: string; mode: PromptMode; versions: PromptVersion[]; favorite?: boolean }) =>
     postJSON<{ ok: boolean; slug: string }>("/prompts", body),
