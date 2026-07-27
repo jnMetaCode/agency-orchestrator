@@ -26,7 +26,7 @@ export const PREMIUM_SPONSOR: SponsorGuideEntry = {
 
 /** 引导横幅轮换池：旗舰 + 标准共 6 家（顺序无偏好，轮值即公平） */
 export const SPONSOR_ROTATION: SponsorGuideEntry[] = [
-  { providerId: 'apinebula', name: 'APINEBULA', bonus: '充值码 agent 九折', url: 'https://apinebula.com/V6ekjG' },
+  { providerId: 'apinebula', name: 'APINEBULA', bonus: '充值码 agent 九折', url: 'https://apinebula.ai/V6ekjG' },
   { providerId: 'ccsub', name: 'CCSub', bonus: '注册送 $5', url: 'https://www.ccsub.net/register?ref=8G5W4JK4' },
   { providerId: 'cubence', name: 'Cubence', bonus: '首购 9 折', url: 'https://cubence.com/signup?code=SCW29JP9&source=agency' },
   { providerId: 'compshare', name: '优云智算', bonus: '注册送 5 元', url: 'https://passport.compshare.cn/register?referral_code=ETD3L5JBM13CtKARkMORot&ytag=GPU_YY_YX_git_agency-agents' },

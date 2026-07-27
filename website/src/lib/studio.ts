@@ -676,7 +676,7 @@ export const API_PROVIDERS: ApiProviderMeta[] = [
   // 一个 key 通 OpenAI/Claude/Gemini/DeepSeek 等数百款；专属链接注册送 3 元
   { id: "duoyuanx", name: "多元探索", shortName: "多元探索", hint: "duoyuanx.com · 注册送 3 元", defaultBaseUrl: "https://duoyuanx.com/v1", signupUrl: "https://duoyuanx.com/register?aff=LErO", advanced: true, modelSuggestions: COMMON_RELAY_MODELS },
   // 旗舰赞助商 APINEBULA —— 金色高亮（大屏特有）
-  { id: "apinebula", name: "APINEBULA", hint: "apinebula.com", defaultBaseUrl: "https://apinebula.com/v1", signupUrl: "https://apinebula.com/V6ekjG", flagship: true, modelSuggestions: ["gpt-5.5", "claude-opus-4-8", "claude-sonnet-5", "gemini-3.5-flash", "deepseek-chat"] },
+  { id: "apinebula", name: "APINEBULA", hint: "apinebula.ai", defaultBaseUrl: "https://apinebula.ai/v1", signupUrl: "https://apinebula.ai/V6ekjG", flagship: true, modelSuggestions: ["gpt-5.5", "claude-opus-4-8", "claude-sonnet-5", "gemini-3.5-flash", "deepseek-chat"] },
   // 普通赞助商 RootFlowAI —— 前 3 位，紧跟两家旗舰/赞助商之后
   { id: "rootflowai", name: "RootFlowAI", hint: "rootflowai.com", defaultBaseUrl: "https://api.rootflowai.com/v1", signupUrl: "https://rootflowai.com/register?utm_source=agency-agents-zh&utm_medium=sponsor&utm_campaign=studio", sponsor: true, modelSuggestions: COMMON_RELAY_MODELS },
   // 赞助商 Cubence —— API 中转：一个 key 通用多家模型（此为直连 API 用法；
