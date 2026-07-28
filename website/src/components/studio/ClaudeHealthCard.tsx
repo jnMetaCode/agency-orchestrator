@@ -1,9 +1,9 @@
-import { Globe, LifeBuoy, Loader2, RotateCw, ShieldAlert, ShieldCheck, Undo2 } from "lucide-react";
+import { Globe, LifeBuoy, Loader2, Network, RotateCw, ShieldAlert, ShieldCheck, Undo2 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Tip } from "@/components/ui/tip";
 import { useLanguage } from "@/i18n/LanguageProvider";
-import { api, type ClaudeHealth, type ClaudeRepairResult, type ClaudeSwitchStatus } from "@/lib/studio";
+import { api, type ClaudeHealth, type ClaudeProxyStatus, type ClaudeRepairResult, type ClaudeSwitchStatus } from "@/lib/studio";
 import { cn } from "@/lib/utils";
 
 /**
@@ -24,6 +24,8 @@ export function ClaudeHealthCard() {
   const [applying, setApplying] = useState(false);
   const [applyError, setApplyError] = useState<string | null>(null);
   const [result, setResult] = useState<ClaudeRepairResult | null>(null);
+  const [proxy, setProxy] = useState<ClaudeProxyStatus | null>(null);
+  const [proxyBusy, setProxyBusy] = useState(false);
 
   const check = () => {
     setLoading(true);
@@ -32,16 +34,28 @@ export function ClaudeHealthCard() {
     setApplyError(null);
     Promise.all([
       api.claudeHealth(),
-      // status 端点在旧后端可能不存在 —— 拿不到就当"未管理"，不影响体检主流程
+      // status / proxy 端点在旧后端可能不存在 —— 拿不到就当"无"，不影响体检主流程
       api.claudeSwitchStatus().catch(() => null),
+      api.claudeProxy().catch(() => null),
     ])
-      .then(([h, s]) => {
+      .then(([h, s, p]) => {
         setHealth(h);
         setStatus(s);
+        setProxy(p);
       })
       // 演示站/无后端时静默隐藏（返回 null），不打扰用户
       .catch(() => setFailed(true))
       .finally(() => setLoading(false));
+  };
+
+  // 代理"可管理"：更新为当前系统代理 / 移除改回直连。都会刷新体检 + 代理状态。
+  const updateProxy = () => {
+    setProxyBusy(true);
+    api.syncClaudeProxy().then(() => check()).catch(() => setFailed(true)).finally(() => setProxyBusy(false));
+  };
+  const removeProxy = () => {
+    setProxyBusy(true);
+    api.clearClaudeProxy().then(() => check()).catch(() => setFailed(true)).finally(() => setProxyBusy(false));
   };
   useEffect(check, []);
 
@@ -192,6 +206,40 @@ export function ClaudeHealthCard() {
                 {repairing ? tr.repairing : tr.repairBtn}
               </Button>
             </>
+          )}
+
+          {/* 代理「可见 + 可管理」：配了代理就持久显示，探测可达、提示漂移、可更新/移除。
+              不埋雷 —— 哪天 Clash 没开导致 claude 连不上，这里会红字标出，而不是让你抓瞎。 */}
+          {proxy?.configured && (
+            <div
+              className={cn(
+                "rounded-lg border px-2.5 py-1.5",
+                proxy.reachable === false ? "border-red-500/40 bg-red-500/[0.05]" : "border-border/60 bg-muted/30",
+              )}
+            >
+              <p className="flex flex-wrap items-center gap-x-1.5 gap-y-0.5">
+                <Network className={cn("size-3.5 shrink-0", proxy.reachable === false ? "text-red-500" : "text-muted-foreground")} />
+                <span className="text-muted-foreground">{tr.proxyConfigured}</span>
+                <code className="rounded bg-muted px-1 py-0.5 text-foreground">{proxy.configured}</code>
+                {proxy.reachable === true && <span className="text-emerald-500">· {tr.proxyReachable}</span>}
+                {proxy.reachable === false && <span className="font-medium text-red-500">· {tr.proxyUnreachable}</span>}
+              </p>
+              {proxy.drift && proxy.systemProxy && (
+                <p className="mt-0.5 text-amber-600 dark:text-amber-400">
+                  {tr.proxyDrift}（{proxy.systemProxy}）
+                </p>
+              )}
+              <div className="mt-1 flex flex-wrap gap-2">
+                {proxy.systemProxy && (proxy.drift || proxy.reachable === false) && (
+                  <Button size="sm" variant="outline" onClick={updateProxy} disabled={proxyBusy}>
+                    {tr.proxyUpdate}
+                  </Button>
+                )}
+                <Button size="sm" variant="ghost" onClick={removeProxy} disabled={proxyBusy} className="text-muted-foreground">
+                  {proxyBusy ? tr.proxyRemoving : tr.proxyRemove}
+                </Button>
+              </div>
+            </div>
           )}
 
           {/* 备份提示 */}

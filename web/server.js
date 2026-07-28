@@ -17,7 +17,7 @@ import { detectInstalledCliProviders } from '../dist/providers/detect.js';
 import { API_PROVIDERS, API_PROVIDER_MAP } from '../dist/connectors/api-providers.js';
 import { applyCodexRelay, clearCodexRelay, readCodexRelayStatus } from '../dist/utils/codex-relay.js';
 import { diagnoseClaudeConfig, repairClaudeConfig } from '../dist/utils/claude-repair.js';
-import { applyClaudeProvider, restoreClaudeToOfficial, readClaudeSwitchStatus } from '../dist/utils/claude-apply.js';
+import { applyClaudeProvider, restoreClaudeToOfficial, readClaudeSwitchStatus, readClaudeProxyStatus, probeProxyReachable, clearClaudeProxy, syncClaudeProxy, detectMacOSSystemProxy } from '../dist/utils/claude-apply.js';
 import { validateCustomProviderId, readCustomProviders, addCustomProvider, removeCustomProvider, updateCustomProvider } from '../dist/utils/custom-providers.js';
 import { rotatingSponsors } from '../dist/utils/sponsor-guide.js';
 
@@ -1734,6 +1734,32 @@ app.post('/api/claude/restore', (_req, res) => {
   try {
     // restoreClaudeToOfficial 会保留 OAuth，并自动同步 macOS 当前系统代理。
     res.json({ ok: true, ...restoreClaudeToOfficial(), status: readClaudeSwitchStatus() });
+  } catch (err) {
+    res.status(500).json({ error: err?.message || String(err) });
+  }
+});
+
+// 代理「可见 + 可管理」：写进 settings 的 HTTP(S)_PROXY 是个静态依赖（Clash 没开/换端口就连不上，
+// 而劫持体检看不到）。这几个端点让它变成看得见（已配代理 + 是否可达 + 是否漂移）、可管理（更新/移除）。
+app.get('/api/claude/proxy', async (_req, res) => {
+  try {
+    const st = readClaudeProxyStatus();
+    const reachable = st.configured ? await probeProxyReachable(st.configured) : undefined;
+    res.json({ ...st, ...(reachable !== undefined ? { reachable } : {}) });
+  } catch (err) {
+    res.status(500).json({ error: err?.message || String(err) });
+  }
+});
+app.post('/api/claude/proxy/sync', (_req, res) => {
+  try {
+    res.json({ ok: true, ...syncClaudeProxy(detectMacOSSystemProxy()) });
+  } catch (err) {
+    res.status(500).json({ error: err?.message || String(err) });
+  }
+});
+app.post('/api/claude/proxy/clear', (_req, res) => {
+  try {
+    res.json({ ok: true, ...clearClaudeProxy() });
   } catch (err) {
     res.status(500).json({ error: err?.message || String(err) });
   }

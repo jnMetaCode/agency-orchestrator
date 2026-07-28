@@ -444,6 +444,13 @@ export interface ClaudeApplyResult {
   writtenKeys: string[];
   status: ClaudeSwitchStatus;
 }
+// 代理「可见 + 可管理」：settings.json 里配的代理是否可达、是否和当前系统代理漂移
+export interface ClaudeProxyStatus {
+  configured?: string;  // settings.json 里配的代理（没配则无）
+  systemProxy?: string; // 当前 macOS 系统代理
+  drift: boolean;       // 配的 ≠ 系统代理，建议更新
+  reachable?: boolean;  // 配了代理时探测是否可连（false = Clash 没开?）
+}
 
 // 从模型 id 推断所属厂商，给「获取模型列表」的大列表分组用（对齐 cc-switch 的按 vendor 分组）。
 // 聚合商 /models 常有上百个还混各家，扁平一堆没法扫；按厂商分组后一眼定位。
@@ -569,6 +576,9 @@ export const api = {
   restoreClaude: () => postJSON<ClaudeRestoreResult>("/claude/restore", {}),
   // 把已配置的中转写入全局 ~/.claude/settings.json（后端从 web-keys.json 解析 key，前端只传 provider id）
   applyClaude: (provider: string) => postJSON<ClaudeApplyResult>("/claude/apply", { provider }),
+  claudeProxy: () => getJSON<ClaudeProxyStatus>("/claude/proxy"),
+  syncClaudeProxy: () => postJSON<{ ok: boolean; configured: boolean; changed: boolean; proxyUrl?: string }>("/claude/proxy/sync", {}),
+  clearClaudeProxy: () => postJSON<{ ok: boolean; changed: boolean }>("/claude/proxy/clear", {}),
   prompts: () => getJSON<{ prompts: PromptRecord[] }>("/prompts").then((r) => r.prompts),
   savePrompt: (body: { name: string; mode: PromptMode; versions: PromptVersion[]; favorite?: boolean }) =>
     postJSON<{ ok: boolean; slug: string }>("/prompts", body),

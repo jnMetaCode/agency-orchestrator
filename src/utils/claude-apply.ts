@@ -15,6 +15,7 @@
  *      —— 标记在顶层、不在 env 里，不影响 Claude Code 运行。
  */
 import { execFileSync } from 'node:child_process';
+import { connect as netConnect } from 'node:net';
 import { existsSync, readFileSync, writeFileSync, copyFileSync, mkdirSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
@@ -232,4 +233,75 @@ export function restoreClaudeToOfficial(options: RestoreOptions = {}): RestoreRe
     removedAoMarker,
     proxySync,
   };
+}
+
+// ── 代理「可见 + 可管理」：把写进 settings 的 HTTP(S)_PROXY 变成看得见、能探测、能拆的状态 ──
+// 背景：还原时会把系统代理写进 settings.json，让系统 claude 能走 Clash。但这也成了一个静态
+// 依赖 —— 哪天 Clash 没开 / 换了端口，claude 就连不上，而劫持体检（只查 ANTHROPIC_*）看不到。
+// 这里补上：读出已配代理、探测是否可达、检测与当前系统代理的漂移、一键移除。
+
+export interface ClaudeProxyStatus {
+  /** settings.json 里配置的代理（优先 HTTPS_PROXY，回退 HTTP_PROXY）；未配置则无 */
+  configured?: string;
+  /** 当前 macOS 系统代理（scutil）；无则无 */
+  systemProxy?: string;
+  /** 已配代理 ≠ 当前系统代理（漂移，建议更新） */
+  drift: boolean;
+}
+
+/** 只读：settings.json 里配的代理 + 当前系统代理 + 是否漂移。不改任何文件。 */
+export function readClaudeProxyStatus(): ClaudeProxyStatus {
+  const path = settingsPath();
+  let configured: string | undefined;
+  if (existsSync(path)) {
+    try {
+      const obj = JSON.parse(readFileSync(path, 'utf-8'));
+      const env = obj && typeof obj === 'object' ? obj.env ?? {} : {};
+      configured = env.HTTPS_PROXY || env.HTTP_PROXY || undefined;
+    } catch { /* 坏 JSON：当作未配置，不报错 */ }
+  }
+  const systemProxy = detectMacOSSystemProxy();
+  const drift = !!configured && !!systemProxy && configured !== systemProxy;
+  return {
+    ...(configured ? { configured } : {}),
+    ...(systemProxy ? { systemProxy } : {}),
+    drift,
+  };
+}
+
+/** 探测代理是否可连（TCP 连 host:port）。用来判断「配了代理但 Clash 没开」→ claude 会连不上。 */
+export function probeProxyReachable(proxyUrl: string, timeoutMs = 1500): Promise<boolean> {
+  return new Promise((resolve) => {
+    let url: URL;
+    try { url = new URL(proxyUrl); } catch { return resolve(false); }
+    const port = Number(url.port);
+    const host = url.hostname.replace(/^\[|\]$/g, ''); // 去 IPv6 方括号
+    if (!host || !Number.isInteger(port) || port < 1 || port > 65535) return resolve(false);
+    const sock = netConnect({ host, port });
+    let done = false;
+    const finish = (ok: boolean) => { if (done) return; done = true; sock.destroy(); resolve(ok); };
+    sock.setTimeout(timeoutMs);
+    sock.once('connect', () => finish(true));
+    sock.once('timeout', () => finish(false));
+    sock.once('error', () => finish(false));
+  });
+}
+
+/** 移除 Claude 全局代理（HTTP_PROXY/HTTPS_PROXY），改回直连。写前备份；env 空则连 env 一起删。 */
+export function clearClaudeProxy(): { changed: boolean; backup: string | null } {
+  const path = settingsPath();
+  if (!existsSync(path)) return { changed: false, backup: null };
+  let obj: Record<string, any>;
+  try { obj = JSON.parse(readFileSync(path, 'utf-8')); }
+  catch { return { changed: false, backup: null }; } // 坏 JSON 绝不覆写
+  const env = obj && typeof obj === 'object' ? obj.env : undefined;
+  if (!env || typeof env !== 'object' || (env.HTTP_PROXY == null && env.HTTPS_PROXY == null)) {
+    return { changed: false, backup: null };
+  }
+  const backup = backupIfExists(path);
+  delete env.HTTP_PROXY;
+  delete env.HTTPS_PROXY;
+  if (Object.keys(env).length === 0) delete obj.env;
+  writeFileSync(path, JSON.stringify(obj, null, 2) + '\n', 'utf-8');
+  return { changed: true, backup };
 }
