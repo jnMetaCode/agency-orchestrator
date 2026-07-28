@@ -76,7 +76,7 @@ try {
   }
 
   // 4) 一键切回官方：删中转 env 键 + 标记，保留用户其它配置
-  const rr = restoreClaudeToOfficial();
+  const rr = restoreClaudeToOfficial({ detectSystemProxy: false });
   assert(rr.changed === true, '切回官方：有改动');
   assert(rr.removedAoMarker === true, '切回官方：移除了 AO 标记');
   {
@@ -86,6 +86,18 @@ try {
     assert(s.env?.FOO === 'bar', '切回官方：保留用户 env.FOO');
     assert(s.permissions?.allow?.[0] === 'Bash', '切回官方：保留用户 permissions');
     assert(s[AO_MANAGED_KEY] === undefined, '切回官方：AO 标记已清除');
+  }
+
+  // 4b) 一键切回可同步当前系统 HTTP 代理，避免浏览器正常而 Claude CLI 走坏 DNS/TUN。
+  applyClaudeProvider(cfg);
+  const proxyUrl = 'http://127.0.0.1:7890';
+  const withProxy = restoreClaudeToOfficial({ proxyUrl });
+  {
+    const s = readSettings();
+    assert(withProxy.proxySync.configured === true, '切回官方：检测并同步系统代理');
+    assert(s.env.HTTP_PROXY === proxyUrl, '切回官方：HTTP_PROXY 写入正确');
+    assert(s.env.HTTPS_PROXY === proxyUrl, '切回官方：HTTPS_PROXY 写入正确');
+    assert(s.env.ANTHROPIC_BASE_URL === undefined, '切回官方 + 代理：中转地址仍已清除');
   }
   {
     const st = readClaudeSwitchStatus();
@@ -97,7 +109,7 @@ try {
   writeFileSync(cred, '{"oauthAccount":"real-login"}', 'utf-8');
   const credBefore = readFileSync(cred, 'utf-8');
   applyClaudeProvider(cfg);
-  restoreClaudeToOfficial();
+  restoreClaudeToOfficial({ detectSystemProxy: false });
   assert(readFileSync(cred, 'utf-8') === credBefore, 'OAuth 安全：.credentials.json 全程未被触碰');
 
   // 6) 解析失败保护：坏 JSON 时 apply 抛错且不覆写

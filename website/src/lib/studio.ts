@@ -417,6 +417,7 @@ export interface ClaudeRepairResult {
   files: { path: string; removedKeys: string[]; backup: string | null; removedEmptyEnv: boolean }[];
   shellOverridesRemaining: string[];
   skipped: { path: string; reason: string }[];
+  proxySync?: { configured: boolean; changed: boolean; proxyUrl?: string; backup: string | null; reason?: string };
   health: ClaudeHealth;
 }
 // 系统 Claude Code 全局切换状态 / 切回官方（后端 src/utils/claude-apply.ts）
@@ -433,6 +434,7 @@ export interface ClaudeRestoreResult {
   shellOverridesRemaining: string[];
   skipped: { path: string; reason: string }[];
   removedAoMarker: boolean;
+  proxySync: { configured: boolean; changed: boolean; proxyUrl?: string; backup: string | null; reason?: string };
   status: ClaudeSwitchStatus;
 }
 export interface ClaudeApplyResult {

@@ -134,10 +134,9 @@ export function ClaudeHealthCard() {
       {!loading && (
         <div className="mt-2.5 space-y-2 text-[12px]">
           {/* 修复完成横幅 */}
-          {result?.changed && (
-            <p className="font-medium text-emerald-500">
-              ✓ {tr.done} · {tr.doneHint}
-            </p>
+          {result?.changed && <p className="font-medium text-emerald-500">✓ {tr.done} · {tr.doneHint}</p>}
+          {result?.proxySync?.configured && (
+            <p className="font-medium text-emerald-500">✓ {tr.proxySynced} · {result.proxySync.proxyUrl}</p>
           )}
           {result && !result.changed && !hijacked && <p className="text-muted-foreground">{tr.noChange}</p>}
 
@@ -165,6 +164,11 @@ export function ClaudeHealthCard() {
           {!hijacked && !aoManaged && !result && (
             <>
               <p className="font-medium text-emerald-500">{tr.healthy}</p>
+              <p className="text-muted-foreground">{tr.connectionRepairHint}</p>
+              <Button size="sm" onClick={repair} disabled={repairing} className="mt-1">
+                {repairing ? <Loader2 className="mr-1.5 size-3.5 animate-spin" /> : <LifeBuoy className="mr-1.5 size-3.5" />}
+                {repairing ? tr.repairing : tr.connectionRepairBtn}
+              </Button>
               <p className="text-muted-foreground">{tr.applyHint}</p>
               <Button size="sm" variant="outline" onClick={applyGlobal} disabled={applying} className="mt-1">
                 {applying ? <Loader2 className="mr-1.5 size-3.5 animate-spin" /> : <Globe className="mr-1.5 size-3.5" />}

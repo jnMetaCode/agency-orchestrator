@@ -1679,7 +1679,9 @@ app.get('/api/claude/health', (_req, res) => {
 });
 app.post('/api/claude/repair', (_req, res) => {
   try {
-    res.json({ ok: true, ...repairClaudeConfig(), health: diagnoseClaudeConfig() });
+    // 恢复官方登录的同时，把 macOS 当前系统代理（如 Clash）同步给 Claude Code，
+    // 避免 GUI 正常而 CLI 因本地 DNS/TUN 路径不同出现 ECONNRESET。
+    res.json({ ok: true, ...restoreClaudeToOfficial(), health: diagnoseClaudeConfig() });
   } catch (err) {
     res.status(500).json({ error: err?.message || String(err) });
   }
@@ -1730,6 +1732,7 @@ app.post('/api/claude/apply', (req, res) => {
 });
 app.post('/api/claude/restore', (_req, res) => {
   try {
+    // restoreClaudeToOfficial 会保留 OAuth，并自动同步 macOS 当前系统代理。
     res.json({ ok: true, ...restoreClaudeToOfficial(), status: readClaudeSwitchStatus() });
   } catch (err) {
     res.status(500).json({ error: err?.message || String(err) });

@@ -14,7 +14,8 @@
  *        「AO 主动切的」（healthy，可一键切回） vs 「别的工具搞坏的」（需急救）
  *      —— 标记在顶层、不在 env 里，不影响 Claude Code 运行。
  */
-import { existsSync, readFileSync, writeFileSync, copyFileSync } from 'node:fs';
+import { execFileSync } from 'node:child_process';
+import { existsSync, readFileSync, writeFileSync, copyFileSync, mkdirSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
 import { repairClaudeConfig, type RepairResult } from './claude-repair.js';
@@ -130,13 +131,84 @@ export function readClaudeSwitchStatus(): ClaudeSwitchStatus {
 export interface RestoreResult extends RepairResult {
   /** 是否移除了 AO 管理标记 */
   removedAoMarker: boolean;
+  /** 是否把 macOS 当前系统代理同步给 Claude Code */
+  proxySync: ClaudeProxySyncResult;
+}
+
+export interface ClaudeProxySyncResult {
+  configured: boolean;
+  changed: boolean;
+  proxyUrl?: string;
+  backup: string | null;
+  reason?: string;
+}
+
+export interface RestoreOptions {
+  /** 测试/显式调用可直接传代理；生产默认从 macOS 系统代理自动检测。 */
+  proxyUrl?: string;
+  detectSystemProxy?: boolean;
+}
+
+/**
+ * 读取 macOS「系统设置 → 网络 → 代理」里的 HTTPS/HTTP 代理。
+ * scutil 的 HTTPSProxy 表示“用于 HTTPS 请求的 HTTP CONNECT 代理”，因此 URL scheme
+ * 仍然是 http://；这也符合 Claude Code 对 HTTPS_PROXY 的官方用法。
+ */
+export function detectMacOSSystemProxy(): string | undefined {
+  if (process.platform !== 'darwin') return undefined;
+  let out = '';
+  try {
+    out = execFileSync('/usr/sbin/scutil', ['--proxy'], { encoding: 'utf-8', timeout: 3000 });
+  } catch {
+    return undefined;
+  }
+  const field = (name: string): string | undefined => {
+    const m = out.match(new RegExp(`\\b${name}\\s*:\\s*([^\\n]+)`));
+    return m?.[1]?.trim();
+  };
+  const enabled = field('HTTPSEnable') === '1' || field('HTTPEnable') === '1';
+  const host = field('HTTPSProxy') || field('HTTPProxy');
+  const portRaw = field('HTTPSPort') || field('HTTPPort');
+  const port = Number(portRaw);
+  if (!enabled || !host || !Number.isInteger(port) || port < 1 || port > 65535) return undefined;
+  const safeHost = host.includes(':') && !host.startsWith('[') ? `[${host}]` : host;
+  return `http://${safeHost}:${port}`;
+}
+
+/** 把已检测到的 HTTP CONNECT 代理 merge 到 Claude 全局 settings，保留其它设置。 */
+export function syncClaudeProxy(proxyUrl?: string): ClaudeProxySyncResult {
+  if (!proxyUrl) return { configured: false, changed: false, backup: null, reason: 'system-proxy-not-found' };
+  let parsed: URL;
+  try { parsed = new URL(proxyUrl); }
+  catch { return { configured: false, changed: false, backup: null, reason: 'invalid-proxy-url' }; }
+  if (!['http:', 'https:'].includes(parsed.protocol) || !parsed.hostname || !parsed.port || parsed.username || parsed.password) {
+    return { configured: false, changed: false, backup: null, reason: 'unsupported-proxy-url' };
+  }
+
+  const path = settingsPath();
+  let obj: Record<string, any>;
+  try { obj = readJsonOrThrow(path); }
+  catch (err: any) {
+    return { configured: false, changed: false, backup: null, reason: err?.message || String(err) };
+  }
+  const env = obj.env && typeof obj.env === 'object' ? obj.env : (obj.env = {});
+  if (env.HTTP_PROXY === proxyUrl && env.HTTPS_PROXY === proxyUrl) {
+    return { configured: true, changed: false, proxyUrl, backup: null };
+  }
+
+  mkdirSync(claudeDir(), { recursive: true });
+  const backup = backupIfExists(path);
+  env.HTTP_PROXY = proxyUrl;
+  env.HTTPS_PROXY = proxyUrl;
+  writeFileSync(path, JSON.stringify(obj, null, 2) + '\n', 'utf-8');
+  return { configured: true, changed: true, proxyUrl, backup };
 }
 
 /**
  * 一键切回官方登录：复用 claude-repair 删除所有中转 env 键（settings.json + settings.local.json），
  * 并额外清掉 AO 管理标记，回到干净的官方登录状态。
  */
-export function restoreClaudeToOfficial(): RestoreResult {
+export function restoreClaudeToOfficial(options: RestoreOptions = {}): RestoreResult {
   const result = repairClaudeConfig();      // 复用现成、已测试的减法逻辑（含备份）
   // 清掉顶层 AO 标记（repair 只管 env 键，不认识这个标记）
   let removedAoMarker = false;
@@ -151,5 +223,13 @@ export function restoreClaudeToOfficial(): RestoreResult {
       }
     } catch { /* 解析失败：repair 已跳过并报告，这里不重复处理 */ }
   }
-  return { ...result, removedAoMarker };
+  const shouldDetect = options.detectSystemProxy !== false;
+  const proxyUrl = options.proxyUrl || (shouldDetect ? detectMacOSSystemProxy() : undefined);
+  const proxySync = syncClaudeProxy(proxyUrl);
+  return {
+    ...result,
+    changed: result.changed || removedAoMarker || proxySync.changed,
+    removedAoMarker,
+    proxySync,
+  };
 }
