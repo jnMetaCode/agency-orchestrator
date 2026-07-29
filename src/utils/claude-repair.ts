@@ -62,6 +62,18 @@ export interface FileFinding {
   hijackKeys: Record<string, string>;
 }
 
+export interface ShellEnvOptions {
+  /**
+   * 判定「shell 层残留」时依据的环境变量表，默认 `process.env`。
+   *
+   * CLI（`ao doctor`）里 process.env 就是用户 shell，用默认即可。但 Studio 服务端不行：
+   * web/server.js 的 applyKeys 会把 AO 自己保存的中转 key 注入**本进程** env，若照 process.env
+   * 判定，用户只是在 AO 里存了个 claude-code 中转，体检卡就会红灯说"系统 Claude 被劫持"、
+   * 并叫他去 ~/.zshrc 删（那里根本没有）。所以服务端要传「注入前」的快照。
+   */
+  shellEnv?: Record<string, string | undefined>;
+}
+
 export interface ClaudeDiagnosis {
   healthy: boolean;
   files: FileFinding[];
@@ -90,12 +102,13 @@ function readFinding(path: string): FileFinding {
 }
 
 /** 只读诊断：全局 settings 有没有被劫持、shell 里有没有残留。不改任何文件。 */
-export function diagnoseClaudeConfig(): ClaudeDiagnosis {
+export function diagnoseClaudeConfig(opts: ShellEnvOptions = {}): ClaudeDiagnosis {
   const files = settingsFiles().map(readFinding);
+  const shellEnv = opts.shellEnv ?? process.env;
 
   const shellOverrides: Record<string, string> = {};
   for (const key of HIJACK_ENV_KEYS) {
-    const v = process.env[key];
+    const v = shellEnv[key];
     if (v) shellOverrides[key] = maskValue(key, v);
   }
 
@@ -107,7 +120,7 @@ export function diagnoseClaudeConfig(): ClaudeDiagnosis {
       if (raw) { baseUrl = raw; break; }
     }
   }
-  if (!baseUrl && process.env.ANTHROPIC_BASE_URL) baseUrl = process.env.ANTHROPIC_BASE_URL;
+  if (!baseUrl && shellEnv.ANTHROPIC_BASE_URL) baseUrl = shellEnv.ANTHROPIC_BASE_URL;
 
   const fileHijacked = files.some((f) => Object.keys(f.hijackKeys).length > 0);
   const shellHijacked = Object.keys(shellOverrides).length > 0;
@@ -151,7 +164,7 @@ function backupIfExists(path: string): string | null {
  * 一键修复：把每个 settings 文件里劫持相关的 env 键删掉（先备份），env 空了就
  * 移除 env 键；不动其它配置，不动 shell。返回改了什么 + 需用户手动处理的残留。
  */
-export function repairClaudeConfig(): RepairResult {
+export function repairClaudeConfig(opts: ShellEnvOptions = {}): RepairResult {
   const repaired: RepairedFile[] = [];
   const skipped: { path: string; reason: string }[] = [];
 
@@ -182,7 +195,8 @@ export function repairClaudeConfig(): RepairResult {
   }
 
   // shell 层的 export 我们不碰用户的 ~/.zshrc，只把还在的键名报出来让用户自己删。
-  const shellOverridesRemaining = HIJACK_ENV_KEYS.filter((k) => process.env[k]);
+  const shellEnv = opts.shellEnv ?? process.env;
+  const shellOverridesRemaining = HIJACK_ENV_KEYS.filter((k) => shellEnv[k]);
 
   return {
     changed: repaired.length > 0,

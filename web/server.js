@@ -16,7 +16,7 @@ import yaml from 'js-yaml';
 import { detectInstalledCliProviders } from '../dist/providers/detect.js';
 import { API_PROVIDERS, API_PROVIDER_MAP } from '../dist/connectors/api-providers.js';
 import { applyCodexRelay, clearCodexRelay, readCodexRelayStatus } from '../dist/utils/codex-relay.js';
-import { diagnoseClaudeConfig, repairClaudeConfig } from '../dist/utils/claude-repair.js';
+import { diagnoseClaudeConfig, HIJACK_ENV_KEYS } from '../dist/utils/claude-repair.js';
 import { applyClaudeProvider, restoreClaudeToOfficial, readClaudeSwitchStatus, readClaudeProxyStatus, probeProxyReachable, clearClaudeProxy, syncClaudeProxy, detectMacOSSystemProxy } from '../dist/utils/claude-apply.js';
 import { validateCustomProviderId, readCustomProviders, addCustomProvider, removeCustomProvider, updateCustomProvider } from '../dist/utils/custom-providers.js';
 import { rotatingSponsors } from '../dist/utils/sponsor-guide.js';
@@ -322,6 +322,14 @@ function applyKeys(obj) {
   }
   if (obj.ollama?.baseUrl) process.env.OLLAMA_BASE_URL = obj.ollama.baseUrl;
 }
+// 「真·shell 环境」快照——必须在第一次 applyKeys 之前拍。applyKeys 会把 AO 自己保存的中转
+// key 注入本进程 env，之后 process.env 就分不清「用户 ~/.zshrc 里的」和「AO 自己注入的」了。
+// 体检（/api/claude/health、repair、restore）一律用这份快照判 shell 层残留，否则用户只是在
+// AO 里存了个 claude-code 中转，体检卡就红灯喊"被劫持"、还叫他去 .zshrc 删（那儿根本没有）。
+const SHELL_ENV_SNAPSHOT = Object.freeze(Object.fromEntries(
+  HIJACK_ENV_KEYS.map((k) => [k, process.env[k]]).filter(([, v]) => v != null),
+));
+
 applyKeys(readKeys());
 
 const WEBSITE_DIST = join(ROOT, 'website', 'dist');
@@ -1672,7 +1680,7 @@ app.post('/api/config', (req, res) => {
 // 跟 AO 的中转配置完全隔离：这里只做减法（删劫持 env 键），从不写入任何 token。
 app.get('/api/claude/health', (_req, res) => {
   try {
-    res.json(diagnoseClaudeConfig());
+    res.json(diagnoseClaudeConfig({ shellEnv: SHELL_ENV_SNAPSHOT }));
   } catch (err) {
     res.status(500).json({ error: err?.message || String(err) });
   }
@@ -1681,7 +1689,11 @@ app.post('/api/claude/repair', (_req, res) => {
   try {
     // 恢复官方登录的同时，把 macOS 当前系统代理（如 Clash）同步给 Claude Code，
     // 避免 GUI 正常而 CLI 因本地 DNS/TUN 路径不同出现 ECONNRESET。
-    res.json({ ok: true, ...restoreClaudeToOfficial(), health: diagnoseClaudeConfig() });
+    res.json({
+      ok: true,
+      ...restoreClaudeToOfficial({ shellEnv: SHELL_ENV_SNAPSHOT }),
+      health: diagnoseClaudeConfig({ shellEnv: SHELL_ENV_SNAPSHOT }),
+    });
   } catch (err) {
     res.status(500).json({ error: err?.message || String(err) });
   }
@@ -1733,7 +1745,7 @@ app.post('/api/claude/apply', (req, res) => {
 app.post('/api/claude/restore', (_req, res) => {
   try {
     // restoreClaudeToOfficial 会保留 OAuth，并自动同步 macOS 当前系统代理。
-    res.json({ ok: true, ...restoreClaudeToOfficial(), status: readClaudeSwitchStatus() });
+    res.json({ ok: true, ...restoreClaudeToOfficial({ shellEnv: SHELL_ENV_SNAPSHOT }), status: readClaudeSwitchStatus() });
   } catch (err) {
     res.status(500).json({ error: err?.message || String(err) });
   }

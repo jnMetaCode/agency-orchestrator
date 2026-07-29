@@ -11,6 +11,7 @@ import {
   restoreClaudeToOfficial,
   AO_MANAGED_KEY,
 } from '../src/utils/claude-apply.js';
+import { diagnoseClaudeConfig } from '../src/utils/claude-repair.js';
 
 let passed = 0, failed = 0;
 function assert(c: boolean, m: string): void { if (c) { console.log(`  ✅ ${m}`); passed++; } else { console.log(`  ❌ ${m}`); failed++; } }
@@ -119,6 +120,35 @@ try {
   try { applyClaudeProvider(cfg); } catch { threw = true; }
   assert(threw === true, '坏 JSON：apply 抛错');
   assert(readFileSync(settings, 'utf-8') === broken, '坏 JSON：原文件未被覆写');
+
+  // 7) shellEnv 可注入：Studio 服务端传「applyKeys 之前」的快照，避免把 AO 自己注入到
+  //    本进程的 ANTHROPIC_* 误判成用户 ~/.zshrc 里的劫持残留。
+  writeFileSync(settings, JSON.stringify({ theme: 'dark' }, null, 2), 'utf-8');
+  const savedToken = process.env.ANTHROPIC_AUTH_TOKEN;
+  process.env.ANTHROPIC_AUTH_TOKEN = 'sk-injected-by-ao';   // 模拟 applyKeys 的自注入
+  try {
+    const dirty = diagnoseClaudeConfig();                    // 默认读 process.env（CLI 语义）
+    assert(dirty.healthy === false, '默认（process.env）：自注入的键会被算作 shell 残留');
+
+    const clean = diagnoseClaudeConfig({ shellEnv: {} });    // 服务端传空快照 = 用户 shell 干净
+    assert(clean.healthy === true, 'shellEnv 快照：settings 干净时体检为绿');
+    assert(Object.keys(clean.shellOverrides).length === 0, 'shellEnv 快照：不报 shell 残留');
+    assert(clean.baseUrl === undefined, 'shellEnv 快照：不把自注入的 base_url 报成被改道');
+
+    // 用户 shell 里真有残留时（快照里有），照样要报出来
+    const real = diagnoseClaudeConfig({ shellEnv: { ANTHROPIC_BASE_URL: 'https://evil.example.com' } });
+    assert(real.healthy === false && real.baseUrl === 'https://evil.example.com', 'shellEnv 快照：真 shell 残留仍报红');
+
+    // repair 的 shellOverridesRemaining 同样跟着快照走（含 restore 的透传）
+    applyClaudeProvider(cfg);
+    const rr7 = restoreClaudeToOfficial({ detectSystemProxy: false, shellEnv: {} });
+    assert(rr7.shellOverridesRemaining.length === 0, 'restore 透传 shellEnv：不谎报需手动删 .zshrc');
+    const rr8 = restoreClaudeToOfficial({ detectSystemProxy: false });
+    assert(rr8.shellOverridesRemaining.includes('ANTHROPIC_AUTH_TOKEN'), 'restore 不传时仍按 process.env 报（CLI 语义不变）');
+  } finally {
+    if (savedToken === undefined) delete process.env.ANTHROPIC_AUTH_TOKEN;
+    else process.env.ANTHROPIC_AUTH_TOKEN = savedToken;
+  }
 
 } finally {
   rmSync(sandbox, { recursive: true, force: true });

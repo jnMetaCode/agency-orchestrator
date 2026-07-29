@@ -19,7 +19,7 @@ import { connect as netConnect } from 'node:net';
 import { existsSync, readFileSync, writeFileSync, copyFileSync, mkdirSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
-import { repairClaudeConfig, type RepairResult } from './claude-repair.js';
+import { repairClaudeConfig, type RepairResult, type ShellEnvOptions } from './claude-repair.js';
 
 /** 顶层标记键：记录当前是 AO 切到了哪个 provider。不在 env 里，不影响 CLI 运行。 */
 export const AO_MANAGED_KEY = '_aoManagedProvider';
@@ -144,7 +144,7 @@ export interface ClaudeProxySyncResult {
   reason?: string;
 }
 
-export interface RestoreOptions {
+export interface RestoreOptions extends ShellEnvOptions {
   /** 测试/显式调用可直接传代理；生产默认从 macOS 系统代理自动检测。 */
   proxyUrl?: string;
   detectSystemProxy?: boolean;
@@ -210,7 +210,9 @@ export function syncClaudeProxy(proxyUrl?: string): ClaudeProxySyncResult {
  * 并额外清掉 AO 管理标记，回到干净的官方登录状态。
  */
 export function restoreClaudeToOfficial(options: RestoreOptions = {}): RestoreResult {
-  const result = repairClaudeConfig();      // 复用现成、已测试的减法逻辑（含备份）
+  // 复用现成、已测试的减法逻辑（含备份）；shellEnv 透传，服务端才不会把 AO 自注入的
+  // ANTHROPIC_* 当成用户 shell 残留报出来。
+  const result = repairClaudeConfig({ ...(options.shellEnv ? { shellEnv: options.shellEnv } : {}) });
   // 清掉顶层 AO 标记（repair 只管 env 键，不认识这个标记）
   let removedAoMarker = false;
   const path = settingsPath();
