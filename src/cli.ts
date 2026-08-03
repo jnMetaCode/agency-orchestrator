@@ -608,6 +608,26 @@ function autoProvider(explicit: string | undefined, fallback: string): string {
 }
 
 /**
+ * 读 Studio（网页/桌面版）存的 key —— 它写在 <DATA_DIR>/.local/web-keys.json，
+ * 只会注入 Studio 服务进程的 env，命令行看不到。doctor 必须认得它，否则「界面里明明
+ * 配好了，doctor 却说没有 key」，排查时第一步就被带偏。
+ * DATA_DIR 与 web/server.js 保持同一套优先级：AO_DATA_DIR > 安装目录（包根）。
+ */
+function readStudioKeys(): Record<string, { apiKey?: string; baseUrl?: string; model?: string }> {
+  const pkgRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..');
+  const dirs = [process.env.AO_DATA_DIR ? resolve(process.env.AO_DATA_DIR) : '', pkgRoot, process.cwd()].filter(Boolean);
+  for (const d of dirs) {
+    const f = join(d, '.local', 'web-keys.json');
+    if (!existsSync(f)) continue;
+    try {
+      const parsed = JSON.parse(readFileSync(f, 'utf-8'));
+      if (parsed && typeof parsed === 'object') return parsed;
+    } catch { /* 坏 JSON：当作没有 */ }
+  }
+  return {};
+}
+
+/**
  * ao doctor —— 环境自检：一条命令看清 provider/凭证/CLI/系统 Claude Code 哪里不对。
  * `--fix`：若检测到系统 ~/.claude 被劫持（假 token / 中转地址顶掉官方登录），一键清除恢复（写前自动备份）。
  */
@@ -629,6 +649,21 @@ async function handleDoctor(): Promise<void> {
     ? `  ✅ 环境变量已配 key：${keyed.join(', ')}`
     : `  ·  没有 API provider 的 key（env）`);
 
+  // 2.5) Studio（网页/桌面版）里配的 key 只注入 Studio 自己的进程，命令行看不到 ——
+  //      不说清楚的话，用户会遇到「界面能跑、命令行说没配 key」而无从理解。
+  const studioKeys = readStudioKeys();
+  const studioKeyed = Object.entries(studioKeys).filter(([, v]) => v?.apiKey).map(([id]) => id);
+  const studioOnly = studioKeyed.filter((id) => !keyed.includes(id));
+  if (studioKeyed.length) {
+    console.log(`  ✅ Studio 里已配 key：${studioKeyed.join(', ')}`);
+    if (studioOnly.length) {
+      console.log(`     ⚠️ 这些只存在 Studio 里（网页/桌面版能跑），命令行不会读 —— 直接敲 ao 命令仍会报没凭证`);
+      const sample = studioOnly[0];
+      const envName = envKeys[sample] || `${sample.toUpperCase()}_API_KEY`;
+      console.log(`     ↳ 命令行要用就 export ${envName}=... ，或跑的时候带 --api-key / --provider`);
+    }
+  }
+
   // 3) 默认将使用的 provider 是否就绪（跑任务前最关键）
   const def = autoProvider(process.env.AO_PROVIDER, 'deepseek');
   const ready = composeProviderHasCredentials(def);
@@ -643,10 +678,15 @@ async function handleDoctor(): Promise<void> {
   //      只有真发一次请求才知道。只对 OpenAI 兼容 API 做（CLI/ollama/claude 各走自己的通道），
   //      且必须已有 key；发一个 max_tokens=1 的最小请求，成本可忽略。--no-probe 可跳过。
   const apiSpec = API_PROVIDER_MAP[def];
-  const probeKey = apiSpec ? process.env[apiSpec.envKey] : '';
+  // 环境变量没有就退回 Studio 存的 key：探测的目的是验证「这个地址+这把 key 通不通」，
+  // 而地址配错恰恰多发生在 Studio 里配的那批用户身上，正是最需要体检的人。
+  const savedForDef = studioKeys[def] || {};
+  const probeKey = apiSpec ? (process.env[apiSpec.envKey] || savedForDef.apiKey || '') : '';
+  const probeFromStudio = !!(apiSpec && !process.env[apiSpec.envKey] && savedForDef.apiKey);
   if (apiSpec && probeKey && !args.includes('--no-probe')) {
-    const base = normalizeBaseUrl(process.env[apiSpec.envBase] || apiSpec.defaultBaseUrl);
-    const model = apiSpec.defaultModel || 'gpt-4o-mini';
+    const base = normalizeBaseUrl(process.env[apiSpec.envBase] || savedForDef.baseUrl || apiSpec.defaultBaseUrl);
+    const model = savedForDef.model || apiSpec.defaultModel || 'gpt-4o-mini';
+    if (probeFromStudio) console.log(`  ·  用 Studio 里保存的 ${def} 配置做端点探测（命令行 env 里没有这把 key）`);
     const ctrl = new AbortController();
     const timer = setTimeout(() => ctrl.abort(), 12_000);
     const t0 = Date.now();
