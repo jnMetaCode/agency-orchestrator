@@ -66,15 +66,20 @@ const MAX_REDIRECTS = 3;
  * Azure 的路径形如 `/openai/deployments/<name>`，不做 /v1 猜测。
  */
 export function chatEndpointCandidates(baseUrl: string, opts?: { azure?: boolean }): string[] {
+  return endpointCandidates(baseUrl, 'chat/completions', opts);
+}
+
+/** 同上，但端点路径可指定 —— Anthropic 协议的中转要打 `messages`，坑完全一样 */
+export function endpointCandidates(baseUrl: string, path: string, opts?: { azure?: boolean }): string[] {
   const base = String(baseUrl || '');
-  const primary = joinEndpoint(base, 'chat/completions');
+  const primary = joinEndpoint(base, path);
   if (opts?.azure) return [primary];
   const { head, query } = splitQuery(base);
-  const path = head.replace(/\/+$/, '');
-  const alt = /\/v\d+$/.test(path)
-    ? path.replace(/\/v\d+$/, '')           // 多写了版本段 → 回落到根路径
-    : `${path}/v1`;                          // 少写了 /v1 → 补上
-  return [primary, joinEndpoint(query ? `${alt}?${query}` : alt, 'chat/completions')];
+  const basePath = head.replace(/\/+$/, '');
+  const alt = /\/v\d+$/.test(basePath)
+    ? basePath.replace(/\/v\d+$/, '')       // 多写了版本段 → 回落到根路径
+    : `${basePath}/v1`;                      // 少写了 /v1 → 补上
+  return [primary, joinEndpoint(query ? `${alt}?${query}` : alt, path)];
 }
 
 /**
@@ -138,13 +143,17 @@ async function postPreservingMethod(
  * 405 = 方法不匹配，必是路由没走对；404 则要看内容 —— 不少聚合商用 404 表示「模型不存在」，
  * 那是已经进到 API 层的正经报错，不能拿去试别的路径（否则会用一条更没信息量的
  * `{"detail":"Not Found"}` 盖掉「模型不存在」这种真正有用的提示）。
+ *
+ * 判据是「这条报错在说模型吗」，而不是「有没有 error 字段」：Anthropic 协议的端点
+ * 连路径不存在都回 `{"type":"error","error":{"type":"not_found_error"}}`，
+ * 按有无 error 字段判会把整条 Anthropic 中转链路的路径兜底全掐掉。
  */
 async function isRoutingMiss(response: Response): Promise<boolean> {
   if (response.status === 405) return true;
   if (response.status !== 404) return false;
   // clone 读一份，别把 body 消费掉——调用方还要拿它做错误信息
   const body = await response.clone().text().catch(() => '');
-  return !/"error"\s*[:{]/i.test(body.slice(0, 400));
+  return !/model|deployment/i.test(body.slice(0, 400));
 }
 
 /**
@@ -163,7 +172,24 @@ export async function postChatCompletions(opts: {
   azure?: boolean;
   onNotice?: (msg: string) => void;
 }): Promise<ChatPostResult> {
-  const candidates = opts.endpoint ? [opts.endpoint] : chatEndpointCandidates(opts.baseUrl, { azure: opts.azure });
+  return postApiEndpoint({ ...opts, path: 'chat/completions' });
+}
+
+/**
+ * 同上，但端点路径可指定。Anthropic 协议的中转（Claude Code 那条）打的是 `messages`，
+ * 踩的坑一模一样：地址差一跳被 301/302 降级成 GET、base 少写/多写 /v1。
+ */
+export async function postApiEndpoint(opts: {
+  baseUrl: string;
+  path: string;
+  headers: Record<string, string>;
+  body: string;
+  signal?: AbortSignal;
+  endpoint?: string;
+  azure?: boolean;
+  onNotice?: (msg: string) => void;
+}): Promise<ChatPostResult> {
+  const candidates = opts.endpoint ? [opts.endpoint] : endpointCandidates(opts.baseUrl, opts.path, { azure: opts.azure });
   let result!: ChatPostResult;
   for (let i = 0; i < candidates.length; i++) {
     result = await postPreservingMethod(candidates[i], opts);

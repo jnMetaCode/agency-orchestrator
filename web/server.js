@@ -17,7 +17,7 @@ import { detectInstalledCliProviders } from '../dist/providers/detect.js';
 import { API_PROVIDERS, API_PROVIDER_MAP } from '../dist/connectors/api-providers.js';
 // base_url 规整 / 跳转保持 POST / 少写多写 /v1 兜底 —— 与运行时连接器同一份实现，
 // 保证「测试连接」和真正跑起来的行为一致（不会出现测试过了但一跑就 405）。
-import { normalizeBaseUrl, postChatCompletions, endpointHint, joinEndpoint } from '../dist/connectors/openai-compatible.js';
+import { normalizeBaseUrl, postChatCompletions, postApiEndpoint, endpointHint, joinEndpoint } from '../dist/connectors/openai-compatible.js';
 import { applyCodexRelay, clearCodexRelay, readCodexRelayStatus } from '../dist/utils/codex-relay.js';
 import { diagnoseClaudeConfig, HIJACK_ENV_KEYS } from '../dist/utils/claude-repair.js';
 import { applyClaudeProvider, restoreClaudeToOfficial, readClaudeSwitchStatus, readClaudeProxyStatus, probeProxyReachable, clearClaudeProxy, syncClaudeProxy, detectSystemProxy } from '../dist/utils/claude-apply.js';
@@ -1896,6 +1896,28 @@ app.post('/api/test-provider', async (req, res) => {
         headers: { 'content-type': 'application/json', 'x-api-key': key, 'anthropic-version': '2023-06-01' },
         body: JSON.stringify({ model: 'claude-3-5-haiku-20241022', max_tokens: 1, messages: [{ role: 'user', content: 'hi' }] }),
       });
+    } else if (provider === 'claude-code') {
+      // Claude Code 中转走 Anthropic 协议（POST {base}/v1/messages），用 OpenAI 格式测会误报失败，
+      // 所以这条链路以前干脆没有「测试连接」—— 可中转地址填错恰恰是这批用户最常踩的坑，
+      // 只能等跑起来才发现。这里按原生协议测，并复用同一套跳转/路径容错。
+      const saved = readKeys()['claude-code'] || {};
+      const base = normalizeBaseUrl((typeof overrideBase === 'string' && overrideBase.trim()) || saved.baseUrl || process.env.ANTHROPIC_BASE_URL || 'https://api.anthropic.com');
+      // 中转商上架的模型名各不相同，优先用用户自己配的（含 Sonnet 档映射）
+      const model = (typeof overrideModel === 'string' && overrideModel.trim()) || saved.model || saved.sonnetModel || 'claude-sonnet-4-5-20250929';
+      const post = await postApiEndpoint({
+        baseUrl: base, path: 'messages', signal: ctrl.signal,
+        // 中转商认 x-api-key 或 Bearer 的都有，两个都带（对齐 CLI 的实际行为）
+        headers: {
+          'content-type': 'application/json', 'anthropic-version': '2023-06-01',
+          'x-api-key': key, authorization: `Bearer ${key}`,
+          'user-agent': 'claude-cli/2.1.161 (external, cli)',
+        },
+        body: JSON.stringify({ model, max_tokens: 1, messages: [{ role: 'user', content: 'hi' }] }),
+      });
+      r = post.response;
+      hitUrl = post.url;
+      baseUsed = base;
+      drift = post.drift;
     } else {
       // 每个 OpenAI 兼容 provider 的默认 base_url/模型都查 api-providers.ts 这张表 ——
       // 之前这里只对 deepseek 特判，其余(含 compshare/apinebula/agnes 等赞助商)会误用

@@ -722,8 +722,9 @@ export function ProviderConfigView({
               {saving ? <Loader2 className="size-4 animate-spin" /> : isAdd ? <Plus className="size-4" /> : null}
               {isAdd ? p.customProviderSubmit : p.save}
             </Button>
-            {/* 中转不显示测试:claude-code/gemini 中转走各自 CLI 的原生协议,用 OpenAI 格式去测会误报失败 */}
-            {!isAdd && !isRelay && (
+            {/* gemini/codex 中转走各自 CLI 的原生协议，用 OpenAI 格式去测会误报失败，仍不显示；
+                claude-code 中转后端已按 Anthropic 协议（POST {base}/v1/messages）实测，可以放开 */}
+            {!isAdd && (!isRelay || isCcRelay) && (
               <Button size="sm" variant="outline" onClick={runTest} disabled={test.status === "testing"}>
                 {test.status === "testing" ? <Loader2 className="size-3.5 animate-spin" /> : <Plug className="size-3.5" />}
                 {p.testConnection}

@@ -280,6 +280,27 @@ const redirector = http.createServer((req, res) => {
 await new Promise<void>((r) => redirector.listen(0, '127.0.0.1', () => r()));
 const redirPort = (redirector.address() as { port: number }).port;
 
+// Anthropic 协议的假中转：只认 POST {base}/v1/messages + x-api-key（Claude Code 那条链路）
+const anthropic = http.createServer((req, res) => {
+  let b = ''; req.on('data', (d) => (b += d));
+  req.on('end', () => {
+    if (req.url === '/v1/messages' && req.method === 'POST' && req.headers['x-api-key']) {
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      return res.end(JSON.stringify({ content: [{ type: 'text', text: 'hi' }] }));
+    }
+    res.writeHead(404, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ type: 'error', error: { type: 'not_found_error', message: 'not found' } }));
+  });
+});
+await new Promise<void>((r) => anthropic.listen(0, '127.0.0.1', () => r()));
+const anthPort = (anthropic.address() as { port: number }).port;
+const anthRedirector = http.createServer((req, res) => {
+  res.writeHead(302, { location: `http://127.0.0.1:${anthPort}${req.url}` });
+  res.end();
+});
+await new Promise<void>((r) => anthRedirector.listen(0, '127.0.0.1', () => r()));
+const anthRedirPort = (anthRedirector.address() as { port: number }).port;
+
 const port3 = await freePort();
 const dataDir3 = mkdtempSync(join(tmpdir(), 'ao-web-endpoint-'));
 const base3 = `http://127.0.0.1:${port3}`;
@@ -331,14 +352,23 @@ try {
     const t3 = await postJson('/api/test-provider', { provider: 'relaytest', baseUrl: `http://127.0.0.1:${upPort}/nope` });
     assert(t3.body.ok === false && String(t3.body.error).includes('请求地址: POST'), '彻底不通时报错带上实际请求地址');
 
-    // 6) 半配置守卫：只有 key、没有地址 → 走引导卡，不掉进连接器报晦涩错
+    // 6) Claude Code 中转按 Anthropic 原生协议测（以前这条链路完全没有「测试连接」）
+    const t4 = await postJson('/api/test-provider', { provider: 'claude-code', apiKey: 'sk-relay', baseUrl: `http://127.0.0.1:${anthPort}` });
+    assert(t4.body.ok === true, 'Claude Code 中转：填根地址（不带 /v1）也能测通');
+    const t5 = await postJson('/api/test-provider', { provider: 'claude-code', apiKey: 'sk-relay', baseUrl: `http://127.0.0.1:${anthRedirPort}/v1` });
+    assert(t5.body.ok === true && String(t5.body.note || '').includes(`127.0.0.1:${anthPort}`),
+      'Claude Code 中转：被 302 跳转时自愈并提示最终地址');
+    const t6 = await postJson('/api/test-provider', { provider: 'claude-code', apiKey: 'sk-relay', baseUrl: `http://127.0.0.1:${anthPort}/wrong` });
+    assert(t6.body.ok === false && String(t6.body.error).includes('请求地址: POST'), 'Claude Code 中转：地址不对时报出实际请求地址');
+
+    // 7) 半配置守卫：只有 key、没有地址 → 走引导卡，不掉进连接器报晦涩错
     await postJson('/api/config', { provider: 'relaytest', baseUrl: '' });
     const comp = await postJson('/api/compose', { description: '测试', roles: [], provider: 'relaytest' });
     assert(comp.status === 400 && comp.body.code === 'no_credentials', '自定义供应商缺 base_url 时返回首跑引导而不是硬跑');
   }
 } finally {
   if (server3) server3.kill('SIGTERM');
-  upstream.close(); redirector.close();
+  upstream.close(); redirector.close(); anthropic.close(); anthRedirector.close();
   rmSync(dataDir3, { recursive: true, force: true });
 }
 
