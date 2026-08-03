@@ -15,9 +15,12 @@ import { tmpdir, homedir } from 'node:os';
 import yaml from 'js-yaml';
 import { detectInstalledCliProviders } from '../dist/providers/detect.js';
 import { API_PROVIDERS, API_PROVIDER_MAP } from '../dist/connectors/api-providers.js';
+// base_url 规整 / 跳转保持 POST / 少写多写 /v1 兜底 —— 与运行时连接器同一份实现，
+// 保证「测试连接」和真正跑起来的行为一致（不会出现测试过了但一跑就 405）。
+import { normalizeBaseUrl, postChatCompletions, endpointHint, joinEndpoint } from '../dist/connectors/openai-compatible.js';
 import { applyCodexRelay, clearCodexRelay, readCodexRelayStatus } from '../dist/utils/codex-relay.js';
 import { diagnoseClaudeConfig, HIJACK_ENV_KEYS } from '../dist/utils/claude-repair.js';
-import { applyClaudeProvider, restoreClaudeToOfficial, readClaudeSwitchStatus, readClaudeProxyStatus, probeProxyReachable, clearClaudeProxy, syncClaudeProxy, detectMacOSSystemProxy } from '../dist/utils/claude-apply.js';
+import { applyClaudeProvider, restoreClaudeToOfficial, readClaudeSwitchStatus, readClaudeProxyStatus, probeProxyReachable, clearClaudeProxy, syncClaudeProxy, detectSystemProxy } from '../dist/utils/claude-apply.js';
 import { validateCustomProviderId, readCustomProviders, addCustomProvider, removeCustomProvider, updateCustomProvider } from '../dist/utils/custom-providers.js';
 import { rotatingSponsors } from '../dist/utils/sponsor-guide.js';
 
@@ -1657,7 +1660,15 @@ app.post('/api/config', (req, res) => {
   } else {
     saved[provider] = saved[provider] || {};
     if (typeof apiKey === 'string' && apiKey.trim()) saved[provider].apiKey = apiKey.trim();
-    if (typeof baseUrl === 'string') saved[provider].baseUrl = baseUrl.trim();
+    // 存进来的地址先规整（引号/尾斜杠/整条 curl 地址/缺协议）——粘贴出错是「配了 key 却连不上」的头号来源。
+    // claude-code / gemini-cli 的中转地址是原样交给各自 CLI 的（不走我们的连接器），
+    // 只做去空白/去尾斜杠这种无争议的清理，不动路径和 query。
+    if (typeof baseUrl === 'string') {
+      const raw = baseUrl.trim();
+      saved[provider].baseUrl = !raw ? ''
+        : CLI_PROVIDERS.includes(provider) ? raw.replace(/\/+$/, '')
+        : normalizeBaseUrl(raw);
+    }
     if (typeof model === 'string') saved[provider].model = model.trim();
     // Claude Code 模型映射（Sonnet/Opus/Haiku 档位 → 中转商实际模型）；传空串 = 清掉该档位
     if (provider === 'claude-code') {
@@ -1764,7 +1775,7 @@ app.get('/api/claude/proxy', async (_req, res) => {
 });
 app.post('/api/claude/proxy/sync', (_req, res) => {
   try {
-    res.json({ ok: true, ...syncClaudeProxy(detectMacOSSystemProxy()) });
+    res.json({ ok: true, ...syncClaudeProxy(detectSystemProxy()) });
   } catch (err) {
     res.status(500).json({ error: err?.message || String(err) });
   }
@@ -1805,7 +1816,7 @@ app.post('/api/custom-providers', (req, res) => {
   const saved = readKeys();
   saved[id] = {};
   if (typeof apiKey === 'string' && apiKey.trim()) saved[id].apiKey = apiKey.trim();
-  saved[id].baseUrl = baseUrl.trim();
+  saved[id].baseUrl = normalizeBaseUrl(baseUrl);
   if (typeof model === 'string' && model.trim()) saved[id].model = model.trim();
   writeKeys(saved);
   res.json({ ok: true });
@@ -1870,6 +1881,9 @@ app.post('/api/test-provider', async (req, res) => {
       return res.json({ ok: true, latencyMs: Date.now() - t0, note: `${n} 个本地模型` });
     }
     let r;
+    let hitUrl = '';   // 实际打到的地址（可能被跳转 / 换过 /v1 拼法）
+    let baseUsed = ''; // 本次测试用的 base_url（规整后）
+    let drift;         // 与用户填的 base_url 不一致时的说明
     if (provider === 'claude') {
       r = await fetch('https://api.anthropic.com/v1/messages', {
         method: 'POST', signal: ctrl.signal,
@@ -1883,13 +1897,39 @@ app.post('/api/test-provider', async (req, res) => {
       const saved = readKeys()[provider] || {};
       const spec = API_PROVIDER_MAP[provider];
       const remote = remoteProviderSpec(provider);
-      const base = ((typeof overrideBase === 'string' && overrideBase.trim()) || saved.baseUrl || (spec && process.env[spec.envBase]) || spec?.defaultBaseUrl || remote?.baseUrl || process.env.OPENAI_BASE_URL || 'https://api.openai.com/v1').replace(/\/$/, '');
+      const base = normalizeBaseUrl((typeof overrideBase === 'string' && overrideBase.trim()) || saved.baseUrl || (spec && process.env[spec.envBase]) || spec?.defaultBaseUrl || remote?.baseUrl || process.env.OPENAI_BASE_URL || 'https://api.openai.com/v1');
       const model = (typeof overrideModel === 'string' && overrideModel.trim()) || saved.model || spec?.defaultModel || remote?.defaultModel || 'gpt-4o-mini';
-      r = await fetch(`${base}/chat/completions`, {
-        method: 'POST', signal: ctrl.signal,
-        headers: { 'content-type': 'application/json', authorization: `Bearer ${key}` },
-        body: JSON.stringify({ model, max_tokens: 1, messages: [{ role: 'user', content: 'hi' }] }),
+      // Azure OpenAI 用 api-key 头鉴权（Bearer 仅 AAD token 时有效）；Azure 及 o系列/gpt-5 推理模型只认
+      // max_completion_tokens，且最小有效值不能是 1（会被推理吃光返回空/400），用 16。issue #99
+      const isAzureBase = /\.azure\.com|azure/i.test(base);
+      const isReasoning = /(?:^|[^a-z])(?:o[1-9]|gpt-5)/i.test(model);
+      const useCompletionParam = isAzureBase || isReasoning;
+      // 与连接器(openai-compatible.ts)运行时保持一致:始终带 Bearer,Azure 额外带 api-key
+      // (Azure 常用 api-key,但 AAD token 场景仍需 Bearer)——避免"测试通过但运行失败"或反之。
+      const headers = { 'content-type': 'application/json', authorization: `Bearer ${key}`, ...(isAzureBase ? { 'api-key': key } : {}) };
+      // 与连接器同一份发送逻辑：跳转保持 POST（否则 301/302 会被降级成 GET → 上游回
+      // 405 Method Not Allowed）、base_url 少写/多写 /v1 时自动试另一种拼法。
+      const doTest = (field, val) => postChatCompletions({
+        baseUrl: base, headers, signal: ctrl.signal, azure: isAzureBase,
+        body: JSON.stringify({ model, [field]: val, messages: [{ role: 'user', content: 'hi' }] }),
       });
+      let field = useCompletionParam ? 'max_completion_tokens' : 'max_tokens';
+      let post = await doTest(field, useCompletionParam ? 16 : 1);
+      // 参数名猜错时同连接器一样自动切另一个名字重试一次(双向;排除数值过大类 400)。issue #99
+      if (post.response.status === 400) {
+        const t = await post.response.clone().text().catch(() => '');
+        const paramNameRejected = /max_(?:completion_)?tokens/i.test(t) && !/too large|too many|maximum|exceed|less than|greater than|must be|at most/i.test(t);
+        if (paramNameRejected) {
+          field = field === 'max_tokens' ? 'max_completion_tokens' : 'max_tokens';
+          post = await doTest(field, field === 'max_completion_tokens' ? 16 : 1);
+        }
+      }
+      r = post.response;
+      // 地址跟用户填的不一致（被跳转 / 换了 /v1 拼法）→ 测试即使通过也要告诉用户改配置，
+      // 否则同一个坑会在别处（CLI、其它工具）再踩一次。
+      hitUrl = post.url;
+      baseUsed = base;
+      drift = post.drift;
     }
     const latencyMs = Date.now() - t0;
     if (!r.ok) {
@@ -1901,9 +1941,12 @@ app.post('/api/test-provider', async (req, res) => {
         const j = JSON.parse(txt);
         msg = j?.error?.message || j?.message || (typeof j?.error === 'string' ? j.error : txt);
       } catch { /* 非 JSON 原样透传 */ }
-      return res.json({ ok: false, error: `HTTP ${r.status} ${String(msg).slice(0, 300)}` });
+      // 405/404 这类「地址配错」光报状态码用户查不动 —— 带上实际请求地址和排查指引
+      const hint = hitUrl ? endpointHint(r.status, hitUrl, baseUsed, drift) : '';
+      return res.json({ ok: false, error: `HTTP ${r.status} ${String(msg).slice(0, 300)}${hint}` });
     }
-    return res.json({ ok: true, latencyMs });
+    // 通过了但地址有漂移：提醒用户把 base_url 改成最终地址（CLI/其它工具没有这层兜底）
+    return res.json({ ok: true, latencyMs, ...(drift ? { note: `已连通，但实际请求地址是 ${hitUrl}（${drift}）——建议把 base_url 改成这个最终地址` } : {}) });
   } catch (e) {
     return res.json({ ok: false, error: e?.name === 'AbortError' ? '超时（12s）' : (e?.message || String(e)) });
   } finally {
@@ -1923,10 +1966,10 @@ app.post('/api/provider-models', async (req, res) => {
   const remote = provider ? remoteProviderSpec(provider) : null;
   // protocol:'anthropic' = Anthropic 兼容端点（claude-code 中转商），认证头用 x-api-key
   const isClaude = provider === 'claude' || protocol === 'anthropic';
-  const base = String(
+  const base = normalizeBaseUrl(
     overrideBase || saved.baseUrl || (spec && process.env[spec.envBase]) || spec?.defaultBaseUrl || remote?.baseUrl ||
     (isClaude ? 'https://api.anthropic.com/v1' : '')
-  ).replace(/\/+$/, '');
+  );
   const key = overrideKey || saved.apiKey || (spec ? process.env[spec.envKey] : '') || (isClaude ? process.env.ANTHROPIC_API_KEY : '');
   if (!base) return res.status(400).json({ ok: false, error: 'baseUrl required' });
   // 模型公司官方 API 拉不到真实列表时（没配 key / 请求失败），退回 models.dev
@@ -1951,10 +1994,13 @@ app.post('/api/provider-models', async (req, res) => {
   //  · base 是不带版本的根地址（用户照抄 CLI 中转端点常见）→ 先试 OpenAI 惯例的 {base}/v1/models，
   //    再把 {base}/models 作为兜底。
   // 404/405 时自动尝试下一个候选；其它状态（401/403 等换路径也没用）直接停。
-  const endsWithVersion = /\/v\d+$/.test(base);
+  // joinEndpoint：base 带 query 时（Azure 的 ?api-version=）路径要接在 query 之前
+  const basePath = base.split('?')[0];
+  const withV1 = base.includes('?') ? `${basePath}/v1?${base.split('?').slice(1).join('?')}` : `${basePath}/v1`;
+  const endsWithVersion = /\/v\d+$/.test(basePath);
   const candidates = endsWithVersion
-    ? (base.endsWith('/v1') ? [`${base}/models`] : [`${base}/models`, `${base}/v1/models`])
-    : [`${base}/v1/models`, `${base}/models`];
+    ? (basePath.endsWith('/v1') ? [joinEndpoint(base, 'models')] : [joinEndpoint(base, 'models'), joinEndpoint(withV1, 'models')])
+    : [joinEndpoint(withV1, 'models'), joinEndpoint(base, 'models')];
   let lastErr = '';
   try {
     for (const url of candidates) {
