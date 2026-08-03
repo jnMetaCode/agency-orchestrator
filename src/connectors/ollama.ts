@@ -2,13 +2,14 @@
  * Ollama Connector — 本地模型，不需要 API key
  */
 import type { LLMConnector, LLMResult, LLMConfig } from '../types.js';
+import { normalizeBaseUrl, joinEndpoint, postApiEndpoint } from './endpoint.js';
 
 export class OllamaConnector implements LLMConnector {
   private baseUrl: string;
 
   constructor(baseUrl?: string) {
-    const raw = baseUrl || process.env.OLLAMA_BASE_URL || 'http://localhost:11434';
-    this.baseUrl = raw.replace(/\/+$/, '');
+    // 规整地址：允许只写 `localhost:11434`（本机自动补 http），去掉尾斜杠/引号
+    this.baseUrl = normalizeBaseUrl(baseUrl || process.env.OLLAMA_BASE_URL || 'http://localhost:11434');
   }
 
   async chat(systemPrompt: string, userMessage: string, config: LLMConfig): Promise<LLMResult> {
@@ -17,8 +18,13 @@ export class OllamaConnector implements LLMConnector {
 
     let response: Response;
     try {
-      response = await fetch(`${this.baseUrl}/api/chat`, {
-        method: 'POST',
+      // 远程 Ollama 常挂在反代/隧道后面，一旦发生 301/302，Node 会把 POST 降级成 GET，
+      // /api/chat 只收 POST → 405，报错完全看不出是地址差一跳。这里跟连接器共用同一套
+      // 「跳转保持 POST」的发送逻辑（端点固定，不做 /v1 猜测）。
+      const post = await postApiEndpoint({
+        baseUrl: this.baseUrl,
+        path: 'api/chat',
+        endpoint: joinEndpoint(this.baseUrl, 'api/chat'),
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           model: config.model || 'llama3.1',
@@ -36,6 +42,7 @@ export class OllamaConnector implements LLMConnector {
           },
         }),
       });
+      response = post.response;
     } catch (err: any) {
       if (err?.cause?.code === 'ECONNREFUSED' || err?.message?.includes('ECONNREFUSED')) {
         throw new Error(`无法连接 Ollama (${this.baseUrl})，请确认 ollama 已启动。Docker 环境请设置 OLLAMA_BASE_URL=http://host.docker.internal:11434`);

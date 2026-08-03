@@ -11,7 +11,9 @@ import {
   normalizeBaseUrl,
   chatEndpointCandidates,
   joinEndpoint,
+  sameCredentialScope,
 } from '../src/connectors/openai-compatible.js';
+import { OllamaConnector } from '../src/connectors/ollama.js';
 
 let passed = 0, failed = 0;
 function assert(c: boolean, m: string): void {
@@ -229,6 +231,44 @@ assert(normalizeBaseUrl('127.0.0.1:8000/v1') === 'http://127.0.0.1:8000/v1', '�
   assert((await c.chat('s', 'u', cfg)).content === 'ok', '缓存端点失效后自动重探候选并跑通');
   srv.close();
 }
+
+// ── 11. 跳转带不带 key 的边界：多段 TLD 不能被当成同域（否则跳一下就把 key 骗走）──
+const scope = (from: string, to: string) => sameCredentialScope(new URL(from), new URL(to));
+assert(scope('https://api.x.com/v1', 'https://api.x.com/v2'), '同 host：带 key');
+assert(scope('https://x.com/v1', 'https://www.x.com/v1'), '父子域（x.com → www.x.com）：带 key');
+assert(scope('https://api.x.com/v1', 'https://x.com/v1'), '子域回父域：带 key');
+assert(!scope('https://api.example.co.uk/v1', 'https://evil.co.uk/v1'), '多段 TLD 下的不同注册域：不带 key');
+assert(!scope('https://api.x.com/v1', 'https://x.com.evil.net/v1'), '后缀伪装域名：不带 key');
+assert(!scope('https://api.x.com/v1', 'http://api.x.com/v1'), '降级到明文 http：不带 key');
+
+// ── 12. Ollama 也走「跳转保持 POST」（远程 Ollama 常挂反代后面）─────────────────
+{
+  const seen: Array<{ method: string; url: string }> = [];
+  const srv = http.createServer((req, res) => {
+    seen.push({ method: req.method!, url: req.url! });
+    let b = ''; req.on('data', (d) => (b += d));
+    req.on('end', () => {
+      if (req.url !== '/api/chat' || req.method !== 'POST') {
+        res.writeHead(405, { 'Content-Type': 'application/json' });
+        return res.end(JSON.stringify({ error: 'method not allowed' }));
+      }
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ message: { content: '本地回答' }, eval_count: 3, prompt_eval_count: 5 }));
+    });
+  });
+  const port = await listen(srv);
+  const redirector = http.createServer((req, res) => {
+    res.writeHead(302, { location: `http://127.0.0.1:${port}${req.url}` });
+    res.end();
+  });
+  const rport = await listen(redirector);
+  const c = new OllamaConnector(`http://127.0.0.1:${rport}`);
+  const r = await c.chat('s', 'u', { provider: 'ollama', model: 'llama3' });
+  assert(r.content === '本地回答', 'Ollama：被 302 跳转后仍以 POST 重发');
+  assert(seen.every((x) => x.method === 'POST'), 'Ollama：跳转目标收到的不是被降级的 GET');
+  srv.close(); redirector.close();
+}
+assert(new OllamaConnector('localhost:11434') instanceof OllamaConnector, 'Ollama：只写 localhost:11434 也能构造（补 http）');
 
 console.log(`\n${failed === 0 ? '✅' : '❌'} ${passed} passed, ${failed} failed\n`);
 process.exit(failed === 0 ? 0 : 1);
