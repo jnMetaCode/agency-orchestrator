@@ -20,7 +20,7 @@ import { API_PROVIDERS, API_PROVIDER_MAP } from '../dist/connectors/api-provider
 import { normalizeBaseUrl, postChatCompletions, postApiEndpoint, endpointHint, joinEndpoint } from '../dist/connectors/openai-compatible.js';
 import { applyCodexRelay, clearCodexRelay, readCodexRelayStatus } from '../dist/utils/codex-relay.js';
 import { diagnoseClaudeConfig, HIJACK_ENV_KEYS } from '../dist/utils/claude-repair.js';
-import { applyClaudeProvider, restoreClaudeToOfficial, readClaudeSwitchStatus, readClaudeProxyStatus, probeProxyReachable, clearClaudeProxy, syncClaudeProxy, detectSystemProxy } from '../dist/utils/claude-apply.js';
+import { applyClaudeProvider, restoreClaudeToOfficial, readClaudeSwitchStatus, readClaudeProxyStatus, probeProxyReachable, clearClaudeProxy, syncClaudeProxy, detectMacOSSystemProxy } from '../dist/utils/claude-apply.js';
 import { validateCustomProviderId, readCustomProviders, addCustomProvider, removeCustomProvider, updateCustomProvider } from '../dist/utils/custom-providers.js';
 import { rotatingSponsors } from '../dist/utils/sponsor-guide.js';
 
@@ -1781,7 +1781,7 @@ app.get('/api/claude/proxy', async (_req, res) => {
 });
 app.post('/api/claude/proxy/sync', (_req, res) => {
   try {
-    res.json({ ok: true, ...syncClaudeProxy(detectSystemProxy()) });
+    res.json({ ok: true, ...syncClaudeProxy(detectMacOSSystemProxy()) });
   } catch (err) {
     res.status(500).json({ error: err?.message || String(err) });
   }
