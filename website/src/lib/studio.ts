@@ -500,8 +500,9 @@ export const api = {
   config: () => getJSON<ConfigResponse>("/config"),
   // sonnetModel/opusModel/haikuModel 仅 claude-code 用（模型映射，对齐 cc-switch）
   saveConfig: (body: { provider: string; apiKey?: string; baseUrl?: string; model?: string; sonnetModel?: string; opusModel?: string; haikuModel?: string }) =>
-    // backups 只有 codex-cli 这条中转会带（写了 ~/.codex 前自动备份的原文件路径）
-    postJSON<{ ok: boolean; backups?: string[] }>("/config", body),
+    // backups 只有 codex-cli 这条中转会带（写了 ~/.codex 前自动备份的原文件路径）；
+    // baseUrl 是后端规整后的地址（去掉误贴的 /chat/completions 等），前端据此回填输入框
+    postJSON<{ ok: boolean; backups?: string[]; baseUrl?: string }>("/config", body),
   // apiKey/baseUrl/model 可选覆盖:配置页里"填了就能测",不用先保存
   testProvider: (provider: string, overrides?: { apiKey?: string; baseUrl?: string; model?: string }) =>
     postJSON<{ ok: boolean; latencyMs?: number; error?: string; note?: string }>("/test-provider", { provider, ...overrides }),

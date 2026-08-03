@@ -77,6 +77,17 @@ export function chatEndpointCandidates(baseUrl: string, opts?: { azure?: boolean
   return [primary, joinEndpoint(query ? `${alt}?${query}` : alt, 'chat/completions')];
 }
 
+/**
+ * 「确实是 Azure 部署地址」的严格判定 —— 只用来决定要不要放弃 /v1 兜底。
+ * isAzure（决定 api-key 头 / token 参数名）沿用宽松匹配保持既有行为；但宽松匹配会把
+ * 任何域名里带 "azure" 字样的中转也算进来，那些端点其实是普通 OpenAI 兼容站，
+ * 不该因此丢掉 /v1 兜底能力。
+ */
+export function isAzureDeploymentUrl(baseUrl: string): boolean {
+  const s = String(baseUrl || '');
+  return /\.azure\.com|\.azure-api\.net/i.test(s) || /\/openai\/deployments\//i.test(s);
+}
+
 /** 跳转后是否还能安全带上 Authorization：同 host、同注册域，或本机——否则宁可 401 也不把 key 送到别的域 */
 function sameCredentialScope(from: URL, to: URL): boolean {
   const local = (h: string) => h === 'localhost' || h === '127.0.0.1' || h === '::1' || h === '[::1]';
@@ -173,7 +184,8 @@ export function endpointHint(status: number, url: string, baseUrl: string, drift
       status === 405
         ? '405 = 地址存在但不接受 POST：多为 base_url 被 301/302 跳转（http→https、带不带 www）后请求被降级成 GET，或填成了网页/控制台地址'
         : '404 = 该地址不存在',
-      `请到「供应商」里核对 base_url（当前 ${baseUrl || '(空)'}）：应是 API 接入点（多为 .../v1），不要填官网首页、也不要带 /chat/completions；本次已自动试过带/不带 /v1 两种拼法`,
+      `核对 base_url（当前 ${baseUrl || '(空)'}）：应是 API 接入点（多为 .../v1），不要填官网首页、也不要带 /chat/completions；本次已自动试过带/不带 /v1 两种拼法`,
+      '改的地方：Studio 在「供应商」面板里改，CLI 用 --base-url 或对应的 *_BASE_URL 环境变量',
       '若该中转商只提供 Anthropic 协议端点，请改用「Claude Code 中转」那栏配置，OpenAI 兼容这栏用不了',
     );
   } else if (status >= 300 && status < 400) {
@@ -348,7 +360,8 @@ export class OpenAICompatibleConnector implements LLMConnector {
           },
           signal: controller.signal,
           endpoint: this.resolvedEndpoint,
-          azure: this.isAzure,
+          // 只有真·Azure 部署地址才放弃 /v1 兜底（域名里恰好带 azure 的中转仍然享受兜底）
+          azure: isAzureDeploymentUrl(this.baseUrl),
           onNotice: (m) => this.notice(m),
           body: JSON.stringify({
             // 供应商专有参数（thinking/reasoning 档位等）先铺底，核心字段随后覆盖——

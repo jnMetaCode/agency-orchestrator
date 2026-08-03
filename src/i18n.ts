@@ -198,7 +198,7 @@ const dict: Dict = {
     init --provider <p> --model <m>   写入 .env 默认配置（支持 --base-url, --api-key）
     compose "描述"                    AI 智能编排工作流（一句话生成 YAML）
     compose "描述" --run              生成并立即运行（一句话出结果）
-    doctor [--fix]                    环境自检：provider/凭证/CLI/系统 Claude Code；--fix 一键修复被写坏的 ~/.claude
+    doctor [--fix] [--no-probe]       环境自检：provider/凭证/端点连通性/CLI/系统 Claude Code；--fix 一键修复被写坏的 ~/.claude；--no-probe 跳过端点探测（不发请求）
     team save <workflow.yaml>         把角色阵容存成可复用团队 (Loadout)
     team list / show / rm             管理已保存的团队
     run --team <名字> "任务"           用已保存的团队跑新任务（锁定阵容）
@@ -268,7 +268,7 @@ const dict: Dict = {
     init --provider <p> --model <m>   Write default config to .env (supports --base-url, --api-key)
     compose "desc"                    AI-compose a workflow from one sentence
     compose "desc" --run              Compose and run immediately
-    doctor [--fix]                    Self-check: provider/creds/CLI/system Claude Code; --fix repairs a broken ~/.claude
+    doctor [--fix] [--no-probe]       Self-check: provider/creds/endpoint reachability/CLI/system Claude Code; --fix repairs a broken ~/.claude; --no-probe skips the endpoint probe
     team save <workflow.yaml>         Save a role line-up as a reusable team (Loadout)
     team list / show / rm             Manage saved teams
     run --team <name> "task"          Run a new task with a saved team (locked line-up)

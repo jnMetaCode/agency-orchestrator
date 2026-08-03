@@ -232,6 +232,9 @@ export function ProviderConfigView({
         : { provider: providerId, apiKey: key, baseUrl, model: isRelay ? undefined : model },
       );
       setKey("");
+      // 后端会规整地址（如把误贴的 .../v1/chat/completions 收成 .../v1）——回填，
+      // 否则输入框还显示原文，用户以为没生效
+      if (typeof r.baseUrl === "string" && r.baseUrl !== baseUrl) setBaseUrl(r.baseUrl);
       setBackups(r.backups && r.backups.length > 0 ? r.backups : null);
       onSaved();
     } catch (e: any) {
@@ -479,6 +482,10 @@ export function ProviderConfigView({
                   )}
                 </label>
                 <input value={baseUrl} onChange={(e) => setBaseUrl(e.target.value)} placeholder={baseUrlPlaceholder} className={cn(inputCls, "font-mono")} />
+                {/* Azure 部署地址少了 ?api-version= 必 404，且报错只说 404 很难联想到这一点 */}
+                {/azure/i.test(baseUrl) && !/[?&]api-version=/i.test(baseUrl) && (
+                  <p className="mt-1.5 text-xs text-amber-600 dark:text-amber-400">{p.azureApiVersionHint}</p>
+                )}
               </div>
             )}
             {!isOllama && (

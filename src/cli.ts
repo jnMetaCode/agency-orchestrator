@@ -19,6 +19,7 @@ import { listAgents, filterAgentsByKeyword } from './agents/loader.js';
 import { run, findAgentsDir, compareWorkflowVsBaseline } from './index.js';
 import { detectInstalledCliProviders } from './providers/detect.js';
 import { API_PROVIDERS, API_PROVIDER_MAP } from './connectors/api-providers.js';
+import { postChatCompletions, endpointHint, normalizeBaseUrl } from './connectors/openai-compatible.js';
 import { diagnoseClaudeConfig, repairClaudeConfig } from './utils/claude-repair.js';
 import { formatValidationReport, buildValidationReport } from './cli/validate-report.js';
 import { parseInputPairs } from './cli/parse-inputs.js';
@@ -636,6 +637,46 @@ async function handleDoctor(): Promise<void> {
   } else {
     problems++;
     console.log(`  ❌ 默认 provider "${def}" 无凭证 —— 直接跑任务会失败`);
+  }
+
+  // 3.5) 端点连通性：地址配错（少写/多写 /v1、被 301 跳转降级、填成网页地址）光看配置看不出来，
+  //      只有真发一次请求才知道。只对 OpenAI 兼容 API 做（CLI/ollama/claude 各走自己的通道），
+  //      且必须已有 key；发一个 max_tokens=1 的最小请求，成本可忽略。--no-probe 可跳过。
+  const apiSpec = API_PROVIDER_MAP[def];
+  const probeKey = apiSpec ? process.env[apiSpec.envKey] : '';
+  if (apiSpec && probeKey && !args.includes('--no-probe')) {
+    const base = normalizeBaseUrl(process.env[apiSpec.envBase] || apiSpec.defaultBaseUrl);
+    const model = apiSpec.defaultModel || 'gpt-4o-mini';
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), 12_000);
+    const t0 = Date.now();
+    try {
+      const post = await postChatCompletions({
+        baseUrl: base, signal: ctrl.signal,
+        headers: { 'content-type': 'application/json', authorization: `Bearer ${probeKey}` },
+        body: JSON.stringify({ model, max_tokens: 1, messages: [{ role: 'user', content: 'hi' }] }),
+      });
+      if (post.response.ok) {
+        console.log(`  ✅ 端点可达：${post.url}（${Date.now() - t0}ms）`);
+        if (post.drift) {
+          problems++;
+          console.log(`     ⚠️ 地址与配置不一致：${post.drift}`);
+          console.log(`     ↳ 本次靠自动兜底跑通了，但别的工具没有这层兜底 —— 建议把 base_url 改成上面的最终地址`);
+        }
+      } else {
+        problems++;
+        const body = await post.response.text().catch(() => '');
+        console.log(`  ❌ 端点不通：HTTP ${post.response.status} ${body.slice(0, 160)}`);
+        console.log(endpointHint(post.response.status, post.url, base, post.drift).replace(/^\n {2}/, '     ').replace(/\n {2}/g, '\n     '));
+      }
+    } catch (err) {
+      problems++;
+      const msg = ctrl.signal.aborted ? '超时（12s）' : (err instanceof Error ? err.message : String(err));
+      console.log(`  ❌ 端点不通：${msg}`);
+      console.log(`     ↳ 检查 ${apiSpec.envBase}（当前 ${base}）是否正确、网络/代理是否可达`);
+    } finally {
+      clearTimeout(timer);
+    }
   }
 
   // 4) 系统 Claude Code 健康（复用 claude-repair 的诊断）

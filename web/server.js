@@ -149,6 +149,10 @@ const isAllowedWorkflow = (file) => ALLOWED_WORKFLOW_DIRS.some(d => isInside(fil
 function composeProviderReady(provider) {
   const p = provider || process.env.AO_PROVIDER || 'duoyuanx';
   let saved = {}; try { saved = readKeys()[p] || {}; } catch {}
+  // 自定义/远程清单供应商没有内置默认端点：只填了 key 没填地址 = 还没配完，
+  // 该走「先去配供应商」的引导，而不是掉到连接器里报一句晦涩的连接错。
+  const needsOwnBaseUrl = !API_PROVIDER_MAP[p] && !CLI_PROVIDERS.includes(p) && p !== 'ollama' && p !== 'claude';
+  if (needsOwnBaseUrl && !(saved.baseUrl || remoteProviderSpec(p)?.baseUrl)) return false;
   if (saved.apiKey) return true;                                       // 已配 key（含 CLI 中转 / 自定义供应商）
   if (CLI_PROVIDERS.includes(p)) return detectInstalledCliProviders().includes(p); // 订阅制 CLI 零配置
   if (p === 'ollama') return true;                                     // 本地免 key
@@ -1683,7 +1687,9 @@ app.post('/api/config', (req, res) => {
   }
   writeKeys(saved);
   applyKeys(saved);
-  res.json({ ok: true });
+  // 把规整后的地址回给前端：用户填 `.../v1/chat/completions`、实际存的是 `.../v1`，
+  // 不回填的话输入框还显示原文，看着像没生效。
+  res.json({ ok: true, baseUrl: saved[provider]?.baseUrl ?? '' });
 });
 
 // 系统 Claude Code「急救」：诊断/修复被别的软件（cc-switch 等）或手动写坏的全局
