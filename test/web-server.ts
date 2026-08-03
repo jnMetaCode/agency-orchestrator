@@ -7,6 +7,7 @@ import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'nod
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { createServer } from 'node:net';
+import http from 'node:http';
 
 let passed = 0, failed = 0;
 function assert(c: boolean, m: string): void { if (c) { console.log(`  ✅ ${m}`); passed++; } else { console.log(`  ❌ ${m}`); failed++; } }
@@ -249,6 +250,96 @@ try {
   if (server2) server2.kill('SIGTERM');
   rmSync(dataDir2, { recursive: true, force: true });
   rmSync(claudeDir2, { recursive: true, force: true });
+}
+
+// ── 供应商地址容错：跳转保持 POST / 少写 /v1 / 保存时规整 / 半配置守卫 ─────────
+// 真实故障：用户填的 base_url 与中转商最终地址差一跳，上游 301/302 后 fetch 把 POST
+// 降级成 GET，中转回 405 Method Not Allowed。这里用假中转把整条链路钉死在 CI 里。
+console.log('\n─── 供应商地址容错（405 / 跳转 / 规整）───');
+
+const upstream = http.createServer((req, res) => {
+  let b = ''; req.on('data', (d) => (b += d));
+  req.on('end', () => {
+    if (req.url === '/v1/chat/completions' && req.method === 'POST') {
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      return res.end(JSON.stringify({ choices: [{ message: { content: 'hi' } }] }));
+    }
+    // FastAPI/Starlette 的标准回法，即用户截图里那条报文
+    const known = req.url === '/v1/chat/completions';
+    res.writeHead(known ? 405 : 404, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ detail: known ? 'Method Not Allowed' : 'Not Found' }));
+  });
+});
+await new Promise<void>((r) => upstream.listen(0, '127.0.0.1', () => r()));
+const upPort = (upstream.address() as { port: number }).port;
+// 只做跳转的前置地址：模拟 http→https / 带不带 www 这类"差一跳"的配置
+const redirector = http.createServer((req, res) => {
+  res.writeHead(302, { location: `http://127.0.0.1:${upPort}${req.url}` });
+  res.end();
+});
+await new Promise<void>((r) => redirector.listen(0, '127.0.0.1', () => r()));
+const redirPort = (redirector.address() as { port: number }).port;
+
+const port3 = await freePort();
+const dataDir3 = mkdtempSync(join(tmpdir(), 'ao-web-endpoint-'));
+const base3 = `http://127.0.0.1:${port3}`;
+let server3: ChildProcess | null = null;
+const postJson = async (path: string, body: unknown) => {
+  const r = await fetch(base3 + path, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+  return { status: r.status, body: await r.json().catch(() => ({})) as Record<string, unknown> };
+};
+
+try {
+  server3 = spawn(process.execPath, [resolve('web/server.js')], {
+    // 清单拉取指向死地址：离线/CI 下不等 3s 超时，也不受远程清单内容影响
+    env: { ...process.env, PORT: String(port3), HOST: '127.0.0.1', AO_NODE: process.execPath, AO_DATA_DIR: dataDir3, AO_MANIFEST_URL: 'http://127.0.0.1:1/none.json' },
+    stdio: 'ignore',
+  });
+  let up3 = false;
+  for (let i = 0; i < 80; i++) {
+    try { const r = await fetch(base3 + '/api/health'); if (r.ok) { up3 = true; break; } } catch { /* not up yet */ }
+    await sleep(250);
+  }
+  assert(up3, '第三实例启动');
+
+  if (up3) {
+    // 1) 保存时规整：整条 curl 地址 + 引号 + 尾斜杠 + 空白，都该收成干净的 base
+    await postJson('/api/custom-providers', {
+      id: 'relaytest', name: 'Relay Test',
+      baseUrl: `  http://127.0.0.1:${redirPort}/v1/chat/completions/  `,
+      apiKey: 'sk-test', model: 'm',
+    });
+    const cfg3 = await (await fetch(base3 + '/api/config')).json();
+    assert(cfg3.providers?.relaytest?.baseUrl === `http://127.0.0.1:${redirPort}/v1`,
+      '新增供应商时地址被规整（去引号/尾斜杠/误贴的 chat/completions）');
+
+    // 2) 编辑保存也规整，并把规整后的地址回给前端回填输入框
+    const saved = await postJson('/api/config', { provider: 'relaytest', baseUrl: `http://127.0.0.1:${redirPort}/v1/chat/completions` });
+    assert(saved.body.baseUrl === `http://127.0.0.1:${redirPort}/v1`, '保存接口回传规整后的地址（供前端回填）');
+
+    // 3) 测试连接：地址被 302 跳转时不再 405，且提示用户把 base_url 改成最终地址
+    const t1 = await postJson('/api/test-provider', { provider: 'relaytest' });
+    assert(t1.body.ok === true, '被 302 跳转的地址：测试连接自愈成功（不再 405 Method Not Allowed）');
+    assert(typeof t1.body.note === 'string' && (t1.body.note as string).includes(`127.0.0.1:${upPort}`),
+      '测通但地址有漂移时，提示改成最终地址');
+
+    // 4) 少写 /v1：自动补上重试
+    const t2 = await postJson('/api/test-provider', { provider: 'relaytest', baseUrl: `http://127.0.0.1:${upPort}` });
+    assert(t2.body.ok === true, 'base_url 少写 /v1：测试连接自动补上并连通');
+
+    // 5) 两种拼法都不通：报错要说清打的哪个地址
+    const t3 = await postJson('/api/test-provider', { provider: 'relaytest', baseUrl: `http://127.0.0.1:${upPort}/nope` });
+    assert(t3.body.ok === false && String(t3.body.error).includes('请求地址: POST'), '彻底不通时报错带上实际请求地址');
+
+    // 6) 半配置守卫：只有 key、没有地址 → 走引导卡，不掉进连接器报晦涩错
+    await postJson('/api/config', { provider: 'relaytest', baseUrl: '' });
+    const comp = await postJson('/api/compose', { description: '测试', roles: [], provider: 'relaytest' });
+    assert(comp.status === 400 && comp.body.code === 'no_credentials', '自定义供应商缺 base_url 时返回首跑引导而不是硬跑');
+  }
+} finally {
+  if (server3) server3.kill('SIGTERM');
+  upstream.close(); redirector.close();
+  rmSync(dataDir3, { recursive: true, force: true });
 }
 
 console.log(`\n  结果: ${passed} 通过, ${failed} 失败\n`);
