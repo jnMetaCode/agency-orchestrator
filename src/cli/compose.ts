@@ -137,7 +137,9 @@ function buildComposeSystemPromptEn(catalog: string, options?: { autoRun?: boole
   const provider = options?.provider || 'deepseek';
   const model = options?.model;
   const isLocal = provider === 'ollama';
-  const maxTokens = isLocal ? 8192 : 4096;
+  // o系列/gpt-5 推理模型把 reasoning token 计入输出上限，4096 常被推理吃光 → 产出为空，故放大。issue #99
+  const isReasoning = /(?:^|[^a-z])(?:o[1-9]|gpt-5)/i.test(model || '');
+  const maxTokens = isLocal ? 8192 : (isReasoning ? 32768 : 4096);
   const timeoutMs = options?.timeoutMs ?? (isLocal ? 600000 : 300000);
 
   const inputsSection = autoRun
@@ -256,7 +258,9 @@ function buildComposeSystemPromptZh(catalog: string, options?: { autoRun?: boole
   const provider = options?.provider || 'deepseek';
   const model = options?.model;
   const isLocal = provider === 'ollama';
-  const maxTokens = isLocal ? 8192 : 4096;
+  // o系列/gpt-5 推理模型把 reasoning token 计入输出上限，4096 常被推理吃光 → 产出为空，故放大。issue #99
+  const isReasoning = /(?:^|[^a-z])(?:o[1-9]|gpt-5)/i.test(model || '');
+  const maxTokens = isLocal ? 8192 : (isReasoning ? 32768 : 4096);
   const timeoutMs = options?.timeoutMs ?? (isLocal ? 600000 : 300000);
 
   const inputsSection = autoRun
