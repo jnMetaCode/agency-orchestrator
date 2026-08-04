@@ -28,6 +28,8 @@ export const API_PROVIDERS: ApiProviderSpec[] = [
   // 优云智算 / CompShare ModelVerse（赞助商）—— 模型如 deepseek-ai/DeepSeek-R1，无通用默认模型
   { id: 'compshare', envKey: 'COMPSHARE_API_KEY', envBase: 'COMPSHARE_BASE_URL', defaultBaseUrl: 'https://api.modelverse.cn/v1' },
   // APINEBULA（旗舰赞助商）—— 银河录像局旗下 AI 聚合平台，聚合 Claude / GPT / Gemini 满血直连
+  // （此处直连走 OpenAI 兼容 /v1）；同一账号给编码 CLI 配中转的端点按格式不同：Claude Code 走
+  // Anthropic 兼容根路径 https://apinebula.ai（不带 /v1）、Codex 走 /v1、Gemini 走根路径，见前端 CLI_RELAY_PRESETS。
   { id: 'apinebula', envKey: 'APINEBULA_API_KEY', envBase: 'APINEBULA_BASE_URL', defaultBaseUrl: 'https://apinebula.ai/v1', defaultModel: 'gpt-5.5' },
   // Agnes AI —— key 只从 env / 配置读,绝不在代码里写死(写死=随包公开,免费额度会被刷爆)
   { id: 'agnes', envKey: 'AGNES_API_KEY', envBase: 'AGNES_BASE_URL', defaultBaseUrl: 'https://apihub.agnes-ai.com/v1', defaultModel: 'agnes-2.0-flash' },

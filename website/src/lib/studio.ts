@@ -769,6 +769,20 @@ export interface CliRelayPreset {
   haikuModel?: string;
 }
 export const CLI_RELAY_PRESETS: CliRelayPreset[] = [
+  // APINEBULA（旗舰赞助商）—— 银河录像局旗下 AI 聚合平台，一个账号给三个编码 CLI 配中转，
+  // 但**同一域名不同格式端点不同**：Claude Code 走 Anthropic 兼容端点（根路径，**不带 /v1**）、
+  // Codex 走 OpenAI 兼容 /v1、Gemini CLI 走 Google 端点（根路径）。填错会 401，所以这里锁死映射。
+  // 聚合模型名用 claude/gpt/gemini 官方名（见 apinebula defaultProvider 的 modelSuggestions），无需三档重映射。
+  {
+    name: "APINEBULA",
+    sponsor: true,
+    signupUrl: "https://apinebula.ai/V6ekjG",
+    baseUrls: {
+      "claude-code": "https://apinebula.ai",
+      "gemini-cli": "https://apinebula.ai",
+      "codex-cli": "https://apinebula.ai/v1",
+    },
+  },
   // Cubence（赞助商）—— 专业 API 中转服务商,支持 Claude Code / Codex / Gemini CLI;
   // 主端点 api.cubence.com(与 cc-switch 预设一致;另有 api-cf/api-dmit/api-bwg 备用线路,
   // 见 docs.cubence.com);Codex 走 /v1,另两个是根路径
