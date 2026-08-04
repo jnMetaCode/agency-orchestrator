@@ -422,10 +422,11 @@ export interface ClaudeRepairResult {
 }
 // 系统 Claude Code 全局切换状态 / 切回官方（后端 src/utils/claude-apply.ts）
 export interface ClaudeSwitchStatus {
-  managed: boolean;            // 是否由 AO 主动切换（有 _aoManagedProvider 标记）
+  managed: boolean;            // AO 主动切换且 env 与指纹一致（被外部改走时为 false，好让红灯照报）
   managedProviderId?: string;
   baseUrl?: string;
   active: boolean;            // env 里是否存在 ANTHROPIC_BASE_URL（已切到中转）
+  tampered?: boolean;         // 有 AO 标记但 env 被别的工具/手动改走了（此时按劫持处理）
 }
 export interface ClaudeRestoreResult {
   ok: boolean;

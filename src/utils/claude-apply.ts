@@ -24,6 +24,13 @@ import { repairClaudeConfig, type RepairResult, type ShellEnvOptions } from './c
 /** 顶层标记键：记录当前是 AO 切到了哪个 provider。不在 env 里，不影响 CLI 运行。 */
 export const AO_MANAGED_KEY = '_aoManagedProvider';
 
+/**
+ * 顶层「指纹」键：记录 AO 写入时的 base_url。体检时拿它跟当前 env.ANTHROPIC_BASE_URL 比对——
+ * 对不上就说明 env 被别的工具（cc-switch）或手改动过，AO 标记还在但已名不副实，此时不能再
+ * 当"AO 切的"放行，必须走劫持红灯。只有 AO 自己写才知道这个值，外部工具无从伪造。
+ */
+export const AO_MANAGED_BASEURL_KEY = '_aoManagedBaseUrl';
+
 function claudeDir(): string {
   // 与 claude-repair 一致，允许测试 / 自定义 profile 覆盖。
   return process.env.AO_CLAUDE_DIR || join(homedir(), '.claude');
@@ -96,43 +103,59 @@ export function applyClaudeProvider(cfg: ClaudeApplyConfig): ClaudeApplyResult {
   setEnv('ANTHROPIC_DEFAULT_HAIKU_MODEL', cfg.haikuModel);
 
   obj[AO_MANAGED_KEY] = cfg.providerId;     // 打 AO 管理标记
+  obj[AO_MANAGED_BASEURL_KEY] = cfg.baseUrl; // 记指纹：体检时验 env 有没有被别的工具改走
 
   writeFileSync(path, JSON.stringify(obj, null, 2) + '\n', 'utf-8');
   return { path, backup, writtenKeys: written };
 }
 
 export interface ClaudeSwitchStatus {
-  /** 是否由 AO 主动切换（顶层有标记）→ 体检时应识别为"AO 切的"，可一键切回，而非"被搞坏" */
+  /**
+   * 是否由 AO 主动切换（顶层有标记且 env 与指纹一致）→ 体检时识别为"AO 切的"，可一键切回，
+   * 而非"被搞坏"。注意：标记在但 env 被别的工具改走（tampered）时，这里为 false —— 让红灯照常报。
+   */
   managed: boolean;
   managedProviderId?: string;
   /** 当前 env 里的中转端点（若有） */
   baseUrl?: string;
   /** 是否处于"已切到中转"状态（env 里存在 ANTHROPIC_BASE_URL） */
   active: boolean;
+  /**
+   * AO 标记还在，但当前 env.ANTHROPIC_BASE_URL 与 AO 写入时记的指纹对不上 —— 说明被别的工具
+   * （cc-switch）或手动改走了。此时 managed=false，前端应按"被劫持"处理，而不是继续放行。
+   */
+  tampered: boolean;
 }
 
 /** 只读：当前 settings.json 指向哪个 provider、是否 AO 管理。不改任何文件。 */
 export function readClaudeSwitchStatus(): ClaudeSwitchStatus {
   const path = settingsPath();
-  if (!existsSync(path)) return { managed: false, active: false };
+  if (!existsSync(path)) return { managed: false, active: false, tampered: false };
   let obj: any;
   try { obj = JSON.parse(readFileSync(path, 'utf-8')); }
-  catch { return { managed: false, active: false }; }
+  catch { return { managed: false, active: false, tampered: false }; }
   const env = obj && typeof obj === 'object' ? obj.env ?? {} : {};
   const baseUrl = env.ANTHROPIC_BASE_URL;
   const managedId = obj?.[AO_MANAGED_KEY];
+  const fingerprint = obj?.[AO_MANAGED_BASEURL_KEY];
+  // 有标记 + 记过指纹 + 当前 env **确有**中转地址但对不上 → 被外部改走了，别再当"AO 切的"放行。
+  // 要求 baseUrl 存在：env 被整块清空（回到官方登录）只是残留标记，不是"被劫持"，不应报 tampered。
+  // 没记指纹（旧标记，或 restore 途中）时无从验证，保持旧行为不误伤。
+  const tampered = managedId != null && typeof fingerprint === 'string' && !!baseUrl && baseUrl !== fingerprint;
+  const managed = managedId != null && !tampered;
   return {
-    managed: managedId != null,
+    managed,
     ...(managedId != null ? { managedProviderId: managedId } : {}),
     ...(baseUrl ? { baseUrl } : {}),
     active: !!baseUrl,
+    tampered,
   };
 }
 
 export interface RestoreResult extends RepairResult {
   /** 是否移除了 AO 管理标记 */
   removedAoMarker: boolean;
-  /** 是否把 macOS 当前系统代理同步给 Claude Code */
+  /** 是否把当前系统代理(macOS scutil / Windows 注册表)同步给 Claude Code */
   proxySync: ClaudeProxySyncResult;
 }
 
@@ -145,7 +168,7 @@ export interface ClaudeProxySyncResult {
 }
 
 export interface RestoreOptions extends ShellEnvOptions {
-  /** 测试/显式调用可直接传代理；生产默认从 macOS 系统代理自动检测。 */
+  /** 测试/显式调用可直接传代理；生产默认从系统代理自动检测(macOS scutil / Windows 注册表)。 */
   proxyUrl?: string;
   detectSystemProxy?: boolean;
 }
@@ -174,6 +197,68 @@ export function detectMacOSSystemProxy(): string | undefined {
   if (!enabled || !host || !Number.isInteger(port) || port < 1 || port > 65535) return undefined;
   const safeHost = host.includes(':') && !host.startsWith('[') ? `[${host}]` : host;
   return `http://${safeHost}:${port}`;
+}
+
+/**
+ * 解析 Windows 注册表 ProxyServer 值。两种格式：
+ *   · "host:port"                         —— 所有协议共用一个代理（Clash「系统代理」开关就是这种）
+ *   · "http=host:port;https=host:port;…"  —— 分协议；取 https 优先，其次 http
+ * 统一返回 `http://host:port`（HTTP CONNECT 代理，scheme 与 macOS 侧一致），无法解析则 undefined。
+ * 纯函数、无副作用，便于单测。
+ */
+export function parseWindowsProxyServer(raw?: string): string | undefined {
+  if (!raw) return undefined;
+  let hostPort = raw.trim();
+  if (hostPort.includes('=')) {
+    const map: Record<string, string> = {};
+    for (const part of hostPort.split(';')) {
+      const i = part.indexOf('=');
+      if (i > 0) map[part.slice(0, i).trim().toLowerCase()] = part.slice(i + 1).trim();
+    }
+    hostPort = map.https || map.http || '';
+  }
+  hostPort = hostPort.replace(/^https?:\/\//i, '').trim();
+  if (!hostPort) return undefined;
+  const idx = hostPort.lastIndexOf(':');
+  if (idx <= 0) return undefined;
+  const host = hostPort.slice(0, idx).trim();
+  const port = Number(hostPort.slice(idx + 1).trim());
+  if (!host || !Number.isInteger(port) || port < 1 || port > 65535) return undefined;
+  const safeHost = host.includes(':') && !host.startsWith('[') ? `[${host}]` : host;
+  return `http://${safeHost}:${port}`;
+}
+
+/**
+ * 读取 Windows 系统代理（WinINET —— 「Internet 选项 → 局域网设置」，也是 Clash for Windows /
+ * Clash Verge「系统代理」开关写的那份）：HKCU\…\Internet Settings 下 ProxyEnable=1 时，从
+ * ProxyServer 解析出 host:port。用 `reg query` 读，免第三方依赖。
+ */
+export function detectWindowsSystemProxy(): string | undefined {
+  if (process.platform !== 'win32') return undefined;
+  const REG_PATH = 'HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Internet Settings';
+  const query = (name: string): string | undefined => {
+    try {
+      const out = execFileSync('reg', ['query', REG_PATH, '/v', name], { encoding: 'utf-8', timeout: 3000 });
+      const m = out.match(new RegExp(`${name}\\s+REG_\\w+\\s+([^\\r\\n]+)`, 'i'));
+      return m?.[1]?.trim();
+    } catch {
+      return undefined;
+    }
+  };
+  const enable = query('ProxyEnable'); // REG_DWORD：0x1=开、0x0=关
+  if (!enable || /^0x0+$/i.test(enable)) return undefined;
+  return parseWindowsProxyServer(query('ProxyServer'));
+}
+
+/**
+ * 跨平台系统代理探测：macOS 走 scutil，Windows 走注册表(WinINET)。
+ * Linux 无统一的系统代理来源（各桌面环境不一），返回 undefined —— 交给用户在服务商配置里显式
+ * 填代理，或依赖 shell 里已有的 HTTP(S)_PROXY。
+ */
+export function detectSystemProxy(): string | undefined {
+  if (process.platform === 'darwin') return detectMacOSSystemProxy();
+  if (process.platform === 'win32') return detectWindowsSystemProxy();
+  return undefined;
 }
 
 /** 把已检测到的 HTTP CONNECT 代理 merge 到 Claude 全局 settings，保留其它设置。 */
@@ -219,15 +304,16 @@ export function restoreClaudeToOfficial(options: RestoreOptions = {}): RestoreRe
   if (existsSync(path)) {
     try {
       const obj = JSON.parse(readFileSync(path, 'utf-8'));
-      if (obj && typeof obj === 'object' && obj[AO_MANAGED_KEY] != null) {
+      if (obj && typeof obj === 'object' && (obj[AO_MANAGED_KEY] != null || obj[AO_MANAGED_BASEURL_KEY] != null)) {
         delete obj[AO_MANAGED_KEY];
+        delete obj[AO_MANAGED_BASEURL_KEY]; // 指纹跟标记成对，一起清，别留孤儿
         writeFileSync(path, JSON.stringify(obj, null, 2) + '\n', 'utf-8');
         removedAoMarker = true;
       }
     } catch { /* 解析失败：repair 已跳过并报告，这里不重复处理 */ }
   }
   const shouldDetect = options.detectSystemProxy !== false;
-  const proxyUrl = options.proxyUrl || (shouldDetect ? detectMacOSSystemProxy() : undefined);
+  const proxyUrl = options.proxyUrl || (shouldDetect ? detectSystemProxy() : undefined);
   const proxySync = syncClaudeProxy(proxyUrl);
   return {
     ...result,
@@ -245,7 +331,7 @@ export function restoreClaudeToOfficial(options: RestoreOptions = {}): RestoreRe
 export interface ClaudeProxyStatus {
   /** settings.json 里配置的代理（优先 HTTPS_PROXY，回退 HTTP_PROXY）；未配置则无 */
   configured?: string;
-  /** 当前 macOS 系统代理（scutil）；无则无 */
+  /** 当前系统代理（macOS scutil / Windows 注册表）；无则无 */
   systemProxy?: string;
   /** 已配代理 ≠ 当前系统代理（漂移，建议更新） */
   drift: boolean;
@@ -262,7 +348,7 @@ export function readClaudeProxyStatus(): ClaudeProxyStatus {
       configured = env.HTTPS_PROXY || env.HTTP_PROXY || undefined;
     } catch { /* 坏 JSON：当作未配置，不报错 */ }
   }
-  const systemProxy = detectMacOSSystemProxy();
+  const systemProxy = detectSystemProxy();
   const drift = !!configured && !!systemProxy && configured !== systemProxy;
   return {
     ...(configured ? { configured } : {}),

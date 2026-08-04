@@ -6,12 +6,24 @@ import { mkdtempSync, rmSync, writeFileSync, readFileSync, existsSync, readdirSy
 import { createServer } from 'node:net';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { readClaudeProxyStatus, clearClaudeProxy, probeProxyReachable } from '../src/utils/claude-apply.js';
+import { readClaudeProxyStatus, clearClaudeProxy, probeProxyReachable, parseWindowsProxyServer } from '../src/utils/claude-apply.js';
 
 let passed = 0, failed = 0;
 function assert(c: boolean, m: string): void { if (c) { console.log(`  ✅ ${m}`); passed++; } else { console.log(`  ❌ ${m}`); failed++; } }
 
 console.log('\n─── Claude 代理可见/可管理 (claude-proxy) ───');
+
+// Windows 系统代理解析（跨平台支持）：注册表 ProxyServer 值 → http://host:port
+console.log('  · Windows ProxyServer 解析');
+assert(parseWindowsProxyServer('127.0.0.1:7890') === 'http://127.0.0.1:7890', 'Windows：简单 host:port');
+assert(parseWindowsProxyServer('http=127.0.0.1:7890;https=127.0.0.1:7891;ftp=127.0.0.1:7892') === 'http://127.0.0.1:7891', 'Windows：分协议取 https 优先');
+assert(parseWindowsProxyServer('http=10.0.0.2:1080') === 'http://10.0.0.2:1080', 'Windows：分协议只有 http 时取 http');
+assert(parseWindowsProxyServer('https://127.0.0.1:7890') === 'http://127.0.0.1:7890', 'Windows：去掉多余 scheme 前缀');
+assert(parseWindowsProxyServer('[::1]:7890') === 'http://[::1]:7890', 'Windows：IPv6 保留方括号');
+assert(parseWindowsProxyServer(undefined) === undefined, 'Windows：空值 → undefined');
+assert(parseWindowsProxyServer('127.0.0.1') === undefined, 'Windows：缺端口 → undefined');
+assert(parseWindowsProxyServer('127.0.0.1:99999') === undefined, 'Windows：端口越界 → undefined');
+assert(parseWindowsProxyServer('socks=127.0.0.1:1080') === undefined, 'Windows：只有 socks(无 http/https) → undefined');
 
 const sandbox = mkdtempSync(join(tmpdir(), 'ao-proxy-test-'));
 const savedDir = process.env.AO_CLAUDE_DIR;

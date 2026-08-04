@@ -10,6 +10,7 @@ import {
   readClaudeSwitchStatus,
   restoreClaudeToOfficial,
   AO_MANAGED_KEY,
+  AO_MANAGED_BASEURL_KEY,
 } from '../src/utils/claude-apply.js';
 import { diagnoseClaudeConfig } from '../src/utils/claude-repair.js';
 
@@ -148,6 +149,55 @@ try {
   } finally {
     if (savedToken === undefined) delete process.env.ANTHROPIC_AUTH_TOKEN;
     else process.env.ANTHROPIC_AUTH_TOKEN = savedToken;
+  }
+
+  // 8) 篡改检测：AO 切过之后，别的工具（cc-switch）改走 env 但留着 AO 标记 —— 不能再被当"AO 切的"
+  //    放行，否则红灯被永久压掉，正是本卡片要抓的劫持反而看不见。
+  {
+    applyClaudeProvider(cfg);
+    assert(readSettings()[AO_MANAGED_BASEURL_KEY] === cfg.baseUrl, 'apply：写入 base_url 指纹');
+    {
+      const st = readClaudeSwitchStatus();
+      assert(st.managed === true && st.tampered === false, 'env 与指纹一致：managed=true、未篡改');
+    }
+    // 模拟外部工具把 env 改到别的中转，标记 + 指纹照旧留着
+    const s = readSettings();
+    s.env.ANTHROPIC_BASE_URL = 'https://foreign-relay.example.com';
+    writeFileSync(settings, JSON.stringify(s, null, 2), 'utf-8');
+    {
+      const st = readClaudeSwitchStatus();
+      assert(st.tampered === true, 'env 被改走：tampered=true');
+      assert(st.managed === false, 'env 被改走：managed=false（前端据此按劫持报红）');
+      assert(st.baseUrl === 'https://foreign-relay.example.com', 'env 被改走：baseUrl 报出真实的外部端点');
+    }
+    // 关键回归(audit Finding 3)：env 里的中转地址被**整块清掉**（回到官方登录）但残留 AO 标记+指纹时，
+    // 不应报 tampered —— 那不是"被劫持"，只是个残留标记（否则未来读 tampered 的消费者会看到幻影劫持）。
+    {
+      const cleaned = readSettings();
+      delete cleaned.env.ANTHROPIC_BASE_URL;
+      writeFileSync(settings, JSON.stringify(cleaned, null, 2), 'utf-8');
+      const st = readClaudeSwitchStatus();
+      assert(st.tampered === false, 'env 中转地址被清空：tampered=false（不是劫持，是残留标记）');
+      assert(st.active === false, 'env 中转地址被清空：active=false');
+    }
+    // 复原到"被改走"状态,给下面旧标记兼容用例一个有指纹的起点
+    {
+      const s2 = readSettings();
+      s2.env.ANTHROPIC_BASE_URL = 'https://foreign-relay.example.com';
+      writeFileSync(settings, JSON.stringify(s2, null, 2), 'utf-8');
+    }
+    // 旧标记无指纹（升级前写的）：无从验证，保持旧行为不误伤
+    const legacy = readSettings();
+    delete legacy[AO_MANAGED_BASEURL_KEY];
+    writeFileSync(settings, JSON.stringify(legacy, null, 2), 'utf-8');
+    {
+      const st = readClaudeSwitchStatus();
+      assert(st.managed === true && st.tampered === false, '旧标记无指纹：保持 managed=true（后向兼容）');
+    }
+    // 切回官方：标记 + 指纹成对清除，不留孤儿
+    applyClaudeProvider(cfg);
+    restoreClaudeToOfficial({ detectSystemProxy: false });
+    assert(readSettings()[AO_MANAGED_BASEURL_KEY] === undefined, '切回官方：base_url 指纹一并清除');
   }
 
 } finally {
