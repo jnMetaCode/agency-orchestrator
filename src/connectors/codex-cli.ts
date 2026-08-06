@@ -14,6 +14,8 @@ export class CodexCLIConnector extends CLIBaseConnector {
       command: 'codex',
       displayName: 'OpenAI Codex CLI',
       installHint: 'npm install -g @openai/codex',
+      // `codex exec -`：官方 --help 明确写了 prompt 为 `-` 时从 stdin 读
+      supportsStdin: true,
       buildArgs: (prompt: string, config: LLMConfig) => {
         const args = ['exec', '--skip-git-repo-check', '--sandbox', 'read-only'];
         if (config.model) args.push('--model', config.model);

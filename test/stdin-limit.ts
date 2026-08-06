@@ -1,8 +1,10 @@
 /**
  * 测试 stdin 切换逻辑 (Issue #1 ENAMETOOLONG)
+ *
+ * 阈值与判定逻辑直接从 cli-base 导入，不再抄一份常量 ——
+ * 之前这里硬写 128KB，而实现早就改成 4KB，测试形同虚设。
  */
-
-const ARG_SAFE_LIMIT = 128 * 1024; // 与 cli-base.ts 一致
+import { chooseTransport, ARG_SAFE_LIMIT } from '../src/connectors/cli-base.js';
 
 let passed = 0;
 let failed = 0;
@@ -24,34 +26,28 @@ function assert(condition: boolean, msg: string): void {
 
 console.log('\n─── ENAMETOOLONG stdin 切换 (Issue #1) ───');
 
-test('短 prompt 走命令行参数 (useStdin=false)', () => {
-  const prompt = 'Hello world';
-  const promptBytes = Buffer.byteLength(prompt, 'utf-8');
-  const useStdin = promptBytes > ARG_SAFE_LIMIT;
-  assert(!useStdin, `${promptBytes} bytes should not use stdin`);
+test('短 prompt 走命令行参数', () => {
+  assert(chooseTransport('Hello world', true, 'linux') === 'arg', '短 prompt 不该走 stdin');
 });
 
-test('128KB+ prompt 走 stdin (useStdin=true)', () => {
+test(`超过 ${ARG_SAFE_LIMIT / 1024}KB 的 prompt 走 stdin（CLI 支持 stdin 时）`, () => {
   const prompt = 'A'.repeat(ARG_SAFE_LIMIT + 1);
-  const promptBytes = Buffer.byteLength(prompt, 'utf-8');
-  const useStdin = promptBytes > ARG_SAFE_LIMIT;
-  assert(useStdin, `${promptBytes} bytes should use stdin`);
+  assert(chooseTransport(prompt, true, 'linux') === 'stdin', `${prompt.length} bytes should use stdin`);
 });
 
-test('中文长文本正确计算字节数', () => {
-  // 中文每字 3 bytes UTF-8
+test('中文长文本按字节数判定（每字 3 bytes）', () => {
   const chars = Math.ceil(ARG_SAFE_LIMIT / 3) + 1;
   const prompt = '中'.repeat(chars);
-  const promptBytes = Buffer.byteLength(prompt, 'utf-8');
-  const useStdin = promptBytes > ARG_SAFE_LIMIT;
-  assert(useStdin, `${promptBytes} bytes (${chars} 中文字符) should use stdin`);
+  assert(chooseTransport(prompt, true, 'linux') === 'stdin', `${chars} 个中文字符应走 stdin`);
 });
 
-test('刚好 128KB 不走 stdin', () => {
-  const prompt = 'A'.repeat(ARG_SAFE_LIMIT);
-  const promptBytes = Buffer.byteLength(prompt, 'utf-8');
-  const useStdin = promptBytes > ARG_SAFE_LIMIT;
-  assert(!useStdin, `exactly ${ARG_SAFE_LIMIT} bytes should not use stdin`);
+test('恰好等于阈值不切 stdin', () => {
+  assert(chooseTransport('A'.repeat(ARG_SAFE_LIMIT), true, 'linux') === 'arg', '边界值不该切');
+});
+
+test('CLI 不支持 stdin 时，长 prompt 仍走参数（不退化成字面量 "-"）', () => {
+  const prompt = 'A'.repeat(ARG_SAFE_LIMIT * 4);
+  assert(chooseTransport(prompt, false, 'linux') === 'arg', '不支持 stdin 的 CLI 不该被切走');
 });
 
 test('buildStdinArgs 返回 -p - 格式', () => {

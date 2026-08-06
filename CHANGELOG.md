@@ -4,6 +4,10 @@
 
 ## [Unreleased]
 
+### Fixed
+- **Windows 上 CLI provider 全线调用失败**（#102）：hermes / gemini / codex / copilot / openclaw 在 Windows 一律报 `命令语法不正确。(exit 1)`。根因在我们这边不在这些 CLI ——`shell: true` 下 Node 会把命令和参数**用空格裸拼成一行**交给 cmd.exe 且不做任何转义，而提示词必然以 `<system>` 开头并带换行，cmd.exe 把 `<` 当重定向、换行当命令结束，于是每次调用都在解析阶段就死了（顺带还会把 `--tools ""` 这类空串参数直接吃掉，等于 Claude Code 的禁用工具开关在 Windows 上失效）。改为绕开 shell：解析 PATH×PATHEXT 拿到真实可执行文件，`.exe` 直接启动；npm 全局包的 `.cmd` shim 则解析出它真正执行的 JS 入口用 Node 直跑（桌面端 Electron 会显式补 `ELECTRON_RUN_AS_NODE=1`）；实在只能过 cmd.exe 时自己做引号转义，遇到无法安全传递的参数给出说得清的中文报错而不是继续吐"命令语法不正确"。
+- **长提示词在部分 CLI 上退化成字面量 `-`**：以前只要提示词超过 4KB 就切 stdin，参数按 `buildArgs('-')` 生成；但只有 `codex exec -`、`claude -p -` 真的会去读 stdin，`hermes -z -` / `copilot -p -` / `openclaw --message -` 只会把 `-` 当成提示词本身。角色系统提示词普遍 10~25KB，等于这几个 provider 跑真实工作流时模型收到的提示词永远是一个减号。现在只有声明支持 stdin 的 CLI 才会切 stdin，其余走命令行参数（Windows 按 UTF-16 字符数、POSIX 按字节数判上限），真超上限时明确报错并给出替代路径。
+
 ## [0.12.1] - 2026-07-20
 
 ### Added（本次新增）

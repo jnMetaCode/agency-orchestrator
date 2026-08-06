@@ -9,12 +9,12 @@
  * text 格式在管道模式下有缓冲问题，长输出（>1000 字）会导致子进程挂起
  * json 格式一次性输出完整结果，包含 usage 等元数据
  */
-import { spawn } from 'node:child_process';
 import { writeFileSync, unlinkSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { t } from '../i18n.js';
 import { decodeProcessOutput } from './cli-base.js';
+import { spawnCLI } from './spawn-cli.js';
 import type { LLMConnector, LLMResult, LLMConfig } from '../types.js';
 
 const NOT_FOUND_PATTERN = /not recognized as an internal or external command|不是内部或外部命令|command not found|不是可运行的程序/i;
@@ -51,11 +51,12 @@ export class ClaudeCodeConnector implements LLMConnector {
 
   private _exec(args: string[], stdinData: string, timeout: number): Promise<LLMResult> {
     return new Promise<LLMResult>((resolve, reject) => {
-      const child = spawn('claude', args, {
+      // 不走 shell：Windows 下 shell:true 会把参数裸拼给 cmd.exe，空串参数会被直接吃掉
+      // （`--tools ""` 变成 `--tools --effort`，等于禁用工具的开关失效）—— 见 issue #102
+      const child = spawnCLI('claude', args, {
         env: { ...process.env },
         stdio: ['pipe', 'pipe', 'pipe'],
-        shell: process.platform === 'win32',
-      });
+      }, 'Claude Code CLI');
 
       const stdoutChunks: Buffer[] = [];
       const stderrChunks: Buffer[] = [];

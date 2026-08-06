@@ -7,7 +7,7 @@
  * 当 prompt 过长（超过 ARG_MAX 安全阈值）时，自动切换为 stdin 传输，
  * 避免 ENAMETOOLONG 错误（GitHub issue #1）
  */
-import { spawn } from 'node:child_process';
+import { spawnCLI } from './spawn-cli.js';
 import type { LLMConnector, LLMResult, LLMConfig } from '../types.js';
 import { t } from '../i18n.js';
 
@@ -15,9 +15,44 @@ import { t } from '../i18n.js';
  * 命令行参数安全长度上限
  * claude -p 等 CLI 工具通过命令行参数传大 prompt 会严重变慢
  * （12KB prompt: 命令行参数 330s+ vs stdin 61s）
- * 设为 4KB，超过就自动走 stdin
+ * 设为 4KB，超过就自动走 stdin —— 仅限确实会读 stdin 的 CLI，见 supportsStdin
  */
-const ARG_SAFE_LIMIT = 4 * 1024;
+export const ARG_SAFE_LIMIT = 4 * 1024;
+
+/**
+ * 命令行参数硬上限（超过这个只能报错，不能硬塞）
+ * - Windows：CreateProcess 的命令行上限是 32767 个 UTF-16 字符，留出余量按 30000 个字符算
+ * - Linux：单个参数上限 MAX_ARG_STRLEN = 128KB，按字节留出余量算 100KB
+ */
+export const ARG_HARD_LIMIT_WIN = 30_000;
+export const ARG_HARD_LIMIT_POSIX = 100 * 1024;
+
+export type PromptTransport = 'arg' | 'stdin' | 'overflow';
+
+/**
+ * 决定 prompt 怎么送进 CLI。
+ *
+ * 关键修正：以前只要 prompt 超过 4KB 就无脑走 stdin，参数用 `buildArgs('-')` 生成。
+ * 但只有个别 CLI（codex exec `-`、claude `-p -`）真的会把 `-` 当"从 stdin 读"，
+ * hermes `-z -` / copilot `-p -` / openclaw `--message -` 只会把它当成**字面量提示词
+ * "-"**。而角色系统提示词普遍 10~25KB，等于这些 provider 跑真实工作流时，模型收到
+ * 的提示词永远是一个减号 —— 输出自然是驴唇不对马嘴。
+ * 所以：只有声明了 supportsStdin 的 CLI 才允许切 stdin，其余一律走命令行参数
+ * （Windows 修好转义后同样安全），真的超过系统上限时明确报错而不是悄悄送 "-"。
+ */
+export function chooseTransport(
+  prompt: string,
+  supportsStdin: boolean,
+  platform: NodeJS.Platform = process.platform,
+): PromptTransport {
+  const bytes = Buffer.byteLength(prompt, 'utf-8');
+  if (supportsStdin && bytes > ARG_SAFE_LIMIT) return 'stdin';
+  // Windows 按 UTF-16 字符数算（中文 1 字符 = 1 wchar 但 3 字节），POSIX 按字节算
+  const units = platform === 'win32' ? prompt.length : bytes;
+  const hard = platform === 'win32' ? ARG_HARD_LIMIT_WIN : ARG_HARD_LIMIT_POSIX;
+  if (units > hard) return 'overflow';
+  return 'arg';
+}
 
 /**
  * 解码子进程输出。Windows 下这些 CLI 都用 shell:true 启动（npm 全局装的是 .cmd
@@ -54,6 +89,12 @@ export interface CLIConnectorConfig {
   installHint?: string;
   /** 构建命令行参数 */
   buildArgs: (fullPrompt: string, config: LLMConfig) => string[];
+  /**
+   * 该 CLI 是否真的会从 stdin 读取 prompt。
+   * 只有确认支持的才置 true（codex exec 的 `-`、gemini 的管道输入），
+   * 否则长 prompt 切到 stdin 只会让模型收到一个字面量 "-"。
+   */
+  supportsStdin?: boolean;
   /** 构建 stdin 模式的参数（prompt 过长时使用，默认用 buildArgs 替换 prompt 为 '-'） */
   buildStdinArgs?: (config: LLMConfig) => string[];
   /** 从 stdout 提取内容（默认 trim） */
@@ -68,8 +109,17 @@ export class CLIBaseConnector implements LLMConnector {
       ? `<system>\n${systemPrompt}\n</system>\n\n${userMessage}`
       : userMessage;
 
-    const promptBytes = Buffer.byteLength(fullPrompt, 'utf-8');
-    const useStdin = promptBytes > ARG_SAFE_LIMIT;
+    const transport = chooseTransport(fullPrompt, !!this.cfg.supportsStdin);
+    if (transport === 'overflow') {
+      const kb = (Buffer.byteLength(fullPrompt, 'utf-8') / 1024).toFixed(1);
+      throw new Error(
+        `${this.cfg.displayName} 不支持从 stdin 读取提示词，而本步提示词有 ${kb}KB，超过了系统命令行长度上限。\n` +
+        `  解决办法（任选其一）：\n` +
+        `  1. 换成支持 stdin 的 CLI provider（claude-code / codex-cli）或直连 API 的 provider；\n` +
+        `  2. 精简该步骤的角色提示词或输入变量。`
+      );
+    }
+    const useStdin = transport === 'stdin';
 
     const args = useStdin
       ? (this.cfg.buildStdinArgs?.(config) ?? this.cfg.buildArgs('-', config))
@@ -78,11 +128,12 @@ export class CLIBaseConnector implements LLMConnector {
     const timeout = config.timeout || 600_000;  // 默认 10 分钟（gateway/MiniMax 等 CLI provider 可能单步 5+ 分钟）
 
     return new Promise<LLMResult>((resolve, reject) => {
-      const child = spawn(this.cfg.command, args, {
+      // Windows 下不能走 shell:true —— Node 会把参数裸拼给 cmd.exe，prompt 里的
+      // `<system>`/换行会被当成重定向和命令分隔符（issue #102）。spawnCLI 负责绕开。
+      const child = spawnCLI(this.cfg.command, args, {
         env: { ...process.env },
         stdio: [useStdin ? 'pipe' : 'ignore', 'pipe', 'pipe'],
-        shell: process.platform === 'win32',
-      });
+      }, this.cfg.displayName);
 
       const stdoutChunks: Buffer[] = [];
       const stderrChunks: Buffer[] = [];

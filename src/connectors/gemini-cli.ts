@@ -14,6 +14,8 @@ export class GeminiCLIConnector extends CLIBaseConnector {
       command: 'gemini',
       displayName: 'Gemini CLI',
       installHint: 'npm install -g @google/gemini-cli',
+      // gemini 非交互模式会读管道输入并拼进上下文（`echo "..." | gemini`），保持既有行为
+      supportsStdin: true,
       buildArgs: (prompt: string, config: LLMConfig) => {
         const args: string[] = [];
         if (config.model) args.push('-m', config.model);
