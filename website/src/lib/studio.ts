@@ -69,6 +69,8 @@ export interface RunSummary {
   completedCount?: number;
   file?: string;
   steps?: RunStepSummary[];
+  /** 完成时刻（UTC ISO）。目录名里的时间戳是 UTC，显示一律用这个字段按本地时区渲染。 */
+  startedAt?: string;
 }
 
 export interface ComposeResult {
@@ -546,6 +548,7 @@ export const api = {
     postJSON<{ file: string; overwritten: boolean; errors?: string[]; autoFixes?: { step: string; addedDep: string }[] }>("/workflows/graph", body),
   runs: () => getJSON<RunSummary[]>("/runs"),
   run: (id: string) => getJSON<RunSummary>(`/runs/${encodeURIComponent(id)}`),
+  deleteRun: (id: string) => delJSON<{ ok: boolean }>(`/runs/${encodeURIComponent(id)}`),
   // budget:true = 省钱模式，轻活步骤自动降便宜档（后端 R3.2，桌面/web 同一后端）
   compose: (body: { description: string; roles: string[]; name?: string; provider?: string; lang?: string; budget?: boolean; roleLang?: string }) =>
     postJSON<ComposeResult>("/compose", body),

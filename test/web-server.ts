@@ -3,7 +3,7 @@
  * 不需要 LLM——只打不依赖模型的端点。server.js 不在 tsc/其余测试覆盖内，这是它唯一的自动化网。
  */
 import { spawn, type ChildProcess } from 'node:child_process';
-import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { createServer } from 'node:net';
@@ -140,6 +140,37 @@ try {
       assert((await del(savedFile)).status === 200, 'DELETE /api/workflows 用户工作流 → 200 删除');
       assert((await del(savedFile)).status === 404, 'DELETE /api/workflows 已删文件再删 → 404');
     }
+
+    // ── 运行历史：时区还原 + 删除（#101）──
+    // 产物目录名里的时间戳是 UTC，以前前端直接当本地时间显示 → 北京用户永远差 8 小时。
+    // 后端现在给绝对时刻 startedAt，由前端按系统时区渲染。
+    const outDir = join(dataDir, 'ao-output');
+    const legacyRun = '历史运行-2026-07-15T02-30-26';   // 老产物：只能从目录名还原（UTC）
+    const newRun = '新运行-2026-07-16T00-00-00';        // 新产物：metadata 带 finishedAt
+    const notARun = '不是运行记录';                      // 没有 metadata.json，不该被删
+    mkdirSync(join(outDir, legacyRun), { recursive: true });
+    writeFileSync(join(outDir, legacyRun, 'metadata.json'), JSON.stringify({ name: '历史运行', success: true, steps: [] }), 'utf-8');
+    mkdirSync(join(outDir, newRun), { recursive: true });
+    writeFileSync(join(outDir, newRun, 'metadata.json'), JSON.stringify({ name: '新运行', success: false, finishedAt: '2026-07-16T08:00:00.000+08:00', steps: [] }), 'utf-8');
+    mkdirSync(join(outDir, notARun), { recursive: true });
+
+    const runsList = (await (await fetch(base + '/api/runs')).json()) as Array<{ id: string; startedAt?: string }>;
+    const legacy = runsList.find((r) => r.id === legacyRun);
+    const fresh = runsList.find((r) => r.id === newRun);
+    assert(legacy?.startedAt === '2026-07-15T02:30:26.000Z', `老产物目录名按 UTC 还原成绝对时刻(实际 ${legacy?.startedAt})`);
+    assert(fresh?.startedAt === '2026-07-16T00:00:00.000Z', `新产物按 metadata.finishedAt 的时区偏移换算(实际 ${fresh?.startedAt})`);
+    assert(!runsList.some((r) => r.id === notARun), '没有 metadata.json 的目录不算运行记录');
+
+    const delRun = (id: string) => fetch(base + '/api/runs/' + encodeURIComponent(id), { method: 'DELETE' });
+    assert((await delRun('..%2F..%2Fetc')).status === 403 || (await delRun('../../etc')).status === 403, 'DELETE /api/runs 路径穿越 → 403');
+    assert((await delRun(notARun)).status === 404, 'DELETE /api/runs 非运行目录 → 404 不误删');
+    assert(existsSync(join(outDir, notARun)), '非运行目录仍在磁盘上');
+    assert((await delRun('查无此运行-2026-01-01T00-00-00')).status === 404, 'DELETE /api/runs 不存在 → 404');
+    assert((await delRun(legacyRun)).status === 200, 'DELETE /api/runs 真实记录 → 200');
+    assert(!existsSync(join(outDir, legacyRun)), '记录目录已从磁盘删除');
+    const afterDel = (await (await fetch(base + '/api/runs')).json()) as Array<{ id: string }>;
+    assert(!afterDel.some((r) => r.id === legacyRun), '删除后不再出现在历史列表');
+    assert((await delRun(legacyRun)).status === 404, '已删记录再删 → 404');
 
     // ── 我的角色（用户自建）POST/DELETE /api/roles/my ──
     assert(await post(base, '/api/roles/my', { name: '测试专家' }) === 400, 'POST /api/roles/my 缺 systemPrompt → 400');

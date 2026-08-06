@@ -1,6 +1,7 @@
-import { ArrowLeft, CheckCircle2, ChevronDown, Clock, Download, Loader2, Play, RotateCcw, XCircle } from "lucide-react";
+import { ArrowLeft, CheckCircle2, ChevronDown, Clock, Download, Loader2, Play, RotateCcw, Trash2, XCircle } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { CopyButton } from "@/components/ui/copy-button";
 import { Tip } from "@/components/ui/tip";
 import { api, type RunSummary } from "@/lib/studio";
@@ -230,13 +231,40 @@ function DetailPane({ id, provider, onRun }: { id: string; provider: string; onR
   );
 }
 
+/**
+ * 运行时刻按**本地时区**渲染（#101）。
+ * 产物目录名里的时间戳是 UTC（引擎用 toISOString 生成），以前列表直接把它当字符串显示，
+ * 于是北京用户看到的时间永远差 8 小时。后端现在给绝对时刻（startedAt，UTC ISO），
+ * 这里交给 toLocale* 按浏览器所在时区渲染 —— 跟随系统时区，无需任何配置。
+ */
+function runDate(r: RunSummary): Date | null {
+  if (!r.startedAt) return null;
+  const d = new Date(r.startedAt);
+  return Number.isNaN(d.getTime()) ? null : d;
+}
+
+/** 本地日历日 key（不能用 toISOString，那是 UTC 的"今天"） */
+function localDayKey(d: Date): string {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
+
+type StatusFilter = "all" | "ok" | "bad";
+
 export function RunsPanel({ provider, onRun }: { provider: string; onRun: (r: RunRequest) => void }) {
-  const { t } = useLanguage();
+  const { t, lang } = useLanguage();
+  const locale = lang === "en" ? "en-US" : "zh-CN";
   const [runs, setRuns] = useState<RunSummary[]>([]);
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState<string | null>(null);
   const [sel, setSel] = useState<string | null>(null);
   const [q, setQ] = useState("");
+  const [filter, setFilter] = useState<StatusFilter>("all");
+  // 管理模式：出复选框做批量删除；平时每条 hover 出单条删除
+  const [manage, setManage] = useState(false);
+  const [checked, setChecked] = useState<Set<string>>(new Set());
+  const [pending, setPending] = useState<string[] | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [delErr, setDelErr] = useState<string | null>(null);
 
   useEffect(() => {
     api
@@ -248,8 +276,62 @@ export function RunsPanel({ provider, onRun }: { provider: string; onRun: (r: Ru
 
   const filtered = useMemo(() => {
     const n = q.trim().toLowerCase();
-    return runs.filter((r) => !n || r.name.toLowerCase().includes(n));
-  }, [runs, q]);
+    return runs.filter(
+      (r) =>
+        (!n || r.name.toLowerCase().includes(n)) &&
+        (filter === "all" || (filter === "ok" ? r.success : !r.success)),
+    );
+  }, [runs, q, filter]);
+
+  // 按本地日历日分组（今天 / 昨天 / 具体日期），列表已按时间倒序
+  const groups = useMemo(() => {
+    const today = localDayKey(new Date());
+    const yest = localDayKey(new Date(Date.now() - 86_400_000));
+    const out: { key: string; label: string; items: RunSummary[] }[] = [];
+    for (const r of filtered) {
+      const d = runDate(r);
+      const key = d ? localDayKey(d) : "—";
+      const label = !d
+        ? "—"
+        : key === today
+          ? t.studio.runs.groupToday
+          : key === yest
+            ? t.studio.runs.groupYesterday
+            : d.toLocaleDateString(locale, { year: "numeric", month: "long", day: "numeric" });
+      const last = out[out.length - 1];
+      if (last && last.key === key) last.items.push(r);
+      else out.push({ key, label, items: [r] });
+    }
+    return out;
+  }, [filtered, locale, t]);
+
+  async function deletePending() {
+    if (!pending) return;
+    setBusy(true);
+    setDelErr(null);
+    const done: string[] = [];
+    try {
+      for (const id of pending) {
+        await api.deleteRun(id);
+        done.push(id);
+      }
+      setPending(null);
+    } catch (e) {
+      // 批量删到一半失败：已删的照样从列表移除，对话框保持打开并显示原因
+      setDelErr((e as Error).message);
+    } finally {
+      if (done.length) {
+        setRuns((prev) => prev.filter((r) => !done.includes(r.id)));
+        setChecked((prev) => {
+          const next = new Set(prev);
+          for (const id of done) next.delete(id);
+          return next;
+        });
+        if (sel && done.includes(sel)) setSel(null);
+      }
+      setBusy(false);
+    }
+  }
 
   if (loading)
     return (
@@ -263,37 +345,119 @@ export function RunsPanel({ provider, onRun }: { provider: string; onRun: (r: Ru
   return (
     <div className="grid gap-4 md:grid-cols-[300px_1fr]">
       {/* left: history menu */}
-      <aside className={cn("flex-col", sel ? "hidden md:flex" : "flex")}>
+      {/* 管理模式下即使选中了某条也要留在列表（否则手机端一进管理就看不到要删的东西） */}
+      <aside className={cn("flex-col", sel && !manage ? "hidden md:flex" : "flex")}>
         <input
           value={q}
           onChange={(e) => setQ(e.target.value)}
           placeholder={t.studio.runs.searchPlaceholder}
           className="mb-2 h-9 w-full rounded-lg border border-border/70 bg-card/60 px-3 text-sm outline-none focus:border-primary/50"
         />
+        <div className="mb-2 flex items-center gap-1">
+          {([
+            ["all", t.studio.runs.filterAll],
+            ["ok", t.studio.runs.filterSuccess],
+            ["bad", t.studio.runs.filterFailed],
+          ] as [StatusFilter, string][]).map(([k, label]) => (
+            <button
+              key={k}
+              onClick={() => setFilter(k)}
+              className={cn(
+                "rounded-lg border px-2.5 py-1 text-xs transition-colors",
+                filter === k ? "border-primary bg-primary/10 text-foreground" : "border-border/70 text-muted-foreground hover:text-foreground",
+              )}
+            >
+              {label}
+            </button>
+          ))}
+          <button
+            onClick={() => {
+              setManage((v) => !v);
+              setChecked(new Set());
+            }}
+            className="ml-auto rounded-lg border border-border/70 px-2.5 py-1 text-xs text-muted-foreground transition-colors hover:text-foreground"
+          >
+            {manage ? t.studio.runs.exitManage : t.studio.runs.manage}
+          </button>
+        </div>
+
+        {manage && (
+          <div className="mb-2 flex items-center gap-2">
+            <button
+              onClick={() => setChecked(checked.size === filtered.length ? new Set() : new Set(filtered.map((r) => r.id)))}
+              className="rounded-lg border border-border/70 px-2.5 py-1 text-xs text-muted-foreground transition-colors hover:text-foreground"
+            >
+              {t.studio.runs.selectAll}
+            </button>
+            <span className="text-xs text-muted-foreground">
+              {t.studio.runs.selectedPrefix}{checked.size}{t.studio.runs.selectedSuffix}
+            </span>
+            <Button size="sm" variant="destructive" className="ml-auto" disabled={!checked.size} onClick={() => setPending([...checked])}>
+              <Trash2 className="size-3.5" /> {t.studio.runs.deleteSelected}
+            </Button>
+          </div>
+        )}
+
         <div className="max-h-[70vh] space-y-1.5 overflow-auto pr-1">
-          {filtered.map((r) => {
-            const on = sel === r.id;
-            return (
-              <button
-                key={r.id}
-                onClick={() => setSel(r.id)}
-                className={cn(
-                  "flex w-full items-start gap-2.5 rounded-xl border px-3 py-2.5 text-left transition-colors",
-                  on ? "border-primary bg-primary/10" : "border-border/70 bg-card/50 hover:border-primary/40",
-                )}
-              >
-                {r.success ? <CheckCircle2 className="mt-0.5 size-4 shrink-0 text-emerald-500" /> : <XCircle className="mt-0.5 size-4 shrink-0 text-red-500" />}
-                <span className="min-w-0 flex-1">
-                  <span className="block truncate text-sm font-medium">{r.name}</span>
-                  <span className="mt-0.5 flex items-center gap-2 text-[11px] text-muted-foreground">
-                    <span>{(r.completedCount ?? r.stepCount ?? 0)}/{r.stepCount ?? 0} {t.studio.runs.stepsUnit}</span>
-                    {r.duration && <span>· {r.duration}</span>}
-                  </span>
-                  <span className="block truncate text-[11px] text-muted-foreground/70">{r.id.replace(`${r.name}-`, "")}</span>
-                </span>
-              </button>
-            );
-          })}
+          {!filtered.length && <p className="px-1 py-6 text-center text-xs text-muted-foreground">{t.studio.runs.noMatch}</p>}
+          {groups.map((g) => (
+            <div key={g.key} className="space-y-1.5">
+              <p className="px-1 pt-2 text-[11px] font-semibold text-muted-foreground/70">{g.label}</p>
+              {g.items.map((r) => {
+                const on = sel === r.id;
+                const d = runDate(r);
+                return (
+                  <div
+                    key={r.id}
+                    className={cn(
+                      "group flex items-start gap-2.5 rounded-xl border px-3 py-2.5 transition-colors",
+                      on ? "border-primary bg-primary/10" : "border-border/70 bg-card/50 hover:border-primary/40",
+                    )}
+                  >
+                    {manage && (
+                      <input
+                        type="checkbox"
+                        checked={checked.has(r.id)}
+                        onChange={(e) =>
+                          setChecked((prev) => {
+                            const next = new Set(prev);
+                            if (e.target.checked) next.add(r.id);
+                            else next.delete(r.id);
+                            return next;
+                          })
+                        }
+                        className="mt-1 size-3.5 shrink-0 accent-primary"
+                      />
+                    )}
+                    <button onClick={() => setSel(r.id)} className="flex min-w-0 flex-1 items-start gap-2.5 text-left">
+                      {r.success ? <CheckCircle2 className="mt-0.5 size-4 shrink-0 text-emerald-500" /> : <XCircle className="mt-0.5 size-4 shrink-0 text-red-500" />}
+                      <span className="min-w-0 flex-1">
+                        <span className="block truncate text-sm font-medium">{r.name}</span>
+                        <span className="mt-0.5 flex items-center gap-2 text-[11px] text-muted-foreground">
+                          <span>{(r.completedCount ?? r.stepCount ?? 0)}/{r.stepCount ?? 0} {t.studio.runs.stepsUnit}</span>
+                          {r.duration && <span>· {r.duration}</span>}
+                        </span>
+                        <span className="block truncate text-[11px] text-muted-foreground/70">
+                          {d ? d.toLocaleTimeString(locale, { hour: "2-digit", minute: "2-digit" }) : r.id.replace(`${r.name}-`, "")}
+                        </span>
+                      </span>
+                    </button>
+                    {!manage && (
+                      <Tip label={t.studio.runs.deleteOne}>
+                        <button
+                          type="button"
+                          onClick={() => setPending([r.id])}
+                          className="mt-0.5 shrink-0 rounded-lg p-1 text-muted-foreground/60 opacity-0 transition-opacity hover:text-red-500 focus-visible:opacity-100 group-hover:opacity-100"
+                        >
+                          <Trash2 className="size-3.5" />
+                        </button>
+                      </Tip>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          ))}
         </div>
       </aside>
 
@@ -313,6 +477,27 @@ export function RunsPanel({ provider, onRun }: { provider: string; onRun: (r: Ru
           </div>
         )}
       </section>
+
+      {pending && (
+        <ConfirmDialog
+          danger
+          busy={busy}
+          error={delErr}
+          title={t.studio.runs.deleteTitle}
+          body={
+            pending.length > 1
+              ? `${t.studio.runs.deleteBodyBatchPrefix}${pending.length}${t.studio.runs.deleteBodyBatchSuffix}`
+              : t.studio.runs.deleteBodyOne
+          }
+          confirmLabel={t.studio.runs.deleteConfirm}
+          cancelLabel={t.studio.runs.deleteCancel}
+          onConfirm={deletePending}
+          onClose={() => {
+            setPending(null);
+            setDelErr(null);
+          }}
+        />
+      )}
     </div>
   );
 }

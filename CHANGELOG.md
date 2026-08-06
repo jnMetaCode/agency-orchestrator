@@ -4,7 +4,11 @@
 
 ## [Unreleased]
 
+### Added（本次新增）
+- **运行历史可管理**（#101）：Studio 历史面板新增按状态分类（全部 / 成功 / 未完成）、按本地日期分组（今天 / 昨天 / 具体日期），以及删除——平时每条 hover 出垃圾桶，点「管理」进多选做批量删除，删除走应用内确认框并支持批量删到一半失败时保留已删项 + 显示原因。后端 `DELETE /api/runs/:id` 只认 `ao-output` 下**带 metadata.json** 的运行目录（先 resolve 掉 `..` 再校验包含关系），不会误删挂载卷里的其他目录。
+
 ### Fixed
+- **历史时间不是本地时区**（#101）：运行产物目录名里的时间戳是 UTC（引擎用 `toISOString` 生成），而历史列表把它当字符串直接显示，北京用户看到的时间永远差 8 小时。现在引擎在 metadata 里记录完成时刻 `finishedAt`，后端统一给绝对时刻（老产物按 UTC 从目录名还原），前端用 `toLocale*` 按浏览器所在时区渲染——跟随系统时区，无需任何配置。
 - **Windows 上 CLI provider 全线调用失败**（#102）：hermes / gemini / codex / copilot / openclaw 在 Windows 一律报 `命令语法不正确。(exit 1)`。根因在我们这边不在这些 CLI ——`shell: true` 下 Node 会把命令和参数**用空格裸拼成一行**交给 cmd.exe 且不做任何转义，而提示词必然以 `<system>` 开头并带换行，cmd.exe 把 `<` 当重定向、换行当命令结束，于是每次调用都在解析阶段就死了（顺带还会把 `--tools ""` 这类空串参数直接吃掉，等于 Claude Code 的禁用工具开关在 Windows 上失效）。改为绕开 shell：解析 PATH×PATHEXT 拿到真实可执行文件，`.exe` 直接启动；npm 全局包的 `.cmd` shim 则解析出它真正执行的 JS 入口用 Node 直跑（桌面端 Electron 会显式补 `ELECTRON_RUN_AS_NODE=1`）；实在只能过 cmd.exe 时自己做引号转义，遇到无法安全传递的参数给出说得清的中文报错而不是继续吐"命令语法不正确"。
 - **长提示词在部分 CLI 上退化成字面量 `-`**：以前只要提示词超过 4KB 就切 stdin，参数按 `buildArgs('-')` 生成；但只有 `codex exec -`、`claude -p -` 真的会去读 stdin，`hermes -z -` / `copilot -p -` / `openclaw --message -` 只会把 `-` 当成提示词本身。角色系统提示词普遍 10~25KB，等于这几个 provider 跑真实工作流时模型收到的提示词永远是一个减号。现在只有声明支持 stdin 的 CLI 才会切 stdin，其余走命令行参数（Windows 按 UTF-16 字符数、POSIX 按字节数判上限），真超上限时明确报错并给出替代路径。
 

@@ -125,6 +125,9 @@ export function saveResults(result: WorkflowResult, outputDir: string): string {
   const metadata: Record<string, unknown> = {
     name: result.name,
     file: result.file,
+    // 完成时刻（绝对时间）。目录名里的时间戳是 UTC，展示层若直接把它当本地时间显示，
+    // 非 UTC 用户看到的时间就是错的（#101）——查看器一律读这个字段按系统时区渲染。
+    finishedAt: new Date().toISOString(),
     success: result.success,
     totalDuration: `${(result.totalDuration / 1000).toFixed(1)}s`,
     totalTokens: result.totalTokens,

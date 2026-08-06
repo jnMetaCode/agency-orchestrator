@@ -8,7 +8,7 @@
  */
 import express from 'express';
 import { spawn, execFileSync } from 'node:child_process';
-import { readFileSync, readdirSync, existsSync, statSync, writeFileSync, unlinkSync, mkdirSync } from 'node:fs';
+import { readFileSync, readdirSync, existsSync, statSync, writeFileSync, unlinkSync, mkdirSync, rmSync } from 'node:fs';
 import { resolve, join, dirname, basename, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { tmpdir, homedir } from 'node:os';
@@ -487,6 +487,23 @@ app.delete('/api/workflows', (req, res) => {
   res.json({ ok: true });
 });
 
+// 运行产物目录名里的时间戳是 UTC（reporter 用 toISOString 生成），
+// 直接当字符串显示会让非 UTC 用户看到偏移了的时间（#101：北京用户永远差 8 小时）。
+// 这里统一还原成"绝对时刻"的 ISO 串交给前端，由浏览器按系统时区渲染。
+function runTimestampISO(dirName, meta, mtimeMs) {
+  // 新产物：引擎直接写了完成时刻（带时区信息的 ISO）
+  if (meta && typeof meta.finishedAt === 'string' && !Number.isNaN(Date.parse(meta.finishedAt))) {
+    return new Date(meta.finishedAt).toISOString();
+  }
+  // 旧产物：从目录名还原。`名字-2026-07-15T02-30-26` 里的时分秒是 UTC，补回 Z 再解析
+  const m = dirName.match(/(\d{4}-\d{2}-\d{2})T(\d{2})-(\d{2})-(\d{2})$/);
+  if (m) {
+    const parsed = Date.parse(`${m[1]}T${m[2]}:${m[3]}:${m[4]}Z`);
+    if (!Number.isNaN(parsed)) return new Date(parsed).toISOString();
+  }
+  return new Date(mtimeMs).toISOString();
+}
+
 // ── History: list past runs ──
 app.get('/api/runs', (_req, res) => {
   if (!existsSync(OUTPUT_DIR)) return res.json([]);
@@ -510,6 +527,8 @@ app.get('/api/runs', (_req, res) => {
           stepCount: meta.steps?.length || 0,
           completedCount: meta.steps?.filter(s => s.status === 'completed').length || 0,
           timestamp: ts,
+          // 绝对时刻（UTC ISO）——前端用 toLocaleString 按系统时区显示（#101）
+          startedAt: runTimestampISO(d, meta, stat.mtimeMs),
           mtime: stat.mtimeMs,
         };
       } catch { return null; }
@@ -517,6 +536,23 @@ app.get('/api/runs', (_req, res) => {
     .filter(Boolean)
     .sort((a, b) => b.mtime - a.mtime);
   res.json(runs);
+});
+
+// ── History: delete one past run (#101) ──
+// 只允许删 OUTPUT_DIR 里的运行产物目录：先 resolve 掉 `..` 再做包含性校验，
+// 且必须真的是一条运行记录（有 metadata.json），避免误删挂载卷里的其他目录。
+app.delete('/api/runs/:id', (req, res) => {
+  const runDir = resolve(OUTPUT_DIR, req.params.id);
+  if (!isInside(runDir, OUTPUT_DIR) || runDir === resolve(OUTPUT_DIR)) {
+    return res.status(403).json({ error: 'only run directories under ao-output can be deleted' });
+  }
+  if (!existsSync(join(runDir, 'metadata.json'))) return res.status(404).json({ error: 'run not found' });
+  try {
+    rmSync(runDir, { recursive: true, force: true });
+    res.json({ ok: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
 // ── History: get single run details ──
