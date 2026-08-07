@@ -176,6 +176,49 @@ await test('非 node 的 .cmd + 含换行的提示词 → 抛可读错误（不�
   assert(caught!.message.includes('Legacy CLI'), `报错应点名 CLI：${caught?.message}`);
 });
 
+await test('shim 指向的入口文件不存在 → 不硬用，退回 cmd.exe 兜底', () => {
+  writeFileSync(join(winBin, 'broken.cmd'), '"%_prog%" "%dp0%\\node_modules\\gone\\index.js" %*', 'utf-8');
+  const plan = planLaunch('broken', ['--msg', 'hi'], 'Broken CLI', winEnv, 'win32');
+  assert(plan.viaCmd === true, '入口不存在时应退回 cmd.exe 而不是拿不存在的路径去跑');
+});
+
+await test('.CMD 大写扩展名同样识别为 shim（Windows 不区分大小写）', () => {
+  const up = mkdtempSync(join(tmpdir(), 'ao-winpath-up-'));
+  const ed = join(up, 'node_modules', 'x', 'dist');
+  mkdirSync(ed, { recursive: true });
+  writeFileSync(join(ed, 'cli.js'), '// entry', 'utf-8');
+  writeFileSync(join(up, 'tool.CMD'), '"%_prog%" "%dp0%\\node_modules\\x\\dist\\cli.js" %*', 'utf-8');
+  const plan = planLaunch('tool', ['-p', 'x'], 'Tool', { PATH: up, PATHEXT: '.CMD' }, 'win32');
+  assert(plan.file === process.execPath, `大写 .CMD 应同样解析成 node 直跑，实际 ${plan.file}`);
+  rmSync(up, { recursive: true, force: true });
+});
+
+await test('命令写成绝对路径时不查 PATH，存在就直接用', () => {
+  const exe = join(winBin, 'hermes.exe');
+  const plan = planLaunch(exe, ['-z', 'x'], 'Hermes', { PATH: '' }, 'win32');
+  assert(plan.file === exe, `绝对路径应原样使用，实际 ${plan.file}`);
+});
+
+await test('PATH 为空 → 交回 Node 抛 ENOENT（保留"没装"提示，不静默走 cmd）', () => {
+  const plan = planLaunch('gemini', ['-p', 'x'], 'Gemini CLI', { PATH: '', PATHEXT: '.EXE;.CMD' }, 'win32');
+  assert(plan.file === 'gemini' && plan.viaCmd === false, '应原样交回 spawn');
+});
+
+await test('cmd.exe 路径取自 ComSpec（非标准系统盘也能起）', () => {
+  const plan = planLaunch('legacy', ['--msg', 'x'], 'Legacy', { ...winEnv, ComSpec: 'D:\\WINDOWS\\system32\\cmd.exe' }, 'win32');
+  assert(plan.file === 'D:\\WINDOWS\\system32\\cmd.exe', `应用 ComSpec，实际 ${plan.file}`);
+});
+
+await test('spawnCLI 不在非 Electron 环境注入 ELECTRON_RUN_AS_NODE', async () => {
+  const c = new CLIBaseConnector({
+    command: process.execPath,
+    displayName: 'Env Probe CLI',
+    buildArgs: () => ['-e', 'process.stdout.write(String(process.env.ELECTRON_RUN_AS_NODE ?? "unset"))'],
+  });
+  const r = await c.chat('', 'x', dummyConfig);
+  assert(r.content.trim() === 'unset', `不该凭空注入，实际 ${r.content}`);
+});
+
 rmSync(winBin, { recursive: true, force: true });
 
 console.log('\n─── cmd.exe 兜底路径的转义 ───');
@@ -220,6 +263,17 @@ await test('支持 stdin 的 CLI：超过 4KB 切 stdin（保持既有行为）'
 await test('不支持 stdin 的 CLI：长 prompt 继续走参数，不退化成 "-"', () => {
   assert(chooseTransport(LONG, false, 'darwin') === 'arg', 'posix 18KB 应仍走参数');
   assert(chooseTransport(LONG, false, 'win32') === 'arg', 'win32 6000 wchar 应仍走参数');
+});
+
+await test('支持 stdin 的 CLI 永远不会 overflow（再长也能从 stdin 灌）', () => {
+  assert(chooseTransport('A'.repeat(ARG_HARD_LIMIT_POSIX * 3), true, 'linux') === 'stdin', 'posix');
+  assert(chooseTransport('A'.repeat(ARG_HARD_LIMIT_WIN * 3), true, 'win32') === 'stdin', 'win32');
+});
+
+await test('硬上限边界：恰好等于上限走参数，多一个字符才 overflow', () => {
+  assert(chooseTransport('A'.repeat(ARG_HARD_LIMIT_WIN), false, 'win32') === 'arg', 'win32 边界内');
+  assert(chooseTransport('A'.repeat(ARG_HARD_LIMIT_WIN + 1), false, 'win32') === 'overflow', 'win32 越界');
+  assert(chooseTransport('A'.repeat(ARG_HARD_LIMIT_POSIX), false, 'linux') === 'arg', 'posix 边界内');
 });
 
 await test('真的超过系统上限 → overflow（由上层报明确错误）', () => {

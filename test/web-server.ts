@@ -3,7 +3,7 @@
  * 不需要 LLM——只打不依赖模型的端点。server.js 不在 tsc/其余测试覆盖内，这是它唯一的自动化网。
  */
 import { spawn, type ChildProcess } from 'node:child_process';
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { createServer } from 'node:net';
@@ -171,6 +171,38 @@ try {
     const afterDel = (await (await fetch(base + '/api/runs')).json()) as Array<{ id: string }>;
     assert(!afterDel.some((r) => r.id === legacyRun), '删除后不再出现在历史列表');
     assert((await delRun(legacyRun)).status === 404, '已删记录再删 → 404');
+
+    // 目录名不带时间戳（用户手动改过名等）→ 退回 mtime，不能让整条记录消失或报错
+    const oddName = 'manually-renamed-run';
+    mkdirSync(join(outDir, oddName), { recursive: true });
+    writeFileSync(join(outDir, oddName, 'metadata.json'), JSON.stringify({ name: 'odd', success: true, steps: [] }), 'utf-8');
+    // metadata 里 finishedAt 是坏值 → 不能因此 NaN，应退回目录名/mtime
+    const badTs = '坏时间-2026-07-17T03-00-00';
+    mkdirSync(join(outDir, badTs), { recursive: true });
+    writeFileSync(join(outDir, badTs, 'metadata.json'), JSON.stringify({ name: '坏时间', success: true, finishedAt: 'not-a-date', steps: [] }), 'utf-8');
+    const runsList2 = (await (await fetch(base + '/api/runs')).json()) as Array<{ id: string; startedAt?: string }>;
+    const odd = runsList2.find((r) => r.id === oddName);
+    const bad = runsList2.find((r) => r.id === badTs);
+    assert(!!odd && !Number.isNaN(Date.parse(odd.startedAt || '')), `无时间戳目录退回 mtime(实际 ${odd?.startedAt})`);
+    assert(bad?.startedAt === '2026-07-17T03:00:00.000Z', `坏 finishedAt 退回目录名解析(实际 ${bad?.startedAt})`);
+
+    // 目录名含中文/括号（run-role 的默认命名就长这样）→ 编码后仍能精确删掉
+    const cjkRun = '专家咨询-人类学家（示范）-2026-07-18T05-00-00';
+    mkdirSync(join(outDir, cjkRun), { recursive: true });
+    writeFileSync(join(outDir, cjkRun, 'metadata.json'), JSON.stringify({ name: '专家咨询', success: true, steps: [] }), 'utf-8');
+    assert((await delRun(cjkRun)).status === 200, 'DELETE /api/runs 中文+括号目录名 → 200');
+    assert(!existsSync(join(outDir, cjkRun)), '中文目录名记录已删除');
+
+    // 符号链接逃逸：ao-output 里挂一个指向外部目录的软链（外部目录里也有 metadata.json，
+    // 看起来完全像一条运行记录）。删它只能删掉链接本身，绝不能顺着链接把外部目录清空。
+    const precious = join(dataDir, 'precious-not-a-run');
+    mkdirSync(precious, { recursive: true });
+    writeFileSync(join(precious, 'metadata.json'), JSON.stringify({ name: 'trap', steps: [] }), 'utf-8');
+    writeFileSync(join(precious, 'important.txt'), 'must survive', 'utf-8');
+    symlinkSync(precious, join(outDir, 'looks-like-a-run'));
+    await delRun('looks-like-a-run');
+    assert(existsSync(join(precious, 'important.txt')), '软链指向的外部目录内容必须完好无损');
+    assert(!existsSync(join(outDir, 'looks-like-a-run')) || existsSync(precious), '删除只作用于链接本身');
 
     // ── 我的角色（用户自建）POST/DELETE /api/roles/my ──
     assert(await post(base, '/api/roles/my', { name: '测试专家' }) === 400, 'POST /api/roles/my 缺 systemPrompt → 400');
