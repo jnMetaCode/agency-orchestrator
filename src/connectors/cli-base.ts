@@ -55,9 +55,9 @@ export function chooseTransport(
 }
 
 /**
- * 解码子进程输出。Windows 下这些 CLI 都用 shell:true 启动（npm 全局装的是 .cmd
- * shim，spawn 不走 shell 执行不了），一旦命令找不到，报错是 cmd.exe 自己吐的
- * "'gemini' 不是内部或外部命令..."，用的是系统当前 ANSI/OEM 代码页（中文 Windows
+ * 解码子进程输出。Windows 下报错未必是 UTF-8：命令找不到时 cmd.exe 吐的
+ * "'gemini' 不是内部或外部命令..."（走 spawn-cli 的 cmd 兜底路径时仍会遇到），
+ * 以及不少 CLI 自己的中文输出，用的都是系统当前 ANSI/OEM 代码页（中文 Windows
  * 通常是 GBK/CP936），不是 UTF-8。之前直接 toString('utf8') 会把这段本来很清楚的
  * 报错解码成乱码，用户看到的是一堆问号方块，完全看不出"其实是命令没装/不在 PATH"。
  * 这里先按严格 UTF-8 校验，非法字节序列（真正的 CLI 输出都应该是合法 UTF-8）就
@@ -194,9 +194,9 @@ export class CLIBaseConnector implements LLMConnector {
         const stderr = decodeProcessOutput(stderrChunks);
 
         if (code !== 0 && !stdout.trim()) {
-          // Windows 下 shell:true 走 cmd.exe，命令不存在时 Node 收不到 ENOENT（cmd.exe
-          // 自己吞了、改成打印错误+非零退出），所以"命令未安装"在这里也要能识别，
-          // 不能只靠下面的 child.on('error') ENOENT 分支（那条在 Windows 这种情况下不会触发）。
+          // 兜底识别"命令未安装"：spawn-cli 现在优先直连可执行文件（走 ENOENT 分支），
+          // 但仍有落到 cmd.exe 的兜底路径——那时 cmd.exe 自己吞掉 ENOENT、改成打印
+          // 错误 + 非零退出，只能靠文案识别。
           const notFoundPattern = /not recognized as an internal or external command|不是内部或外部命令|command not found|不是可运行的程序/i;
           const looksLikeNotFound = notFoundPattern.test(stderr);
           if (looksLikeNotFound) {

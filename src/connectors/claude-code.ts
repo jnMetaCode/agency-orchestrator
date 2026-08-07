@@ -111,8 +111,8 @@ export class ClaudeCodeConnector implements LLMConnector {
         const stderr = decodeProcessOutput(stderrChunks);
 
         if (code !== 0 && !stdout.trim()) {
-          // Windows 下 shell:true 走 cmd.exe，命令不存在时 Node 收不到 ENOENT
-          // （cmd.exe 自己吞了、改成打印错误 + 非零退出），这里单独识别
+          // 兜底识别"命令未安装"：spawn-cli 落到 cmd.exe 兜底路径时，命令不存在
+          // Node 收不到 ENOENT（cmd.exe 自己吞了、改成打印错误 + 非零退出）
           if (NOT_FOUND_PATTERN.test(stderr)) {
             reject(new Error(
               '找不到 claude 命令，请先安装 Claude Code CLI\n' +

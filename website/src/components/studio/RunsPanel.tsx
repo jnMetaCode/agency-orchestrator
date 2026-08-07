@@ -317,7 +317,9 @@ export function RunsPanel({ provider, onRun }: { provider: string; onRun: (r: Ru
       }
       setPending(null);
     } catch (e) {
-      // 批量删到一半失败：已删的照样从列表移除，对话框保持打开并显示原因
+      // 批量删到一半失败：已删的照样从列表移除，对话框保持打开并显示原因。
+      // 待删列表要剔掉已经删成功的，否则用户点「重试」会对已删项再来一次 → 必然 404 卡死。
+      setPending((prev) => (prev ?? []).filter((id) => !done.includes(id)));
       setDelErr((e as Error).message);
     } finally {
       if (done.length) {
