@@ -13,6 +13,9 @@ import {
   chooseTransport, ARG_SAFE_LIMIT, ARG_HARD_LIMIT_WIN, ARG_HARD_LIMIT_POSIX,
   CLIBaseConnector,
 } from '../src/connectors/cli-base.js';
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import type { LLMConfig } from '../src/types.js';
 
 let passed = 0;
@@ -117,6 +120,63 @@ await test('%~dp0 写法同样能解析', () => {
 await test('非 node shim 返回 null（交给 cmd.exe 兜底）', () => {
   assert(parseNpmShim('@echo off\r\nsome-native-tool.exe %*\r\n', 'C:\\bin') === null, '不该硬认');
 });
+
+console.log('\n─── Windows 启动方式选择（CI 是 ubuntu，这段用临时目录模拟真实布局） ───');
+
+// 造一个 Windows PATH 目录的真实形状：npm 全局包的 .cmd shim + 它指向的 JS 入口、
+// 一个原生 .exe、一个不是 node shim 的 .cmd。planLaunch 传 platform='win32' 即可在
+// 任何平台上验证判定逻辑（它只依赖路径与文件存在性）。
+const winBin = mkdtempSync(join(tmpdir(), 'ao-winpath-'));
+const entryDir = join(winBin, 'node_modules', 'gemini-cli', 'dist');
+mkdirSync(entryDir, { recursive: true });
+writeFileSync(join(entryDir, 'index.js'), '// entry', 'utf-8');
+writeFileSync(join(winBin, 'gemini.cmd'), NPM_SHIM.replace('@google\\gemini-cli', 'gemini-cli'), 'utf-8');
+writeFileSync(join(winBin, 'hermes.exe'), 'MZ', 'utf-8');
+writeFileSync(join(winBin, 'legacy.cmd'), '@echo off\r\nnative-tool.exe %*\r\n', 'utf-8');
+const winEnv = { PATH: winBin, PATHEXT: '.COM;.EXE;.BAT;.CMD' };
+
+await test('.cmd shim → 用当前 Node 直接跑它的 JS 入口（参数原样传）', () => {
+  const plan = planLaunch('gemini', ['-p', NASTY_PROMPT], 'Gemini CLI', winEnv, 'win32');
+  assert(plan.file === process.execPath, `应当用 node 执行，实际 ${plan.file}`);
+  assert(plan.args[0].endsWith('index.js'), `第一个参数应是 JS 入口，实际 ${plan.args[0]}`);
+  assert(plan.args[1] === '-p' && plan.args[2] === NASTY_PROMPT, 'CLI 参数应原样跟在入口之后');
+  assert(plan.viaCmd === false, '不应经过 cmd.exe');
+  assert(plan.nodeRuntime === true, '应标记为 node 运行时（桌面端据此补 ELECTRON_RUN_AS_NODE）');
+});
+
+await test('.exe → 直接启动真实可执行文件，含换行的参数照样能传', () => {
+  const plan = planLaunch('hermes', ['-z', NASTY_PROMPT], 'Hermes Agent CLI', winEnv, 'win32');
+  // 扩展名大小写跟 PATHEXT 走（Windows 文件系统不区分大小写），断言时统一小写比
+  assert(plan.file.toLowerCase() === join(winBin, 'hermes.exe').toLowerCase(), `应解析到 .exe，实际 ${plan.file}`);
+  assert(plan.args[1] === NASTY_PROMPT, '提示词应一字不改');
+  assert(plan.viaCmd === false, '.exe 不该绕 cmd.exe');
+});
+
+await test('PATHEXT 顺序生效：同名 .exe 优先于 .cmd', () => {
+  writeFileSync(join(winBin, 'gemini.exe'), 'MZ', 'utf-8');
+  const plan = planLaunch('gemini', ['-p', 'x'], 'Gemini CLI', winEnv, 'win32');
+  assert(plan.file.toLowerCase() === join(winBin, 'gemini.exe').toLowerCase(), `应优先取 .exe，实际 ${plan.file}`);
+  rmSync(join(winBin, 'gemini.exe'));
+});
+
+await test('非 node 的 .cmd → 退回 cmd.exe，且参数带引号（& 不会被当成命令分隔）', () => {
+  const plan = planLaunch('legacy', ['--msg', 'a & b'], 'Legacy CLI', winEnv, 'win32');
+  assert(plan.viaCmd === true, '应走 cmd.exe 兜底');
+  assert(plan.file.toLowerCase().includes('cmd'), `应启动 cmd.exe，实际 ${plan.file}`);
+  assert(plan.args[0] === '/d' && plan.args[2] === '/c', '应是 /d /s /c');
+  assert(plan.args[3].includes('"a & b"'), `参数应带引号，实际 ${plan.args[3]}`);
+});
+
+await test('非 node 的 .cmd + 含换行的提示词 → 抛可读错误（不再吐"命令语法不正确"）', () => {
+  let caught: Error | null = null;
+  try {
+    planLaunch('legacy', ['-z', NASTY_PROMPT], 'Legacy CLI', winEnv, 'win32');
+  } catch (err) { caught = err as Error; }
+  assert(caught !== null, '应当抛错');
+  assert(caught!.message.includes('Legacy CLI'), `报错应点名 CLI：${caught?.message}`);
+});
+
+rmSync(winBin, { recursive: true, force: true });
 
 console.log('\n─── cmd.exe 兜底路径的转义 ───');
 
