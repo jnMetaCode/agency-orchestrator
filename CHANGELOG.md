@@ -4,12 +4,23 @@
 
 ## [Unreleased]
 
+## [0.13.0] - 2026-08-07
+
 ### Added（本次新增）
+- **Claude 全局安全切换 + 一键急救**：Studio 可把中转商的 key/base_url 写进全局 `~/.claude/settings.json`（`ao doctor --fix` 同款写入器 `claude-apply`），体检卡认得 AO 自己写的标记并支持一键切回官方。写入时同时记下 **base_url 指纹**：标记还在但 env 已被别的工具（cc-switch 等）或手改走时判定 `managed=false` 照常报红，外部工具无从冒名。代理也从"看不见"变成可管理——探测可达性、检测漂移、一键移除；还原时自动同步系统代理到 settings（修复"还原后仍连不上"），系统代理探测从 macOS（scutil）扩到 **Windows**（读 WinINET 注册表，无第三方依赖）。
+- **`ao doctor` 端点连通性体检**：新增对配置端点的实活探测（1 token 请求，`--no-probe` 可跳过），地址写错/被 302 跳转/不可达分别给出可执行的下一步。
+- **doctor 认得 Studio 存的 key**：Studio 的 key 存在 `<DATA_DIR>/.local/web-keys.json`、只注入 Studio 自己的进程，此前命令行 doctor 只看环境变量，于是"界面里明明配好了、doctor 却说没配 key"。现在会列出 Studio 里已配 key 的 provider，并明确说明命令行读不到、该怎么 `export`；env 无 key 时端点探测退回用 Studio 保存的地址+key（地址配错恰恰最常发生在这批用户身上）。
+- **Anthropic 协议中转也能「测试连接」**（Studio）：并修掉该协议下路径兜底被掐的问题。
+- **APINEBULA 编码 CLI 中转预设**：同一账号配三个编码 CLI 时端点按协议格式不同（Anthropic 兼容走根路径、Codex 走 `/v1`、Gemini 走根路径），填错就是 401/405；预设把映射锁死，点一下即可。
 - **运行历史可管理**（#101）：Studio 历史面板新增按状态分类（全部 / 成功 / 未完成）、按本地日期分组（今天 / 昨天 / 具体日期），以及删除——平时每条 hover 出垃圾桶，点「管理」进多选做批量删除，删除走应用内确认框并支持批量删到一半失败时保留已删项 + 显示原因。后端 `DELETE /api/runs/:id` 只认 `ao-output` 下**带 metadata.json** 的运行目录（先 resolve 掉 `..` 再校验包含关系），不会误删挂载卷里的其他目录。
 
 ### Fixed
 - **历史时间不是本地时区**（#101）：运行产物目录名里的时间戳是 UTC（引擎用 `toISOString` 生成），而历史列表把它当字符串直接显示，北京用户看到的时间永远差 8 小时。现在引擎在 metadata 里记录完成时刻 `finishedAt`，后端统一给绝对时刻（老产物按 UTC 从目录名还原），前端用 `toLocale*` 按浏览器所在时区渲染——跟随系统时区，无需任何配置。
 - **Windows 上 CLI provider 全线调用失败**（#102）：hermes / gemini / codex / copilot / openclaw 在 Windows 一律报 `命令语法不正确。(exit 1)`。根因在我们这边不在这些 CLI ——`shell: true` 下 Node 会把命令和参数**用空格裸拼成一行**交给 cmd.exe 且不做任何转义，而提示词必然以 `<system>` 开头并带换行，cmd.exe 把 `<` 当重定向、换行当命令结束，于是每次调用都在解析阶段就死了（顺带还会把 `--tools ""` 这类空串参数直接吃掉，等于 Claude Code 的禁用工具开关在 Windows 上失效）。改为绕开 shell：解析 PATH×PATHEXT 拿到真实可执行文件，`.exe` 直接启动；npm 全局包的 `.cmd` shim 则解析出它真正执行的 JS 入口用 Node 直跑（桌面端 Electron 会显式补 `ELECTRON_RUN_AS_NODE=1`）；实在只能过 cmd.exe 时自己做引号转义，遇到无法安全传递的参数给出说得清的中文报错而不是继续吐"命令语法不正确"。
+- **Azure / 推理模型产出为空**（#99）：推理模型（`o1`/`o3`/`o4`/`gpt-5` 系列，不止 Azure）按模型名判定改用 `max_completion_tokens`，默认上限放大到 32768（普通模型与非推理 Azure 部署仍 4096），端点不接受参数名时双向自动切参且只重试一次；compose 生成的 YAML 同步放大——否则组队产物会被内部推理吃光 token，表现为"跑完了但什么都没生成"。补回 13 条断言（此前有实现无测试）。
+- **中转端点必踩的 405**：跳转后保持 POST（此前 301/302 会被降级成 GET，而 `/v1/chat/completions`、`/api/chat` 只收 POST），`base_url` 容错（少写/多写 `/v1`、只写 `localhost:11434` 都能用）；Ollama 走同一套发送逻辑，远程 Ollama 挂在反代/隧道后不再莫名 405。
+- **跳转带 key 的同域判定收紧**（安全）：`sameCredentialScope` 原按"取最后两段域名"判同域，对 `example.co.uk` 这类多段 TLD 会把 `evil.co.uk` 也算成同域——上游跳一下就能把 key 骗走。改为按父子域关系判定，并挡掉 `x.com.evil.net` 这类后缀伪装。
+- **体检把 AO 自己的中转配置误报成"被劫持"**：只要在 AO 里存了 claude-code 中转 key，`applyKeys` 就会把 `ANTHROPIC_*` 注入本进程 env，体检直接读 `process.env` → 系统 `~/.claude` 明明干净也报红且点急救永远消不掉。改用 applyKeys 之前的 shell 快照。
 - **长提示词在部分 CLI 上退化成字面量 `-`**：以前只要提示词超过 4KB 就切 stdin，参数按 `buildArgs('-')` 生成；但只有 `codex exec -`、`claude -p -` 真的会去读 stdin，`hermes -z -` / `copilot -p -` / `openclaw --message -` 只会把 `-` 当成提示词本身。角色系统提示词普遍 10~25KB，等于这几个 provider 跑真实工作流时模型收到的提示词永远是一个减号。现在只有声明支持 stdin 的 CLI 才会切 stdin，其余走命令行参数（Windows 按 UTF-16 字符数、POSIX 按字节数判上限），真超上限时明确报错并给出替代路径。
 
 ## [0.12.1] - 2026-07-20
