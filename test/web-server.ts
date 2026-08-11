@@ -141,6 +141,40 @@ try {
       assert((await del(savedFile)).status === 404, 'DELETE /api/workflows 已删文件再删 → 404');
     }
 
+    // #103：粘 YAML 保存时 depends_on 写成上游的「输出变量名」而非 step id → 存之前确定性改写
+    // （画布那条链不需要这个修复：graphToWorkflow 的 depends_on 是从连线重算的，假 id 落不进 YAML）
+    const badDepYaml = [
+      'name: "depid-save-test"',
+      'agents_dir: "agency-agents-zh"',
+      'llm:',
+      '  provider: deepseek',
+      '  model: deepseek-chat',
+      'steps:',
+      '  - id: analyze',
+      '    role: "x/y"',
+      '    task: "分析"',
+      '    output: analysis_result',
+      '  - id: compile',
+      '    role: "x/y"',
+      '    task: "汇总 {{analysis_result}}"',
+      '    output: final',
+      '    depends_on: [analysis_result]',
+      '',
+    ].join('\n');
+    const saveRes = await fetch(base + '/api/workflows/save', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name: 'depid-save-test', yaml: badDepYaml }) });
+    const saveJson = saveRes.status === 200 ? await saveRes.json() : {};
+    assert(saveRes.status === 200, `POST /api/workflows/save → 200(实际 ${saveRes.status})`);
+    assert(
+      Array.isArray(saveJson.autoFixes) && saveJson.autoFixes.some((f) => f.fixedDep === 'analysis_result' && f.toStep === 'analyze'),
+      `#103 保存时应改写 depends_on 并报出明细，实际 ${JSON.stringify(saveJson.autoFixes)}`,
+    );
+    if (saveJson.file) {
+      const savedText = readFileSync(saveJson.file, 'utf-8');
+      assert(/depends_on: \[analyze\]/.test(savedText), `落盘内容应已改写，实际:\n${savedText}`);
+      assert(savedText.includes('{{analysis_result}}'), 'task 正文里的变量引用不该被误伤');
+      await fetch(base + '/api/workflows?file=' + encodeURIComponent(saveJson.file), { method: 'DELETE' });
+    }
+
     // ── 运行历史：时区还原 + 删除（#101）──
     // 产物目录名里的时间戳是 UTC，以前前端直接当本地时间显示 → 北京用户永远差 8 小时。
     // 后端现在给绝对时刻 startedAt，由前端按系统时区渲染。

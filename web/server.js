@@ -1246,13 +1246,32 @@ app.post('/api/compose', async (req, res) => {
 });
 
 // ── Save an edited / manually assembled workflow YAML into the user dir ──
-app.post('/api/workflows/save', (req, res) => {
-  const { name, yaml: yamlText } = req.body || {};
+app.post('/api/workflows/save', async (req, res) => {
+  const { name, yaml: rawYaml } = req.body || {};
+  let yamlText = rawYaml;
   if (!yamlText || typeof yamlText !== 'string') return res.status(400).json({ error: 'yaml required' });
   let doc;
   try { doc = yaml.load(yamlText); } catch (e) { return res.status(400).json({ error: 'invalid YAML: ' + e.message }); }
   if (!doc || !Array.isArray(doc.steps) || doc.steps.length === 0) {
     return res.status(400).json({ error: 'YAML must contain a non-empty steps array' });
+  }
+  // #103：粘进来的 YAML 里，depends_on 常被写成上游的**输出变量名**而非 step id
+  // （LLM 生成的产物尤其常见）。这里做同一套零歧义的确定性改写——存下去之前修好，
+  // 否则用户要等到点「运行」才看到"依赖不存在的 step"，还得自己回去对着改。
+  let depIdFixes = [];
+  {
+    const tmpFix = join(tmpdir(), `ao-save-autofix-${process.pid}-${Date.now()}.yaml`);
+    try {
+      writeFileSync(tmpFix, yamlText, 'utf-8');
+      const { autoFixDependsOnIds } = await import('../dist/cli/compose.js');
+      const idFix = await autoFixDependsOnIds(tmpFix);
+      if (idFix.fixed > 0) {
+        yamlText = readFileSync(tmpFix, 'utf-8');
+        doc = yaml.load(yamlText);
+        depIdFixes = idFix.details.map((d) => ({ step: d.step, fixedDep: d.from, toStep: d.to }));
+      }
+    } catch { /* 修复自身出错不阻塞保存——原样存下，运行时仍会报出问题 */ }
+    finally { try { unlinkSync(tmpFix); } catch { /* 临时文件可能没写成 */ } }
   }
   const safe = String(name || doc.name || 'workflow')
     .replace(/[^一-鿿a-zA-Z0-9_-]/g, '-').replace(/-+/g, '-').replace(/^-+|-+$/g, '').slice(0, 60) || 'workflow';
@@ -1262,7 +1281,8 @@ app.post('/api/workflows/save', (req, res) => {
   while (existsSync(file)) { file = join(COMPOSED_DIR, `${safe}-${i}.yaml`); i++; }
   if (!isInside(file, COMPOSED_DIR)) return res.status(400).json({ error: 'bad path' });
   writeFileSync(file, yamlText.endsWith('\n') ? yamlText : yamlText + '\n', 'utf-8');
-  res.json({ file });
+  // 修了就告诉前端改了什么（跟画布保存的 autoFixes 同口径），别偷偷改用户的东西
+  res.json({ file, ...(depIdFixes.length > 0 ? { autoFixes: depIdFixes } : {}) });
 });
 
 // ── 可编辑画布：工作流 YAML ↔ graph（节点/连线）。转换在引擎侧（保真往返），前端只碰 graph JSON。 ──
@@ -1321,6 +1341,9 @@ app.post('/api/workflows/graph', async (req, res) => {
       const tmpFix = join(tmpdir(), `ao-canvas-autofix-${process.pid}-${Date.now()}.yaml`);
       try {
         writeFileSync(tmpFix, yamlText, 'utf-8');
+        // 注：这里不需要 autoFixDependsOnIds(#103)——画布的 depends_on 是从连线重算的
+        // （graphToWorkflow），节点里写错的假 step id 根本落不到 YAML 里。那类修复挂在
+        // compose 链和 /api/workflows/save（原始 YAML 入口）上。
         const { autoFixMissingDependsOn } = await import('../dist/cli/compose.js');
         const fix = await autoFixMissingDependsOn(tmpFix);
         if (fix.fixed > 0) {

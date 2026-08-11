@@ -679,6 +679,16 @@ async function runVariableFixChain(
   const afterDepFix = await validateGenerated(savedPath);
   if (!hasVarError(afterDepFix.errors)) return afterDepFix.errors;
 
+  // 阶段 0.5：确定性修正 depends_on 里"写成了输出变量名"的假 step id（#103）。
+  // 这类错误此前是修复链的盲区——三个阶段谁都动不了它，直接原样抛给用户。
+  const idFix = await autoFixDependsOnIds(savedPath);
+  if (idFix.fixed > 0) {
+    console.log(`  自动修正了 ${idFix.fixed} 处 depends_on 里的 step id：`);
+    for (const f of idFix.details) console.log(`    step "${f.step}"：依赖 "${f.from}"（输出变量名）→ "${f.to}"（产出它的 step）`);
+  }
+  const afterIdFix = await validateGenerated(savedPath);
+  if (!hasVarError(afterIdFix.errors)) return afterIdFix.errors;
+
   // 阶段 1: autoFix（启发式，只在 DAG 上游内替换）
   const fixResult = await autoFixVariableRefs(savedPath);
   if (fixResult.fixed > 0) {
@@ -852,6 +862,106 @@ function insertDependsOn(blockText: string, newDep: string): string | null {
   }
   // 找不到能安全插入的位置 —— 放弃，交给后续修复兜底
   return null;
+}
+
+/**
+ * 确定性修复 depends_on 里"写成了输出变量名"的假 step id（issue #103 / #94）。
+ *
+ * LLM 编排时最常见的一类结构错误：`depends_on` 要求写 **step id**，但模型顺手写成了
+ * 上游的 **output 变量名**——同一份工作流里两者往往长得很像却不相等，比如
+ * `depends_on: [income_paths_analysis]` 而那其实是 step `analyze_income_paths`
+ * 的 output。这类错误在旧修复链里是个盲区：它进得了 runVariableFixChain，但阶段 0
+ * 只会「补」依赖、阶段 1 只改 `{{变量}}`、阶段 2 靠 extractUndefinedVarNames 提变量名
+ * （这类报错提不出东西）——三个阶段都动不了它，于是原样抛给用户"依赖不存在的 step"。
+ *
+ * 这里只做**零歧义**的改写：坏 dep 精确等于某个 step 的 output，且改写后不成环、
+ * 不自依赖。对不上就不动，交给后面的兜底与最终报错（宁可报错也不要连错边）。
+ */
+export async function autoFixDependsOnIds(yamlPath: string): Promise<{ fixed: number; details: { step: string; from: string; to: string }[] }> {
+  const { parseWorkflow } = await import('../core/parser.js');
+  let workflow;
+  try {
+    workflow = parseWorkflow(yamlPath);
+  } catch {
+    return { fixed: 0, details: [] };
+  }
+
+  const stepIds = new Set(workflow.steps.map((s) => s.id));
+  // output 变量名 → 产出它的 step id（同名 output 出现多次则视为有歧义，不修）
+  const producerByOutput = new Map<string, string | null>();
+  for (const s of workflow.steps) {
+    if (!s.output) continue;
+    producerByOutput.set(s.output, producerByOutput.has(s.output) ? null : s.id);
+  }
+
+  /** 把 from → to 记进依赖表后是否会成环（含自依赖） */
+  const depsOf = new Map<string, string[]>();
+  for (const s of workflow.steps) depsOf.set(s.id, [...(s.depends_on || [])]);
+  function createsCycle(stepId: string, newDep: string): boolean {
+    if (newDep === stepId) return true;
+    const seen = new Set<string>();
+    const stack = [newDep];
+    while (stack.length) {
+      const cur = stack.pop()!;
+      if (cur === stepId) return true;
+      if (seen.has(cur)) continue;
+      seen.add(cur);
+      for (const d of depsOf.get(cur) || []) stack.push(d);
+    }
+    return false;
+  }
+
+  const rewrites: { step: string; from: string; to: string }[] = [];
+  for (const s of workflow.steps) {
+    for (const dep of s.depends_on || []) {
+      if (stepIds.has(dep)) continue;                 // 本来就是真 step id
+      const producer = producerByOutput.get(dep);
+      if (!producer || producer === s.id) continue;   // 对不上 / 有歧义 / 指向自己 → 不动
+      if (createsCycle(s.id, producer)) continue;
+      rewrites.push({ step: s.id, from: dep, to: producer });
+    }
+  }
+  if (rewrites.length === 0) return { fixed: 0, details: [] };
+
+  // 文本级替换：只在该 step 文本块内、且只替换 depends_on 里的那个 token，
+  // 避免误伤 task 正文里同名的 {{变量}} 引用（那些引用本来就是对的）。
+  const text = readFileSync(yamlPath, 'utf-8');
+  const stepsKeyMatch = text.match(/^steps:\s*$/m);
+  const stepItemIndentMatch = stepsKeyMatch
+    ? text.slice(stepsKeyMatch.index! + stepsKeyMatch[0].length).match(/^([ \t]*)-\s*id:/m)
+    : null;
+  const canonicalIndent = stepItemIndentMatch ? stepItemIndentMatch[1] : null;
+  if (canonicalIndent === null) return { fixed: 0, details: [] };
+
+  const idLineRe = /^([ \t]*)-\s*id:\s*["']?([\w-]+)["']?.*$/gm;
+  const marks: { id: string; index: number }[] = [];
+  let m: RegExpExecArray | null;
+  while ((m = idLineRe.exec(text))) {
+    if (m[1] !== canonicalIndent) continue;  // 块标量里的假匹配（与 autoFixMissingDependsOn 同一判据）
+    marks.push({ id: m[2], index: m.index });
+  }
+
+  let out = '';
+  let cursor = 0;
+  const details: { step: string; from: string; to: string }[] = [];
+  for (let i = 0; i < marks.length; i++) {
+    const start = marks[i].index;
+    const end = i + 1 < marks.length ? marks[i + 1].index : text.length;
+    let block = text.slice(start, end);
+    for (const r of rewrites.filter((x) => x.step === marks[i].id)) {
+      // 只改 depends_on 行（flow `[a, b]` 与多行列表两种写法都覆盖），按词边界替换
+      const before = block;
+      block = block.replace(/^([ \t]*depends_on:[^\n]*(?:\n[ \t]+-[^\n]*)*)/m, (seg) =>
+        seg.replace(new RegExp(`(?<![\\w-])${r.from}(?![\\w-])`, 'g'), r.to));
+      if (block !== before) details.push(r);
+    }
+    out += text.slice(cursor, start) + block;
+    cursor = end;
+  }
+  out += text.slice(cursor);
+  if (details.length === 0) return { fixed: 0, details: [] };
+  writeFileSync(yamlPath, out, 'utf-8');
+  return { fixed: details.length, details };
 }
 
 /**

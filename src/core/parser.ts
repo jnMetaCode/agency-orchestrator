@@ -132,7 +132,16 @@ export function validateWorkflow(workflow: WorkflowDefinition, agentsDir?: strin
     if (step.depends_on) {
       for (const dep of step.depends_on) {
         if (!stepIds.has(dep)) {
-          errors.push(`step "${step.id}" 依赖不存在的 step: "${dep}"`);
+          // 最常见的写法错误：把上游的**输出变量名**当成了 step id 写进 depends_on
+          // （#103：depends_on: [income_paths_analysis] 而该名字是 step
+          // analyze_income_paths 的 output）。光说"依赖不存在"用户会去找一个根本
+          // 不存在的 step，这里直接点破是哪个 step 产出的这个变量、该填什么。
+          const producer = workflow.steps.find((s) => s.output === dep);
+          errors.push(
+            producer
+              ? `step "${step.id}" 依赖不存在的 step: "${dep}"（"${dep}" 是 step "${producer.id}" 的输出变量名，不是 step id —— depends_on 里应写 "${producer.id}"）`
+              : `step "${step.id}" 依赖不存在的 step: "${dep}"`
+          );
         }
         if (dep === step.id) {
           errors.push(`step "${step.id}" 不能依赖自己`);
