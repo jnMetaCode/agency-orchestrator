@@ -32,7 +32,7 @@ import { t, detectLang } from './i18n.js';
 import { loadEnvFile, writeEnvFile, ensureEnvGitignored } from './utils/env-loader.js';
 import { parseDuration } from './utils/duration.js';
 import { defaultOutputDir, defaultWorkflowsDir } from './utils/paths.js';
-import { rotatingSponsors } from './utils/sponsor-guide.js';
+import { rotatingSponsors, guideProviderId } from './utils/sponsor-guide.js';
 
 // Auto-load ./.env (shell env wins; no overwrite)
 loadEnvFile();
@@ -797,10 +797,15 @@ function printFirstRunGuide(provider: string): void {
   L('');
   L(`  ② 用「送额度」的聚合/中转（几十秒拿 key，一个 key 通 Claude/GPT/Gemini 全家桶）：`);
   // 赞助商位规则（src/utils/sponsor-guide.ts）：多元探索持有默认 provider 位不占此处；
-  // 这里是其余 6 家（旗舰+标准）按天轮换 2 家
+  // 这里是其余 7 家（旗舰+标准）按天轮换 2 家
   const rots = rotatingSponsors();
-  for (const s of rots) L(`       · ${s.name}${s.bonus ? ` ${s.bonus}` : ''} → ${s.url}`);
-  L(`       拿到 key：ao compose "…" --run --provider ${rots[0].providerId} --api-key <你的key>`);
+  for (const s of rots) {
+    // 纯编码 CLI 中转商（relayOnly）拿到 key 后不是配 --provider，而是在 Studio 里给
+    // claude/codex/gemini 配中转，这里直说，免得用户照着下面那行示例去 --provider 它
+    const how = s.relayOnly ? '（编码 CLI 中转，在 Studio「供应商 → CLI 中转商」一键配）' : '';
+    L(`       · ${s.name}${s.bonus ? ` ${s.bonus}` : ''} → ${s.url}${how}`);
+  }
+  L(`       拿到 key：ao compose "…" --run --provider ${guideProviderId(rots)} --api-key <你的key>`);
   L('');
   L(`  ③ 本地免费跑（需先装 Ollama 并拉好模型，建议 70B+）：`);
   L(`       ao compose "…" --run --provider ollama --model llama3`);

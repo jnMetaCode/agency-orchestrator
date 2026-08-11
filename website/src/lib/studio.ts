@@ -814,6 +814,29 @@ export const CLI_RELAY_PRESETS: CliRelayPreset[] = [
     opusModel: "doubao-seed-2-1-pro-260628",
     haikuModel: "doubao-seed-2-1-pro-260628",
   },
+  // AICodeMirror（赞助商）—— Claude / Codex / Gemini 官方高稳定中转。
+  // 三个端点各不相同，且**都不是**其它中转商那种"根路径 / /v1"布局，抄错必 401：
+  //   Claude Code → /api/claudecode（Anthropic 兼容，CLI 自己接 /v1/messages）
+  //   Gemini CLI  → /api/gemini
+  //   Codex       → /api/codex/backend-api/codex（ChatGPT backend 风格；AO 写 codex
+  //                 config.toml 时 wire_api="responses"，实际请求落到 .../codex/responses，
+  //                 与它宣传的"Codex 官方渠道"一致，不是 OpenAI 兼容的 /v1）
+  // 注意域名：官网/注册页是 aicodemirror.ai，**API 主机是 aicodemirror.com**（.ai 的
+  // api 子域也可达，但以 .com 为准，与官方一键配置脚本一致）。
+  // 已探测核实：/api/claudecode、/api/codex、/api/gemini 三个前缀均返回 401（存在、仅 key 无效），
+  // 而同级不存在的前缀（如 /api/zzz、根 /v1/chat/completions）返回 404 —— 401 不是网关对全站的
+  // 兜底应答，确实代表路径存在。前缀之下的具体子路径被鉴权网关挡住，无法无 key 验证，
+  // 取值以官方一键配置脚本 / 官方接入文档为准。
+  {
+    name: "AICodeMirror",
+    sponsor: true,
+    signupUrl: "https://www.aicodemirror.ai/register?invitecode=XO5L7R",
+    baseUrls: {
+      "claude-code": "https://api.aicodemirror.com/api/claudecode",
+      "gemini-cli": "https://api.aicodemirror.com/api/gemini",
+      "codex-cli": "https://api.aicodemirror.com/api/codex/backend-api/codex",
+    },
+  },
 ];
 
 // CLI 列表必须和后端 web/server.js 的 CLI_PROVIDERS 对齐——之前漏了 codex/copilot/hermes,

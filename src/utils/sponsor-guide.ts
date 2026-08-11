@@ -9,11 +9,21 @@
  */
 
 export interface SponsorGuideEntry {
-  /** AO 内的 provider id（引导示例命令用） */
-  providerId: string;
+  /**
+   * AO 内的 provider id（引导示例命令 `--provider <id>` 用）。
+   * 纯编码 CLI 中转商没有可直连的 API provider，此字段留空并置 relayOnly。
+   */
+  providerId?: string;
   name: string;
   bonus?: string;
   url: string;
+  /**
+   * 只提供编码 CLI（Claude Code / Codex / Gemini）中转，没有 AO 可直连的 API 端点。
+   * 这类赞助商照常进轮换曝光，但不能被拿去拼 `--provider` 示例命令 —— 那会打印出
+   * 一条"unknown provider"的命令，比不展示更糟。配置入口在 Studio 供应商页的
+   * 「CLI 中转商预设」（website/src/lib/studio.ts 的 CLI_RELAY_PRESETS）。
+   */
+  relayOnly?: boolean;
 }
 
 /** 进阶档（默认 provider 位持有者，provider id: duoyuanx）。不进横幅轮换。 */
@@ -24,7 +34,7 @@ export const PREMIUM_SPONSOR: SponsorGuideEntry = {
   url: 'https://duoyuanx.com/register?aff=LErO',
 };
 
-/** 引导横幅轮换池：旗舰 + 标准共 6 家（顺序无偏好，轮值即公平） */
+/** 引导横幅轮换池：旗舰 + 标准共 7 家（顺序无偏好，轮值即公平；每家 2/7 天数） */
 export const SPONSOR_ROTATION: SponsorGuideEntry[] = [
   { providerId: 'apinebula', name: 'APINEBULA', bonus: '充值码 agent 九折', url: 'https://apinebula.ai/V6ekjG' },
   { providerId: 'ccsub', name: 'CCSub', bonus: '注册送 $5', url: 'https://www.ccsub.net/register?ref=8G5W4JK4' },
@@ -32,7 +42,20 @@ export const SPONSOR_ROTATION: SponsorGuideEntry[] = [
   { providerId: 'compshare', name: '优云智算', bonus: '注册送 5 元', url: 'https://passport.compshare.cn/register?referral_code=ETD3L5JBM13CtKARkMORot&ytag=GPU_YY_YX_git_agency-agents' },
   { providerId: 'volcengine', name: '火山引擎', bonus: '注册领 2500 万 Tokens', url: 'https://www.volcengine.com/activity/ai618?utm_campaign=hw&utm_content=hw&utm_medium=devrel_tool_web&utm_source=OWO&utm_term=agency-agents-zh' },
   { providerId: 'rootflowai', name: 'RootFlowAI', bonus: '进群领 $10', url: 'https://rootflowai.com/register?utm_source=agency-agents-zh&utm_medium=sponsor&utm_campaign=web' },
+  // AICodeMirror：只做 Claude / Codex / Gemini 的编码 CLI 中转，没有 AO 可直连的 API
+  // 端点（根 /v1/chat/completions 实测 404），所以 relayOnly —— 照常曝光，但不参与
+  // `--provider` 示例命令。配置走 Studio 供应商页的 CLI 中转商预设。
+  { name: 'AICodeMirror', relayOnly: true, bonus: '首充 8 折', url: 'https://www.aicodemirror.ai/register?invitecode=XO5L7R' },
 ];
+
+/**
+ * 引导示例命令该用哪个 provider id：取当天轮值里第一个**有直连 API** 的赞助商；
+ * 若当天两家都是纯 CLI 中转商，退回轮换池里第一个有 provider 的（保证命令永远可执行）。
+ */
+export function guideProviderId(rots: SponsorGuideEntry[] = rotatingSponsors()): string {
+  const pick = rots.find((s) => s.providerId) ?? SPONSOR_ROTATION.find((s) => s.providerId);
+  return pick!.providerId!;
+}
 
 /** 当天轮值的赞助商（按自然日取相邻 count 家，默认 2 家） */
 export function rotatingSponsors(count = 2, now: number = Date.now()): SponsorGuideEntry[] {
