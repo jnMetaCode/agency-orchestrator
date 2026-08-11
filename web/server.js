@@ -177,7 +177,10 @@ function reservedProviderIds() {
 // deepseek/openai/compshare/apinebula/agnes/rootflowai 等 OpenAI 兼容 provider 的 key/base
 // env 变量名统一来自 api-providers.ts；claude 走原生 SDK,不在那张表里,单独补一条。
 const KEY_ENV = {
-  claude: { key: 'ANTHROPIC_API_KEY', base: null },
+  // claude 走原生 SDK,但同样认自定义接入点:Anthropic 协议的中转商(AICodeMirror 等)
+  // 就是靠 base_url 直连的。以前这里写死 base:null,前端据此把地址输入框整个隐藏,
+  // 用户根本填不了;引擎侧 factory 也没把 base_url 传给连接器 —— 两处一起补上了。
+  claude: { key: 'ANTHROPIC_API_KEY', base: 'ANTHROPIC_BASE_URL' },
   ...Object.fromEntries(API_PROVIDERS.map((p) => [p.id, { key: p.envKey, base: p.envBase }])),
   // claude-code / gemini-cli 走本地 CLI 子进程,不经过 factory 的 connector,而是这两个
   // 官方 CLI 自己原生支持的"中转"环境变量 —— 未登录官方账号时,填第三方中转商(如

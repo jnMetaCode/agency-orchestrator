@@ -33,7 +33,9 @@ export function createConnector(config: LLMConfig): LLMConnector {
 
     // ── 需要 API key ──
     case 'claude':
-      return new ClaudeConnector(config.api_key);
+      // base_url 必须往下传：Anthropic 协议的中转商（AICodeMirror 等）就是靠它接入的，
+      // 少传这一个参数会让所有中转配置静默失效（照旧打官方端点 → 401）
+      return new ClaudeConnector(config.api_key, config.base_url);
     default: {
       // OpenAI 兼容聚合 API（deepseek/openai 官方 + 各赞助商）统一走注册表；
       // 新增一家只需在 api-providers.ts 加一条，这里不用改。

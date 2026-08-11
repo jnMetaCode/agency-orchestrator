@@ -126,8 +126,12 @@ export function ProviderConfigView({
   const supportsBaseUrl = target.kind === "api" ? status?.supportsBaseUrl !== false : true;
   const hintIsUrl = target.kind === "api" && !!target.hint && /^https?:\/\//.test(target.hint);
   // 注册直跳(右上角):API 类赞助商用自己的推广链接;中转配置页在选中某家中转商端点时用它的
+  // Anthropic 协议中转商（provider: claude + 中转 base_url 直连）。这些中转商不是
+  // OpenAI 兼容的，进不了 API_PROVIDERS，只能挂在 Claude 这个原生 SDK provider 上。
+  const anthropicRelays = providerId === "claude" ? relayPresets.filter((r) => r.anthropicApiBaseUrl) : [];
   const registerUrl =
-    target.kind === "api" ? target.signupUrl
+    target.kind === "api"
+      ? anthropicRelays.find((r) => r.signupUrl && r.anthropicApiBaseUrl === baseUrl)?.signupUrl ?? target.signupUrl
     : isRelay ? relayPresets.find((r) => r.signupUrl && r.baseUrls[providerId] === baseUrl)?.signupUrl
     : undefined;
   // 赞助商优惠信息（对齐 cc-switch 的合作伙伴提示条）：优惠文案/优惠码之前只在官网赞助商页,
@@ -472,6 +476,36 @@ export function ProviderConfigView({
 
           {/* 连接配置：base_url + key */}
           <Section title={p.sectionConnection}>
+            {/* Anthropic 协议中转商一键填地址：这类中转商不是 OpenAI 兼容，只能挂在
+                Claude 这个原生 SDK provider 上，端点各家不同（子路径而非根路径），手填极易错 */}
+            {anthropicRelays.length > 0 && (
+              <div>
+                <label className={labelCls}>{p.anthropicRelayPresetsLabel}</label>
+                <div className="flex flex-wrap gap-1.5">
+                  {anthropicRelays.map((r) => (
+                    <button
+                      key={r.name}
+                      type="button"
+                      onClick={() => setBaseUrl(r.anthropicApiBaseUrl!)}
+                      className={cn(
+                        "inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-xs transition-colors",
+                        baseUrl === r.anthropicApiBaseUrl
+                          ? "border-primary bg-primary/10 text-primary"
+                          : "border-border/70 text-muted-foreground hover:border-primary/40 hover:text-foreground",
+                      )}
+                    >
+                      {r.name}
+                      {r.sponsor && (
+                        <span className="rounded-full bg-muted px-1 py-px text-[9px] font-medium text-muted-foreground">
+                          {p.sponsorTag}
+                        </span>
+                      )}
+                    </button>
+                  ))}
+                </div>
+                <p className="mt-1.5 text-[11px] text-muted-foreground">{p.anthropicRelayHint}</p>
+              </div>
+            )}
             {supportsBaseUrl && (
               <div>
                 <label className={labelCls}>

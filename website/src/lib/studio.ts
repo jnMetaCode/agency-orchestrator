@@ -766,6 +766,13 @@ export interface CliRelayPreset {
   signupUrl?: string;
   /** provider id → 该 CLI 应填的中转 base_url */
   baseUrls: Record<string, string>;
+  /**
+   * 该中转商的 **Anthropic Messages 协议**接入点，用于 AO 直连（provider: claude + base_url），
+   * 不是给本地 CLI 用的。填了就会在「Claude (Anthropic)」供应商配置页出现一键填充。
+   * 只列确认过是 Anthropic 协议的（AICodeMirror 的 /api/claudecode 即是；对齐 cc-switch
+   * 的 opencode/openclaw 预设：@ai-sdk/anthropic、api: "anthropic-messages"）。
+   */
+  anthropicApiBaseUrl?: string;
   /** 可选的 Claude Code 三档模型映射预填（中转商模型名 ≠ claude 官方名时用，对齐 cc-switch） */
   sonnetModel?: string;
   opusModel?: string;
@@ -831,6 +838,10 @@ export const CLI_RELAY_PRESETS: CliRelayPreset[] = [
     name: "AICodeMirror",
     sponsor: true,
     signupUrl: "https://www.aicodemirror.ai/register?invitecode=XO5L7R",
+    // 直连 API 走 Anthropic Messages 协议（不是 OpenAI 兼容——根 /v1/chat/completions
+    // 实测 404），所以不进 API_PROVIDERS 那张 OpenAI 兼容表，而是配在 provider: claude
+    // 上。SDK 会自己接 /v1/messages，落到 /api/claudecode/v1/messages（实测 401=存在）。
+    anthropicApiBaseUrl: "https://api.aicodemirror.com/api/claudecode",
     baseUrls: {
       "claude-code": "https://api.aicodemirror.com/api/claudecode",
       "gemini-cli": "https://api.aicodemirror.com/api/gemini",
