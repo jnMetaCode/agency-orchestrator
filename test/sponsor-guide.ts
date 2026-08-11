@@ -8,6 +8,7 @@
  *   2. 引导里的示例命令永远指向一个真实存在的 provider —— 纯 CLI 中转商
  *      （relayOnly，如 AICodeMirror）不能被拿去拼 `--provider`。
  */
+import { readFileSync } from 'node:fs';
 import { SPONSOR_ROTATION, PREMIUM_SPONSOR, rotatingSponsors, guideProviderId } from '../src/utils/sponsor-guide.js';
 import { API_PROVIDERS } from '../src/connectors/api-providers.js';
 
@@ -62,6 +63,55 @@ test('轮换池里没有重名', () => {
 
 test('持有默认 provider 位的进阶档不进轮换（避免双份曝光）', () => {
   assert(!SPONSOR_ROTATION.some((s) => s.name === PREMIUM_SPONSOR.name), 'PREMIUM_SPONSOR 不该出现在轮换池');
+});
+
+console.log('\n─── 返利码一致性（同一赞助商的推广参数散落在三份清单里） ───');
+
+/**
+ * 赞助商的注册链接同时存在于三处：引导轮换池（本文件所在的 sponsor-guide.ts）、
+ * 官网赞助商页（content/sponsors.ts）、Studio 供应商与中转预设（lib/studio.ts）。
+ * utm/ytag 这类来源标记按位置不同是**故意**的，但**返利标识**（invitecode / aff /
+ * ref / referral_code / code）必须处处一致 —— 改一处漏两处，返利就从那两处悄悄流走，
+ * 而且没有任何报错，只能靠对账发现。这里跨文件按 host 比对返利标识。
+ */
+const AFFILIATE_KEYS = ['invitecode', 'invite', 'aff', 'ref', 'referral_code', 'code'];
+const SOURCES = [
+  'src/utils/sponsor-guide.ts',
+  'website/src/content/sponsors.ts',
+  'website/src/lib/studio.ts',
+];
+
+test('同一赞助商的返利码在三份清单里完全一致', () => {
+  // host → key → { value → 出处 }
+  const seen = new Map<string, Map<string, Map<string, string[]>>>();
+  for (const file of SOURCES) {
+    let text = '';
+    try { text = readFileSync(file, 'utf-8'); } catch { continue; }  // 前端文件不存在时跳过（引擎单独发包）
+    for (const raw of text.match(/https:\/\/[^\s"'`]+/g) ?? []) {
+      let u: URL;
+      try { u = new URL(raw.replace(/[),;]+$/, '')); } catch { continue; }
+      for (const k of AFFILIATE_KEYS) {
+        const v = u.searchParams.get(k);
+        if (!v) continue;
+        const byKey = seen.get(u.host) ?? new Map();
+        const byVal = byKey.get(k) ?? new Map();
+        byVal.set(v, [...(byVal.get(v) ?? []), file]);
+        byKey.set(k, byVal);
+        seen.set(u.host, byKey);
+      }
+    }
+  }
+  const conflicts: string[] = [];
+  for (const [host, byKey] of seen) {
+    for (const [k, byVal] of byKey) {
+      if (byVal.size > 1) {
+        conflicts.push(`${host} 的 ${k} 有 ${byVal.size} 个值：` +
+          [...byVal.entries()].map(([v, files]) => `${v}(${[...new Set(files)].join(', ')})`).join(' / '));
+      }
+    }
+  }
+  assert(conflicts.length === 0, `返利码不一致：\n    ${conflicts.join('\n    ')}`);
+  assert(seen.size > 0, '一个返利链接都没扫到，说明扫描逻辑失效了');
 });
 
 console.log('\n─── 轮换规则 ───');
