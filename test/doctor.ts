@@ -136,6 +136,20 @@ try {
   assert(/端点不通/.test(anthropicBad), 'claude 中转地址写错：报不通');
   assert(/子路径/.test(anthropicBad), '给出「端点常带子路径，别只填域名」的具体指引');
 
+  // 地址正确时不能报"不一致"：Anthropic 客户端自己接 /v1/messages，探测首选路径必须
+  // 与之一致，否则正确配置反而先 404 再兜底命中，还会建议用户把 base 改成
+  // .../v1/messages —— 照做后客户端再接一次，直接连不上
+  assert(!/地址与配置不一致/.test(anthropicOk), '地址正确：不误报地址漂移（探测路径与真实客户端一致）');
+
+  // 反过来，地址里多写了 /v1 要提醒：AO 这边削掉后能跑，但 claude CLI 直读该地址会拼错
+  const anthropicExtraV1 = await doctor({
+    AO_PROVIDER: 'claude', ANTHROPIC_API_KEY: 'k',
+    ANTHROPIC_BASE_URL: `http://127.0.0.1:${anthPort}/api/claudecode/v1`,
+  });
+  assert(/端点可达/.test(anthropicExtraV1), '多写 /v1：AO 侧仍能连通（自动削掉）');
+  assert(/多写了 \/v1/.test(anthropicExtraV1), '多写 /v1：明确提醒（claude CLI 直读会拼成 /v1/v1/messages）');
+  assert(/建议改成/.test(anthropicExtraV1), '给出改成什么的具体地址');
+
   // 没配 key 时不该乱发请求
   const anthropicNoKey = await doctor({ AO_PROVIDER: 'claude' });
   assert(!/端点可达|端点不通/.test(anthropicNoKey), 'claude 没 key：不做探测');

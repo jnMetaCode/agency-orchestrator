@@ -18,6 +18,8 @@ import { API_PROVIDERS, API_PROVIDER_MAP } from '../dist/connectors/api-provider
 // base_url 规整 / 跳转保持 POST / 少写多写 /v1 兜底 —— 与运行时连接器同一份实现，
 // 保证「测试连接」和真正跑起来的行为一致（不会出现测试过了但一跑就 405）。
 import { normalizeBaseUrl, postChatCompletions, postApiEndpoint, endpointHint, joinEndpoint } from '../dist/connectors/openai-compatible.js';
+// Anthropic 协议的 base 归一化（客户端会自己接 /v1/messages，base 不能自带 /v1）
+import { normalizeAnthropicBaseUrl } from '../dist/connectors/claude.js';
 import { applyCodexRelay, clearCodexRelay, readCodexRelayStatus } from '../dist/utils/codex-relay.js';
 import { diagnoseClaudeConfig, HIJACK_ENV_KEYS } from '../dist/utils/claude-repair.js';
 import { applyClaudeProvider, restoreClaudeToOfficial, readClaudeSwitchStatus, readClaudeProxyStatus, probeProxyReachable, clearClaudeProxy, syncClaudeProxy, detectSystemProxy } from '../dist/utils/claude-apply.js';
@@ -1952,22 +1954,28 @@ app.post('/api/test-provider', async (req, res) => {
     let hitUrl = '';   // 实际打到的地址（可能被跳转 / 换过 /v1 拼法）
     let baseUsed = ''; // 本次测试用的 base_url（规整后）
     let drift;         // 与用户填的 base_url 不一致时的说明
-    if (provider === 'claude') {
-      r = await fetch('https://api.anthropic.com/v1/messages', {
-        method: 'POST', signal: ctrl.signal,
-        headers: { 'content-type': 'application/json', 'x-api-key': key, 'anthropic-version': '2023-06-01' },
-        body: JSON.stringify({ model: 'claude-3-5-haiku-20241022', max_tokens: 1, messages: [{ role: 'user', content: 'hi' }] }),
-      });
-    } else if (provider === 'claude-code') {
-      // Claude Code 中转走 Anthropic 协议（POST {base}/v1/messages），用 OpenAI 格式测会误报失败，
-      // 所以这条链路以前干脆没有「测试连接」—— 可中转地址填错恰恰是这批用户最常踩的坑，
-      // 只能等跑起来才发现。这里按原生协议测，并复用同一套跳转/路径容错。
-      const saved = readKeys()['claude-code'] || {};
-      const base = normalizeBaseUrl((typeof overrideBase === 'string' && overrideBase.trim()) || saved.baseUrl || process.env.ANTHROPIC_BASE_URL || 'https://api.anthropic.com');
+    if (provider === 'claude' || provider === 'claude-code') {
+      // 两条链路都走 Anthropic 原生协议（POST {base}/v1/messages），用 OpenAI 格式测会误报失败。
+      //
+      // claude（直连 API）以前在这里硬编码打 api.anthropic.com、无视用户配的 base_url ——
+      // 自从 claude 支持自定义接入点（直连 Anthropic 协议中转商）后，那等于：用户按预设配好
+      // 中转、点「测试连接」，却拿中转 key 去打官方端点必然 401，反过来怀疑自己配错了。
+      // 现在两条链路共用同一套解析：优先用本次输入/已保存的地址，并复用跳转与 /v1 路径兜底。
+      const saved = readKeys()[provider] || {};
+      const rawBase = (typeof overrideBase === 'string' && overrideBase.trim()) || saved.baseUrl || process.env.ANTHROPIC_BASE_URL || 'https://api.anthropic.com';
+      // 客户端会自己接 /v1/messages，所以 base 里多写的 /v1、/messages 要先削掉再测，
+      // 否则测的是 /v1/v1/messages
+      const base = normalizeAnthropicBaseUrl(rawBase);
+      const baseHadSuffix = /\/(v\d+|messages)\/?$/i.test(String(rawBase).trim());
       // 中转商上架的模型名各不相同，优先用用户自己配的（含 Sonnet 档映射）
-      const model = (typeof overrideModel === 'string' && overrideModel.trim()) || saved.model || saved.sonnetModel || 'claude-sonnet-4-5-20250929';
+      const defaultModel = provider === 'claude' ? 'claude-3-5-haiku-20241022' : 'claude-sonnet-4-5-20250929';
+      const model = (typeof overrideModel === 'string' && overrideModel.trim()) || saved.model || saved.sonnetModel || defaultModel;
+      // 路径首选必须与真实客户端一致：Anthropic SDK / claude CLI 一律发 POST {base}/v1/messages。
+      // 以前首选 {base}/messages，正确配置的中转反而会 404 后靠兜底命中，于是报出一条
+      // 「地址与配置不一致，建议把 base_url 改成 .../v1/messages」的**错误建议** ——
+      // 用户照做后客户端再接一次 /v1/messages，直接连不上。
       const post = await postApiEndpoint({
-        baseUrl: base, path: 'messages', signal: ctrl.signal,
+        baseUrl: base, path: 'v1/messages', signal: ctrl.signal,
         // 中转商认 x-api-key 或 Bearer 的都有，两个都带（对齐 CLI 的实际行为）
         headers: {
           'content-type': 'application/json', 'anthropic-version': '2023-06-01',
@@ -1979,7 +1987,9 @@ app.post('/api/test-provider', async (req, res) => {
       r = post.response;
       hitUrl = post.url;
       baseUsed = base;
-      drift = post.drift;
+      // 真实客户端自己接 /v1/messages：用户地址里多写的 /v1 或 /messages 这里虽已兼容，
+      // 但对直接读这个地址的 claude CLI 会拼错，照实说清楚
+      drift = post.drift || (baseHadSuffix ? `${String(rawBase).trim()} → ${base}（客户端会自己接 /v1/messages，地址里不用写）` : undefined);
     } else {
       // 每个 OpenAI 兼容 provider 的默认 base_url/模型都查 api-providers.ts 这张表 ——
       // 之前这里只对 deepseek 特判，其余(含 compshare/apinebula/agnes 等赞助商)会误用

@@ -731,14 +731,18 @@ async function handleDoctor(): Promise<void> {
     const rawBase = process.env.ANTHROPIC_BASE_URL || savedClaude.baseUrl || '';
     if (claudeKey) {
       const base = normalizeAnthropicBaseUrl(rawBase) || 'https://api.anthropic.com';
+      const baseHadSuffix = /\/(v\d+|messages)\/?$/i.test(rawBase.trim());
       const isRelay = !/(^|\.)anthropic\.com$/i.test(new URL(base).hostname);
       const model = savedClaude.model || 'claude-sonnet-5';
       const ctrl = new AbortController();
       const timer = setTimeout(() => ctrl.abort(), 12_000);
       const t0 = Date.now();
       try {
+        // 路径首选与真实客户端一致（SDK/claude CLI 都发 POST {base}/v1/messages）——
+        // 否则正确配置的中转会先 404 再靠兜底命中，并报出"建议把 base_url 改成
+        // .../v1/messages"这种照做就连不上的错误建议
         const post = await postApiEndpoint({
-          baseUrl: base, path: 'messages', signal: ctrl.signal,
+          baseUrl: base, path: 'v1/messages', signal: ctrl.signal,
           // 中转商认 x-api-key 或 Bearer 的都有，两个都带（与 Studio 的测试连接一致）
           headers: {
             'content-type': 'application/json', 'anthropic-version': '2023-06-01',
@@ -752,6 +756,12 @@ async function handleDoctor(): Promise<void> {
             problems++;
             console.log(`     ⚠️ 地址与配置不一致：${post.drift}`);
             console.log(`     ↳ 建议把 base_url 直接改成上面的最终地址`);
+          } else if (baseHadSuffix) {
+            // 这里能跑通是因为我们先削了后缀；但 claude CLI 直接读 ANTHROPIC_BASE_URL，
+            // 它会再接一次 /v1/messages —— 同一个地址在别处就是坏的，得说出来
+            problems++;
+            console.log(`     ⚠️ 地址里多写了 /v1 或 /messages：${rawBase.trim()}`);
+            console.log(`     ↳ 客户端会自己接 /v1/messages，建议改成 ${base}`);
           }
         } else {
           problems++;
