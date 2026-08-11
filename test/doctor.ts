@@ -44,6 +44,25 @@ const redirector = http.createServer((req, res) => {
 await new Promise<void>((r) => redirector.listen(0, '127.0.0.1', () => r()));
 const redirPort = (redirector.address() as { port: number }).port;
 
+// Anthropic 原生协议的假上游：只认 POST <base>/v1/messages（SDK 与探测都往这拼），
+// 模拟中转商"端点在子路径下"的真实形状（如 AICodeMirror 的 /api/claudecode）
+const anthropic = http.createServer((req, res) => {
+  let b = ''; req.on('data', (d) => (b += d));
+  req.on('end', () => {
+    if (req.url === '/api/claudecode/v1/messages' && req.method === 'POST') {
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      return res.end(JSON.stringify({
+        id: 'msg_1', type: 'message', role: 'assistant', model: 'claude-sonnet-5',
+        content: [{ type: 'text', text: 'ok' }], usage: { input_tokens: 1, output_tokens: 1 },
+      }));
+    }
+    res.writeHead(404, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ error: 'not found' }));
+  });
+});
+await new Promise<void>((r) => anthropic.listen(0, '127.0.0.1', () => r()));
+const anthPort = (anthropic.address() as { port: number }).port;
+
 const dataDir = mkdtempSync(join(tmpdir(), 'ao-doctor-'));
 const CLI = resolve('dist/cli.js');
 // 干净环境：不继承本机可能存在的 key/中转配置，否则断言会被外部环境带偏
@@ -98,7 +117,30 @@ try {
   assert(/Studio 里已配 key：deepseek/.test(studio), 'Studio 里配的 key 被 doctor 看见');
   assert(/命令行不会读/.test(studio), '说清 Studio 的 key 命令行读不到（界面能跑≠命令行能跑）');
   assert(/端点可达/.test(studio), '用 Studio 保存的配置也能完成端点探测');
+
+  // 6) claude 走原生 SDK、不在 API_PROVIDERS 表里，以前 doctor 探不到它。现在 claude
+  //    支持自定义 base_url 直连 Anthropic 协议中转商，"地址配错"正是这批用户最常踩的坑，
+  //    必须能体检到 —— 否则等于给了新能力却没给诊断。
+  const anthropicOk = await doctor({
+    AO_PROVIDER: 'claude', ANTHROPIC_API_KEY: 'k',
+    ANTHROPIC_BASE_URL: `http://127.0.0.1:${anthPort}/api/claudecode`,
+  });
+  assert(/端点可达/.test(anthropicOk), 'claude 配了中转地址：能探测并报可达');
+  assert(/Anthropic 协议中转/.test(anthropicOk), '认出这是中转而非官方端点');
+
+  // 中转商的 Anthropic 端点常带子路径，只填域名是最典型的配错
+  const anthropicBad = await doctor({
+    AO_PROVIDER: 'claude', ANTHROPIC_API_KEY: 'k',
+    ANTHROPIC_BASE_URL: `http://127.0.0.1:${anthPort}`,
+  });
+  assert(/端点不通/.test(anthropicBad), 'claude 中转地址写错：报不通');
+  assert(/子路径/.test(anthropicBad), '给出「端点常带子路径，别只填域名」的具体指引');
+
+  // 没配 key 时不该乱发请求
+  const anthropicNoKey = await doctor({ AO_PROVIDER: 'claude' });
+  assert(!/端点可达|端点不通/.test(anthropicNoKey), 'claude 没 key：不做探测');
 } finally {
+  anthropic.close();
   upstream.close(); redirector.close();
   rmSync(dataDir, { recursive: true, force: true });
 }

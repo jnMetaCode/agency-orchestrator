@@ -19,7 +19,9 @@ import { listAgents, filterAgentsByKeyword } from './agents/loader.js';
 import { run, findAgentsDir, compareWorkflowVsBaseline } from './index.js';
 import { detectInstalledCliProviders } from './providers/detect.js';
 import { API_PROVIDERS, API_PROVIDER_MAP } from './connectors/api-providers.js';
-import { postChatCompletions, endpointHint, normalizeBaseUrl } from './connectors/openai-compatible.js';
+import { postChatCompletions, postApiEndpoint, endpointHint, normalizeBaseUrl } from './connectors/openai-compatible.js';
+// claude 走原生 SDK，端点体检要按 Anthropic 协议单独来（见 doctor 的 3.6 段）
+import { normalizeAnthropicBaseUrl } from './connectors/claude.js';
 import { diagnoseClaudeConfig, repairClaudeConfig } from './utils/claude-repair.js';
 import { formatValidationReport, buildValidationReport } from './cli/validate-report.js';
 import { parseInputPairs } from './cli/parse-inputs.js';
@@ -716,6 +718,56 @@ async function handleDoctor(): Promise<void> {
       console.log(`     ↳ 检查 ${apiSpec.envBase}（当前 ${base}）是否正确、网络/代理是否可达`);
     } finally {
       clearTimeout(timer);
+    }
+  }
+
+  // 3.6) claude 走原生 SDK、不在 API_PROVIDERS 表里，上面那段探不到它。以前这没问题
+  //      （它只能连官方端点），但现在 claude 支持自定义 base_url 直连 Anthropic 协议
+  //      的中转商 —— 而"地址配错"恰恰是中转用户最容易踩的坑，反倒成了体检盲区。
+  //      这里按 Anthropic 原生协议单独探一次，与 Studio「测试连接」同一套路径兜底。
+  if (def === 'claude' && !args.includes('--no-probe')) {
+    const savedClaude = studioKeys['claude'] || {};
+    const claudeKey = process.env.ANTHROPIC_API_KEY || savedClaude.apiKey || '';
+    const rawBase = process.env.ANTHROPIC_BASE_URL || savedClaude.baseUrl || '';
+    if (claudeKey) {
+      const base = normalizeAnthropicBaseUrl(rawBase) || 'https://api.anthropic.com';
+      const isRelay = !/(^|\.)anthropic\.com$/i.test(new URL(base).hostname);
+      const model = savedClaude.model || 'claude-sonnet-5';
+      const ctrl = new AbortController();
+      const timer = setTimeout(() => ctrl.abort(), 12_000);
+      const t0 = Date.now();
+      try {
+        const post = await postApiEndpoint({
+          baseUrl: base, path: 'messages', signal: ctrl.signal,
+          // 中转商认 x-api-key 或 Bearer 的都有，两个都带（与 Studio 的测试连接一致）
+          headers: {
+            'content-type': 'application/json', 'anthropic-version': '2023-06-01',
+            'x-api-key': claudeKey, authorization: `Bearer ${claudeKey}`,
+          },
+          body: JSON.stringify({ model, max_tokens: 1, messages: [{ role: 'user', content: 'hi' }] }),
+        });
+        if (post.response.ok) {
+          console.log(`  ✅ 端点可达：${post.url}（${Date.now() - t0}ms）${isRelay ? ' —— Anthropic 协议中转' : ''}`);
+          if (post.drift) {
+            problems++;
+            console.log(`     ⚠️ 地址与配置不一致：${post.drift}`);
+            console.log(`     ↳ 建议把 base_url 直接改成上面的最终地址`);
+          }
+        } else {
+          problems++;
+          const body = await post.response.text().catch(() => '');
+          console.log(`  ❌ 端点不通：HTTP ${post.response.status} ${body.slice(0, 160)}`);
+          console.log(endpointHint(post.response.status, post.url, base, post.drift).replace(/^\n {2}/, '     ').replace(/\n {2}/g, '\n     '));
+          if (isRelay) console.log(`     ↳ 中转商的 Anthropic 端点常带子路径（如 /api/claudecode），别只填域名`);
+        }
+      } catch (err) {
+        problems++;
+        const msg = ctrl.signal.aborted ? '超时（12s）' : (err instanceof Error ? err.message : String(err));
+        console.log(`  ❌ 端点不通：${msg}`);
+        console.log(`     ↳ 检查 ANTHROPIC_BASE_URL（当前 ${base}）是否正确、网络/代理是否可达`);
+      } finally {
+        clearTimeout(timer);
+      }
     }
   }
 

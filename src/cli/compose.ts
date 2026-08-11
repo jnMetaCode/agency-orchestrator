@@ -911,6 +911,12 @@ export async function autoFixDependsOnIds(yamlPath: string): Promise<{ fixed: nu
     return false;
   }
 
+  // "该 step 的依赖里是否已经有这个 id" —— 决定改写时是改名还是删掉重复项
+  const alreadyDepends = new Map<string, boolean>();
+  for (const s of workflow.steps) {
+    for (const d of s.depends_on || []) alreadyDepends.set(`${s.id} ${d}`, true);
+  }
+
   const rewrites: { step: string; from: string; to: string }[] = [];
   for (const s of workflow.steps) {
     for (const dep of s.depends_on || []) {
@@ -949,10 +955,21 @@ export async function autoFixDependsOnIds(yamlPath: string): Promise<{ fixed: nu
     const end = i + 1 < marks.length ? marks[i + 1].index : text.length;
     let block = text.slice(start, end);
     for (const r of rewrites.filter((x) => x.step === marks[i].id)) {
-      // 只改 depends_on 行（flow `[a, b]` 与多行列表两种写法都覆盖），按词边界替换
+      // 只改 depends_on 行（flow `[a, b]` 与多行列表两种写法都覆盖），按词边界替换。
+      // 若目标 id 本来就在依赖里（`[analyze, analysis_result]` 这种半对半错的写法），
+      // 直接改名会留下 `[analyze, analyze]` 这种重复项 —— 拓扑排序虽不受影响
+      // （入度与反向边同步 +1/-1 抵消），但那是用户要长期看的文件，改完必须是干净的。
       const before = block;
-      block = block.replace(/^([ \t]*depends_on:[^\n]*(?:\n[ \t]+-[^\n]*)*)/m, (seg) =>
-        seg.replace(new RegExp(`(?<![\\w-])${r.from}(?![\\w-])`, 'g'), r.to));
+      const dupTarget = alreadyDepends.get(`${r.step} ${r.to}`) === true;
+      block = block.replace(/^([ \t]*depends_on:[^\n]*(?:\n[ \t]+-[^\n]*)*)/m, (seg) => {
+        const tok = `(?<![\\w-])${r.from}(?![\\w-])`;
+        if (!dupTarget) return seg.replace(new RegExp(tok, 'g'), r.to);
+        // 删除模式：flow 里连着分隔逗号一起去掉，多行列表里整行去掉
+        return seg
+          .replace(new RegExp(`,\\s*${tok}`, 'g'), '')
+          .replace(new RegExp(`${tok}\\s*,\\s*`, 'g'), '')
+          .replace(new RegExp(`^[ \\t]*-\\s*${tok}[ \\t]*\\n?`, 'gm'), '');
+      });
       if (block !== before) details.push(r);
     }
     out += text.slice(cursor, start) + block;

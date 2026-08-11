@@ -110,6 +110,42 @@ await test('多行列表写法同样能改', async () => {
   assert(errorsOf(p).length === 0, errorsOf(p).join(' / '));
 });
 
+await test('目标 id 本来就在依赖里 → 删掉多余那条，不留 [analyze, analyze]', async () => {
+  const p = write('dup-flow.yaml', HEAD + `  - id: analyze
+    role: "a/b"
+    task: "分析"
+    output: analysis_result
+  - id: compile
+    role: "a/b"
+    task: "汇总 {{analysis_result}}"
+    output: final
+    depends_on: [analyze, analysis_result]
+`);
+  const r = await autoFixDependsOnIds(p);
+  assert(r.fixed === 1, `应修 1 处，实际 ${r.fixed}`);
+  const deps = parseWorkflow(p).steps.find((s) => s.id === 'compile')!.depends_on!;
+  assert(deps.length === 1 && deps[0] === 'analyze', `依赖应去重为 [analyze]，实际 ${JSON.stringify(deps)}`);
+  assert(errorsOf(p).length === 0, errorsOf(p).join(' / '));
+});
+
+await test('多行列表里的重复同样删干净', async () => {
+  const p = write('dup-block.yaml', HEAD + `  - id: analyze
+    role: "a/b"
+    task: "分析"
+    output: analysis_result
+  - id: compile
+    role: "a/b"
+    task: "汇总 {{analysis_result}}"
+    output: final
+    depends_on:
+      - analyze
+      - analysis_result
+`);
+  await autoFixDependsOnIds(p);
+  const deps = parseWorkflow(p).steps.find((s) => s.id === 'compile')!.depends_on!;
+  assert(deps.length === 1 && deps[0] === 'analyze', `实际 ${JSON.stringify(deps)}`);
+});
+
 console.log('\n─── 拒绝乱改（宁可报错也不连错边） ───');
 
 await test('对不上任何 output 的假 id 不动它', async () => {
