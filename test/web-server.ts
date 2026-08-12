@@ -240,6 +240,31 @@ try {
     assert(existsSync(join(precious, 'important.txt')), '软链指向的外部目录内容必须完好无损');
     assert(!existsSync(join(outDir, 'looks-like-a-run')) || existsSync(precious), '删除只作用于链接本身');
 
+    // claude（直连 API）与 claude-code（订阅 CLI）共用 ANTHROPIC_BASE_URL 这一个变量名，
+    // 但凭证完全不同。给 claude 配中转地址时若把它注入进程 env，会被所有 spawn 出的
+    // 子进程继承 —— 用户只是配了直连 API，却把订阅制的 claude-code 一起改道到该端点，
+    // 拿本机登录态去打必然 401。引擎侧不需要这个 env（base_url 走 --base-url 传参）。
+    await fetch(base + '/api/config', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ provider: 'claude', apiKey: 'sk-ant-x', baseUrl: 'https://relay.example.com/api/claudecode' }),
+    });
+    const afterClaude = (await (await fetch(base + '/api/config')).json()) as { providers: Record<string, { baseUrl?: string; supportsBaseUrl?: boolean }> };
+    assert(afterClaude.providers.claude.baseUrl === 'https://relay.example.com/api/claudecode', 'claude 的中转地址已保存（供引擎用）');
+    assert(!afterClaude.providers['claude-code'].baseUrl, `配 claude 不该污染 claude-code 的地址，实际 ${afterClaude.providers['claude-code'].baseUrl}`);
+    assert(afterClaude.providers.claude.supportsBaseUrl === true, 'claude 仍开放自定义接入点（Anthropic 协议中转直连）');
+    // 反过来：claude-code 自己配中转仍要照常注入（CLI 子进程靠 env 才能改道）
+    await fetch(base + '/api/config', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ provider: 'claude-code', apiKey: 'sk-cc-token', baseUrl: 'https://cc-relay.example.com' }),
+    });
+    const afterCC = (await (await fetch(base + '/api/config')).json()) as { providers: Record<string, { baseUrl?: string }> };
+    assert(afterCC.providers['claude-code'].baseUrl === 'https://cc-relay.example.com', 'claude-code 自己配中转不受影响');
+    assert(afterCC.providers.claude.baseUrl === 'https://relay.example.com/api/claudecode', '两者互不串台');
+    // 清理，免得影响后面的用例
+    for (const p2 of ['claude', 'claude-code']) {
+      await fetch(base + '/api/config', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ provider: p2, apiKey: '', baseUrl: '' }) });
+    }
+
     // ── 我的角色（用户自建）POST/DELETE /api/roles/my ──
     assert(await post(base, '/api/roles/my', { name: '测试专家' }) === 400, 'POST /api/roles/my 缺 systemPrompt → 400');
     const createRes = await fetch(base + '/api/roles/my', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name: '测试专家', description: '一句话描述', systemPrompt: '你是一位测试专家。' }) });

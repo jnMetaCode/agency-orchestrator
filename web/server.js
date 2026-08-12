@@ -354,7 +354,14 @@ function applyKeys(obj) {
     // （key 可能来自 shell 环境变量，base 单独覆盖是合法用法）。
     const relayCli = provider === 'claude-code' || provider === 'gemini-cli';
     const hasToken = !!(entry.apiKey || process.env[cfg.key]);
-    if (cfg.base && entry.baseUrl && (!relayCli || hasToken)) process.env[cfg.base] = entry.baseUrl;
+    // claude（直连 API）的 base 绝不能注入 env：它和 claude-code 共用
+    // ANTHROPIC_BASE_URL 这一个变量名，但两者凭证完全不同（一个是中转商的 API key，
+    // 一个是本机订阅登录态）。注进去会被所有 spawn 出的子进程继承 —— 用户只是给
+    // 直连 API 配了个中转，结果把订阅制的 claude-code CLI 一起改道到该端点，
+    // 拿登录态去打必然 401。引擎侧不需要这个 env：base_url 走 buildLLMConfig →
+    // `ao run --base-url` / 连接器 config，链路已经通（见 factory.ts 的 claude 分支）。
+    const envUnsafe = provider === 'claude';
+    if (cfg.base && entry.baseUrl && !envUnsafe && (!relayCli || hasToken)) process.env[cfg.base] = entry.baseUrl;
   }
   for (const [field, envName] of Object.entries(CC_MODEL_ENVS)) {
     const v = obj['claude-code']?.[field];
