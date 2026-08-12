@@ -3,7 +3,7 @@ import type { Language } from "@/i18n/translations";
 /**
  * 赞助商数据。
  *
- * 当前赞助商：APINEBULA（旗舰，银河录像局旗下 AI 聚合平台）、优云智算（UCloud 旗下 AI 云平台）、RootFlowAI（大模型 API 聚合平台）、Cubence（API 中转服务商）、CCSub（AI API 中转平台）、火山引擎（字节跳动云服务，中英文分别对应 volcengine.com / byteplus.com 两个不同站点）、多元探索（AI 模型 API 聚合与源头直供）、AICodeMirror（Claude / Codex / Gemini 官方高稳定中转）。
+ * 当前赞助商：APINEBULA（旗舰，银河录像局旗下 AI 聚合平台）、优云智算（UCloud 旗下 AI 云平台）、Cubence（API 中转服务商）、火山引擎（字节跳动云服务，中英文分别对应 volcengine.com / byteplus.com 两个不同站点）、多元探索（AI 模型 API 聚合与源头直供）、AICodeMirror（Claude / Codex / Gemini 官方高稳定中转）。
  * 均为真实付费赞助，非占位样例。新增赞助商时按 Sponsor 结构追加即可。
  */
 
@@ -91,29 +91,6 @@ export const sponsors: Sponsor[] = [
     },
   },
   {
-    id: "rootflowai",
-    name: "RootFlowAI",
-    badge: "RF",
-    accent: "from-sky-600 to-slate-400",
-    logo: "/sponsors/logo-rootflowai-icon.png",
-    url: "https://rootflowai.com/register?utm_source=agency-agents-zh&utm_medium=sponsor&utm_campaign=web",
-    tier: "standard",
-    since: "2026-07",
-    featured: false,
-    tagline: {
-      zh: "绝不掺水的纯粹算力源",
-      en: "Pure, uncompromised compute — no dilution, no shortcuts",
-    },
-    description: {
-      zh: "感谢 RootFlowAI 赞助本项目！RootFlowAI 是面向开发者、团队与企业的大模型 API 聚合平台，聚合 Claude、GPT、Gemini、绘图、视频与多模态模型，支持价格对比、调用日志、服务状态监控与余额账单管理。提供企业级高并发保障、7×24 技术支持、合同签约、对公打款与开票服务，适用于 AI 编程、Agent 开发、业务系统集成与企业集采场景。",
-      en: "Thanks to RootFlowAI for sponsoring this project! RootFlowAI is a large-model API aggregation platform for developers, teams and enterprises, aggregating Claude, GPT, Gemini, image, video and multimodal models — with price comparison, call logs, service status monitoring and balance/billing management. It offers enterprise-grade high concurrency, 24/7 technical support, formal contracts, corporate payments and invoicing, suitable for AI coding, Agent development, business-system integration and enterprise procurement.",
-    },
-    perk: {
-      zh: "注册成功后，添加企业微信服务群即可领取 $10 免费体验额度",
-      en: "Register and join our WeCom support group to claim a $10 free trial credit",
-    },
-  },
-  {
     id: "cubence",
     name: "Cubence",
     badge: "CB",
@@ -136,29 +113,6 @@ export const sponsors: Sponsor[] = [
       en: "10% off your first purchase",
     },
     couponCode: "AGENCY",
-  },
-  {
-    id: "ccsub",
-    name: "CCSub",
-    badge: "CC",
-    accent: "from-emerald-600 to-slate-800",
-    logo: "/sponsors/logo-ccsub-icon.png",
-    url: "https://www.ccsub.net/register?ref=8G5W4JK4",
-    tier: "standard",
-    since: "2026-07",
-    featured: false,
-    tagline: {
-      zh: "稳定、实惠的 AI API 中转平台 · Claude Code 官方订阅的超强平替",
-      en: "Stable, affordable AI API relay · a drop-in replacement for a Claude.ai subscription",
-    },
-    description: {
-      zh: "感谢 CCSub 赞助本项目！CCSub 是稳定、实惠的 AI API 中转平台，是 Claude Code 官方订阅的超强平替。一个 API Key 即可调用 Claude Opus 4.8、Sonnet 4.6、Haiku 4.5、GPT-5、Gemini 全系列模型，价格约为官方直连的 1/3，全球直连无需梯子。兼容 Claude Code、Codex、Cursor、Cline、Continue、Windsurf 等所有主流 AI 编程工具。",
-      en: "Thanks to CCSub for sponsoring this project! CCSub is a stable, affordable AI API relay platform — a drop-in replacement for a Claude.ai subscription. One API key gives you access to Claude Opus 4.8, Sonnet, Haiku, GPT-5 and Gemini at roughly 30% of direct API cost, with no VPN required from anywhere in the world. Compatible with Claude Code, Codex, Cursor, Cline, Continue, Windsurf and all major AI coding tools.",
-    },
-    perk: {
-      zh: "注册即送 $5 体验额度",
-      en: "$5 free credit on sign-up",
-    },
   },
   {
     id: "volcengine",

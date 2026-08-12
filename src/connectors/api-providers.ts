@@ -33,13 +33,15 @@ export const API_PROVIDERS: ApiProviderSpec[] = [
   { id: 'apinebula', envKey: 'APINEBULA_API_KEY', envBase: 'APINEBULA_BASE_URL', defaultBaseUrl: 'https://apinebula.ai/v1', defaultModel: 'gpt-5.5' },
   // Agnes AI —— key 只从 env / 配置读,绝不在代码里写死(写死=随包公开,免费额度会被刷爆)
   { id: 'agnes', envKey: 'AGNES_API_KEY', envBase: 'AGNES_BASE_URL', defaultBaseUrl: 'https://apihub.agnes-ai.com/v1', defaultModel: 'agnes-2.0-flash' },
-  // RootFlowAI（赞助商）—— 大模型 API 聚合平台，聚合 Claude / GPT / Gemini
+  // RootFlowAI —— 大模型 API 聚合平台（赞助已于 2026-08 下架，provider 保留可用，
+  // 免得已配好 key 的用户突然连不上）
   { id: 'rootflowai', envKey: 'ROOTFLOWAI_API_KEY', envBase: 'ROOTFLOWAI_BASE_URL', defaultBaseUrl: 'https://api.rootflowai.com/v1', defaultModel: 'claude-sonnet-5' },
   // Cubence（赞助商）—— API 中转：一个 key 直连 Claude / GPT / Gemini 等多家模型
   // （OpenAI 兼容端点 /v1）；同一账号还可给本地 CLI 配中转（见 CLI_RELAY_PRESETS）
   { id: 'cubence', envKey: 'CUBENCE_API_KEY', envBase: 'CUBENCE_BASE_URL', defaultBaseUrl: 'https://api.cubence.com/v1', defaultModel: 'claude-sonnet-5' },
   // CCSub（赞助商）—— AI API 中转：一个 key 通 Claude / GPT / Gemini / DeepSeek 全家桶，
-  // 统一端点 www.ccsub.net 同时兼容 Anthropic 与 OpenAI 协议（此处走 OpenAI 兼容 /v1）
+  // CCSub —— 统一端点 www.ccsub.net 同时兼容 Anthropic 与 OpenAI 协议（此处走 OpenAI 兼容 /v1）；
+  // 赞助已于 2026-08 下架，provider 保留可用（同 RootFlowAI，不搞坏已配好 key 的用户）
   { id: 'ccsub', envKey: 'CCSUB_API_KEY', envBase: 'CCSUB_BASE_URL', defaultBaseUrl: 'https://www.ccsub.net/v1', defaultModel: 'claude-sonnet-5' },
   // 火山引擎（赞助商）—— 字节跳动火山方舟 Ark：豆包 / Kimi / GLM 等模型。直连走 OpenAI 兼容
   // 主数据面 /api/v3；key 用官方环境变量名 ARK_API_KEY（console.volcengine.com/ark 创建）。

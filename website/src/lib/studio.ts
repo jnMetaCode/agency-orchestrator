@@ -721,14 +721,9 @@ export const API_PROVIDERS: ApiProviderMeta[] = [
   { id: "duoyuanx", name: "多元探索", shortName: "多元探索", hint: "duoyuanx.com · 注册送 3 元", defaultBaseUrl: "https://duoyuanx.com/v1", signupUrl: "https://duoyuanx.com/register?aff=LErO", advanced: true, modelSuggestions: COMMON_RELAY_MODELS },
   // 旗舰赞助商 APINEBULA —— 金色高亮（大屏特有）
   { id: "apinebula", name: "APINEBULA", hint: "apinebula.ai", defaultBaseUrl: "https://apinebula.ai/v1", signupUrl: "https://apinebula.ai/V6ekjG", flagship: true, modelSuggestions: ["gpt-5.5", "claude-opus-4-8", "claude-sonnet-5", "gemini-3.5-flash", "deepseek-chat"] },
-  // 普通赞助商 RootFlowAI —— 前 3 位，紧跟两家旗舰/赞助商之后
-  { id: "rootflowai", name: "RootFlowAI", hint: "rootflowai.com", defaultBaseUrl: "https://api.rootflowai.com/v1", signupUrl: "https://rootflowai.com/register?utm_source=agency-agents-zh&utm_medium=sponsor&utm_campaign=studio", sponsor: true, modelSuggestions: COMMON_RELAY_MODELS },
   // 赞助商 Cubence —— API 中转：一个 key 通用多家模型（此为直连 API 用法；
   // 给本地 CLI 配中转的另一用法见 CLI_RELAY_PRESETS，两者共用同一账号）
   { id: "cubence", name: "Cubence", hint: "api.cubence.com", defaultBaseUrl: "https://api.cubence.com/v1", signupUrl: "https://cubence.com/signup?code=SCW29JP9&source=agency", sponsor: true, modelSuggestions: COMMON_RELAY_MODELS },
-  // CCSub（赞助商）—— 一个 key 通 Claude/GPT/Gemini/DeepSeek 全家桶,官方约 1/3 价,注册送 $5;
-  // 统一端点 www.ccsub.net 同时兼容 Anthropic 与 OpenAI（此处直连走 OpenAI 兼容 /v1）
-  { id: "ccsub", name: "CCSub", hint: "www.ccsub.net · 注册送 $5", defaultBaseUrl: "https://www.ccsub.net/v1", signupUrl: "https://www.ccsub.net/register?ref=8G5W4JK4", sponsor: true, modelSuggestions: COMMON_RELAY_MODELS },
   // 火山引擎（赞助商）—— 字节跳动火山方舟：豆包/Kimi/GLM 等，注册领 2500 万 Tokens；
   // 直连走 OpenAI 兼容 /api/v3（配 key 后可点「获取模型列表」拉全量），Claude Code 中转见 CLI_RELAY_PRESETS
   { id: "volcengine", name: "火山引擎", hint: "ark.cn-beijing.volces.com", defaultBaseUrl: "https://ark.cn-beijing.volces.com/api/v3", signupUrl: "https://www.volcengine.com/activity/ai618?utm_campaign=hw&utm_content=hw&utm_medium=devrel_tool_web&utm_source=OWO&utm_term=agency-agents-zh", sponsor: true, modelSuggestions: ["doubao-seed-2-1-pro-260628"] },
@@ -741,6 +736,12 @@ export const API_PROVIDERS: ApiProviderMeta[] = [
   { id: "claude", name: "Claude (Anthropic)", shortName: "Claude", hint: "console.anthropic.com", defaultBaseUrl: "https://api.anthropic.com", vendor: true, modelSuggestions: ["claude-sonnet-5", "claude-opus-4-8", "claude-haiku-4-5-20251001"] },
   { id: "openai", name: "OpenAI", hint: "gpt-5.5 {etc} · platform.openai.com", defaultBaseUrl: "https://api.openai.com/v1", vendor: true, modelSuggestions: ["gpt-5.5", "gpt-5.4-mini", "gpt-4o"] },
   { id: "agnes", name: "Agnes AI", hint: "agnes-2.0-flash · agnes-ai.com", defaultBaseUrl: "https://apihub.agnes-ai.com/v1", modelSuggestions: ["agnes-2.0-flash", "agnes-1.5-flash"] },
+  // RootFlowAI / CCSub：赞助已于 2026-08 下架 —— 摘掉赞助标识、推广链接与置顶位，但
+  // **保留为可用供应商**并排在末位。已经配好它们 key 的用户不该因为商务关系变化就被
+  // 搞坏（连不上、存的 key 读不到）；等确认无人使用再整条移除。
+  { id: "rootflowai", name: "RootFlowAI", hint: "rootflowai.com", defaultBaseUrl: "https://api.rootflowai.com/v1", modelSuggestions: COMMON_RELAY_MODELS },
+  // 统一端点 www.ccsub.net 同时兼容 Anthropic 与 OpenAI（此处直连走 OpenAI 兼容 /v1）
+  { id: "ccsub", name: "CCSub", hint: "www.ccsub.net", defaultBaseUrl: "https://www.ccsub.net/v1", modelSuggestions: COMMON_RELAY_MODELS },
 ];
 
 export const API_PROVIDER_MAP: Record<string, ApiProviderMeta> = Object.fromEntries(

@@ -61,6 +61,22 @@ test('轮换池里没有重名', () => {
   assert(new Set(names).size === names.length, `有重复：${names.join(', ')}`);
 });
 
+test('已下架的赞助商不得出现在曝光位（RootFlowAI / CCSub，2026-08 下架）', () => {
+  const delisted = [/rootflow/i, /ccsub/i];
+  for (const s of [...SPONSOR_ROTATION, PREMIUM_SPONSOR]) {
+    for (const re of delisted) {
+      assert(!re.test(s.name) && !re.test(s.url), `${s.name} 已下架赞助，不该还在曝光位`);
+    }
+  }
+});
+
+test('下架赞助 ≠ 下架供应商：它们仍是可用 provider（不搞坏已配 key 的用户）', () => {
+  const ids = new Set(API_PROVIDERS.map((p) => p.id));
+  for (const id of ['rootflowai', 'ccsub']) {
+    assert(ids.has(id), `${id} 应保留为可用供应商，只摘赞助曝光`);
+  }
+});
+
 test('持有默认 provider 位的进阶档不进轮换（避免双份曝光）', () => {
   assert(!SPONSOR_ROTATION.some((s) => s.name === PREMIUM_SPONSOR.name), 'PREMIUM_SPONSOR 不该出现在轮换池');
 });

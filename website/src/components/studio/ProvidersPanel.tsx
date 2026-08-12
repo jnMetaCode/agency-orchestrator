@@ -198,7 +198,8 @@ export function ProvidersPanel({ active, onSetActive }: { active: string; onSetA
   const activeHasKey = !!cfg?.providers?.[eff]?.hasKey;
   const showRecommend = installedCli.length > 0 && !installedCli.includes(eff) && !activeHasKey;
 
-  // 赞助商 CompShare / APINEBULA / RootFlowAI 的名称/说明走 i18n（英文站不露中文）；其余 provider 是品牌名+URL，语言无关
+  // CompShare / APINEBULA / RootFlowAI 的名称/说明走 i18n（英文站不露中文）；其余 provider 是品牌名+URL，语言无关
+  // （RootFlowAI 赞助已下架，但仍是可用供应商，文案继续走 i18n）
   const displayName = (id: string, fallback: string) =>
     id === "compshare" ? t.studio.providers.compshareName
     : id === "apinebula" ? t.studio.providers.apinebulaName
