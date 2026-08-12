@@ -24,7 +24,7 @@ import { applyCodexRelay, clearCodexRelay, readCodexRelayStatus } from '../dist/
 import { diagnoseClaudeConfig, HIJACK_ENV_KEYS } from '../dist/utils/claude-repair.js';
 import { applyClaudeProvider, restoreClaudeToOfficial, readClaudeSwitchStatus, readClaudeProxyStatus, probeProxyReachable, clearClaudeProxy, syncClaudeProxy, detectSystemProxy } from '../dist/utils/claude-apply.js';
 import { validateCustomProviderId, readCustomProviders, addCustomProvider, removeCustomProvider, updateCustomProvider } from '../dist/utils/custom-providers.js';
-import { rotatingSponsors } from '../dist/utils/sponsor-guide.js';
+import { rotatingSponsors, rotateFrom } from '../dist/utils/sponsor-guide.js';
 
 // Codex 没有环境变量覆盖机制，中转配置写在 ~/.codex/config.toml + auth.json 里，
 // 用固定的内部 provider id（不管用户填的是哪家中转商），避免还要在 UI 里加个
@@ -202,7 +202,7 @@ function readKeys() {
 // 安全约束:只接受 https 的 baseUrl,id 不能覆盖内置 provider(防清单被篡改后劫持内置流量)。
 const MANIFEST_URL = process.env.AO_MANIFEST_URL || 'https://ao.aiolaola.com/providers-manifest.json';
 const MANIFEST_TTL = 6 * 60 * 60 * 1000;
-const EMPTY_MANIFEST = { providers: [], relayPresets: [], removedProviders: [], providerOverrides: {} };
+const EMPTY_MANIFEST = { providers: [], relayPresets: [], removedProviders: [], providerOverrides: {}, sponsorRotation: [] };
 let manifestCache = { data: null, fetchedAt: 0 };
 async function getRemoteManifest() {
   const now = Date.now();
@@ -235,6 +235,27 @@ async function getRemoteManifest() {
         Object.values(r2.baseUrls).every((u) => typeof u === 'string' && /^https:\/\//.test(u))
       ).map((r2) => ({ name: r2.name, sponsor: !!r2.sponsor, signupUrl: httpsStr(r2.signupUrl), baseUrls: r2.baseUrls }));
       const removedProviders = (Array.isArray(j?.removedProviders) ? j.removedProviders : []).filter((x) => typeof x === 'string');
+      // sponsorRotation：无凭证引导横幅的赞助商轮换池。此前只在引擎代码里（改一次要发
+      // npm + 桌面版，没升级的用户会一直看到已下架的赞助商）。放进清单后，上/下架 push
+      // 官网即对所有已安装用户生效；轮换算法仍复用引擎里那一份，份额口径不会漂移。
+      // providerId 只接受「引擎真的认识」的 provider —— 否则引导里会出现一条
+      // `--provider <不存在>` 的命令，比不展示更糟（纯 CLI 中转商用 relayOnly 标记）。
+      const knownProviderIds = new Set(API_PROVIDERS.map((p) => p.id));
+      const sponsorRotation = (Array.isArray(j?.sponsorRotation) ? j.sponsorRotation : [])
+        .filter((e) => e && typeof e.name === 'string' && e.name.trim() && /^https:\/\//.test(String(e.url || '')))
+        .map((e) => {
+          const providerId = typeof e.providerId === 'string' && knownProviderIds.has(e.providerId) ? e.providerId : undefined;
+          return {
+            ...(providerId ? { providerId } : {}),
+            name: e.name.trim(),
+            ...(typeof e.bonus === 'string' && e.bonus.trim() ? { bonus: e.bonus.trim() } : {}),
+            url: String(e.url),
+            // relayOnly（"只做编码 CLI 中转、没有可直连 API"）只认清单显式声明。
+            // 不能因为 providerId 缺失/写错就替它认定是中转商 —— 那是在替赞助商编事实，
+            // 而这个标记会决定引导里怎么措辞。providerId 写错要靠清单契约测试报出来。
+            ...(e.relayOnly === true ? { relayOnly: true } : {}),
+          };
+        });
       // providerOverrides：给「内置」provider 换代模型用（defaultModel/modelSuggestions），
       // 改官网清单即可全网生效,不用发 npm/桌面版。只透传这两个字段,防清单塞进别的东西。
       const providerOverrides = {};
@@ -250,7 +271,7 @@ async function getRemoteManifest() {
           if (Object.keys(entry).length) providerOverrides[id] = entry;
         }
       }
-      manifestCache = { data: { providers, relayPresets, removedProviders, providerOverrides }, fetchedAt: now };
+      manifestCache = { data: { providers, relayPresets, removedProviders, providerOverrides, sponsorRotation }, fetchedAt: now };
       return manifestCache.data;
     }
   } catch { /* 网络失败/超时 → 走下面的短缓存空回退 */ }
@@ -258,6 +279,14 @@ async function getRemoteManifest() {
   manifestCache = { data: EMPTY_MANIFEST, fetchedAt: now - MANIFEST_TTL + 10 * 60 * 1000 };
   return manifestCache.data;
 }
+/** 引导横幅当天该展示哪几家：清单里配了轮换池就用清单的，否则用引擎内置的。 */
+function guideSponsors(manifest, count = 2) {
+  const pool = Array.isArray(manifest?.sponsorRotation) && manifest.sponsorRotation.length > 0
+    ? manifest.sponsorRotation
+    : null;
+  return pool ? rotateFrom(pool, count) : rotatingSponsors(count);
+}
+
 // 同步读取(给 buildLLMConfig 等同步路径用):启动预热后 manifestCache 常驻内存
 function remoteProviderSpec(id) {
   return (manifestCache.data?.providers ?? []).find((p) => p.id === id);
@@ -1208,9 +1237,10 @@ app.post('/api/compose', async (req, res) => {
       provider: provider || process.env.AO_PROVIDER || 'duoyuanx',
       installedCli: detectInstalledCliProviders(),
       // 赞助商位规则（src/utils/sponsor-guide.ts）：进阶档（多元探索）持有默认
-      // provider 位（上面的 provider 字段兜底就是它），不占横幅；横幅 = 其余
-      // 6 家（旗舰+标准）按天轮换 2 家，等份轮值
-      sponsors: rotatingSponsors(),
+      // provider 位（上面的 provider 字段兜底就是它），不占横幅；横幅 = 其余几家
+      // 按天轮换 2 家，等份轮值。池子优先取远程清单（上/下架不用发版，老用户也能
+      // 立刻同步），清单没配就用引擎内置的那份。
+      sponsors: guideSponsors(await getRemoteManifest()),
     });
   }
   // roles 可为空 = AI 自动组队：让 LLM 从全量角色目录里自己挑专家（对应 CLI `ao compose "一句话"`，

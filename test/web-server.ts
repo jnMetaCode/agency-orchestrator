@@ -464,6 +464,10 @@ try {
     await postJson('/api/config', { provider: 'relaytest', baseUrl: '' });
     const comp = await postJson('/api/compose', { description: '测试', roles: [], provider: 'relaytest' });
     assert(comp.status === 400 && comp.body.code === 'no_credentials', '自定义供应商缺 base_url 时返回首跑引导而不是硬跑');
+    // 该实例的清单地址是死链 → 引导横幅回退到引擎内置轮换池（不能因为拉不到清单就空掉）
+    const fallbackSponsors = (comp.body.sponsors ?? []) as { name: string }[];
+    assert(fallbackSponsors.length > 0, '清单拉不到时，引导横幅回退内置轮换池');
+    assert(!fallbackSponsors.some((s) => /rootflow|ccsub/i.test(s.name)), '回退池里不含已下架赞助商');
   }
 } finally {
   if (server3) server3.kill('SIGTERM');

@@ -56,9 +56,21 @@ export function guideProviderId(rots: SponsorGuideEntry[] = rotatingSponsors()):
   return pick!.providerId!;
 }
 
+/**
+ * 从给定池子里取当天轮值的相邻 count 家（按自然日，确定性）。
+ *
+ * 抽成独立函数是为了让**远程清单**能替换池子：赞助商上/下架此前只能改这份代码
+ * 再发一次 npm + 桌面端，而没升级的用户会继续看到已下架的赞助商。清单通道
+ * （website/public/providers-manifest.json）改完 push 官网即对所有已安装用户生效，
+ * 轮换算法则两边共用这一份，份额口径不会因来源不同而漂移。
+ */
+export function rotateFrom(pool: SponsorGuideEntry[], count = 2, now: number = Date.now()): SponsorGuideEntry[] {
+  if (!Array.isArray(pool) || pool.length === 0) return [];
+  const start = Math.floor(now / 86_400_000) % pool.length;
+  return Array.from({ length: Math.min(count, pool.length) }, (_, i) => pool[(start + i) % pool.length]);
+}
+
 /** 当天轮值的赞助商（按自然日取相邻 count 家，默认 2 家） */
 export function rotatingSponsors(count = 2, now: number = Date.now()): SponsorGuideEntry[] {
-  const start = Math.floor(now / 86_400_000) % SPONSOR_ROTATION.length;
-  return Array.from({ length: Math.min(count, SPONSOR_ROTATION.length) }, (_, i) =>
-    SPONSOR_ROTATION[(start + i) % SPONSOR_ROTATION.length]);
+  return rotateFrom(SPONSOR_ROTATION, count, now);
 }

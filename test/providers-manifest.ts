@@ -38,6 +38,7 @@ type Manifest = {
   relayPresets?: { name: string; sponsor?: boolean; signupUrl?: string; baseUrls: Record<string, string> }[];
   removedProviders?: string[];
   providerOverrides?: Record<string, { defaultModel?: string; modelSuggestions?: string[] }>;
+  sponsorRotation?: { providerId?: string; name: string; bonus?: string; url: string; relayOnly?: boolean }[];
 };
 
 let m!: Manifest;
@@ -85,6 +86,20 @@ test('CLI 中转预设的 provider id 必须是引擎支持的那三个', () => 
     assert(Object.keys(r.baseUrls).length > 0, `${r.name} 没有任何端点`);
     for (const cli of Object.keys(r.baseUrls)) {
       assert(supported.has(cli), `${r.name} 里的 "${cli}" 不是可配中转的 CLI provider`);
+    }
+  }
+});
+
+test('赞助商轮换池：名字齐全、链接 https、providerId 必须是真 provider', () => {
+  const builtin = new Set(API_PROVIDERS.map((p) => p.id));
+  for (const e of m.sponsorRotation ?? []) {
+    assert(!!e.name && e.name.trim().length > 0, '轮换池条目缺 name');
+    assert(/^https:\/\//.test(e.url), `${e.name} 的链接不是 https（服务端会整条丢弃）: ${e.url}`);
+    // 写错的 providerId 在运行时会被静默剥掉（宁可少条命令示例也不能打印跑不通的命令），
+    // 所以必须在这里报出来，否则线上只会"少了点什么"而没人知道
+    if (e.providerId !== undefined) {
+      assert(builtin.has(e.providerId), `${e.name} 的 providerId "${e.providerId}" 不是内置 provider，运行时会被丢弃`);
+      assert(e.relayOnly !== true, `${e.name} 既标了 relayOnly 又给了 providerId，自相矛盾`);
     }
   }
 });
