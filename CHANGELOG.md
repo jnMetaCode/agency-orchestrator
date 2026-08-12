@@ -4,6 +4,28 @@
 
 ## [Unreleased]
 
+### Added（本次新增）
+- **AICodeMirror 上架（赞助商）**：三个编码 CLI 的中转预设（`claude-code` → `/api/claudecode`、`gemini-cli` → `/api/gemini`、`codex-cli` → `/api/codex/backend-api/codex`，注意 API 主机是 `aicodemirror.com` 而非官网的 `.ai`），以及**直连 API**——它走 Anthropic Messages 协议而非 OpenAI 兼容（根 `/v1/chat/completions` 实测 404），所以配在 `provider: claude` 上，Studio 的「Claude (Anthropic)」页新增「Anthropic 协议中转商」一键填充。端点做过无 key 探测核实（三个前缀均 401=存在，同级不存在的前缀 404）。
+- **`provider: claude` 支持自定义接入点**：任意 Anthropic 协议中转商都能直连。此前 `factory` 建连接器时只传 `api_key`、连接器也从没给 SDK 设过 `baseURL`、后端 `KEY_ENV` 写死 `base: null` 让前端隐藏地址框——三处叠加导致在 YAML/Studio 里配的中转地址被**静默忽略**，请求照旧打官方端点（拿中转 key 去打必然 401，且看不出是配置没生效）。新增 `normalizeAnthropicBaseUrl`：SDK 自己会接 `/v1/messages`，所以 base 里多写的 `/v1`、`/messages` 会被削掉，中转商的子路径基址（如 `/api/claudecode`）保持不动。
+- **`ao doctor` 覆盖 Anthropic 协议端点**：claude 配了中转却没有体检等于给了能力不给诊断，而"地址配错"正是中转用户最常踩的坑。现按原生协议单独探测，认出中转还是官方端点，并对"只填域名""多写 /v1"分别给出能照做的指引。
+- **赞助商上/下架彻底不用发版**：远程清单（`website/public/providers-manifest.json`，改官网仓 push 即对所有已安装用户生效）新增 `sponsorRotation`（引导横幅轮换池，配了就整池替换），并启用 `removedProviders` 与 `relayPresets`。轮换算法抽成 `rotateFrom(pool)` 由内置与清单共用，份额口径不会因来源不同而漂移。
+
+### Changed
+- **RootFlowAI 与 CCSub 赞助下架**：从引导轮换池、官网赞助商列表、Studio 赞助标识/推广链接/置顶位一并摘除，曝光位由 AICodeMirror 顶上，轮换池 5 家均分（每家 2/5 天）。两家**仍保留为可用供应商**并排在末位——已配好 key 的用户不该因商务关系变化就连不上。
+- **Studio 的 Claude 默认端点改为不带 `/v1`**：原默认值 `https://api.anthropic.com/v1` 与 doctor 的"多写 /v1 要去掉"自相矛盾，而它正是用户配中转时照抄的形状样板。
+
+### Fixed
+- **自动组队产物 `depends_on` 写成输出变量名**（#103，同类 #94）：模型把上游的 **output 变量名**当成 step id 写进依赖（`depends_on: [income_paths_analysis]` 而那是 step `analyze_income_paths` 的 output）。这类错误此前是修复链的盲区——它进得了 `runVariableFixChain`，但阶段 0 只会「补」依赖、阶段 1 只改 `{{变量}}`、阶段 2 靠 `extractUndefinedVarNames` 提变量名（这类报错提不出东西），三个阶段都动不了它，于是原样抛给用户一个在工作流里根本搜不到的名字。新增 `autoFixDependsOnIds` 做零歧义改写（对不上、有歧义、会成环、会自依赖一律不动），接在 compose 链与 `/api/workflows/save`；报错文案也改为直接点破"这是 step X 的输出变量名，应写 X"。
+- **配 claude 直连中转会连带把 claude-code 订阅 CLI 改道**：两者共用 `ANTHROPIC_BASE_URL` 这一个变量名但凭证完全不同，注入进程 env 后被所有子进程继承——用户只是配了直连 API，本机的 claude-code 却被改道到该端点，拿订阅登录态去打必然 401。claude 的 base 不再注入 env（引擎侧走 `--base-url` 传参，链路已通）。
+- **Studio「测试连接」对 claude 硬编码打官方端点**：无视用户配的中转地址，导致配好中转后一测就 401、反过来怀疑自己配错。现与 claude-code 共用同一套地址解析。
+- **Anthropic 探测给了"照做就坏"的建议**：探测首选 `{base}/messages`，而 SDK 与 claude CLI 一律发 `{base}/v1/messages`——配置**正确**的中转会先 404 再靠兜底命中，然后建议用户把 base 改成 `.../v1/messages`，照做后客户端再接一次直接连不上。首选路径已与真实客户端对齐；反过来"多写了 /v1"仍会提醒（AO 削得掉，claude CLI 直读会拼错）。
+- **保存时的自动修正不再瞒着用户**：`/api/workflows/save` 的确定性修正会回传修正后的正文，内置网页编辑器同步回填并列出改了哪几处，避免"眼前的文本与磁盘上的文件不一致"。
+- **`autoFixDependsOnIds` 改写留下重复依赖**：坏 id 与正确 id 并存时会改出 `[analyze, analyze]`（拓扑排序不受影响，但用户文件里不该留这种东西），现改为删掉多余那条。
+
+### 测试
+- 全量 **840 断言 / 54 个测试文件 / 0 失败**（本轮新增 6 个测试文件、约 60 条断言）。
+- 新增覆盖：`spawn-cli`（Windows 三条启动路径，CI 是 ubuntu 探不到）、`sponsor-guide`（轮换份额与返利码一致性）、`providers-manifest`（唯一绕过发版流程的通道，按代码来测）、`claude-base-url`、`depends-on-ids`、`legacy-ui`（`web/index.html` 不过 tsc 也不进构建，此前零覆盖）。
+
 ## [0.13.0] - 2026-08-07
 
 ### Added（本次新增）
