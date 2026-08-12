@@ -168,6 +168,8 @@ try {
       Array.isArray(saveJson.autoFixes) && saveJson.autoFixes.some((f) => f.fixedDep === 'analysis_result' && f.toStep === 'analyze'),
       `#103 保存时应改写 depends_on 并报出明细，实际 ${JSON.stringify(saveJson.autoFixes)}`,
     );
+    // 改写后必须把正文回传：调用方要用它同步编辑框，否则用户眼前的文本与磁盘不一致
+    assert(typeof saveJson.yaml === 'string' && /depends_on: \[analyze\]/.test(saveJson.yaml), '改写后应回传修正过的 YAML 正文');
     if (saveJson.file) {
       const savedText = readFileSync(saveJson.file, 'utf-8');
       assert(/depends_on: \[analyze\]/.test(savedText), `落盘内容应已改写，实际:\n${savedText}`);

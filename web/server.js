@@ -1283,8 +1283,9 @@ app.post('/api/workflows/save', async (req, res) => {
   while (existsSync(file)) { file = join(COMPOSED_DIR, `${safe}-${i}.yaml`); i++; }
   if (!isInside(file, COMPOSED_DIR)) return res.status(400).json({ error: 'bad path' });
   writeFileSync(file, yamlText.endsWith('\n') ? yamlText : yamlText + '\n', 'utf-8');
-  // 修了就告诉前端改了什么（跟画布保存的 autoFixes 同口径），别偷偷改用户的东西
-  res.json({ file, ...(depIdFixes.length > 0 ? { autoFixes: depIdFixes } : {}) });
+  // 修了就告诉前端改了什么，并把改写后的正文一并回传 —— 调用方（网页编辑器）要用它
+  // 同步编辑框，否则用户眼前的文本与磁盘上的文件不一致，还以为自己写的就是存下的。
+  res.json({ file, ...(depIdFixes.length > 0 ? { autoFixes: depIdFixes, yaml: yamlText } : {}) });
 });
 
 // ── 可编辑画布：工作流 YAML ↔ graph（节点/连线）。转换在引擎侧（保真往返），前端只碰 graph JSON。 ──

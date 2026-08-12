@@ -104,6 +104,9 @@ agents_dir: "agency-agents-zh"
 llm:
   provider: "deepseek"    # or: claude, openai, ollama
   model: "deepseek-chat"
+  # base_url: optional custom endpoint. For `provider: claude` this points the native
+  # Anthropic SDK at an Anthropic-protocol relay (e.g. https://api.aicodemirror.com/api/claudecode).
+  # Do NOT include /v1 — the client appends /v1/messages itself (`ao doctor` flags it if you do).
 
 concurrency: 2
 

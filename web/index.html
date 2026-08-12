@@ -813,7 +813,7 @@ window.doCompose = async function() {
 
 // 保存（手动模式 / 编辑后另存）；toast=true 时仅提示不跳转
 window.saveComposed = async function(toast) {
-  const yamlText = $('compose-yaml').value;
+  let yamlText = $('compose-yaml').value;
   const name = $('compose-name').value.trim();
   try {
     const res = await fetch('/api/workflows/save', {
@@ -822,9 +822,20 @@ window.saveComposed = async function(toast) {
     });
     const data = await res.json();
     if (!res.ok) { alert('保存失败：' + (data.error || res.status)); return null; }
+    // 服务端会确定性修正 depends_on 里写成输出变量名的假 step id（#103）。改了就必须
+    // 同步回编辑框并说清改了什么 —— 否则眼前的文本和磁盘上的文件不一致，用户还以为
+    // 自己写的就是存下的那份。
+    const fixes = Array.isArray(data.autoFixes) ? data.autoFixes : [];
+    if (fixes.length > 0 && typeof data.yaml === 'string') {
+      $('compose-yaml').value = data.yaml;
+      yamlText = data.yaml;
+    }
     S.composedFile = data.file; S.composedOriginalYaml = yamlText;
     await loadWorkflows();
-    if (toast) { const el = $('compose-warnings'); el.innerHTML = `<div style="background:var(--green-light);color:#065f46;padding:10px 12px;border-radius:8px;font-size:13px;margin-bottom:12px">✅ 已保存到「我的团队」</div>`; }
+    if (fixes.length > 0) {
+      const items = fixes.map(f => `步骤「${f.step}」的依赖 ${f.fixedDep} → ${f.toStep}`).join('；');
+      $('compose-warnings').innerHTML = `<div style="background:#fef3c7;color:#92400e;padding:10px 12px;border-radius:8px;font-size:13px;margin-bottom:12px">✅ 已保存，并自动修正了 ${fixes.length} 处依赖写法（depends_on 要写步骤 id，不是输出变量名）：${items}</div>`;
+    } else if (toast) { const el = $('compose-warnings'); el.innerHTML = `<div style="background:var(--green-light);color:#065f46;padding:10px 12px;border-radius:8px;font-size:13px;margin-bottom:12px">✅ 已保存到「我的团队」</div>`; }
     return data.file;
   } catch (e) { alert('保存失败：' + e.message); return null; }
 };
