@@ -1,15 +1,64 @@
 {
   "_docs": "AO 远程供应商清单：上/下架赞助商不用发 npm/桌面版,改这个文件 push 官网仓即可(Vercel 自动部署)。本地引擎 web/server.js 启动时拉取(6h 缓存,拉不到用内置兜底)。providers=增量上架的聚合 API 赞助商(走自定义供应商通道,引擎零改动);relayPresets=增量 CLI 中转商;removedProviders=需要下架的内置供应商 id;providerOverrides=给内置供应商换代模型(模型出新版时改这里,defaultModel 影响实际运行默认值,modelSuggestions 影响顶栏模型下拉的兜底列表)。安全约束:baseUrl 必须 https,id 不能覆盖内置 provider(providerOverrides 例外——只透传 defaultModel/modelSuggestions 两个字段)。",
   "_schema": {
-    "providers": [{ "id": "small-caps-kebab", "name": "显示名", "note": "一句话说明(可选)", "homepageUrl": "https://...(可选)", "signupUrl": "https://注册直跳链接(可选,带推广参数)", "baseUrl": "https://api.example.com/v1", "defaultModel": "model-id(可选)", "modelSuggestions": ["model-a"], "sponsor": true }],
-    "relayPresets": [{ "name": "中转商名", "sponsor": true, "signupUrl": "https://注册直跳链接(可选)", "baseUrls": { "claude-code": "https://...", "gemini-cli": "https://...", "codex-cli": "https://.../v1" } }],
-    "removedProviders": ["要下架的内置 provider id"],
-    "providerOverrides": { "内置provider-id": { "defaultModel": "model-id(可选)", "modelSuggestions": ["model-a", "model-b"] } }
+    "providers": [
+      {
+        "id": "small-caps-kebab",
+        "name": "显示名",
+        "note": "一句话说明(可选)",
+        "homepageUrl": "https://...(可选)",
+        "signupUrl": "https://注册直跳链接(可选,带推广参数)",
+        "baseUrl": "https://api.example.com/v1",
+        "defaultModel": "model-id(可选)",
+        "modelSuggestions": [
+          "model-a"
+        ],
+        "sponsor": true
+      }
+    ],
+    "relayPresets": [
+      {
+        "name": "中转商名",
+        "sponsor": true,
+        "signupUrl": "https://注册直跳链接(可选)",
+        "baseUrls": {
+          "claude-code": "https://...",
+          "gemini-cli": "https://...",
+          "codex-cli": "https://.../v1"
+        }
+      }
+    ],
+    "removedProviders": [
+      "要下架的内置 provider id"
+    ],
+    "providerOverrides": {
+      "内置provider-id": {
+        "defaultModel": "model-id(可选)",
+        "modelSuggestions": [
+          "model-a",
+          "model-b"
+        ]
+      }
+    }
   },
   "version": 2,
-  "updatedAt": "2026-07-07",
+  "updatedAt": "2026-08-12",
   "providers": [],
-  "relayPresets": [],
-  "removedProviders": [],
+  "relayPresets": [
+    {
+      "name": "AICodeMirror",
+      "sponsor": true,
+      "signupUrl": "https://www.aicodemirror.ai/register?invitecode=XO5L7R",
+      "baseUrls": {
+        "claude-code": "https://api.aicodemirror.com/api/claudecode",
+        "gemini-cli": "https://api.aicodemirror.com/api/gemini",
+        "codex-cli": "https://api.aicodemirror.com/api/codex/backend-api/codex"
+      }
+    }
+  ],
+  "removedProviders": [
+    "rootflowai",
+    "ccsub"
+  ],
   "providerOverrides": {}
 }
