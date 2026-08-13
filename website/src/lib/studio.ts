@@ -694,6 +694,12 @@ export interface ApiProviderMeta {
   /** 进阶赞助商 —— 视觉与旗舰同款金色高亮+星标,仅徽章文案不同(进阶赞助商),用于置顶展示的重点赞助商 */
   advanced?: boolean;
   sponsor?: boolean;
+  /**
+   * 已下架：默认不在供应商列表里露出（不再向新用户推荐）。但**已经配过 key 的用户
+   * 仍然看得到**——他们的配置还在、还能跑，把入口直接抽走等于让人一脸懵。
+   * 这是代码层的隐藏；远程清单的 removedProviders 是另一条(部署即生效)的通道，两者叠加。
+   */
+  delisted?: boolean;
   modelSuggestions?: string[];
 }
 
@@ -739,9 +745,9 @@ export const API_PROVIDERS: ApiProviderMeta[] = [
   // RootFlowAI / CCSub：赞助已于 2026-08 下架 —— 摘掉赞助标识、推广链接与置顶位，但
   // **保留为可用供应商**并排在末位。已经配好它们 key 的用户不该因为商务关系变化就被
   // 搞坏（连不上、存的 key 读不到）；等确认无人使用再整条移除。
-  { id: "rootflowai", name: "RootFlowAI", hint: "rootflowai.com", defaultBaseUrl: "https://api.rootflowai.com/v1", modelSuggestions: COMMON_RELAY_MODELS },
+  { id: "rootflowai", name: "RootFlowAI", hint: "rootflowai.com", defaultBaseUrl: "https://api.rootflowai.com/v1", delisted: true, modelSuggestions: COMMON_RELAY_MODELS },
   // 统一端点 www.ccsub.net 同时兼容 Anthropic 与 OpenAI（此处直连走 OpenAI 兼容 /v1）
-  { id: "ccsub", name: "CCSub", hint: "www.ccsub.net", defaultBaseUrl: "https://www.ccsub.net/v1", modelSuggestions: COMMON_RELAY_MODELS },
+  { id: "ccsub", name: "CCSub", hint: "www.ccsub.net", defaultBaseUrl: "https://www.ccsub.net/v1", delisted: true, modelSuggestions: COMMON_RELAY_MODELS },
 ];
 
 export const API_PROVIDER_MAP: Record<string, ApiProviderMeta> = Object.fromEntries(

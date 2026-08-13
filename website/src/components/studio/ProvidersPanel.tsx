@@ -283,7 +283,12 @@ export function ProvidersPanel({ active, onSetActive }: { active: string; onSetA
               <Cloud className="size-4 text-primary" /> {t.studio.providers.cloudApiTitle} <span className="font-normal text-muted-foreground">· {t.studio.providers.cloudApiHint}</span>
             </h3>
             <div className="grid gap-3 sm:grid-cols-2">
-              {API_META.filter((m) => !(cfg.removedProviders ?? []).includes(m.id)).map((m) => {
+              {API_META
+                .filter((m) => !(cfg.removedProviders ?? []).includes(m.id))
+                // 已下架的赞助商不再向新用户露出；但自己配过 key 的照常显示 ——
+                // 配置还在、还能跑，却把入口抽走的话，用户只会以为"我的 key 丢了"
+                .filter((m) => !m.delisted || cfg?.providers?.[m.id]?.hasKey)
+                .map((m) => {
                 const st = keyStatus(m.id);
                 return (
                   <ProviderRow

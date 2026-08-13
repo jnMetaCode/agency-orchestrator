@@ -137,5 +137,37 @@ test('清单里的返利码与代码里的一致（改一处漏一处 = 返利�
   }
 });
 
+console.log('\n─── 下架赞助商在 Studio 列表里的可见性 ───');
+
+// 前端列表的过滤规则（website/src/components/studio/ProvidersPanel.tsx）：
+//   1) 远程清单 removedProviders 里的 → 隐藏（部署即生效，覆盖所有老版本）
+//   2) 代码里标了 delisted 的 → 隐藏，但**自己配过 key 的仍显示**
+// 规则本身在 tsx 里，这里用同一份判定复算一遍，钉住"下架"与"不搞坏老用户"两个意图。
+function visibleInList(m: { id: string; delisted?: boolean }, removed: string[], hasKey: boolean): boolean {
+  if (removed.includes(m.id)) return false;
+  return !m.delisted || hasKey;
+}
+
+test('已下架且没配过 key → 列表里不露出（不再向新用户推荐）', () => {
+  const removed = m.removedProviders ?? [];
+  for (const id of ['rootflowai', 'ccsub']) {
+    assert(!visibleInList({ id, delisted: true }, removed, false), `${id} 对新用户应隐藏`);
+  }
+});
+
+test('已下架但用户配过 key → 仍然显示（配置还在、还能跑，抽走入口只会让人以为 key 丢了）', () => {
+  const removed: string[] = [];  // 清单拉不到时也要成立
+  for (const id of ['rootflowai', 'ccsub']) {
+    assert(visibleInList({ id, delisted: true }, removed, true), `${id} 对老用户应保留入口`);
+  }
+});
+
+test('在架供应商不受影响', () => {
+  const removed = m.removedProviders ?? [];
+  for (const id of ['apinebula', 'cubence', 'deepseek', 'claude']) {
+    assert(visibleInList({ id }, removed, false), `${id} 不该被误隐藏`);
+  }
+});
+
 console.log(`\n  结果: ${passed} 通过, ${failed} 失败\n`);
 if (failed > 0) process.exit(1);
