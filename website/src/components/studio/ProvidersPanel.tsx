@@ -207,6 +207,7 @@ export function ProvidersPanel({ active, onSetActive }: { active: string; onSetA
     : id === "cubence" ? t.studio.providers.cubenceName
     : id === "volcengine" ? t.studio.providers.volcengineName
     : id === "duoyuanx" ? t.studio.providers.duoyuanxName
+    : id === "lanox" ? t.studio.providers.lanoxName
     : fallback;
   const displayHint = (id: string, fallback: string) =>
     id === "compshare" ? t.studio.providers.compshareHint
@@ -215,6 +216,7 @@ export function ProvidersPanel({ active, onSetActive }: { active: string; onSetA
     : id === "cubence" ? t.studio.providers.cubenceHint
     : id === "volcengine" ? t.studio.providers.volcengineHint
     : id === "duoyuanx" ? t.studio.providers.duoyuanxHint
+    : id === "lanox" ? t.studio.providers.lanoxHint
     : fallback.replace("{etc}", t.studio.providers.etc);
 
   const keyStatus = (id: string): { line: string; tone: "muted" | "ok" } => {
