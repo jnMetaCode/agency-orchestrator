@@ -517,12 +517,28 @@ try {
     assert(m1.body.ok === true && Array.isArray(m1.body.models) && (m1.body.models as string[]).includes('gpt-5.6-sol'),
       '模型列表：兼容层挂子路径、/models 在站点根时也能拉到（对齐 cc-switch 的后缀剥离）');
 
+    // 8.5) 坏 JSON / 超大 body：API 面永远只回 JSON，不能回 Express 的 HTML 错误页
+    //      （前端拿到 HTML 再 res.json() 会抛一句毫不相干的解析错，用户根本不知道发生了什么）
+    const badJson = await fetch(base3 + '/api/config', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{坏的' });
+    const badTxt = await badJson.text();
+    assert(badJson.status === 400 && badTxt.trim().startsWith('{') && JSON.parse(badTxt).error,
+      `请求体不是合法 JSON 时回 JSON 错误而不是 HTML 错误页（实际 ${badJson.status}: ${badTxt.slice(0, 60)}）`);
+
     // 9) 厂商分组用响应里的 owned_by，占位值不算数（拿它当分组标题还不如按模型名猜）
     const m2 = await postJson('/api/provider-models', { baseUrl: `http://127.0.0.1:${modelsPort}/v1`, apiKey: 'sk-test' });
     const vendors = (m2.body.vendors ?? {}) as Record<string, string>;
     assert(vendors['gpt-5.6-sol'] === 'OpenAI' && vendors['claude-sonnet-5'] === 'Anthropic', '模型列表：透传 owned_by 作为厂商归属');
     assert(!('mystery-1' in vendors) && (m2.body.models as string[]).includes('mystery-1'),
       '占位厂商(api-transfer-server)被过滤，但模型本身照常列出');
+
+    // 10) 工作流写得不对（这里：一个 steps 为空的 YAML）→ compare 该回 4xx 并说清楚，
+    //     而不是 500 让人以为引擎坏了。真实触发点：自动组队产物偶尔缺 llm/steps。
+    const badWf = join(dataDir3, 'ao-workflows', 'bad.yaml');
+    mkdirSync(join(dataDir3, 'ao-workflows'), { recursive: true });
+    writeFileSync(badWf, 'name: "坏工作流"\nsteps: []\n', 'utf-8');
+    const cmpBad = await postJson('/api/compare', { file: badWf, inputs: {}, provider: 'relaytest' });
+    assert(cmpBad.status >= 400 && cmpBad.status < 500, `工作流本身不合法时 compare 回 4xx（实际 ${cmpBad.status}）`);
+    assert(typeof cmpBad.body.error === 'string' && (cmpBad.body.error as string).length > 0, 'compare 的报错要说清哪里不对');
   }
 } finally {
   if (server3) server3.kill('SIGTERM');

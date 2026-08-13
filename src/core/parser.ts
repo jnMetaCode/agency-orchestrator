@@ -7,32 +7,54 @@ import type { WorkflowDefinition, StepDefinition } from '../types.js';
 import { t } from '../i18n.js';
 import { loadAgent, suggestRoles } from '../agents/loader.js';
 
-export function parseWorkflow(filePath: string): WorkflowDefinition {
+/**
+ * 解析失败几乎全是"用户的 YAML 写得不对"，不是服务端故障 —— 打上标记，让调用方
+ * （尤其 web/server.js）能回 4xx 而不是 500。500 会让用户以为是我们坏了，跑去重启引擎。
+ */
+function fail(msg: string): never {
+  throw Object.assign(new Error(msg), { userError: true });
+}
+
+export function parseWorkflow(
+  filePath: string,
+  opts?: {
+    /**
+     * 调用方已经准备好的 llm 配置（CLI 的 --provider/--model、Studio 里选中的供应商）。
+     * YAML 里没写 `llm:` 时用它兜底 —— 用户明明在命令行/界面上指定了 provider，
+     * 却还被一句"工作流缺少 llm 配置"挡住，是说不通的。仍然要求最终有 provider。
+     */
+    llmFrom?: Partial<import('../types.js').LLMConfig>;
+  },
+): WorkflowDefinition {
   const raw = readFileSync(filePath, 'utf-8');
   const doc = yaml.load(raw) as Record<string, unknown>;
 
   // 基本校验
   if (!doc || typeof doc !== 'object') {
-    throw new Error(t('parse.bad_yaml', { path: filePath }));
+    fail(t('parse.bad_yaml', { path: filePath }));
   }
   if (!doc.name || typeof doc.name !== 'string') {
-    throw new Error(t('parse.missing_name'));
+    fail(t('parse.missing_name'));
   }
   if (!doc.steps || !Array.isArray(doc.steps) || doc.steps.length === 0) {
-    throw new Error(t('parse.missing_steps'));
+    fail(t('parse.missing_steps'));
+  }
+  // YAML 没写 llm 时，用调用方给的（--provider / Studio 选中的供应商）兜底
+  if ((!doc.llm || typeof doc.llm !== 'object') && opts?.llmFrom?.provider) {
+    doc.llm = { ...opts.llmFrom };
   }
   if (!doc.llm || typeof doc.llm !== 'object') {
-    throw new Error(t('parse.missing_llm'));
+    fail(t('parse.missing_llm'));
   }
 
   const llm = doc.llm as Record<string, unknown>;
   if (!llm.provider) {
-    throw new Error(t('parse.missing_provider'));
+    fail(t('parse.missing_provider'));
   }
   // CLI providers (claude-code, gemini-cli, copilot-cli, codex-cli, openclaw-cli, hermes-cli) 和 ollama 不需要 model
   const cliProviders = ['claude-code', 'gemini-cli', 'copilot-cli', 'codex-cli', 'openclaw-cli', 'hermes-cli', 'ollama'];
   if (!llm.model && !cliProviders.includes(llm.provider as string)) {
-    throw new Error(t('parse.missing_model'));
+    fail(t('parse.missing_model'));
   }
 
   // 校验每个 step
@@ -40,17 +62,17 @@ export function parseWorkflow(filePath: string): WorkflowDefinition {
   const steps = doc.steps as StepDefinition[];
 
   for (const step of steps) {
-    if (!step.id) throw new Error(t('parse.missing_step_id'));
-    if (stepIds.has(step.id)) throw new Error(`step id 重复: ${step.id}`);
+    if (!step.id) fail(t('parse.missing_step_id'));
+    if (stepIds.has(step.id)) fail(`step id 重复: ${step.id}`);
     stepIds.add(step.id);
 
     // approval / human_input 是无角色的人工节点，不需要 role / task
     const isHumanNode = step.type === 'approval' || step.type === 'human_input';
     if (!isHumanNode && !step.role) {
-      throw new Error(`step "${step.id}" 缺少 role`);
+      fail(`step "${step.id}" 缺少 role`);
     }
     if (!step.task && !isHumanNode) {
-      throw new Error(`step "${step.id}" 缺少 task`);
+      fail(`step "${step.id}" 缺少 task`);
     }
 
     // depends_on 的引用校验在 validateWorkflow() 中处理

@@ -108,7 +108,9 @@ export async function run(
     signalFlush?: boolean;
   }
 ): Promise<import('./types.js').WorkflowResult> {
-  const workflow = parseWorkflow(workflowPath);
+  // llmOverride 同时兜底 YAML 里没写 `llm:` 的情况：用户在命令行 --provider / 界面上
+  // 选好了供应商，却被一句"工作流缺少 llm 配置"挡住，是说不通的（自动组队产物偶尔就少这一段）
+  const workflow = parseWorkflow(workflowPath, { llmFrom: options?.llmOverride });
 
   // 自动解析 agents_dir
   workflow.agents_dir = resolveAgentsDir(workflow.agents_dir, workflowPath);
@@ -415,7 +417,7 @@ export async function compareWorkflowVsBaseline(
   verdict: CompareVerdict | null;
   result: import('./types.js').WorkflowResult;
 }> {
-  const workflow = parseWorkflow(workflowPath);
+  const workflow = parseWorkflow(workflowPath, { llmFrom: options?.genOverride });
   // baseline 用与工作流一致的有效输入（含 default），保证两边输入相同
   const effInputs: Record<string, string> = {};
   for (const d of workflow.inputs || []) if (d.default !== undefined) effInputs[d.name] = d.default;
@@ -494,7 +496,9 @@ function resolveAgentsDir(agentsDir: string, workflowPath: string): string {
   const initCmd = baseName === 'agency-agents' ? 'ao init --lang en'
                 : baseName === 'agency-agents-zh' ? 'ao init'
                 : `ao init  # 或手动准备目录: ${agentsDir}`;
-  throw new Error(
+  // userError：这是"环境/配置没准备好"，不是引擎故障 —— web 层据此回 4xx 而不是 500，
+  // 用户看到 500 会去重启引擎，而真正该做的是 ao init 或在工作流里写对 agents_dir。
+  throw Object.assign(new Error(
     [
       `找不到角色库目录 "${baseName}" / Role library "${baseName}" not found`,
       ``,
@@ -506,5 +510,5 @@ function resolveAgentsDir(agentsDir: string, workflowPath: string): string {
       `  - ${resolve('..', baseName)}`,
       `  - ${resolve('node_modules', baseName)}`,
     ].join('\n')
-  );
+  ), { userError: true });
 }

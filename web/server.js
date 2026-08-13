@@ -390,6 +390,16 @@ const HAS_NEW_UI = existsSync(join(WEBSITE_DIST, 'index.html'));
 
 const app = express();
 app.use(express.json({ limit: '5mb' }));
+// 请求体不是合法 JSON / 超过大小限制时，express.json 会把错误交给 Express 默认处理器，
+// 回一整页 HTML 错误页（还带栈）。前端 `res.json()` 解析它必然再抛一次，用户看到的是
+// 一句无关的解析错。API 面永远只回 JSON。
+app.use((err, req, res, next) => {
+  if (!err || !req.path.startsWith('/api/')) return next(err);
+  const tooLarge = err.type === 'entity.too.large' || err.status === 413;
+  res.status(tooLarge ? 413 : 400).json({
+    error: tooLarge ? '请求体过大（上限 5MB）' : `请求体不是合法 JSON：${String(err.message || err).slice(0, 200)}`,
+  });
+});
 // Prefer the new React Studio build when present; fall back to the legacy vanilla UI.
 if (HAS_NEW_UI) app.use(express.static(WEBSITE_DIST));
 app.use(express.static(__dirname));
@@ -876,7 +886,8 @@ app.post('/api/compare', async (req, res) => {
     });
     res.json({ multiOutput: cmp.multiOutput, baselineOutput: cmp.baselineOutput, verdict: cmp.verdict });
   } catch (err) {
-    res.status(500).json({ error: err?.message || String(err) });
+    // 工作流写得不对（缺 llm/steps、role 不存在…）是用户侧问题，回 4xx；500 会让人以为引擎坏了、跑去重启
+    res.status(err?.userError ? 400 : 500).json({ error: err?.message || String(err) });
   }
 });
 

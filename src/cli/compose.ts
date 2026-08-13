@@ -6,7 +6,7 @@
  */
 import { listAgents, suggestFromPaths } from '../agents/loader.js';
 import { existsSync, readFileSync, writeFileSync, mkdirSync } from 'node:fs';
-import { resolve, relative } from 'node:path';
+import { resolve, relative, basename } from 'node:path';
 import { createConnector } from '../connectors/factory.js';
 import type { LLMConfig } from '../types.js';
 import { t } from '../i18n.js';
@@ -38,6 +38,33 @@ function classifyStepTier(step: { role?: string; task?: string }): 'light' | 'ha
   if (HARD_TASK_RE.test(text)) return 'hard';   // 其次：命中难词一律保贵档
   if (LIGHT_TASK_RE.test(text)) return 'light';
   return 'hard';                                 // 不确定 → 保贵档（保守，护质量）
+}
+
+/**
+ * 生成的 YAML 缺 `llm:` 时，用本次 compose 实际使用的配置补上（provider/model/base_url 三项，
+ * key 绝不写进文件——那会跟着工作流被分享出去）。已有 `llm:` 一律不动，尊重模型/用户写的。
+ */
+export function ensureLlmBlock(
+  yamlText: string,
+  llm: { provider?: string; model?: string; base_url?: string },
+  agentsDirName?: string,
+): string {
+  const lines: string[] = [];
+  // agents_dir 与 llm 同理：模型漏写就等于产物跑不起来（默认会去找 ./agents，多数机器上没有）。
+  // 提示词模板里给了，但"模板给了"从来不等于"模型每次都写"。
+  if (agentsDirName && !/^agents_dir:/m.test(yamlText)) lines.push(`agents_dir: "${agentsDirName}"`);
+  if (!/^llm:/m.test(yamlText) && llm?.provider) {
+    if (lines.length) lines.push('');
+    lines.push(`llm:`, `  provider: "${llm.provider}"`);
+    if (llm.model) lines.push(`  model: "${llm.model}"`);
+    if (llm.base_url) lines.push(`  base_url: "${llm.base_url}"`);
+  }
+  if (!lines.length) return yamlText;
+  // 插在 name: 之后（读起来与手写工作流一致）；没有 name 就放最前面
+  const m = yamlText.match(/^name:.*$/m);
+  if (!m) return `${lines.join('\n')}\n\n${yamlText}`;
+  const at = (m.index ?? 0) + m[0].length;
+  return `${yamlText.slice(0, at)}\n\n${lines.join('\n')}${yamlText.slice(at)}`;
 }
 
 /** 对已生成的 workflow YAML 施加预算分档：给「轻活」步骤加 step.llm.model=便宜档。返回新 YAML + 一句说明。 */
@@ -513,7 +540,10 @@ export async function composeWorkflow(options: {
     ? (options.outputName.endsWith('.yaml') ? options.outputName : `${options.outputName}.yaml`)
     : generateFileName(description, workflowsDir);
   const savedPath = resolve(workflowsDir, fileName);
-  writeFileSync(savedPath, yaml + '\n', 'utf-8');
+  // 模型偶尔漏写整段 `llm:`（提示词里给了模板也拦不住）。这一段我们自己就知道该填什么 ——
+  // 确定性补上，不要浪费一次 LLM 修复调用，更不要交给用户一个"跑不起来的产物"：
+  // 少了它，`ao run 产物.yaml` 会被一句"工作流缺少 llm 配置"挡住。
+  writeFileSync(savedPath, ensureLlmBlock(yaml, llmConfig, basename(resolve(agentsDir))) + '\n', 'utf-8');
 
   const relativePath = relative(process.cwd(), savedPath);
 

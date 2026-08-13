@@ -7,6 +7,7 @@ import {
   repairInvalidRolesInYaml,
   buildComposeSystemPrompt,
   buildComposeUserPrompt,
+  ensureLlmBlock,
   extractYamlFromResponse,
   formatCatalogForPrompt,
   generateFileName,
@@ -20,14 +21,19 @@ import { tmpdir } from 'node:os';
 let passed = 0;
 let failed = 0;
 
+// 所有用例的 promise 都收集起来，末尾统一 await —— 否则汇总行会在异步用例结算**之前**打印，
+// 后面那些用例即使失败也不会影响退出码，等于白写（本文件此前就是这样）。
+const pending: Promise<void>[] = [];
 function test(name: string, fn: () => void | Promise<void>): Promise<void> {
-  return Promise.resolve(fn()).then(() => {
+  const p = Promise.resolve(fn()).then(() => {
     console.log(`  ✅ ${name}`);
     passed++;
   }).catch(err => {
     console.log(`  ❌ ${name}: ${err instanceof Error ? err.message : err}`);
     failed++;
   });
+  pending.push(p);
+  return p;
 }
 
 function assert(condition: boolean, msg: string): void {
@@ -587,5 +593,46 @@ steps:
 });
 
 // ─── 汇总 ───
+
+// ─── ensureLlmBlock：产物必须自带 llm，否则 `ao run 产物.yaml` 直接被挡 ───
+
+console.log('\n─── ensureLlmBlock（补齐模型漏写的 llm 段）───');
+
+test('缺 llm 时按本次 compose 实际用的配置补上，插在 name 之后', () => {
+  const out = ensureLlmBlock('name: "x"\nsteps:\n  - id: a\n', { provider: 'deepseek', model: 'deepseek-chat' });
+  assert(/^llm:$/m.test(out), '应补出 llm 段');
+  assert(out.indexOf('llm:') > out.indexOf('name:'), 'llm 应排在 name 之后');
+  assert(out.indexOf('llm:') < out.indexOf('steps:'), 'llm 应排在 steps 之前');
+  assert(out.includes('provider: "deepseek"') && out.includes('model: "deepseek-chat"'), '带上 provider/model');
+});
+
+test('已经有 llm 就一个字都不动（尊重模型/用户写的）', () => {
+  const src = 'name: "x"\nllm:\n  provider: "claude"\nsteps:\n  - id: a\n';
+  assert(ensureLlmBlock(src, { provider: 'deepseek', model: 'deepseek-chat' }) === src, '不应改写');
+});
+
+test('绝不把 api_key 写进产物（工作流会被分享出去）', () => {
+  const out = ensureLlmBlock('name: "x"\nsteps: []\n', { provider: 'p', model: 'm', base_url: 'https://x/v1', api_key: 'sk-secret' } as never);
+  assert(!out.includes('sk-secret') && !out.includes('api_key'), '产物里不许出现 key');
+  assert(out.includes('base_url: "https://x/v1"'), 'base_url 该带上（换机器也能跑）');
+});
+
+test('agents_dir 漏写也一并补上（默认会去找 ./agents，多数机器上没有）', () => {
+  const out = ensureLlmBlock('name: "x"\nsteps: []\n', { provider: 'p', model: 'm' }, 'agency-agents-zh');
+  assert(/^agents_dir: "agency-agents-zh"$/m.test(out), '应补出 agents_dir');
+  assert(out.indexOf('agents_dir:') > out.indexOf('name:'), 'agents_dir 排在 name 之后');
+});
+
+test('llm 与 agents_dir 都已写好时原样返回', () => {
+  const src = 'name: "x"\nagents_dir: "d"\nllm:\n  provider: "claude"\nsteps: []\n';
+  assert(ensureLlmBlock(src, { provider: 'p', model: 'm' }, 'agency-agents-zh') === src, '不应改写');
+});
+
+test('没 provider 可填时不硬造（宁可保持原样，让上层报清楚）', () => {
+  const src = 'name: "x"\nsteps: []\n';
+  assert(ensureLlmBlock(src, {}) === src, '没 provider 就不动');
+});
+
+await Promise.all(pending);
 console.log(`\n  结果: ${passed} 通过, ${failed} 失败\n`);
 if (failed > 0) process.exit(1);
