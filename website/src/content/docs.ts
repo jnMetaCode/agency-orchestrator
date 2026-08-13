@@ -426,6 +426,23 @@ steps:
 # 或命令行：ARK_API_KEY=... ao run workflow.yaml --provider volcengine`,
           },
           {
+            heading: { zh: "LanoX AI（赞助商）", en: "LanoX AI (sponsor)" },
+            body: {
+              zh: "赞助商 **LanoX AI** 是全球模型聚合平台（GPT / Claude / Gemini / Qwen / Grok 等 500+ 款，专属链接注册送 5 美金），已作为内置 provider `lanox` 接入，key 用环境变量 `LANOX_API_KEY`。四点须知：① **base 要带 `/v1`**（`https://api.lanox.ai/v1`）——它文档里写的 Base URL 是根地址，照抄会少一段；照抄了也能跑，AO 会自动补上并提示你改，但直接填对更省事；② **不设默认模型**，必须自己指定：它的模型编码不跟通用命名（文档示例是 `gpt-5.6-sol`），且官方明确可用性以 `GET /v1/models` 实时结果为准——填 key 后在 Studio「供应商」面板点「获取模型列表」拉你这个 key 能用的全量；③ **Claude 系模型走 Anthropic 原生协议**，不在 OpenAI 兼容这条上——用 `provider: claude` 加 `base_url: https://api.lanox.ai`（**不带 `/v1`**，客户端自己会接 `/v1/messages`），Studio 的「Claude (Anthropic)」配置页有一键填充；④ 同一账号还能给 claude-code / codex 配中转（供应商面板「本地 CLI」区一键预填），**没有 Gemini 端点**，那一项不会出现。",
+              en: "Our sponsor **LanoX AI** aggregates global models (GPT / Claude / Gemini / Qwen / Grok, 500+ of them; $5 free credit when you sign up via our link), wired in as the built-in `lanox` provider with the `LANOX_API_KEY` env var. Four notes: ① **the base must include `/v1`** (`https://api.lanox.ai/v1`) — their docs list the root as the Base URL, so copying it verbatim leaves out a segment; it still works (AO detects it and retries with `/v1`, telling you to fix the setting), but getting it right up front is simpler; ② **no default model** — you must pick one: their model IDs don't follow the common naming (their example is `gpt-5.6-sol`) and availability is defined by the live `GET /v1/models` result, so save your key and click “Fetch model list” in the Studio Providers panel; ③ **Claude models speak Anthropic's native protocol**, not the OpenAI-compatible one — use `provider: claude` with `base_url: https://api.lanox.ai` (**no `/v1`**; the client appends `/v1/messages` itself), one-click fill available on the Studio “Claude (Anthropic)” page; ④ the same account can relay the claude-code / codex CLIs (one-click preset in the Providers panel) — there is **no Gemini endpoint**, so that option isn't offered.",
+            },
+            code: `llm:
+  provider: "lanox"
+  model: "gpt-5.6-sol"   # 以「获取模型列表」/ GET /v1/models 的实时结果为准
+# 或命令行：LANOX_API_KEY=... ao run workflow.yaml --provider lanox --model <模型>
+
+# Claude 系模型走 Anthropic 原生端点（base 不带 /v1）：
+llm:
+  provider: "claude"
+  base_url: "https://api.lanox.ai"
+  model: "claude-sonnet-5"`,
+          },
+          {
             heading: { zh: "7 种免 key 方式", en: "7 key-free options" },
             body: {
               zh: "想零成本起步，不必配 API key：claude-code CLI、gemini-cli、openclaw-cli、Ollama 本地、LM Studio、免费聚合、演示模式都可用。装好对应 CLI / 本地模型后用 `--provider` 指定即可。",
