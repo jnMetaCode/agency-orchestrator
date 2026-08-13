@@ -278,6 +278,9 @@ export function ProviderConfigView({
   const inputCls = "h-10 w-full rounded-xl border border-border/70 bg-background px-3 text-sm outline-none focus:border-primary/50";
   const labelCls = "mb-1 block text-xs font-medium text-muted-foreground";
   const modelChips = fetchedModels ?? (target.kind === "api" ? target.suggestions ?? [] : []);
+  // 输入框的示例模型名取该供应商自己的第一个建议，而不是写死 gpt-4o —— 各家模型编码不通用
+  // （LanoX 是 gpt-5.6-sol、火山是 doubao-…、CompShare 是 deepseek-ai/…），拿别家的当示例是在教错。
+  const modelPlaceholder = modelChips[0] ? `${p.customProviderModelPlaceholderPrefix}${modelChips[0]}` : p.customProviderModelPlaceholder;
   // 聚合站一拉就是几百个模型，平铺没法选 —— 大列表时给个搜索框先筛（对齐 cc-switch 的可搜下拉体验）。
   const filteredChips = modelFilter.trim()
     ? modelChips.filter((m) => m.toLowerCase().includes(modelFilter.trim().toLowerCase()))
@@ -693,7 +696,7 @@ export function ProviderConfigView({
                     </button>
                   )}
                 </div>
-                <input value={model} onChange={(e) => setModel(e.target.value)} placeholder={p.customProviderModelPlaceholder} autoComplete="off" className={inputCls} />
+                <input value={model} onChange={(e) => setModel(e.target.value)} placeholder={modelPlaceholder} autoComplete="off" className={inputCls} />
                 {fetchError && <p className={cn("mt-1 text-[11px]", fetchNeedsKey ? "text-amber-500" : "text-red-500")}>{fetchError}</p>}
                 {fetchedModels && (
                   <p className="mt-1 text-[11px] text-muted-foreground">

@@ -210,6 +210,7 @@ export function ProvidersPanel({ active, onSetActive, offline = false }: { activ
     : id === "volcengine" ? t.studio.providers.volcengineName
     : id === "duoyuanx" ? t.studio.providers.duoyuanxName
     : id === "lanox" ? t.studio.providers.lanoxName
+    : id === "aicodemirror" ? t.studio.providers.aicodemirrorName
     : fallback;
   const displayHint = (id: string, fallback: string) =>
     id === "compshare" ? t.studio.providers.compshareHint
@@ -219,6 +220,7 @@ export function ProvidersPanel({ active, onSetActive, offline = false }: { activ
     : id === "volcengine" ? t.studio.providers.volcengineHint
     : id === "duoyuanx" ? t.studio.providers.duoyuanxHint
     : id === "lanox" ? t.studio.providers.lanoxHint
+    : id === "aicodemirror" ? t.studio.providers.aicodemirrorHint
     : fallback.replace("{etc}", t.studio.providers.etc);
 
   const keyStatus = (id: string): { line: string; tone: "muted" | "ok" } => {

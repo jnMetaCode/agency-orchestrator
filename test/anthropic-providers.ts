@@ -167,5 +167,27 @@ test('logo 资源真实存在（扩展名写错就是个 404 破图）', () => {
   }
 });
 
+console.log('\n─── 文档里的数字（写死的数字迟早说谎，让它自己报警）───');
+
+test('文档站写的 provider 数量与注册表一致', () => {
+  const block = studioSrc.slice(studioSrc.indexOf('export const API_PROVIDERS: ApiProviderMeta[]'));
+  const api = [...block.slice(0, block.indexOf('\n];')).matchAll(/\{ id: "([\w-]+)"/g)].length;
+  const cliMatch = studioSrc.match(/CLI_PROVIDER_IDS = new Set\(\[([^\]]*)\]\)/);
+  const cli = [...(cliMatch?.[1] ?? '').matchAll(/"([\w-]+)"/g)].length;
+  const total = api + cli + 1;  // + ollama
+  assert(api > 0 && cli > 0, '注册表没解析出来，这条断言已失效');
+  const docs = readFileSync('website/src/content/docs.ts', 'utf-8');
+  const claimed = [...docs.matchAll(/(\d+)\s*个 provider/g)].map((m) => Number(m[1]));
+  assert(claimed.length > 0, '文档里没找到 provider 数量的说法（改文案时同步改这条断言）');
+  for (const n of claimed) {
+    assert(n === total, `文档写「${n} 个 provider」，注册表实际 ${total} 个（云端 ${api} + CLI ${cli} + ollama 1）`);
+  }
+  // 英文站同一句话不能对不上
+  const claimedEn = [...docs.matchAll(/(\d+)\s+providers/g)].map((m) => Number(m[1]));
+  for (const n of claimedEn) {
+    assert(n === total, `英文文档写「${n} providers」，实际 ${total}`);
+  }
+});
+
 console.log(`\n  结果: ${passed} 通过, ${failed} 失败\n`);
 if (failed > 0) process.exit(1);
