@@ -11,9 +11,10 @@ import type { LLMConnector, LLMResult, LLMConfig } from '../types.js';
 export {
   joinEndpoint, normalizeBaseUrl, chatEndpointCandidates, endpointCandidates,
   isAzureDeploymentUrl, sameCredentialScope, postChatCompletions, postApiEndpoint, endpointHint,
+  isGatewayRouteMissShell,
 } from './endpoint.js';
 export type { ChatPostResult } from './endpoint.js';
-import { normalizeBaseUrl, isAzureDeploymentUrl, postChatCompletions, endpointHint } from './endpoint.js';
+import { normalizeBaseUrl, isAzureDeploymentUrl, postChatCompletions, endpointHint, isGatewayRouteMissShell } from './endpoint.js';
 
 
 /** 估算 token 数：CJK 字符按 1.5 token/char，ASCII 按 0.25 token/char */
@@ -247,7 +248,16 @@ export class OpenAICompatibleConnector implements LLMConnector {
         // 有些中转/自建端点无视 stream:true，直接回一整个 JSON。按 SSE 去解会一行都匹配不上，
         // 结果是「调用成功却什么都没生成」这种最难查的失败——按 content-type 走非流式解析。
         if (/application\/json/i.test(response.headers.get('content-type') || '')) {
-          streamResult = parseNonStreamBody(await response.text());
+          const text = await response.text();
+          // 两个候选路径都被网关用「200 + 正文写着接口不存在」挡回来了（LanoX 这类网关不回 404）。
+          // 不点破的话 parseNonStreamBody 只会解出空字符串，用户看到的是「跑完了但什么都没生成」。
+          if (isGatewayRouteMissShell(text)) {
+            throw new Error(
+              `API error: 端点返回 200 但正文是「接口不存在」——地址没走对（${text.slice(0, 200)}）` +
+              endpointHint(404, requestUrl, this.baseUrl, drift),
+            );
+          }
+          streamResult = parseNonStreamBody(text);
         } else {
           // armStall 在 readStream 收到每段字节时被调用以重置停顿计时
           streamResult = await this.readStream(response, { onData: armStall });

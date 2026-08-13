@@ -745,7 +745,9 @@ export const API_PROVIDERS: ApiProviderMeta[] = [
   // 赞助商 LanoX AI（2026-08 新增，按约定排赞助商组最后一位）—— 全球模型聚合，500+ 模型；
   // 直连走 OpenAI 兼容 api.lanox.ai/v1（引擎侧在 API_PROVIDERS 注册，无默认模型：见那边的说明）。
   // 同一端点也兼容 Anthropic Messages，给编码 CLI 配中转见下方 CLI_RELAY_PRESETS。
-  { id: "lanox", name: "LanoX AI", hint: "api.lanox.ai · 注册送 5 美金", defaultBaseUrl: "https://api.lanox.ai/v1", signupUrl: "https://lanox.ai/?c=X3RD38F7&inviteCode=A3HRUB6M", sponsor: true, modelSuggestions: COMMON_RELAY_MODELS },
+  // modelSuggestions 里 gpt-5.6-sol 取自它官方文档的示例模型编码；其余是跨家中转通用兜底。
+  // 官方明确「模型可用性以 GET /v1/models 的实时结果为准」——配了 key 点「获取模型列表」即拉真实全量。
+  { id: "lanox", name: "LanoX AI", hint: "api.lanox.ai · 注册送 5 美金", defaultBaseUrl: "https://api.lanox.ai/v1", signupUrl: "https://lanox.ai/?c=X3RD38F7&inviteCode=A3HRUB6M", sponsor: true, modelSuggestions: ["gpt-5.6-sol", ...COMMON_RELAY_MODELS] },
   { id: "deepseek", name: "DeepSeek", hint: "platform.deepseek.com", defaultBaseUrl: "https://api.deepseek.com/v1", vendor: true, modelSuggestions: ["deepseek-chat", "deepseek-reasoner"] },
   // 默认端点**不带 /v1**：Anthropic 客户端（SDK / claude CLI）自己会接 /v1/messages，
   // base 里再写一遍就成了 /v1/v1/messages。这里是用户配中转时照抄的形状样板，写错等于
@@ -885,10 +887,12 @@ export const CLI_RELAY_PRESETS: CliRelayPreset[] = [
   // Claude Code、Codex CLI、Cursor、Cline 为支持的客户端。端点布局是常见那种：
   //   Claude Code → https://api.lanox.ai（Anthropic 兼容，**不带 /v1**，CLI 自己接 /v1/messages）
   //   Codex       → https://api.lanox.ai/v1（OpenAI 兼容）
-  // 已探测核实：POST /v1/messages 与 /v1/chat/completions 在缺 key 时都返回 invalid_api_key
-  // （即路径存在、仅鉴权失败），而不存在的路径返回 {"code":"404","codeMsg":"接口不存在"} ——
-  // 注意它对 404 也回 HTTP 200，只能看响应体判断，别按状态码下结论。
-  // gemini-cli 不列：没有探到任何 Google 格式端点（/v1beta/* 是 404），宁可不填也不猜。
+  // 与官方文档一致：OpenAI / Qwen / Gemini 共用 OpenAI 兼容端点（/v1/chat/completions、
+  // /v1/responses —— Codex 走的 wire_api=responses 正好落在后者），Claude 走 Anthropic Messages
+  // 原生端点（/v1/messages，实测 x-api-key 与 Bearer 都认）。
+  // 注意它对不存在的路径回 **HTTP 200 + {"code":"404","codeMsg":"接口不存在"}**，
+  // 只能看响应体判断，按状态码探会得出"哪儿都在"的假结论。
+  // gemini-cli 不列：没有探到任何 Google 格式端点（/v1beta/* 是"接口不存在"），宁可不填也不猜。
   {
     name: "LanoX AI",
     sponsor: true,

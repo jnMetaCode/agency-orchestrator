@@ -83,7 +83,8 @@ npm error This operation requires a one-time password from your authenticator.
 - **AICodeMirror 的域名**：官网/注册页是 `aicodemirror.ai`，**API 主机是 `aicodemirror.com`**；codex 端点走 `/api/codex/backend-api/codex`（官方订阅 backend 风格），不是 OpenAI 兼容的 `/v1`。
 - **Anthropic 协议的 base 不要带 `/v1`**：SDK 和 claude CLI 自己会接 `/v1/messages`。
 - **返利码只认自己的**（AICodeMirror 是 `XO5L7R`；LanoX 是 `?c=X3RD38F7&inviteCode=A3HRUB6M`，**两个参数都得带**）。从 cc-switch 抄端点时别把它的邀请码一起抄进来——已有守卫，跨三份清单比对，不一致就 CI 报红；注意守卫按参数名精确匹配且**大小写敏感**，新赞助商用了新参数名要往 `AFFILIATE_KEYS` 里加，否则等于没守。
-- **LanoX 的网关对不存在的路径也回 HTTP 200**（响应体里才是 `"code":"404","codeMsg":"接口不存在"`）。探它的端点只看状态码会得出"哪儿都在"的假结论，必须看响应体。
+- **LanoX 的网关对不存在的路径也回 HTTP 200**（响应体里才是 `"code":"404","codeMsg":"接口不存在"`）。探它的端点只看状态码会得出"哪儿都在"的假结论，必须看响应体。引擎已能识别这种壳并自动改试另一种 `/v1` 拼法（`endpoint.ts` 的 `isGatewayRouteMissShell`）——**以后再遇到"某家配好了却什么都没生成"，先想想是不是又一家这么设计的网关**。
+- **LanoX 的模型名不跟通用命名**（文档示例是 `gpt-5.6-sol`），且官方明说可用性以 `GET /v1/models` 实时结果为准。所以它没有默认模型，也别照着别家的模型名给它配默认值。
 - **下架赞助商 ≠ 删除供应商**：已配过 key 的用户必须还能看到、还能跑。
 - **验证要确认打的是新进程**：改完 server 记得 `pkill` 干净，否则请求会打到旧进程，得到假结论（这一轮踩过一次）。
 

@@ -12,6 +12,7 @@ import {
   chatEndpointCandidates,
   joinEndpoint,
   sameCredentialScope,
+  isGatewayRouteMissShell,
 } from '../src/connectors/openai-compatible.js';
 import { OllamaConnector } from '../src/connectors/ollama.js';
 
@@ -269,6 +270,58 @@ assert(!scope('https://api.x.com/v1', 'http://api.x.com/v1'), '降级到明文 h
   srv.close(); redirector.close();
 }
 assert(new OllamaConnector('localhost:11434') instanceof OllamaConnector, 'Ollama：只写 localhost:11434 也能构造（补 http）');
+
+// ── 13. 网关对不存在的路径回「200 + 正文写着接口不存在」（LanoX 实测就是这样）──────
+// 按状态码判路径的逻辑对它全线失效：/v1 兜底不触发、解析又捞不到 content，
+// 表现成最难查的那种失败「跑完了但什么都没生成」。这里钉住两件事：能自动换到 /v1；
+// 两个候选都被挡回来时必须报错说清是地址问题，绝不能静悄悄返回空内容。
+{
+  const shell = JSON.stringify({ data: null, code: '404', codeMsg: '接口不存在' });
+  const seen: string[] = [];
+  const srv = http.createServer((req, res) => {
+    seen.push(req.url!);
+    let b = ''; req.on('data', (d) => (b += d));
+    req.on('end', () => {
+      if (req.url === '/v1/chat/completions') {
+        res.writeHead(200, { 'Content-Type': 'text/event-stream' });
+        res.write(`data: ${JSON.stringify({ choices: [{ delta: { content: 'ok' }, finish_reason: 'stop' }] })}\n\n`);
+        res.write('data: [DONE]\n\n');
+        return res.end();
+      }
+      res.writeHead(200, { 'Content-Type': 'application/json' });  // 关键：不是 404
+      res.end(shell);
+    });
+  });
+  const port = await listen(srv);
+  const c = new OpenAICompatibleConnector({ apiKey: 'k', baseUrl: `http://127.0.0.1:${port}` });
+  const r = await c.chat('s', 'u', cfg);
+  assert(r.content === 'ok', '200 + 「接口不存在」壳 → 自动换到 /v1 候选（不再当成功）');
+  assert(seen[0] === '/chat/completions' && seen.includes('/v1/chat/completions'), '先按用户填的拼，被挡回来才试 /v1');
+  srv.close();
+}
+{
+  // 两个候选都是这种壳 → 必须抛错并点破是地址问题
+  const srv = http.createServer((req, res) => {
+    let b = ''; req.on('data', (d) => (b += d));
+    req.on('end', () => {
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ data: null, code: '404', codeMsg: '接口不存在' }));
+    });
+  });
+  const port = await listen(srv);
+  const c = new OpenAICompatibleConnector({ apiKey: 'k', baseUrl: `http://127.0.0.1:${port}/v1` });
+  let msg = '';
+  try { await c.chat('s', 'u', cfg); } catch (e) { msg = e instanceof Error ? e.message : String(e); }
+  assert(/接口不存在/.test(msg) && /base_url/.test(msg), '两个候选都被挡 → 报错点破地址没走对，而不是返回空内容');
+  srv.close();
+}
+// 判据本身要保守：正常响应哪怕正文里出现 "code":"404" 也不能被当成路由未命中
+{
+  const ok = JSON.stringify({ choices: [{ message: { content: '错误码 "code":"404" 的含义是…' } }] });
+  assert(!isGatewayRouteMissShell(ok), '带 choices 的正常响应不会被误判为「接口不存在」');
+  assert(isGatewayRouteMissShell('{"data":null,"code":"404","codeMsg":"接口不存在"}'), '网关壳能被认出来');
+  assert(!isGatewayRouteMissShell('{"data":[],"code":"200"}'), '业务码 200 不是路由未命中');
+}
 
 console.log(`\n${failed === 0 ? '✅' : '❌'} ${passed} passed, ${failed} failed\n`);
 process.exit(failed === 0 ? 0 : 1);

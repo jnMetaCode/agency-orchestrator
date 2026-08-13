@@ -53,9 +53,14 @@ export const API_PROVIDERS: ApiProviderSpec[] = [
   // claude-sonnet-4-6 实测可用（2026-07-17 真 key 连通验证）。
   { id: 'duoyuanx', envKey: 'DUOYUANX_API_KEY', envBase: 'DUOYUANX_BASE_URL', defaultBaseUrl: 'https://duoyuanx.com/v1', defaultModel: 'claude-sonnet-4-6' },
   // LanoX AI（赞助商）—— 全球模型聚合：GPT / Claude / Gemini / Qwen / Grok 等 500+ 款。
-  // 直连走 OpenAI 兼容 api.lanox.ai/v1（已探测核实：/v1/chat/completions 与 /v1/models 无 key
-  // 返回 invalid_api_key=存在，官网示例即 base_url="https://api.lanox.ai/v1"）。同一端点还兼容
-  // Anthropic Messages（/v1/messages 存在），给编码 CLI 配中转见前端 CLI_RELAY_PRESETS。
+  // 直连走 OpenAI 兼容 api.lanox.ai/v1。官方文档口径：Base URL `https://api.lanox.ai`，
+  // 鉴权 `Authorization: Bearer`，三个端点 GET /v1/models、POST /v1/chat/completions、
+  // POST /v1/responses；**OpenAI / Qwen / Gemini 共用 OpenAI 兼容端点，Claude 走 Anthropic
+  // Messages 原生端点**（所以 Claude 系模型请用 provider: claude + base_url，见 CLI_RELAY_PRESETS
+  // 的 anthropicApiBaseUrl；实测 /v1/messages 对 x-api-key 与 Bearer 两种头都认）。
+  // 注意 base 要带 /v1：文档写的 Base URL 是根地址，照抄进来会打到 /chat/completions，而它对
+  // 不存在的路径回的是 **HTTP 200 + 正文 {"code":"404"}**（不是 404）——引擎已能识别这种网关壳
+  // 并自动改试 /v1（见 endpoint.ts 的 isGatewayRouteMissShell），但默认值这里直接给对的。
   // **不设 defaultModel**：无 key 拿不到它实际上架并已定价的模型名，猜一个写进去就是
   // 多元探索踩过的坑（默认模型平台没上架 → 一跑就报错）。留空 = 强制用户在下拉里自选，
   // 配了 key 点「获取模型列表」即拉全量；确认后再补默认值（或走清单 providerOverrides）。

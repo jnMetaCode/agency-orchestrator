@@ -155,8 +155,30 @@ async function postPreservingMethod(
  * 连路径不存在都回 `{"type":"error","error":{"type":"not_found_error"}}`，
  * 按有无 error 字段判会把整条 Anthropic 中转链路的路径兜底全掐掉。
  */
+/**
+ * 「HTTP 200，但正文其实是网关在说『接口不存在』」——有的中转商（LanoX 实测）对不存在的
+ * 路径不回 404，而是 `200 {"data":null,"code":"404","codeMsg":"接口不存在"}`。
+ * 按状态码判路径的逻辑对它全线失效：/v1 兜底不会触发，解析又捞不到 content，
+ * 最终表现成最难查的那种失败——「跑完了，什么都没生成」。
+ *
+ * 判据保守：正文里带 404/405 的业务码，且**没有**任何成功响应必有的字段。真·成功响应
+ * 即便正文里恰好出现 "code":"404" 字样（模型把它写进回答里）也一定带 choices/content。
+ */
+export function isGatewayRouteMissShell(text: string): boolean {
+  const s = String(text || '').slice(0, 1000);
+  if (!/"code"\s*:\s*"?(404|405)"?/.test(s)) return false;
+  if (/"choices"|"content"|"delta"|"message"\s*:\s*\{/.test(s)) return false;
+  return true;
+}
+
 async function isRoutingMiss(response: Response): Promise<boolean> {
   if (response.status === 405) return true;
+  if (response.status === 200) {
+    // 只在 JSON 正文上判：成功的流式响应是 text/event-stream，clone 后读它等于把整段流
+    // 缓冲住（连接器还要边收边解析），代价远大于这点兜底。
+    if (!/application\/json/i.test(response.headers.get('content-type') || '')) return false;
+    return isGatewayRouteMissShell(await response.clone().text().catch(() => ''));
+  }
   if (response.status !== 404) return false;
   // clone 读一份，别把 body 消费掉——调用方还要拿它做错误信息
   const body = await response.clone().text().catch(() => '');
@@ -202,7 +224,9 @@ export async function postApiEndpoint(opts: {
     result = await postPreservingMethod(candidates[i], opts);
     if (i === candidates.length - 1 || !(await isRoutingMiss(result.response))) break;
     await result.response.body?.cancel().catch(() => {});
-    opts.onNotice?.(`🔄 ${candidates[i]} 返回 ${result.response.status}，改用 ${candidates[i + 1]} 重试…`);
+    // 200 那种「正文里才写着接口不存在」的，报状态码没意义，说人话
+    const why = result.response.status === 200 ? '返回了「接口不存在」' : `返回 ${result.response.status}`;
+    opts.onNotice?.(`🔄 ${candidates[i]} ${why}，改用 ${candidates[i + 1]} 重试…`);
   }
   if (!result.drift && result.url !== candidates[0]) result.drift = `${candidates[0]} → ${result.url}`;
   return result;
