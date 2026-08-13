@@ -51,7 +51,7 @@
     ]
   },
   "version": 2,
-  "updatedAt": "2026-08-12",
+  "updatedAt": "2026-08-13",
   "providers": [],
   "relayPresets": [
     {
@@ -63,6 +63,53 @@
         "gemini-cli": "https://api.aicodemirror.com/api/gemini",
         "codex-cli": "https://api.aicodemirror.com/api/codex/backend-api/codex"
       }
+    },
+    {
+      "name": "LanoX AI",
+      "sponsor": true,
+      "signupUrl": "https://lanox.ai/?c=X3RD38F7&inviteCode=A3HRUB6M",
+      "baseUrls": {
+        "claude-code": "https://api.lanox.ai",
+        "codex-cli": "https://api.lanox.ai/v1"
+      }
+    }
+  ],
+  "sponsorRotation": [
+    {
+      "providerId": "apinebula",
+      "name": "APINEBULA",
+      "bonus": "充值码 agent 九折",
+      "url": "https://apinebula.ai/V6ekjG"
+    },
+    {
+      "providerId": "cubence",
+      "name": "Cubence",
+      "bonus": "首购 9 折",
+      "url": "https://cubence.com/signup?code=SCW29JP9&source=agency"
+    },
+    {
+      "providerId": "compshare",
+      "name": "优云智算",
+      "bonus": "注册送 5 元",
+      "url": "https://passport.compshare.cn/register?referral_code=ETD3L5JBM13CtKARkMORot&ytag=GPU_YY_YX_git_agency-agents"
+    },
+    {
+      "providerId": "volcengine",
+      "name": "火山引擎",
+      "bonus": "注册领 2500 万 Tokens",
+      "url": "https://www.volcengine.com/activity/ai618?utm_campaign=hw&utm_content=hw&utm_medium=devrel_tool_web&utm_source=OWO&utm_term=agency-agents-zh"
+    },
+    {
+      "name": "AICodeMirror",
+      "bonus": "首充 8 折",
+      "url": "https://www.aicodemirror.ai/register?invitecode=XO5L7R",
+      "relayOnly": true
+    },
+    {
+      "providerId": "lanox",
+      "name": "LanoX AI",
+      "bonus": "注册送 5 美金",
+      "url": "https://lanox.ai/?c=X3RD38F7&inviteCode=A3HRUB6M"
     }
   ],
   "removedProviders": [

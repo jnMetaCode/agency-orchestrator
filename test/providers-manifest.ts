@@ -11,6 +11,7 @@
  */
 import { readFileSync } from 'node:fs';
 import { API_PROVIDERS } from '../src/connectors/api-providers.js';
+import { SPONSOR_ROTATION } from '../src/utils/sponsor-guide.js';
 
 let passed = 0;
 let failed = 0;
@@ -128,13 +129,54 @@ test('AICodeMirror 的中转预设已上架，且端点与内置预设一致', (
   assert(acm!.baseUrls['codex-cli'] === 'https://api.aicodemirror.com/api/codex/backend-api/codex', `codex-cli 端点不对: ${acm!.baseUrls['codex-cli']}`);
 });
 
-test('清单里的返利码与代码里的一致（改一处漏一处 = 返利流走）', () => {
-  const raw = readFileSync(PATH, 'utf-8');
-  const codeRaw = readFileSync('src/utils/sponsor-guide.ts', 'utf-8') + readFileSync('website/src/lib/studio.ts', 'utf-8');
-  for (const [, host, code] of raw.matchAll(/https:\/\/([\w.-]+)\/[^"']*invitecode=([\w]+)/g)) {
-    const inCode = [...codeRaw.matchAll(new RegExp(`https://${host.replace(/\./g, '\\.')}/[^"']*invitecode=(\\w+)`, 'g'))].map((x) => x[1]);
-    for (const c of inCode) assert(c === code, `${host} 的返利码不一致：清单 ${code} vs 代码 ${c}`);
+test('LanoX AI 的中转预设已上架，且端点与内置预设一致（2026-08 新增）', () => {
+  const lx = (m.relayPresets ?? []).find((r) => /lanox/i.test(r.name));
+  assert(!!lx, '清单里应有 LanoX AI 预设（这样还停在旧版的用户不等发版也能用）');
+  assert(lx!.baseUrls['claude-code'] === 'https://api.lanox.ai', `claude-code 端点不对（Anthropic 协议，base 不带 /v1）: ${lx!.baseUrls['claude-code']}`);
+  assert(lx!.baseUrls['codex-cli'] === 'https://api.lanox.ai/v1', `codex-cli 端点不对: ${lx!.baseUrls['codex-cli']}`);
+  // 没探到任何 Google 格式端点，宁可不给也不猜——填错的中转配置比没有更糟
+  assert(!lx!.baseUrls['gemini-cli'], 'LanoX 没有已核实的 Gemini 端点，不该凭空填一个');
+});
+
+test('轮换池与代码里的那份逐条一致（清单配了就整池替换，漏一家=那家线上零曝光）', () => {
+  const pool = m.sponsorRotation ?? [];
+  assert(pool.length === SPONSOR_ROTATION.length,
+    `清单 ${pool.length} 家 vs 代码 ${SPONSOR_ROTATION.length} 家：整池替换的语义下，少写一家就是把它从所有用户眼前拿掉了`);
+  const key = (e: { name: string; url: string; relayOnly?: boolean; providerId?: string }) =>
+    `${e.name}|${e.url}|${e.relayOnly === true}|${e.providerId ?? ''}`;
+  const inCode = new Set(SPONSOR_ROTATION.map(key));
+  for (const e of pool) assert(inCode.has(key(e)), `清单里的「${e.name}」与代码那份对不上：${key(e)}`);
+});
+
+test('清单里的返利/渠道参数与代码里的一致（改一处漏一处 = 返利悄悄流走）', () => {
+  // 按 host + 参数名比对，而不是只认 invitecode 一种写法：LanoX 用的是 ?c=…&inviteCode=…，
+  // 只匹配 invitecode 会静默漏过（大小写敏感），返利错了没有任何环节会报错。
+  const AFFILIATE_KEYS = ['invitecode', 'inviteCode', 'invite', 'aff', 'ref', 'referral_code', 'code', 'c'];
+  const collect = (text: string, into: Map<string, Map<string, Set<string>>>) => {
+    for (const raw of text.match(/https:\/\/[^\s"'`,)]+/g) ?? []) {
+      let u: URL;
+      try { u = new URL(raw.replace(/[),;]+$/, '')); } catch { continue; }
+      for (const k of AFFILIATE_KEYS) {
+        const v = u.searchParams.get(k);
+        if (!v) continue;
+        const byKey = into.get(u.host) ?? new Map<string, Set<string>>();
+        byKey.set(k, (byKey.get(k) ?? new Set()).add(v));
+        into.set(u.host, byKey);
+      }
+    }
+  };
+  const all = new Map<string, Map<string, Set<string>>>();
+  collect(readFileSync(PATH, 'utf-8'), all);
+  collect(readFileSync('src/utils/sponsor-guide.ts', 'utf-8'), all);
+  collect(readFileSync('website/src/lib/studio.ts', 'utf-8'), all);
+  const conflicts: string[] = [];
+  for (const [host, byKey] of all) {
+    for (const [k, vals] of byKey) {
+      if (vals.size > 1) conflicts.push(`${host} 的 ${k} 有多个值：${[...vals].join(' / ')}`);
+    }
   }
+  assert(conflicts.length === 0, `清单与代码的返利参数不一致：\n    ${conflicts.join('\n    ')}`);
+  assert(all.size > 0, '一个返利链接都没扫到，说明扫描逻辑失效了');
 });
 
 console.log('\n─── 下架赞助商在 Studio 列表里的可见性 ───');

@@ -90,7 +90,9 @@ console.log('\n─── 返利码一致性（同一赞助商的推广参数散�
  * ref / referral_code / code）必须处处一致 —— 改一处漏两处，返利就从那两处悄悄流走，
  * 而且没有任何报错，只能靠对账发现。这里跨文件按 host 比对返利标识。
  */
-const AFFILIATE_KEYS = ['invitecode', 'invite', 'aff', 'ref', 'referral_code', 'code'];
+// 注意大小写：URLSearchParams.get 大小写敏感，'invitecode' 抓不到 LanoX 的 `inviteCode`，
+// 所以两种写法都列。'c' 是 LanoX 的渠道码（?c=…&inviteCode=…，两个参数都得处处一致）。
+const AFFILIATE_KEYS = ['invitecode', 'inviteCode', 'invite', 'aff', 'ref', 'referral_code', 'code', 'c'];
 const SOURCES = [
   'src/utils/sponsor-guide.ts',
   'website/src/content/sponsors.ts',

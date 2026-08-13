@@ -492,7 +492,7 @@ export function groupModelsByVendor(models: string[]): [string, string[]][] {
 
 // 有正方形图标素材的赞助商/供应商 → website/public/sponsors/logo-<id>-icon.png（served at /sponsors/…）。
 // 只对确有文件的 id 返回路径，避免其它供应商拿到 404 的 <img>。
-const PROVIDER_LOGO_IDS = new Set(["compshare", "cubence", "apinebula", "rootflowai", "ccsub", "volcengine", "duoyuanx", "aicodemirror"]);
+const PROVIDER_LOGO_IDS = new Set(["compshare", "cubence", "apinebula", "rootflowai", "ccsub", "volcengine", "duoyuanx", "aicodemirror", "lanox"]);
 /** 少数供应商的 logo 是 svg（AICodeMirror），其余是 png —— 硬编码扩展名会 404 */
 const PROVIDER_LOGO_SVG_IDS = new Set(["aicodemirror"]);
 export function providerLogo(id: string): string | undefined {
@@ -742,6 +742,10 @@ export const API_PROVIDERS: ApiProviderMeta[] = [
   { id: "volcengine", name: "火山引擎", hint: "ark.cn-beijing.volces.com", defaultBaseUrl: "https://ark.cn-beijing.volces.com/api/v3", signupUrl: "https://www.volcengine.com/activity/ai618?utm_campaign=hw&utm_content=hw&utm_medium=devrel_tool_web&utm_source=OWO&utm_term=agency-agents-zh", sponsor: true, modelSuggestions: ["doubao-seed-2-1-pro-260628"] },
   // 普通赞助商 CompShare（优云智算）—— 排在赞助商组最后一位
   { id: "compshare", name: "CompShare", hint: "console.compshare.cn", defaultBaseUrl: "https://api.modelverse.cn/v1", signupUrl: "https://passport.compshare.cn/register?referral_code=ETD3L5JBM13CtKARkMORot&ytag=GPU_YY_YX_git_agency-agents", sponsor: true, modelSuggestions: ["deepseek-ai/DeepSeek-V3.2", "deepseek-ai/DeepSeek-R1", "Qwen/Qwen3-Coder-480B-A35B-Instruct", "MiniMaxAI/MiniMax-M2.7"] },
+  // 赞助商 LanoX AI（2026-08 新增，按约定排赞助商组最后一位）—— 全球模型聚合，500+ 模型；
+  // 直连走 OpenAI 兼容 api.lanox.ai/v1（引擎侧在 API_PROVIDERS 注册，无默认模型：见那边的说明）。
+  // 同一端点也兼容 Anthropic Messages，给编码 CLI 配中转见下方 CLI_RELAY_PRESETS。
+  { id: "lanox", name: "LanoX AI", hint: "api.lanox.ai · 注册送 5 美金", defaultBaseUrl: "https://api.lanox.ai/v1", signupUrl: "https://lanox.ai/?c=X3RD38F7&inviteCode=A3HRUB6M", sponsor: true, modelSuggestions: COMMON_RELAY_MODELS },
   { id: "deepseek", name: "DeepSeek", hint: "platform.deepseek.com", defaultBaseUrl: "https://api.deepseek.com/v1", vendor: true, modelSuggestions: ["deepseek-chat", "deepseek-reasoner"] },
   // 默认端点**不带 /v1**：Anthropic 客户端（SDK / claude CLI）自己会接 /v1/messages，
   // base 里再写一遍就成了 /v1/v1/messages。这里是用户配中转时照抄的形状样板，写错等于
@@ -863,6 +867,24 @@ export const CLI_RELAY_PRESETS: CliRelayPreset[] = [
       "claude-code": "https://api.aicodemirror.com/api/claudecode",
       "gemini-cli": "https://api.aicodemirror.com/api/gemini",
       "codex-cli": "https://api.aicodemirror.com/api/codex/backend-api/codex",
+    },
+  },
+  // LanoX AI（赞助商）—— 一个 key 通 GPT / Claude / Gemini / Qwen / Grok 等，官网明列
+  // Claude Code、Codex CLI、Cursor、Cline 为支持的客户端。端点布局是常见那种：
+  //   Claude Code → https://api.lanox.ai（Anthropic 兼容，**不带 /v1**，CLI 自己接 /v1/messages）
+  //   Codex       → https://api.lanox.ai/v1（OpenAI 兼容）
+  // 已探测核实：POST /v1/messages 与 /v1/chat/completions 在缺 key 时都返回 invalid_api_key
+  // （即路径存在、仅鉴权失败），而不存在的路径返回 {"code":"404","codeMsg":"接口不存在"} ——
+  // 注意它对 404 也回 HTTP 200，只能看响应体判断，别按状态码下结论。
+  // gemini-cli 不列：没有探到任何 Google 格式端点（/v1beta/* 是 404），宁可不填也不猜。
+  {
+    name: "LanoX AI",
+    sponsor: true,
+    signupUrl: "https://lanox.ai/?c=X3RD38F7&inviteCode=A3HRUB6M",
+    anthropicApiBaseUrl: "https://api.lanox.ai",
+    baseUrls: {
+      "claude-code": "https://api.lanox.ai",
+      "codex-cli": "https://api.lanox.ai/v1",
     },
   },
 ];

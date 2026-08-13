@@ -8,10 +8,11 @@
 - **AICodeMirror 上架（赞助商）**：三个编码 CLI 的中转预设（`claude-code` → `/api/claudecode`、`gemini-cli` → `/api/gemini`、`codex-cli` → `/api/codex/backend-api/codex`，注意 API 主机是 `aicodemirror.com` 而非官网的 `.ai`），以及**直连 API**——它走 Anthropic Messages 协议而非 OpenAI 兼容（根 `/v1/chat/completions` 实测 404），所以配在 `provider: claude` 上，Studio 的「Claude (Anthropic)」页新增「Anthropic 协议中转商」一键填充。端点做过无 key 探测核实（三个前缀均 401=存在，同级不存在的前缀 404）。
 - **`provider: claude` 支持自定义接入点**：任意 Anthropic 协议中转商都能直连。此前 `factory` 建连接器时只传 `api_key`、连接器也从没给 SDK 设过 `baseURL`、后端 `KEY_ENV` 写死 `base: null` 让前端隐藏地址框——三处叠加导致在 YAML/Studio 里配的中转地址被**静默忽略**，请求照旧打官方端点（拿中转 key 去打必然 401，且看不出是配置没生效）。新增 `normalizeAnthropicBaseUrl`：SDK 自己会接 `/v1/messages`，所以 base 里多写的 `/v1`、`/messages` 会被削掉，中转商的子路径基址（如 `/api/claudecode`）保持不动。
 - **`ao doctor` 覆盖 Anthropic 协议端点**：claude 配了中转却没有体检等于给了能力不给诊断，而"地址配错"正是中转用户最常踩的坑。现按原生协议单独探测，认出中转还是官方端点，并对"只填域名""多写 /v1"分别给出能照做的指引。
+- **LanoX AI 上架（赞助商）**：全球模型聚合（GPT / Claude / Gemini / Qwen / Grok 等 500+ 款）。**直连 API** 走 OpenAI 兼容 `https://api.lanox.ai/v1`（引擎 `API_PROVIDERS` 新增 `lanox`，专属 env `LANOX_API_KEY` / `LANOX_BASE_URL`）；**编码 CLI 中转**预设 `claude-code` → `https://api.lanox.ai`（同一端点也兼容 Anthropic Messages，base 不带 `/v1`）、`codex-cli` → `https://api.lanox.ai/v1`。端点做过无 key 探测核实（`/v1/chat/completions`、`/v1/models`、`/v1/messages` 缺 key 均返回 `invalid_api_key`=存在；**它对不存在的路径也回 HTTP 200**，只能看响应体里的 `"code":"404"` 判断，别按状态码下结论）；没探到任何 Google 格式端点，故不给 `gemini-cli` 预设。位置按约定排**赞助商组最后一位**（Studio 供应商列表 / 官网赞助商页均是）。**不设默认模型**：无 key 拿不到它实际上架并已定价的模型名，猜一个就是多元探索踩过的坑，留空强制用户自选（配了 key 点「获取模型列表」拉全量）。
 - **赞助商上/下架彻底不用发版**：远程清单（`website/public/providers-manifest.json`，改官网仓 push 即对所有已安装用户生效）新增 `sponsorRotation`（引导横幅轮换池，配了就整池替换），并启用 `removedProviders` 与 `relayPresets`。轮换算法抽成 `rotateFrom(pool)` 由内置与清单共用，份额口径不会因来源不同而漂移。
 
 ### Changed
-- **RootFlowAI 与 CCSub 赞助下架**：从引导轮换池、官网赞助商列表、Studio 赞助标识/推广链接/置顶位一并摘除，曝光位由 AICodeMirror 顶上，轮换池 5 家均分（每家 2/5 天）。两家**仍保留为可用供应商**并排在末位——已配好 key 的用户不该因商务关系变化就连不上。
+- **RootFlowAI 与 CCSub 赞助下架**：从引导轮换池、官网赞助商列表、Studio 赞助标识/推广链接/置顶位一并摘除，曝光位由 AICodeMirror 顶上；随后 LanoX AI 加入，轮换池现为 **6 家均分（每家 2/6 天）**，且这一池已同步写进远程清单（清单配了就整池替换内置的，所以两份必须逐条一致——有测试钉住）。两家**仍保留为可用供应商**并排在末位——已配好 key 的用户不该因商务关系变化就连不上。
 - **Studio 的 Claude 默认端点改为不带 `/v1`**：原默认值 `https://api.anthropic.com/v1` 与 doctor 的"多写 /v1 要去掉"自相矛盾，而它正是用户配中转时照抄的形状样板。
 
 ### Fixed
@@ -23,7 +24,9 @@
 - **`autoFixDependsOnIds` 改写留下重复依赖**：坏 id 与正确 id 并存时会改出 `[analyze, analyze]`（拓扑排序不受影响，但用户文件里不该留这种东西），现改为删掉多余那条。
 
 ### 测试
-- 全量 **840 断言 / 54 个测试文件 / 0 失败**（本轮新增 6 个测试文件、约 60 条断言）。
+- 全量 **56 个测试文件 / 0 失败**（本轮新增 8 个测试文件）。LanoX 上架另补 4 条断言（赞助位 11→13、清单 13→15）。
+- 赞助位新增钉死：LanoX 在两张列表里的位置、清单轮换池与代码那份逐条一致、logo 资源**逐个**核对存在（原先只查了 AICodeMirror 一家；`providerLogo()` 只按 id 拼路径，素材没传不会有任何报错，用户看到的是破图）。
+- 返利码守卫扩到大小写与渠道码：`URLSearchParams.get` 大小写敏感，只写 `invitecode` 抓不到 LanoX 的 `inviteCode`，`?c=` 渠道码也一并纳入跨文件比对（清单 ↔ 引擎 ↔ Studio）。
 - 新增覆盖：`spawn-cli`（Windows 三条启动路径，CI 是 ubuntu 探不到）、`sponsor-guide`（轮换份额与返利码一致性）、`providers-manifest`（唯一绕过发版流程的通道，按代码来测）、`claude-base-url`、`depends-on-ids`、`legacy-ui`（`web/index.html` 不过 tsc 也不进构建，此前零覆盖）。
 
 ## [0.13.0] - 2026-08-07

@@ -124,12 +124,36 @@ test('官网赞助商页：AICodeMirror 紧跟多元探索之后', () => {
   assert(d >= 0 && ids[d + 1] === 'aicodemirror', `顺序不对：${ids.join(' → ')}`);
 });
 
+test('Studio 供应商列表：LanoX AI 排赞助商组最后一位（2026-08 约定）', () => {
+  const order = providerOrder();
+  const i = order.indexOf('lanox');
+  assert(i >= 0, `lanox 不在 Studio 供应商列表里：${order.join(' → ')}`);
+  // 后面只允许跟「非赞助商」（自家 API / 已下架的），不能再冒出别的赞助商把它顶到中间
+  const block = studioSrc.slice(studioSrc.indexOf('export const API_PROVIDERS: ApiProviderMeta[]'));
+  const lines = block.slice(0, block.indexOf('\n];')).split('\n').filter((l) => /\{ id: "/.test(l));
+  const after = lines.slice(i + 1).filter((l) => /sponsor: true|flagship: true|advanced: true/.test(l));
+  assert(after.length === 0, `LanoX 之后还排着别的赞助商：\n    ${after.join('\n    ')}`);
+});
+
+test('官网赞助商页：LanoX AI 排最后一张卡', () => {
+  const ids = [...sponsorsSrc.matchAll(/^    id: "([\w-]+)"/gm)].map((m) => m[1]);
+  assert(ids[ids.length - 1] === 'lanox', `LanoX 应是最后一位，实际顺序：${ids.join(' → ')}`);
+});
+
 test('logo 资源真实存在（扩展名写错就是个 404 破图）', () => {
-  const m = studioSrc.match(/PROVIDER_LOGO_SVG_IDS = new Set\(\[([^\]]*)\]\)/);
-  const svgIds = new Set((m?.[1] ?? '').match(/"([\w-]+)"/g)?.map((x) => x.replace(/"/g, '')) ?? []);
-  const ext = svgIds.has('aicodemirror') ? 'svg' : 'png';
-  const p = `website/public/sponsors/logo-aicodemirror-icon.${ext}`;
-  assert(existsSync(p), `按代码推导出的 logo 路径不存在: ${p}`);
+  const idsOf = (name: string) => {
+    const m = studioSrc.match(new RegExp(`${name} = new Set\\(\\[([^\\]]*)\\]\\)`));
+    return new Set((m?.[1] ?? '').match(/"([\w-]+)"/g)?.map((x) => x.replace(/"/g, '')) ?? []);
+  };
+  const svgIds = idsOf('PROVIDER_LOGO_SVG_IDS');
+  const logoIds = idsOf('PROVIDER_LOGO_IDS');
+  assert(logoIds.size > 0, '没解析到 PROVIDER_LOGO_IDS，说明这条断言已失效');
+  // 逐个核对而不是只盯一家：providerLogo() 只按 id 拼路径，文件缺了不会有任何报错，
+  // 用户看到的就是个破图。新增供应商往那张 Set 里加 id 时，这条会替你查有没有传素材。
+  for (const id of logoIds) {
+    const p = `website/public/sponsors/logo-${id}-icon.${svgIds.has(id) ? 'svg' : 'png'}`;
+    assert(existsSync(p), `按代码推导出的 logo 路径不存在: ${p}`);
+  }
 });
 
 console.log(`\n  结果: ${passed} 通过, ${failed} 失败\n`);

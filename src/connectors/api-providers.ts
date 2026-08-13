@@ -52,6 +52,14 @@ export const API_PROVIDERS: ApiProviderSpec[] = [
   // 默认模型必须选平台实际上架且已定价的：claude-sonnet-5 未上架（报"价格尚未由管理员设置"），
   // claude-sonnet-4-6 实测可用（2026-07-17 真 key 连通验证）。
   { id: 'duoyuanx', envKey: 'DUOYUANX_API_KEY', envBase: 'DUOYUANX_BASE_URL', defaultBaseUrl: 'https://duoyuanx.com/v1', defaultModel: 'claude-sonnet-4-6' },
+  // LanoX AI（赞助商）—— 全球模型聚合：GPT / Claude / Gemini / Qwen / Grok 等 500+ 款。
+  // 直连走 OpenAI 兼容 api.lanox.ai/v1（已探测核实：/v1/chat/completions 与 /v1/models 无 key
+  // 返回 invalid_api_key=存在，官网示例即 base_url="https://api.lanox.ai/v1"）。同一端点还兼容
+  // Anthropic Messages（/v1/messages 存在），给编码 CLI 配中转见前端 CLI_RELAY_PRESETS。
+  // **不设 defaultModel**：无 key 拿不到它实际上架并已定价的模型名，猜一个写进去就是
+  // 多元探索踩过的坑（默认模型平台没上架 → 一跑就报错）。留空 = 强制用户在下拉里自选，
+  // 配了 key 点「获取模型列表」即拉全量；确认后再补默认值（或走清单 providerOverrides）。
+  { id: 'lanox', envKey: 'LANOX_API_KEY', envBase: 'LANOX_BASE_URL', defaultBaseUrl: 'https://api.lanox.ai/v1' },
 ];
 
 export const API_PROVIDER_MAP: Record<string, ApiProviderSpec> = Object.fromEntries(

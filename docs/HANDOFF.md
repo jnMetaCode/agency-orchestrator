@@ -55,8 +55,9 @@ npm error This operation requires a one-time password from your authenticator.
 
 ### 赞助商
 - **AICodeMirror 上架**：CLI 中转预设（三个端点）+ **直连 API**（Anthropic 协议，引擎新增 `ANTHROPIC_PROVIDERS` 注册表）+ 赞助位（Studio 第 2 行首位 / 官网多元探索右边）。
+- **LanoX AI 上架**（2026-08-13）：直连 API 走 OpenAI 兼容 `api.lanox.ai/v1`（内置 provider `lanox`，env `LANOX_API_KEY`）+ CLI 中转预设（claude-code 走根路径的 Anthropic 端点、codex 走 `/v1`；**没有 Gemini 端点，没探到就没填**）+ 赞助位**排最后**（两张列表都是）。**没给默认模型**——无 key 核实不了它实际上架的模型名，宁可让用户自选也不重演多元探索那次"默认模型平台没上架、一跑就报错"。
 - **RootFlowAI、CCSub 下架**：摘掉赞助身份与曝光位，但**保留为可用供应商**——已配过 key 的用户照常显示、照常能跑。
-- 轮换池现为 5 家均分（每家 2/5 天）。多元探索**按约定不进轮换**，它持有的是「默认 provider 位」。
+- 轮换池现为 6 家均分（每家 2/6 天），且**已整池写进远程清单**——清单里配了就整池替换内置的，所以以后改轮换必须两处一起改（有测试逐条比对）。多元探索**按约定不进轮换**，它持有的是「默认 provider 位」。
 
 ### 一类反复出现的缺陷（值得记住）
 新增能力之后，**围绕它的诊断/提示/隔离没跟上**，这一轮抓到 6 个，全部同源：
@@ -81,7 +82,8 @@ npm error This operation requires a one-time password from your authenticator.
 
 - **AICodeMirror 的域名**：官网/注册页是 `aicodemirror.ai`，**API 主机是 `aicodemirror.com`**；codex 端点走 `/api/codex/backend-api/codex`（官方订阅 backend 风格），不是 OpenAI 兼容的 `/v1`。
 - **Anthropic 协议的 base 不要带 `/v1`**：SDK 和 claude CLI 自己会接 `/v1/messages`。
-- **返利码只认自己的**（AICodeMirror 是 `XO5L7R`）。从 cc-switch 抄端点时别把它的邀请码一起抄进来——已有守卫，跨三份清单比对，不一致就 CI 报红。
+- **返利码只认自己的**（AICodeMirror 是 `XO5L7R`；LanoX 是 `?c=X3RD38F7&inviteCode=A3HRUB6M`，**两个参数都得带**）。从 cc-switch 抄端点时别把它的邀请码一起抄进来——已有守卫，跨三份清单比对，不一致就 CI 报红；注意守卫按参数名精确匹配且**大小写敏感**，新赞助商用了新参数名要往 `AFFILIATE_KEYS` 里加，否则等于没守。
+- **LanoX 的网关对不存在的路径也回 HTTP 200**（响应体里才是 `"code":"404","codeMsg":"接口不存在"`）。探它的端点只看状态码会得出"哪儿都在"的假结论，必须看响应体。
 - **下架赞助商 ≠ 删除供应商**：已配过 key 的用户必须还能看到、还能跑。
 - **验证要确认打的是新进程**：改完 server 记得 `pkill` 干净，否则请求会打到旧进程，得到假结论（这一轮踩过一次）。
 

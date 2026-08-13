@@ -3,7 +3,7 @@ import type { Language } from "@/i18n/translations";
 /**
  * 赞助商数据。
  *
- * 当前赞助商：APINEBULA（旗舰，银河录像局旗下 AI 聚合平台）、优云智算（UCloud 旗下 AI 云平台）、Cubence（API 中转服务商）、火山引擎（字节跳动云服务，中英文分别对应 volcengine.com / byteplus.com 两个不同站点）、多元探索（AI 模型 API 聚合与源头直供）、AICodeMirror（Claude / Codex / Gemini 官方高稳定中转）。
+ * 当前赞助商：APINEBULA（旗舰，银河录像局旗下 AI 聚合平台）、优云智算（UCloud 旗下 AI 云平台）、Cubence（API 中转服务商）、火山引擎（字节跳动云服务，中英文分别对应 volcengine.com / byteplus.com 两个不同站点）、多元探索（AI 模型 API 聚合与源头直供）、AICodeMirror（Claude / Codex / Gemini 官方高稳定中转）、LanoX AI（全球模型聚合，500+ 模型）。
  * 均为真实付费赞助，非占位样例。新增赞助商时按 Sponsor 结构追加即可。
  */
 
@@ -187,6 +187,29 @@ export const sponsors: Sponsor[] = [
     perk: {
       zh: "新用户注册立得 5 元平台体验金",
       en: "¥5 free platform credit for new sign-ups",
+    },
+  },
+  {
+    id: "lanox",
+    name: "LanoX AI",
+    badge: "LX",
+    accent: "from-blue-600 to-violet-500",
+    logo: "/sponsors/logo-lanox-icon.png",
+    url: "https://lanox.ai/?c=X3RD38F7&inviteCode=A3HRUB6M",
+    tier: "standard",
+    since: "2026-08",
+    featured: false,
+    tagline: {
+      zh: "全球模型接入 · 500+ 免费模型，顶级模型低至官方价 1 折起",
+      en: "Global model access · 500+ free models, top-tier models from 10% of list price",
+    },
+    description: {
+      zh: "感谢 LanoX AI 赞助了本项目！LanoX AI 为开发者、团队与企业提供稳定、高性价比的全球模型接入服务：GPT、Claude、Gemini、Qwen、Grok 等全球主流模型，以及 Seedance 2.0、GPT Image、Gemini Nano Banana 等多模态创作能力。企业级稳定服务——高可用、原生能力输出、不降智、不混模、调用与计费透明；顶级模型低至官方价 1 折起，文档清晰、接入简单、支持开票与企业批量调用，适用于 AI 产品、Agent、内容平台与研发团队的批量调用场景。",
+      en: "Thanks to LanoX AI for sponsoring this project! LanoX AI provides stable, cost-effective global model access for developers, teams and enterprises: mainstream models including GPT, Claude, Gemini, Qwen and Grok, plus multimodal creation with Seedance 2.0, GPT Image and Gemini Nano Banana. Enterprise-grade reliability — high availability, native capability output, no intelligence degradation, no model mixing, transparent usage and billing. Top-tier models start from 10% of official pricing, with clear documentation, simple integration, invoicing support and enterprise-scale batch usage — ideal for AI products, agents, content platforms and R&D teams.",
+    },
+    perk: {
+      zh: "注册即送 5 美金，免费领取百万 Token，另有 500+ 免费模型可用",
+      en: "Sign up for $5 in free credit, claim millions of free tokens, plus 500+ free models",
     },
   },
 ];
