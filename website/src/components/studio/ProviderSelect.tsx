@@ -1,7 +1,7 @@
 import { Check, ChevronDown, Settings2, Star } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { useLanguage } from "@/i18n/LanguageProvider";
-import { api, API_PROVIDERS, CLI_PROVIDER_IDS, CLI_RELAY_PRESETS, PROVIDER_LABELS, type CliRelayPreset, type CustomProviderMeta, type RemoteProviderMeta } from "@/lib/studio";
+import { api, API_PROVIDERS, CLI_PROVIDER_IDS, CLI_RELAY_PRESETS, PROVIDER_LABELS, relayPresetClis, type CliRelayPreset, type CustomProviderMeta, type RemoteProviderMeta } from "@/lib/studio";
 import { sponsorsByTier } from "@/content/sponsors";
 import { cn } from "@/lib/utils";
 
@@ -77,7 +77,7 @@ export function ProviderSelect({ value, onChange, onOpenProviders }: { value: st
           <button
             key={r.name}
             type="button"
-            title={g.cliRelayVendorLine}
+            title={`${g.cliRelayVendorPrefix}${relayPresetClis(r).join(" / ")}`}
             onClick={() => {
               onOpenProviders();
               setOpen(false);

@@ -140,6 +140,17 @@ test('官网赞助商页：LanoX AI 排最后一张卡', () => {
   assert(ids[ids.length - 1] === 'lanox', `LanoX 应是最后一位，实际顺序：${ids.join(' → ')}`);
 });
 
+test('CLI 中转商卡片按实际端点写"支持哪几个 CLI"，不写死三个', () => {
+  // 曾经写死"同时支持 Claude Code / Gemini / Codex"，但火山引擎、LanoX 都没有 Gemini 端点 ——
+  // 等于把用户指去配一个不存在的中转，点进去才发现没有，还以为是自己的问题。
+  assert(/export function relayPresetClis/.test(studioSrc), 'studio.ts 应导出 relayPresetClis（按 baseUrls 推导支持列表）');
+  const i18n = readFileSync('website/src/i18n/translations.ts', 'utf-8');
+  assert(!/Claude Code \/ Gemini \/ Codex/.test(i18n), 'i18n 里又出现了写死的三 CLI 列表');
+  for (const f of ['website/src/components/studio/ProvidersPanel.tsx', 'website/src/components/studio/ProviderSelect.tsx']) {
+    assert(/relayPresetClis\(/.test(readFileSync(f, 'utf-8')), `${f} 应改用 relayPresetClis 渲染支持列表`);
+  }
+});
+
 test('logo 资源真实存在（扩展名写错就是个 404 破图）', () => {
   const idsOf = (name: string) => {
     const m = studioSrc.match(new RegExp(`${name} = new Set\\(\\[([^\\]]*)\\]\\)`));

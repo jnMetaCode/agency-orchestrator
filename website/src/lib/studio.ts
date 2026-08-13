@@ -799,6 +799,18 @@ export interface CliRelayPreset {
   opusModel?: string;
   haikuModel?: string;
 }
+// 卡片上「支持哪几个 CLI」必须按预设**实际配了哪些端点**渲染，不能写死"三个都支持"：
+// 火山引擎没有 Gemini 端点、LanoX 也没有，写死等于把用户指去配一个根本不存在的中转。
+// 固定顺序输出（不跟着对象字面量的书写顺序漂），列表读起来才稳定。
+const RELAY_CLI_SHORT: Record<string, string> = {
+  "claude-code": "Claude Code",
+  "gemini-cli": "Gemini",
+  "codex-cli": "Codex",
+};
+export function relayPresetClis(preset: Pick<CliRelayPreset, "baseUrls">): string[] {
+  return Object.keys(RELAY_CLI_SHORT).filter((id) => preset.baseUrls?.[id]).map((id) => RELAY_CLI_SHORT[id]);
+}
+
 export const CLI_RELAY_PRESETS: CliRelayPreset[] = [
   // APINEBULA（旗舰赞助商）—— 银河录像局旗下 AI 聚合平台，一个账号给三个编码 CLI 配中转，
   // 但**同一域名不同格式端点不同**：Claude Code 走 Anthropic 兼容端点（根路径，**不带 /v1**）、

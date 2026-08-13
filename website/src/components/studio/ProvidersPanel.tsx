@@ -2,7 +2,7 @@ import { Check, ChevronDown, Cloud, Copy, Loader2, MonitorCog, Plus, Settings2, 
 import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { useLanguage } from "@/i18n/LanguageProvider";
-import { api, API_PROVIDERS, CLI_RELAY_GLOBAL_WRITE, CLI_RELAY_PRESETS, CLI_RELAY_SUPPORT, DEFAULT_PROVIDER, PROVIDER_LABELS, providerLogo, type CliRelayPreset, type ConfigResponse } from "@/lib/studio";
+import { api, API_PROVIDERS, CLI_RELAY_GLOBAL_WRITE, CLI_RELAY_PRESETS, CLI_RELAY_SUPPORT, DEFAULT_PROVIDER, PROVIDER_LABELS, providerLogo, relayPresetClis, type CliRelayPreset, type ConfigResponse } from "@/lib/studio";
 import { cn } from "@/lib/utils";
 import { ClaudeHealthCard } from "./ClaudeHealthCard";
 import { ProviderConfigView, type ConfigTarget } from "./ProviderConfigView";
@@ -150,7 +150,9 @@ function RelayVendorRow({ preset, onConfigure }: { preset: CliRelayPreset; onCon
             </span>
           )}
         </span>
-        <span className="block truncate text-[11px] text-muted-foreground">{t.studio.providers.cliRelayVendorLine}</span>
+        <span className="block truncate text-[11px] text-muted-foreground">
+          {t.studio.providers.cliRelayVendorPrefix}{relayPresetClis(preset).join(" / ")}
+        </span>
       </span>
       <span className="flex shrink-0 items-center gap-1.5">
         {/* 注册领取 Key 的入口不放这里（冗余 + 撑大行高）——点「配置中转」进去的配置页右上角已有同一个链接 */}
