@@ -16,6 +16,7 @@
 - **Studio 的 Claude 默认端点改为不带 `/v1`**：原默认值 `https://api.anthropic.com/v1` 与 doctor 的"多写 /v1 要去掉"自相矛盾，而它正是用户配中转时照抄的形状样板。
 
 ### Fixed
+- **公开演示站点「测试连接 / 获取模型列表 / 保存」直接吃 405**（用户实测控制台报 `POST /api/test-provider 405`）：官网是纯静态托管，`/api/*` 根本不存在，静态站对 POST 就回 405。供应商页是**有意**在演示站也放开的（能浏览端点、权益、模型建议），但这三个动作必须打后端——现在离线时不再发那条注定失败的请求，页面顶部一条说明横幅 + 点按钮时一句「这一步要本机跑 `npx agency-orchestrator web`」，中英各一份。新增 `test/studio-demo-guard.ts` 钉住这条约定（拦截必须在真正发请求之前，删掉那行 if 不会有任何构建报错，只会让 405 在演示站重新冒出来）。
 - **网关用「HTTP 200 + 正文写着接口不存在」表示路径不存在时，端点兜底全线失效**（LanoX 实测即如此，`{"data":null,"code":"404","codeMsg":"接口不存在"}` 走的是 200）。按状态码判路径的逻辑对它一条都不触发：少写 `/v1` 不会自动补、解析又捞不到 content，最终表现成最难查的那种失败——「跑完了，什么都没生成」。而这家的官方文档写的 Base URL 恰恰是根地址，照抄必踩。现在识别这种网关壳并当作路径未命中处理（自动改试另一种拼法），两个候选都被挡回来时直接报错点破是地址问题、附上实际请求地址与排查指引。判据保守：只认带 404/405 业务码且**没有** `choices`/`content` 的正文，正常响应即便正文里出现 `"code":"404"` 字样也不会被误伤；且只在 JSON 正文上判——成功的流式响应是 `text/event-stream`，clone 去读它等于把整段流缓冲住。
 - **自动组队产物 `depends_on` 写成输出变量名**（#103，同类 #94）：模型把上游的 **output 变量名**当成 step id 写进依赖（`depends_on: [income_paths_analysis]` 而那是 step `analyze_income_paths` 的 output）。这类错误此前是修复链的盲区——它进得了 `runVariableFixChain`，但阶段 0 只会「补」依赖、阶段 1 只改 `{{变量}}`、阶段 2 靠 `extractUndefinedVarNames` 提变量名（这类报错提不出东西），三个阶段都动不了它，于是原样抛给用户一个在工作流里根本搜不到的名字。新增 `autoFixDependsOnIds` 做零歧义改写（对不上、有歧义、会成环、会自依赖一律不动），接在 compose 链与 `/api/workflows/save`；报错文案也改为直接点破"这是 step X 的输出变量名，应写 X"。
 - **配 claude 直连中转会连带把 claude-code 订阅 CLI 改道**：两者共用 `ANTHROPIC_BASE_URL` 这一个变量名但凭证完全不同，注入进程 env 后被所有子进程继承——用户只是配了直连 API，本机的 claude-code 却被改道到该端点，拿订阅登录态去打必然 401。claude 的 base 不再注入 env（引擎侧走 `--base-url` 传参，链路已通）。
@@ -25,7 +26,7 @@
 - **`autoFixDependsOnIds` 改写留下重复依赖**：坏 id 与正确 id 并存时会改出 `[analyze, analyze]`（拓扑排序不受影响，但用户文件里不该留这种东西），现改为删掉多余那条。
 
 ### 测试
-- 全量 **56 个测试文件 / 0 失败**（本轮新增 8 个测试文件）。LanoX 上架另补 4 条断言（赞助位 11→13、清单 13→15）。
+- 全量 **57 个测试文件 / 0 失败**（本轮新增 9 个测试文件）。LanoX 上架另补 12 条断言（赞助位 11→14、清单 13→15、端点兜底 41→46、新增 `studio-demo-guard` 3 条）。
 - 赞助位新增钉死：LanoX 在两张列表里的位置、清单轮换池与代码那份逐条一致、logo 资源**逐个**核对存在（原先只查了 AICodeMirror 一家；`providerLogo()` 只按 id 拼路径，素材没传不会有任何报错，用户看到的是破图）。
 - 返利码守卫扩到大小写与渠道码：`URLSearchParams.get` 大小写敏感，只写 `invitecode` 抓不到 LanoX 的 `inviteCode`，`?c=` 渠道码也一并纳入跨文件比对（清单 ↔ 引擎 ↔ Studio）。
 - 新增覆盖：`spawn-cli`（Windows 三条启动路径，CI 是 ubuntu 探不到）、`sponsor-guide`（轮换份额与返利码一致性）、`providers-manifest`（唯一绕过发版流程的通道，按代码来测）、`claude-base-url`、`depends-on-ids`、`legacy-ui`（`web/index.html` 不过 tsc 也不进构建，此前零覆盖）。

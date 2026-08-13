@@ -180,7 +180,7 @@ function RelayVendorRow({ preset, onConfigure }: { preset: CliRelayPreset; onCon
   );
 }
 
-export function ProvidersPanel({ active, onSetActive }: { active: string; onSetActive: (p: string) => void }) {
+export function ProvidersPanel({ active, onSetActive, offline = false }: { active: string; onSetActive: (p: string) => void; offline?: boolean }) {
   const { t } = useLanguage();
   const [cfg, setCfg] = useState<ConfigResponse | null>(null);
   const [failed, setFailed] = useState(false);
@@ -256,6 +256,14 @@ export function ProvidersPanel({ active, onSetActive }: { active: string; onSetA
       <div className="rounded-xl border border-border/60 bg-muted/30 px-4 py-2.5 text-xs leading-relaxed text-muted-foreground">
         {t.studio.providers.privacyBeforeLocal}<strong>{t.studio.providers.privacyLocal}</strong>{t.studio.providers.privacyBeforeCode}<code className="rounded bg-muted px-1 py-0.5">.local/web-keys.json</code>{t.studio.providers.privacyAfter}
       </div>
+
+      {/* 没有引擎后端（公开演示站是纯静态托管，/api/* 根本不存在）：卡片照常可看可填，
+          但保存/测试/拉模型都要打后端。先说清楚，别等用户点下去吃一个 405。 */}
+      {offline && (
+        <div className="rounded-xl border border-amber-500/40 bg-amber-500/[0.07] px-4 py-2.5 text-xs leading-relaxed text-amber-700 dark:text-amber-400">
+          {t.studio.providers.demoNeedsEngine}
+        </div>
+      )}
 
       {/* 系统 Claude Code 体检/急救：被别的软件或手动写坏时一键恢复官方登录 */}
       <ClaudeHealthCard />
@@ -443,6 +451,7 @@ export function ProvidersPanel({ active, onSetActive }: { active: string; onSetA
           }
           onClose={() => setEditing(null)}
           onSaved={load}
+          offline={offline}
         />
       )}
     </div>

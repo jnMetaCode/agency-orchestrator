@@ -185,7 +185,7 @@ function StudioInner() {
           )}
           {tab === "providers" ? (
             // 供应商/API 面板在线、离线都能进、能填（演示站没有引擎也照样展示卡片，只是无法实际运行）
-            <ProvidersPanel active={provider} onSetActive={(p) => setProvider(p)} />
+            <ProvidersPanel active={provider} onSetActive={(p) => setProvider(p)} offline={offline} />
           ) : offline ? (
             <>
               <div className="mb-5 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-amber-500/40 bg-amber-500/[0.07] px-4 py-3">

@@ -39,6 +39,7 @@ export function ProviderConfigView({
   relayPresets = CLI_RELAY_PRESETS,
   onClose,
   onSaved,
+  offline = false,
 }: {
   target: ConfigTarget;
   status?: ConfigResponse["providers"][string];
@@ -46,6 +47,13 @@ export function ProviderConfigView({
   relayPresets?: CliRelayPreset[];
   onClose: () => void;
   onSaved: () => void;
+  /**
+   * 没有引擎后端（公开演示站就是这样：纯静态托管，`/api/*` 根本不存在）。
+   * 这三个动作（测试连接 / 获取模型列表 / 保存）都必须打后端，在这里点下去只会
+   * 拿到一个静态站返回的 `405 Method Not Allowed`——对用户毫无意义，还像是我们坏了。
+   * 所以离线时不发请求，直接说清"这需要本地引擎"。
+   */
+  offline?: boolean;
 }) {
   const { t, lang } = useLanguage();
   const p = t.studio.providers;
@@ -151,6 +159,7 @@ export function ProviderConfigView({
   };
 
   const fetchModels = async () => {
+    if (offline) { setFetchError(p.demoNeedsEngineShort); return; }
     setFetchingModels(true);
     setFetchError(null);
     setFetchNeedsKey(false);
@@ -181,6 +190,7 @@ export function ProviderConfigView({
   };
 
   const runTest = async () => {
+    if (offline) return setTest({ status: "fail", msg: p.demoNeedsEngineShort });
     setTest({ status: "testing" });
     try {
       // 带上当前输入框里的值:填了就能测,不用先保存
@@ -197,6 +207,7 @@ export function ProviderConfigView({
 
   const save = async () => {
     setError(null);
+    if (offline) return setError(p.demoNeedsEngineShort);
     if (isAdd) {
       if (!customId.trim()) return setError(p.customProviderIdRequired);
       if (!customName.trim()) return setError(p.customProviderNameRequired);
