@@ -2143,9 +2143,26 @@ app.post('/api/provider-models', async (req, res) => {
   const basePath = base.split('?')[0];
   const withV1 = base.includes('?') ? `${basePath}/v1?${base.split('?').slice(1).join('?')}` : `${basePath}/v1`;
   const endsWithVersion = /\/v\d+$/.test(basePath);
-  const candidates = endsWithVersion
-    ? (basePath.endsWith('/v1') ? [joinEndpoint(base, 'models')] : [joinEndpoint(base, 'models'), joinEndpoint(withV1, 'models')])
-    : [joinEndpoint(withV1, 'models'), joinEndpoint(base, 'models')];
+  // · base 是 Anthropic 协议中转常见的「兼容层挂子路径」形态（/api/claudecode 等）→ 再补两个
+  //   剥掉后缀打站点根的候选。这类中转两种布局都有：AICodeMirror 的 /models 就在子路径下
+  //   （实测 /api/claudecode/v1/models 401=存在、根 /v1/models 是 404 页），也有把它只放在根上的。
+  //   后缀清单直接对齐 cc-switch 的 KNOWN_COMPAT_SUFFIXES（同一批中转商，不另起一套口径）。
+  const COMPAT_SUFFIXES = ['/api/claudecode', '/api/anthropic', '/apps/anthropic', '/api/coding', '/claudecode', '/anthropic', '/step_plan', '/coding', '/claude'];
+  const compatRoot = (() => {
+    const lower = basePath.toLowerCase();
+    const hit = COMPAT_SUFFIXES.find((s) => lower.endsWith(s));
+    if (!hit) return '';
+    const root = basePath.slice(0, basePath.length - hit.length).replace(/\/+$/, '');
+    // 剥完只剩协议头（如 https:/）说明整条路径就是后缀本身，不是"根 + 兼容层"，别乱猜
+    return /^https?:\/\/[^/]+/.test(root) ? root : '';
+  })();
+  const withQuery = (u) => (base.includes('?') ? `${u}?${base.split('?').slice(1).join('?')}` : u);
+  const candidates = [...new Set([
+    ...(endsWithVersion
+      ? (basePath.endsWith('/v1') ? [joinEndpoint(base, 'models')] : [joinEndpoint(base, 'models'), joinEndpoint(withV1, 'models')])
+      : [joinEndpoint(withV1, 'models'), joinEndpoint(base, 'models')]),
+    ...(compatRoot ? [joinEndpoint(withQuery(`${compatRoot}/v1`), 'models'), joinEndpoint(withQuery(compatRoot), 'models')] : []),
+  ])];
   let lastErr = '';
   try {
     for (const url of candidates) {
@@ -2172,11 +2189,24 @@ app.post('/api/provider-models', async (req, res) => {
       if (!r) break;
       if (r.ok) {
         const j = await r.json().catch(() => ({}));
-        const models = (Array.isArray(j.data) ? j.data : Array.isArray(j.models) ? j.models : [])
+        const entries = Array.isArray(j.data) ? j.data : Array.isArray(j.models) ? j.models : [];
+        const models = entries
           .map((m) => (typeof m === 'string' ? m : m?.id))
           .filter((id) => typeof id === 'string' && id)
           .sort();
-        if (models.length) return res.json({ ok: true, models });
+        // 厂商归属优先用响应里的 owned_by/provider（对齐 cc-switch 的分组口径）——前端原本靠
+        // 模型名猜厂商，对聚合商自造的编码（LanoX 的 gpt-5.6-sol 这类）迟早猜不准。
+        // 但 owned_by 常被填成中转站自己的占位值（LanoX 文档：未配 provider 时是
+        // api-transfer-server），那种拿来当分组标题还不如猜的准 —— 过滤掉，让前端回退到推断。
+        const PLACEHOLDER_OWNER = /^(api[-_]?transfer[-_]?server|organization[-_]|system|user|custom|unknown|default)/i;
+        const vendors = {};
+        for (const m of entries) {
+          if (!m || typeof m.id !== 'string') continue;
+          const owner = typeof m.owned_by === 'string' && m.owned_by.trim() ? m.owned_by.trim()
+            : typeof m.provider === 'string' && m.provider.trim() ? m.provider.trim() : '';
+          if (owner && !PLACEHOLDER_OWNER.test(owner)) vendors[m.id] = owner;
+        }
+        if (models.length) return res.json({ ok: true, models, ...(Object.keys(vendors).length ? { vendors } : {}) });
         lastErr = 'empty model list';
         break;
       }

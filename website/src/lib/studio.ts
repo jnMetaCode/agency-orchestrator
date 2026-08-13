@@ -481,10 +481,15 @@ export function modelVendor(id: string): string {
   const ns = id.includes("/") ? id.split("/")[0] : "";
   return ns || "其它";
 }
-/** 按厂商把模型分组并排序，各组内保持原序；组按名称排序，「其它」永远垫底。 */
-export function groupModelsByVendor(models: string[]): [string, string[]][] {
+/**
+ * 按厂商把模型分组并排序，各组内保持原序；组按名称排序，「其它」永远垫底。
+ *
+ * `vendors` 是供应商 `/models` 响应里的 owned_by/provider（后端已滤掉 api-transfer-server
+ * 这类占位值）。有就用它——聚合商自造的模型编码靠名字猜厂商迟早要错；没有再回退到推断。
+ */
+export function groupModelsByVendor(models: string[], vendors?: Record<string, string>): [string, string[]][] {
   const groups: Record<string, string[]> = {};
-  for (const m of models) (groups[modelVendor(m)] ??= []).push(m);
+  for (const m of models) (groups[vendors?.[m] || modelVendor(m)] ??= []).push(m);
   return Object.entries(groups).sort((a, b) =>
     a[0] === "其它" ? 1 : b[0] === "其它" ? -1 : a[0].localeCompare(b[0]),
   );
@@ -517,7 +522,8 @@ export const api = {
   // 拉取供应商真实可用模型列表（OpenAI 兼容 GET /models）；baseUrl/apiKey 可覆盖（未保存时先试拉）；
   // protocol:"anthropic" = Anthropic 兼容端点（claude-code 中转商），认证头用 x-api-key
   providerModels: (body: { provider?: string; baseUrl?: string; apiKey?: string; protocol?: "anthropic" }) =>
-    postJSON<{ ok: boolean; models?: string[]; error?: string; source?: string }>("/provider-models", body),
+    // vendors: 模型 id → 供应商响应里的 owned_by/provider（分组标题用，缺省则前端按模型名推断）
+    postJSON<{ ok: boolean; models?: string[]; vendors?: Record<string, string>; error?: string; source?: string }>("/provider-models", body),
   // 本机 cc-switch 已配供应商（一键导入 key 用；key 只回脱敏预览，原文不出后端）
   ccswitchProviders: () =>
     getJSON<{ ok: boolean; providers?: { id: string; name: string; appType: string; baseUrl: string; keyPreview: string; isCurrent: boolean }[] }>("/ccswitch-providers"),

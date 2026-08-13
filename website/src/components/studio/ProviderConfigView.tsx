@@ -91,6 +91,8 @@ export function ProviderConfigView({
 
   // 模型列表拉取
   const [fetchedModels, setFetchedModels] = useState<string[] | null>(null);
+  // 供应商 /models 响应里的 owned_by/provider —— 分组标题优先用它（对齐 cc-switch），没有才按模型名推断
+  const [fetchedVendors, setFetchedVendors] = useState<Record<string, string> | undefined>(undefined);
   const [fetchingModels, setFetchingModels] = useState(false);
   const [fetchError, setFetchError] = useState<string | null>(null);
   // needsKey=true 时,fetchError 是「先填 key 再拉列表」的操作引导(非真失败)——用琥珀色而非报错红,
@@ -178,7 +180,7 @@ export function ProviderConfigView({
         apiKey: key.trim() || undefined,
         protocol: isCcRelay ? "anthropic" : undefined,
       });
-      if (r.ok && r.models) setFetchedModels(r.models);
+      if (r.ok && r.models) { setFetchedModels(r.models); setFetchedVendors(r.vendors); }
       // 没填 key 又被中转拒绝(401/未设置 key)时,别把原始 JSON 甩给用户,给一句可操作的引导
       else if (!key.trim() && /401|403|未设置 API key|authentication|credential|invalid token/i.test(r.error || "")) { setFetchNeedsKey(true); setFetchError(p.fetchNeedsKey); }
       else setFetchError(r.error || "failed");
@@ -715,7 +717,7 @@ export function ProviderConfigView({
                   (filteredChips.length > 12 ? (
                     // 大列表(通常是拉到的真实全量):按厂商分组,像 cc-switch 那样可扫读,不再一堆平铺
                     <div className="mt-1.5 max-h-60 space-y-2 overflow-auto pr-1">
-                      {groupModelsByVendor(filteredChips).map(([vendor, ms]) => (
+                      {groupModelsByVendor(filteredChips, fetchedVendors).map(([vendor, ms]) => (
                         <div key={vendor}>
                           <p className="mb-1 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground/70">
                             {vendor} · {ms.length}

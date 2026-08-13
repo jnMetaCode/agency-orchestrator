@@ -425,6 +425,24 @@ const anthRedirector = http.createServer((req, res) => {
 await new Promise<void>((r) => anthRedirector.listen(0, '127.0.0.1', () => r()));
 const anthRedirPort = (anthRedirector.address() as { port: number }).port;
 
+// 模型列表的假上游：/models 只挂在**站点根**，兼容层在 /api/claudecode 子路径下（cc-switch
+// 的 KNOWN_COMPAT_SUFFIXES 覆盖的就是这种布局）。顺带回一份带 owned_by 的条目，用来验证
+// 厂商分组走响应里的真值，以及占位值（api-transfer-server）被过滤掉。
+const modelsSrv = http.createServer((req, res) => {
+  if (req.url === '/v1/models') {
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    return res.end(JSON.stringify({ object: 'list', data: [
+      { id: 'gpt-5.6-sol', object: 'model', owned_by: 'OpenAI' },
+      { id: 'claude-sonnet-5', object: 'model', owned_by: 'Anthropic' },
+      { id: 'mystery-1', object: 'model', owned_by: 'api-transfer-server' },
+    ] }));
+  }
+  res.writeHead(404, { 'Content-Type': 'application/json' });
+  res.end(JSON.stringify({ error: 'not found' }));
+});
+await new Promise<void>((r) => modelsSrv.listen(0, '127.0.0.1', () => r()));
+const modelsPort = (modelsSrv.address() as { port: number }).port;
+
 const port3 = await freePort();
 const dataDir3 = mkdtempSync(join(tmpdir(), 'ao-web-endpoint-'));
 const base3 = `http://127.0.0.1:${port3}`;
@@ -493,10 +511,22 @@ try {
     const fallbackSponsors = (comp.body.sponsors ?? []) as { name: string }[];
     assert(fallbackSponsors.length > 0, '清单拉不到时，引导横幅回退内置轮换池');
     assert(!fallbackSponsors.some((s) => /rootflow|ccsub/i.test(s.name)), '回退池里不含已下架赞助商');
+
+    // 8) 获取模型列表：base 是 Anthropic 兼容子路径、而 /models 只在站点根 → 剥掉后缀再试
+    const m1 = await postJson('/api/provider-models', { baseUrl: `http://127.0.0.1:${modelsPort}/api/claudecode`, apiKey: 'sk-test' });
+    assert(m1.body.ok === true && Array.isArray(m1.body.models) && (m1.body.models as string[]).includes('gpt-5.6-sol'),
+      '模型列表：兼容层挂子路径、/models 在站点根时也能拉到（对齐 cc-switch 的后缀剥离）');
+
+    // 9) 厂商分组用响应里的 owned_by，占位值不算数（拿它当分组标题还不如按模型名猜）
+    const m2 = await postJson('/api/provider-models', { baseUrl: `http://127.0.0.1:${modelsPort}/v1`, apiKey: 'sk-test' });
+    const vendors = (m2.body.vendors ?? {}) as Record<string, string>;
+    assert(vendors['gpt-5.6-sol'] === 'OpenAI' && vendors['claude-sonnet-5'] === 'Anthropic', '模型列表：透传 owned_by 作为厂商归属');
+    assert(!('mystery-1' in vendors) && (m2.body.models as string[]).includes('mystery-1'),
+      '占位厂商(api-transfer-server)被过滤，但模型本身照常列出');
   }
 } finally {
   if (server3) server3.kill('SIGTERM');
-  upstream.close(); redirector.close(); anthropic.close(); anthRedirector.close();
+  upstream.close(); redirector.close(); anthropic.close(); anthRedirector.close(); modelsSrv.close();
   rmSync(dataDir3, { recursive: true, force: true });
 }
 
