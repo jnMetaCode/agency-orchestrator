@@ -57,3 +57,40 @@ export const API_PROVIDERS: ApiProviderSpec[] = [
 export const API_PROVIDER_MAP: Record<string, ApiProviderSpec> = Object.fromEntries(
   API_PROVIDERS.map((p) => [p.id, p]),
 );
+
+/**
+ * **Anthropic 原生协议**的云端 provider（走 ClaudeConnector，不是 OpenAI 兼容）。
+ *
+ * 单独一张表而不是塞进 API_PROVIDERS：那张表的语义是"OpenAI 兼容，统一走
+ * OpenAICompatibleConnector"，混进 Anthropic 协议的会被用错协议去请求
+ * （POST /v1/chat/completions → 404），且这种错要等真跑起来才暴露。
+ *
+ * 与 `claude` 的区别：`claude` 是官方端点 + ANTHROPIC_API_KEY，这里是中转商各自的
+ * 端点与 key（各用各的 env 变量名，互不串台 —— 共用一个变量名正是之前把 claude-code
+ * 订阅 CLI 一起改道的根因）。
+ */
+export interface AnthropicProviderSpec {
+  id: string;
+  envKey: string;
+  envBase: string;
+  defaultBaseUrl: string;
+  defaultModel?: string;
+}
+
+export const ANTHROPIC_PROVIDERS: AnthropicProviderSpec[] = [
+  // AICodeMirror（赞助商）—— Claude / Codex / Gemini 官方高稳定中转。
+  // 直连走 Anthropic Messages 协议：base 不带 /v1，客户端自己接 /v1/messages
+  // （已探测核实：/api/claudecode 前缀 401=存在，根 /v1/chat/completions 404=没有
+  // OpenAI 兼容端点）。同一账号给编码 CLI 配中转见前端 CLI_RELAY_PRESETS。
+  {
+    id: 'aicodemirror',
+    envKey: 'AICODEMIRROR_API_KEY',
+    envBase: 'AICODEMIRROR_BASE_URL',
+    defaultBaseUrl: 'https://api.aicodemirror.com/api/claudecode',
+    defaultModel: 'claude-sonnet-5',
+  },
+];
+
+export const ANTHROPIC_PROVIDER_MAP: Record<string, AnthropicProviderSpec> = Object.fromEntries(
+  ANTHROPIC_PROVIDERS.map((p) => [p.id, p]),
+);

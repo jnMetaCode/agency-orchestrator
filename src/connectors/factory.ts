@@ -11,7 +11,7 @@ import { OpenClawCLIConnector } from './openclaw-cli.js';
 import { HermesCLIConnector } from './hermes-cli.js';
 import { OllamaConnector } from './ollama.js';
 import { OpenAICompatibleConnector } from './openai-compatible.js';
-import { API_PROVIDER_MAP } from './api-providers.js';
+import { API_PROVIDER_MAP, ANTHROPIC_PROVIDER_MAP } from './api-providers.js';
 
 export function createConnector(config: LLMConfig): LLMConnector {
   switch (config.provider) {
@@ -33,10 +33,21 @@ export function createConnector(config: LLMConfig): LLMConnector {
 
     // ── 需要 API key ──
     case 'claude':
-      // base_url 必须往下传：Anthropic 协议的中转商（AICodeMirror 等）就是靠它接入的，
-      // 少传这一个参数会让所有中转配置静默失效（照旧打官方端点 → 401）
+      // base_url 必须往下传：Anthropic 协议的中转商就是靠它接入的，少传这一个参数
+      // 会让所有中转配置静默失效（照旧打官方端点 → 401）
       return new ClaudeConnector(config.api_key, config.base_url);
     default: {
+      // Anthropic 原生协议的中转商（AICodeMirror 等）：与 claude 同一个连接器，但各用
+      // 各的 env 变量名与默认端点 —— 共用 ANTHROPIC_* 会把用户的 claude-code 订阅
+      // CLI 一起改道（见 web/server.js applyKeys 的说明）。
+      const anth = ANTHROPIC_PROVIDER_MAP[config.provider];
+      if (anth) {
+        return new ClaudeConnector(
+          config.api_key || process.env[anth.envKey],
+          config.base_url || process.env[anth.envBase] || anth.defaultBaseUrl,
+        );
+      }
+
       // OpenAI 兼容聚合 API（deepseek/openai 官方 + 各赞助商）统一走注册表；
       // 新增一家只需在 api-providers.ts 加一条，这里不用改。
       // 注：deepseek 不 fallback OPENAI_BASE_URL —— issue #16: 用户设了

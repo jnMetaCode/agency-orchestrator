@@ -14,7 +14,7 @@ import { fileURLToPath } from 'node:url';
 import { tmpdir, homedir } from 'node:os';
 import yaml from 'js-yaml';
 import { detectInstalledCliProviders } from '../dist/providers/detect.js';
-import { API_PROVIDERS, API_PROVIDER_MAP } from '../dist/connectors/api-providers.js';
+import { API_PROVIDERS, API_PROVIDER_MAP, ANTHROPIC_PROVIDERS, ANTHROPIC_PROVIDER_MAP } from '../dist/connectors/api-providers.js';
 // base_url 规整 / 跳转保持 POST / 少写多写 /v1 兜底 —— 与运行时连接器同一份实现，
 // 保证「测试连接」和真正跑起来的行为一致（不会出现测试过了但一跑就 405）。
 import { normalizeBaseUrl, postChatCompletions, postApiEndpoint, endpointHint, joinEndpoint } from '../dist/connectors/openai-compatible.js';
@@ -132,10 +132,11 @@ function buildLLMConfig(provider) {
   const remote = remoteProviderSpec(p);
   const override = providerOverrideSpec(p);
   const defModel = override?.defaultModel
-    || (p === 'claude' ? 'claude-sonnet-5' : API_PROVIDER_MAP[p]?.defaultModel || remote?.defaultModel); // ollama / custom: model must come from saved config
+    || (p === 'claude' ? 'claude-sonnet-5' : API_PROVIDER_MAP[p]?.defaultModel || ANTHROPIC_PROVIDER_MAP[p]?.defaultModel || remote?.defaultModel); // ollama / custom: model must come from saved config
   const model = saved.model || defModel;
   if (model) cfg.model = model;
-  const defBase = p === 'ollama' ? (saved.baseUrl || process.env.OLLAMA_BASE_URL || 'http://localhost:11434') : remote?.baseUrl;
+  const defBase = p === 'ollama' ? (saved.baseUrl || process.env.OLLAMA_BASE_URL || 'http://localhost:11434')
+    : (ANTHROPIC_PROVIDER_MAP[p]?.defaultBaseUrl || remote?.baseUrl);
   const base = saved.baseUrl || defBase;
   if (base) cfg.base_url = base;
   // 自定义供应商没有注册在 KEY_ENV 里,没有专属 env 变量名可用 —— 直接把 key 放进
@@ -184,6 +185,10 @@ const KEY_ENV = {
   // 用户根本填不了;引擎侧 factory 也没把 base_url 传给连接器 —— 两处一起补上了。
   claude: { key: 'ANTHROPIC_API_KEY', base: 'ANTHROPIC_BASE_URL' },
   ...Object.fromEntries(API_PROVIDERS.map((p) => [p.id, { key: p.envKey, base: p.envBase }])),
+  // Anthropic 原生协议的中转商（AICodeMirror 等）：各用各的专属 env 变量名 ——
+  // 绝不能复用 ANTHROPIC_BASE_URL，那个变量同时被 claude-code 订阅 CLI 读，
+  // 注入后会把用户本机的 CLI 一起改道（见 applyKeys 里的说明）。
+  ...Object.fromEntries(ANTHROPIC_PROVIDERS.map((p) => [p.id, { key: p.envKey, base: p.envBase }])),
   // claude-code / gemini-cli 走本地 CLI 子进程,不经过 factory 的 connector,而是这两个
   // 官方 CLI 自己原生支持的"中转"环境变量 —— 未登录官方账号时,填第三方中转商(如
   // Cubence)的 base_url + token 也能用。子进程 spawn 时 env:{...process.env} 会
@@ -1992,7 +1997,7 @@ app.post('/api/test-provider', async (req, res) => {
     let hitUrl = '';   // 实际打到的地址（可能被跳转 / 换过 /v1 拼法）
     let baseUsed = ''; // 本次测试用的 base_url（规整后）
     let drift;         // 与用户填的 base_url 不一致时的说明
-    if (provider === 'claude' || provider === 'claude-code') {
+    if (provider === 'claude' || provider === 'claude-code' || ANTHROPIC_PROVIDER_MAP[provider]) {
       // 两条链路都走 Anthropic 原生协议（POST {base}/v1/messages），用 OpenAI 格式测会误报失败。
       //
       // claude（直连 API）以前在这里硬编码打 api.anthropic.com、无视用户配的 base_url ——
@@ -2000,13 +2005,15 @@ app.post('/api/test-provider', async (req, res) => {
       // 中转、点「测试连接」，却拿中转 key 去打官方端点必然 401，反过来怀疑自己配错了。
       // 现在两条链路共用同一套解析：优先用本次输入/已保存的地址，并复用跳转与 /v1 路径兜底。
       const saved = readKeys()[provider] || {};
-      const rawBase = (typeof overrideBase === 'string' && overrideBase.trim()) || saved.baseUrl || process.env.ANTHROPIC_BASE_URL || 'https://api.anthropic.com';
+      const anthSpec = ANTHROPIC_PROVIDER_MAP[provider];
+      const rawBase = (typeof overrideBase === 'string' && overrideBase.trim()) || saved.baseUrl
+        || (anthSpec ? (process.env[anthSpec.envBase] || anthSpec.defaultBaseUrl) : (process.env.ANTHROPIC_BASE_URL || 'https://api.anthropic.com'));
       // 客户端会自己接 /v1/messages，所以 base 里多写的 /v1、/messages 要先削掉再测，
       // 否则测的是 /v1/v1/messages
       const base = normalizeAnthropicBaseUrl(rawBase);
       const baseHadSuffix = /\/(v\d+|messages)\/?$/i.test(String(rawBase).trim());
       // 中转商上架的模型名各不相同，优先用用户自己配的（含 Sonnet 档映射）
-      const defaultModel = provider === 'claude' ? 'claude-3-5-haiku-20241022' : 'claude-sonnet-4-5-20250929';
+      const defaultModel = anthSpec?.defaultModel || (provider === 'claude' ? 'claude-3-5-haiku-20241022' : 'claude-sonnet-4-5-20250929');
       const model = (typeof overrideModel === 'string' && overrideModel.trim()) || saved.model || saved.sonnetModel || defaultModel;
       // 路径首选必须与真实客户端一致：Anthropic SDK / claude CLI 一律发 POST {base}/v1/messages。
       // 以前首选 {base}/messages，正确配置的中转反而会 404 后靠兜底命中，于是报出一条
@@ -2103,7 +2110,7 @@ app.post('/api/provider-models', async (req, res) => {
   const spec = provider ? API_PROVIDER_MAP[provider] : null;
   const remote = provider ? remoteProviderSpec(provider) : null;
   // protocol:'anthropic' = Anthropic 兼容端点（claude-code 中转商），认证头用 x-api-key
-  const isClaude = provider === 'claude' || protocol === 'anthropic';
+  const isClaude = provider === 'claude' || protocol === 'anthropic' || !!ANTHROPIC_PROVIDER_MAP[provider];
   const base = normalizeBaseUrl(
     overrideBase || saved.baseUrl || (spec && process.env[spec.envBase]) || spec?.defaultBaseUrl || remote?.baseUrl ||
     (isClaude ? 'https://api.anthropic.com/v1' : '')

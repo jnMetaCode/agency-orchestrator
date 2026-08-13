@@ -91,6 +91,29 @@ export const sponsors: Sponsor[] = [
     },
   },
   {
+    id: "aicodemirror",
+    name: "AICodeMirror",
+    badge: "✕",
+    accent: "from-orange-500 to-amber-400",
+    logo: "/sponsors/logo-aicodemirror-icon.svg",
+    url: "https://www.aicodemirror.ai/register?invitecode=XO5L7R",
+    tier: "standard",
+    since: "2026-08",
+    featured: false,
+    tagline: {
+      zh: "Claude / Codex / Gemini 官方高稳定中转 · Codex 官方渠道低至 0.7 折",
+      en: "Highly reliable official relay for Claude / Codex / Gemini · Codex from 7% of list price",
+    },
+    description: {
+      zh: "感谢 AICodeMirror 赞助了本项目！AICodeMirror 提供 Claude / Codex / Gemini 官方高稳定中转服务，支持企业级高并发、极速开票、7×24 专属技术支持。Codex 官方渠道低至 0.7 折，充值更有折上折！",
+      en: "Thanks to AICodeMirror for sponsoring this project! AICodeMirror provides highly reliable official relay services for Claude, Codex, and Gemini, supporting enterprise-grade concurrency, fast invoice issuance, and dedicated 24/7 technical support. Official Codex access is available for as little as 7% of the standard price, with additional discounts on account top-ups!",
+    },
+    perk: {
+      zh: "AICodeMirror 为本项目用户提供特别福利：通过专属链接注册，可享首充 8 折",
+      en: "Exclusive benefit for users of this project: register through our link to receive 20% off your first top-up",
+    },
+  },
+  {
     id: "cubence",
     name: "Cubence",
     badge: "CB",
@@ -164,29 +187,6 @@ export const sponsors: Sponsor[] = [
     perk: {
       zh: "新用户注册立得 5 元平台体验金",
       en: "¥5 free platform credit for new sign-ups",
-    },
-  },
-  {
-    id: "aicodemirror",
-    name: "AICodeMirror",
-    badge: "✕",
-    accent: "from-orange-500 to-amber-400",
-    logo: "/sponsors/logo-aicodemirror-icon.svg",
-    url: "https://www.aicodemirror.ai/register?invitecode=XO5L7R",
-    tier: "standard",
-    since: "2026-08",
-    featured: false,
-    tagline: {
-      zh: "Claude / Codex / Gemini 官方高稳定中转 · Codex 官方渠道低至 0.7 折",
-      en: "Highly reliable official relay for Claude / Codex / Gemini · Codex from 7% of list price",
-    },
-    description: {
-      zh: "感谢 AICodeMirror 赞助了本项目！AICodeMirror 提供 Claude / Codex / Gemini 官方高稳定中转服务，支持企业级高并发、极速开票、7×24 专属技术支持。Codex 官方渠道低至 0.7 折，充值更有折上折！",
-      en: "Thanks to AICodeMirror for sponsoring this project! AICodeMirror provides highly reliable official relay services for Claude, Codex, and Gemini, supporting enterprise-grade concurrency, fast invoice issuance, and dedicated 24/7 technical support. Official Codex access is available for as little as 7% of the standard price, with additional discounts on account top-ups!",
-    },
-    perk: {
-      zh: "AICodeMirror 为本项目用户提供特别福利：通过专属链接注册，可享首充 8 折",
-      en: "Exclusive benefit for users of this project: register through our link to receive 20% off your first top-up",
     },
   },
 ];

@@ -492,9 +492,12 @@ export function groupModelsByVendor(models: string[]): [string, string[]][] {
 
 // 有正方形图标素材的赞助商/供应商 → website/public/sponsors/logo-<id>-icon.png（served at /sponsors/…）。
 // 只对确有文件的 id 返回路径，避免其它供应商拿到 404 的 <img>。
-const PROVIDER_LOGO_IDS = new Set(["compshare", "cubence", "apinebula", "rootflowai", "ccsub", "volcengine", "duoyuanx"]);
+const PROVIDER_LOGO_IDS = new Set(["compshare", "cubence", "apinebula", "rootflowai", "ccsub", "volcengine", "duoyuanx", "aicodemirror"]);
+/** 少数供应商的 logo 是 svg（AICodeMirror），其余是 png —— 硬编码扩展名会 404 */
+const PROVIDER_LOGO_SVG_IDS = new Set(["aicodemirror"]);
 export function providerLogo(id: string): string | undefined {
-  return PROVIDER_LOGO_IDS.has(id) ? `/sponsors/logo-${id}-icon.png` : undefined;
+  if (!PROVIDER_LOGO_IDS.has(id)) return undefined;
+  return `/sponsors/logo-${id}-icon.${PROVIDER_LOGO_SVG_IDS.has(id) ? "svg" : "png"}`;
 }
 
 export const api = {
@@ -727,6 +730,10 @@ export const API_PROVIDERS: ApiProviderMeta[] = [
   { id: "duoyuanx", name: "多元探索", shortName: "多元探索", hint: "duoyuanx.com · 注册送 3 元", defaultBaseUrl: "https://duoyuanx.com/v1", signupUrl: "https://duoyuanx.com/register?aff=LErO", advanced: true, modelSuggestions: COMMON_RELAY_MODELS },
   // 旗舰赞助商 APINEBULA —— 金色高亮（大屏特有）
   { id: "apinebula", name: "APINEBULA", hint: "apinebula.ai", defaultBaseUrl: "https://apinebula.ai/v1", signupUrl: "https://apinebula.ai/V6ekjG", flagship: true, modelSuggestions: ["gpt-5.5", "claude-opus-4-8", "claude-sonnet-5", "gemini-3.5-flash", "deepseek-chat"] },
+  // 赞助商 AICodeMirror —— 顶替 RootFlowAI 的位置（两个高亮位之后的首位）。
+  // 它走 **Anthropic 原生协议**而非 OpenAI 兼容（引擎侧在 ANTHROPIC_PROVIDERS 注册，
+  // 连接器复用 ClaudeConnector）：base 不带 /v1，客户端自己接 /v1/messages。
+  { id: "aicodemirror", name: "AICodeMirror", hint: "api.aicodemirror.com · Claude/Codex/Gemini 官方中转", defaultBaseUrl: "https://api.aicodemirror.com/api/claudecode", signupUrl: "https://www.aicodemirror.ai/register?invitecode=XO5L7R", sponsor: true, modelSuggestions: ["claude-sonnet-5", "claude-opus-4-8", "claude-haiku-4-5-20251001"] },
   // 赞助商 Cubence —— API 中转：一个 key 通用多家模型（此为直连 API 用法；
   // 给本地 CLI 配中转的另一用法见 CLI_RELAY_PRESETS，两者共用同一账号）
   { id: "cubence", name: "Cubence", hint: "api.cubence.com", defaultBaseUrl: "https://api.cubence.com/v1", signupUrl: "https://cubence.com/signup?code=SCW29JP9&source=agency", sponsor: true, modelSuggestions: COMMON_RELAY_MODELS },
