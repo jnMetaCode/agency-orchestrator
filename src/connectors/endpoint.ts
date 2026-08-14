@@ -7,6 +7,8 @@
  *     上游 301/302 后 Node 按 fetch 规范把 POST 降级成 GET，端点只收 POST → 405；
  *  2. base_url 少写/多写 /v1，路径对不上 → 404/405。
  */
+import { detectEnvProxy, envProxyStatus } from '../utils/env-proxy.js';
+
 /** query 里这些参数是凭证，绝不留在配置/日志/错误信息里 */
 const SECRET_QUERY_PARAMS = /^(key|api[-_]?key|token|access[-_]?token|auth|password|secret)$/i;
 
@@ -242,21 +244,26 @@ export async function postApiEndpoint(opts: {
  * 绝不把凭证打进日志。
  */
 export function envProxyHint(env: NodeJS.ProcessEnv = process.env): string {
-  const names = ['HTTPS_PROXY', 'https_proxy', 'HTTP_PROXY', 'http_proxy', 'ALL_PROXY', 'all_proxy'];
-  const hit = names.find((n) => (env[n] || '').trim());
-  if (!hit) return '';
-  const raw = String(env[hit]).trim();
-  let shown = raw;
-  try {
-    const u = new URL(raw.includes('://') ? raw : `http://${raw}`);
-    shown = `${u.protocol}//${u.host}`;   // 丢掉可能存在的 user:pass
-  } catch { shown = '(无法解析)'; }
+  const found = detectEnvProxy(env);
+  if (!found) return '';
+  const st = envProxyStatus();
+  if (st.installed) {
+    // 已经在走代理还失败 —— 别再让用户去查 Node 走不走代理这件事了，问题在代理那头
+    return [
+      `本次请求已按 ${found.name}=${found.url} 走代理，仍然失败 ——`,
+      `  多半是代理本身没起来/需要认证/该地址在代理那头也不通，先用 curl 走同一个代理验一下；`,
+      `  确认要直连可设 AO_NO_PROXY=1 关掉代理接管。`,
+    ].join('\n  ');
+  }
+  const why = st.reason === 'disabled'
+    ? `但你设了 AO_NO_PROXY=${String(env.AO_NO_PROXY)}，代理接管已被关掉`
+    : st.reason === 'unavailable'
+      ? `但代理接管没能启用（${st.detail || '依赖不可用'}），当前是直连`
+      : '但本次请求没有走它（代理接管尚未初始化）';
   return [
-    `检测到代理环境变量 ${hit}=${shown}，但 Node 的 fetch 默认不走它（curl / 浏览器会走）——`,
-    `  "curl 能通、AO 连不上" 基本都是这个原因，别急着怀疑 base_url 或 key。`,
-    `  可选做法：① 换用不需要代理的中转商端点（Studio 供应商页有一批）；`,
-    `  ② 用支持 --use-env-proxy 的 Node 版本启动（\`node --help | grep -i proxy\` 可确认你的 Node 有没有这个开关）；`,
-    `  ③ 让代理软件开启系统级 TUN/透明代理，使 Node 的直连也被接管。`,
+    `检测到代理环境变量 ${found.name}=${found.url}，${why} ——`,
+    `  Node 的 fetch 默认不读这些变量（curl / 浏览器会读），所以会出现"curl 能通、AO 连不上"。`,
+    `  去掉 AO_NO_PROXY（或修好该依赖）即可让 AO 自己走代理；也可以换用不需要代理的中转商端点。`,
   ].join('\n  ');
 }
 

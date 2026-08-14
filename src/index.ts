@@ -63,6 +63,7 @@ export function modelCapabilityHint(provider: string): string | null {
 }
 
 import { parseWorkflow, validateWorkflow } from './core/parser.js';
+import { installEnvProxy } from './utils/env-proxy.js';
 import { buildDAG, formatDAG } from './core/dag.js';
 import { executeDAG, type ExecutorOptions } from './core/executor.js';
 import { createConnector } from './connectors/factory.js';
@@ -108,6 +109,8 @@ export async function run(
     signalFlush?: boolean;
   }
 ): Promise<import('./types.js').WorkflowResult> {
+  // 库内嵌调用（Studio 的 in-process 运行、桌面端）不经过 CLI 入口，代理接管在这里也做一次（幂等）
+  await installEnvProxy();
   // llmOverride 同时兜底 YAML 里没写 `llm:` 的情况：用户在命令行 --provider / 界面上
   // 选好了供应商，却被一句"工作流缺少 llm 配置"挡住，是说不通的（自动组队产物偶尔就少这一段）
   const workflow = parseWorkflow(workflowPath, { llmFrom: options?.llmOverride });
@@ -417,6 +420,7 @@ export async function compareWorkflowVsBaseline(
   verdict: CompareVerdict | null;
   result: import('./types.js').WorkflowResult;
 }> {
+  await installEnvProxy();
   const workflow = parseWorkflow(workflowPath, { llmFrom: options?.genOverride });
   // baseline 用与工作流一致的有效输入（含 default），保证两边输入相同
   const effInputs: Record<string, string> = {};

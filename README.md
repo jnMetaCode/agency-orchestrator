@@ -262,6 +262,11 @@ analyze ──→ tech_review  ──→ summary
 | 智谱 GLM | `provider: "zhipu"` | `ZHIPU_API_KEY` |
 | 通义千问（DashScope 兼容模式） | `provider: "qwen"` | `DASHSCOPE_API_KEY` |
 
+> **需要代理才能访问的官方 API（OpenAI / Gemini / xAI / Claude 等）**：AO 会读 `HTTPS_PROXY` / `HTTP_PROXY` / `ALL_PROXY` 自动走代理——
+> Node 的 `fetch` 默认**不读**这些变量，这正是"curl 能通、AO 连不上"的头号原因，AO 替你接上了。
+> 本机地址（`localhost` / `127.0.0.1` 等）**永远直连**，不会被绕进代理，所以 Ollama、Studio 自身不受影响；
+> 你自己写的 `NO_PROXY` 会被保留。想彻底关掉这层接管：`AO_NO_PROXY=1`。
+
 > 这几家都**不预设默认模型**（各家模型编码互不通用，写死一个就是给你埋一个"跑起来才发现模型不存在"）：
 > 在 YAML 里写 `model:`，或在 Studio 供应商页配好 key 后点「获取模型列表」拉真实全量。
 > Gemini 的 key 变量名**特意不叫 `GEMINI_API_KEY`**——那个名字被 gemini-cli 占着，共用会把你本机的 CLI 一起改道。

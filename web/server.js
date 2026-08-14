@@ -27,6 +27,10 @@ import { validateCustomProviderId, readCustomProviders, addCustomProvider, remov
 import { rotatingSponsors, rotateFrom } from '../dist/utils/sponsor-guide.js';
 // 代理诊断与连接器共用同一份口径（curl 能通而 AO 连不上的头号原因）
 import { envProxyHint } from '../dist/connectors/endpoint.js';
+// 环境里配了代理就接管全局 dispatcher（Node 的 fetch 默认不读 HTTP(S)_PROXY）。
+// 放在最前面:清单拉取、测试连接、获取模型列表都要用它;没配代理时什么都不做。
+import { installEnvProxy } from '../dist/utils/env-proxy.js';
+await installEnvProxy();
 
 // Codex 没有环境变量覆盖机制，中转配置写在 ~/.codex/config.toml + auth.json 里，
 // 用固定的内部 provider id（不管用户填的是哪家中转商），避免还要在 UI 里加个

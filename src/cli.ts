@@ -20,6 +20,7 @@ import { run, findAgentsDir, compareWorkflowVsBaseline } from './index.js';
 import { detectInstalledCliProviders } from './providers/detect.js';
 import { API_PROVIDERS, API_PROVIDER_MAP } from './connectors/api-providers.js';
 import { postChatCompletions, postApiEndpoint, endpointHint, normalizeBaseUrl, envProxyHint } from './connectors/openai-compatible.js';
+import { installEnvProxy, envProxyStatus } from './utils/env-proxy.js';
 // claude 走原生 SDK，端点体检要按 Anthropic 协议单独来（见 doctor 的 3.6 段）
 import { normalizeAnthropicBaseUrl } from './connectors/claude.js';
 import { diagnoseClaudeConfig, repairClaudeConfig } from './utils/claude-repair.js';
@@ -51,6 +52,9 @@ const command = args[0];
 detectLang(process.argv);
 
 async function main(): Promise<void> {
+  // 环境里配了代理就先接管全局 dispatcher —— Node 的 fetch 默认不读 HTTP(S)_PROXY，
+  // 不接管的话"curl 能通、AO 连不上"。没配代理时这一步什么都不做。
+  await installEnvProxy();
   // 启动时提示新版本（仅 TTY，24h 缓存，失败静默）
   scheduleUpdateCheck(getVersion());
 
