@@ -19,6 +19,7 @@
 - **Studio 的 Claude 默认端点改为不带 `/v1`**：原默认值 `https://api.anthropic.com/v1` 与 doctor 的"多写 /v1 要去掉"自相矛盾，而它正是用户配中转时照抄的形状样板。
 
 ### Fixed
+- **CI 从 2026-08-07 起一直是红的，而且红在一处"只有大小写敏感文件系统才暴露"的测试模拟**：`test/spawn-cli.ts` 造 Windows 的 PATH 目录时按小写扩展名落盘（`gemini.cmd`），而 PATHEXT 按 Windows 惯例是大写（`.CMD`）——真实 Windows 的 NTFS 与 macOS 默认卷都不区分大小写，两边天然对得上，所以本地怎么跑都绿；CI 跑 ubuntu（大小写敏感）就一个都找不到。更糟的是 `npm test` 用 `&&` 串联、它排在链条第 5 位，**后面 50 多个测试文件在 CI 上从来没跑过**。修的是模拟本身（落盘时两种拼法都写一份），**没动 `findExecutable`**——那是 #102 刚修好、报告者确认过的 Windows 启动路径，没有 Windows 机器验证之前不该为了让测试变绿去碰它。验证用 `hdiutil` 造了个 Case-sensitive APFS 卷把 CI 的失败原样复现出来再修。修复后 CI（Node 20 / 22 两个矩阵）**双双转绿**。
 - **配了代理却「curl 能通、AO 连不上」时，报错完全没提代理**（本轮核实端点时自己撞上的）：Node 的 `fetch` 默认**不读** `HTTP(S)_PROXY`/`ALL_PROXY`，而 curl、浏览器都读。表现是 `fetch failed / UND_ERR_CONNECT_TIMEOUT`，用户前一秒刚用 curl 验过同一个地址是通的，于是会一路去怀疑 base_url、key、甚至我们的代码。现在连接器、`ao doctor`、Studio 的「获取模型列表」在连接类失败时统一点破这一点，并给三条可照做的出路。**代理地址里的账号密码不会被打进日志**（只回显 `scheme://host:port`，有断言钉着）。注意这只解决"说清楚"，AO 自身仍不走代理——真要走代理得另外引依赖，是个单独的决定。
 - **全接口巡检发现的三处**（把 `web/server.js` 里注册的 50 条路由逐条真打了一遍，假 LLM 上游 + 临时 HOME 隔离）：
   - `/api/compare` 对「工作流本身写得不对」回 **500**（实测：产物缺 `llm:` 段 → `工作流缺少 llm 配置`）。500 会让人以为引擎坏了跑去重启，其实是 YAML 的问题。解析类错误现在带 `userError` 标记，web 层据此回 4xx；「找不到角色库目录」同理。
