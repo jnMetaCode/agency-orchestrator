@@ -42,8 +42,8 @@ export const docGroups: DocGroup[] = [
           {
             heading: { zh: "解决什么问题", en: "What problems it solves" },
             body: {
-              zh: "- **让 agency-agents 的专家真正协作起来**：单个专家只解决一个环节，AO 让多位专家按 DAG 分工、并行、交接\n- 单次 prompt 难以覆盖复杂任务，多专家分工 + 收口质量更高\n- 不想写编排代码：用 YAML 声明依赖，引擎自动并行；或一句话 `compose` 自动选专家、生成并运行\n- 267 位专家覆盖营销、工程、设计、产品、财务、法律、销售、学术等领域\n- 21 个 provider（云端 API + 编码 CLI + 本地模型），其中 7 个免 API key",
-              en: "- **Make agency-agents' experts actually collaborate**: one expert handles one step; AO has many experts divide work, run in parallel, and hand off via a DAG\n- A single prompt struggles with complex tasks; multi-expert division + a finalizer yields higher quality\n- No orchestration code: declare dependencies in YAML, or `compose` from one sentence to auto-pick experts, generate and run\n- 267 experts across marketing, engineering, design, product, finance, legal, sales, academic, and more\n- 21 providers (cloud APIs + coding CLIs + local models), 7 of which need no API key",
+              zh: "- **让 agency-agents 的专家真正协作起来**：单个专家只解决一个环节，AO 让多位专家按 DAG 分工、并行、交接\n- 单次 prompt 难以覆盖复杂任务，多专家分工 + 收口质量更高\n- 不想写编排代码：用 YAML 声明依赖，引擎自动并行；或一句话 `compose` 自动选专家、生成并运行\n- 267 位专家覆盖营销、工程、设计、产品、财务、法律、销售、学术等领域\n- 26 个 provider（云端 API + 编码 CLI + 本地模型），其中 7 个免 API key",
+              en: "- **Make agency-agents' experts actually collaborate**: one expert handles one step; AO has many experts divide work, run in parallel, and hand off via a DAG\n- A single prompt struggles with complex tasks; multi-expert division + a finalizer yields higher quality\n- No orchestration code: declare dependencies in YAML, or `compose` from one sentence to auto-pick experts, generate and run\n- 267 experts across marketing, engineering, design, product, finance, legal, sales, academic, and more\n- 26 providers (cloud APIs + coding CLIs + local models), 7 of which need no API key",
             },
           },
           {
@@ -407,8 +407,8 @@ steps:
           {
             heading: { zh: "支持哪些 provider", en: "Supported providers" },
             body: {
-              zh: "顶层 `llm` 指定 provider 与 model，或用 `--provider` 临时覆盖。三类都支持：**云端 API**（DeepSeek / Claude / OpenAI，以及火山引擎、多元探索、LanoX、Cubence、优云智算、AICodeMirror 等聚合与中转商）、**本地编码 CLI**（claude-code / gemini-cli / codex-cli / copilot-cli / openclaw-cli / hermes-cli，走已登录的订阅，免 key）、**本地模型**（Ollama）。完整清单以 Studio「供应商」面板为准——那里是唯一的注册表，新增一家两边同时生效。",
-              en: "Set provider/model at top-level `llm`, or override with `--provider`. Three families are supported: **cloud APIs** (DeepSeek / Claude / OpenAI, plus aggregators and relays like Volcengine, DuoyuanX, LanoX, Cubence, CompShare and AICodeMirror), **local coding CLIs** (claude-code / gemini-cli / codex-cli / copilot-cli / openclaw-cli / hermes-cli — they use your existing subscription, no key needed), and **local models** (Ollama). The Studio Providers panel is the single source of truth for the full list.",
+              zh: "顶层 `llm` 指定 provider 与 model，或用 `--provider` 临时覆盖。三类都支持：**云端 API**（第一方官方 API：DeepSeek / Claude / OpenAI / Gemini / xAI Grok / Moonshot Kimi / 智谱 GLM / 通义千问；以及火山引擎、多元探索、LanoX、胜算云、Cubence、优云智算、AICodeMirror 等聚合与中转商）、**本地编码 CLI**（claude-code / gemini-cli / codex-cli / copilot-cli / openclaw-cli / hermes-cli，走已登录的订阅，免 key）、**本地模型**（Ollama）。完整清单以 Studio「供应商」面板为准——那里是唯一的注册表，新增一家两边同时生效。",
+              en: "Set provider/model at top-level `llm`, or override with `--provider`. Three families are supported: **cloud APIs** (first-party: DeepSeek / Claude / OpenAI / Gemini / xAI Grok / Moonshot Kimi / Zhipu GLM / Qwen; plus aggregators and relays like Volcengine, DuoyuanX, LanoX, ShengSuanYun, Cubence, CompShare and AICodeMirror), **local coding CLIs** (claude-code / gemini-cli / codex-cli / copilot-cli / openclaw-cli / hermes-cli — they use your existing subscription, no key needed), and **local models** (Ollama). The Studio Providers panel is the single source of truth for the full list.",
             },
             code: `llm:
   provider: "deepseek"

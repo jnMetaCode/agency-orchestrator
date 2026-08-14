@@ -74,6 +74,29 @@ export const API_PROVIDERS: ApiProviderSpec[] = [
   // pricing 与 support_apis，所以默认模型不用猜：claude-sonnet-5 在列、已定价、
   // support_apis 含 /v1/chat/completions（2026-08-14 实拉核实）。模型名带厂商前缀。
   { id: 'shengsuanyun', envKey: 'SHENGSUANYUN_API_KEY', envBase: 'SHENGSUANYUN_BASE_URL', defaultBaseUrl: 'https://router.shengsuanyun.com/api/v1', defaultModel: 'anthropic/claude-sonnet-5' },
+
+  // ── 第一方厂商官方 API（非赞助商，2026-08 补齐）────────────────────────────
+  // 端点均已无 key 实测存在（401/400 = 鉴权失败而非 404）。**一律不设 defaultModel**：
+  // 拿不到各家原生模型清单（要 key），而各家的编码互不通用，猜一个就是给用户埋一个
+  // "跑起来才报模型不存在"。配了 key 在 Studio 点「获取模型列表」即拉真实全量——
+  // 这五家都提供 OpenAI 兼容的 GET /models。
+  //
+  // Gemini：gemini-cli 已于 2026-06-18 停服，而云端列表里一直没有 Gemini 直连，
+  // 用户想用只能绕聚合商。这里补的是 Google 官方的 **OpenAI 兼容层**
+  // （/v1beta/openai，不是原生 generateContent）。
+  // **env 名必须与 gemini-cli 那条分开**：server.js 的 KEY_ENV 里 gemini-cli 用的是
+  // GEMINI_API_KEY / GOOGLE_GEMINI_BASE_URL，共用会把用户本机的 CLI 一起改道 ——
+  // 与 ANTHROPIC_BASE_URL 那次是同一个坑（有断言钉着）。
+  { id: 'gemini', envKey: 'GOOGLE_GENAI_API_KEY', envBase: 'GOOGLE_GENAI_BASE_URL', defaultBaseUrl: 'https://generativelanguage.googleapis.com/v1beta/openai' },
+  // xAI Grok —— 官方 OpenAI 兼容端点
+  { id: 'xai', envKey: 'XAI_API_KEY', envBase: 'XAI_BASE_URL', defaultBaseUrl: 'https://api.x.ai/v1' },
+  // 月之暗面 Moonshot（Kimi）—— 官方 OpenAI 兼容端点
+  { id: 'moonshot', envKey: 'MOONSHOT_API_KEY', envBase: 'MOONSHOT_BASE_URL', defaultBaseUrl: 'https://api.moonshot.cn/v1' },
+  // 智谱 GLM —— 开放平台 v4（路径自带版本段 /paas/v4，**不是** /v1）
+  { id: 'zhipu', envKey: 'ZHIPU_API_KEY', envBase: 'ZHIPU_BASE_URL', defaultBaseUrl: 'https://open.bigmodel.cn/api/paas/v4' },
+  // 阿里通义千问 —— DashScope 的 OpenAI **兼容模式**端点（原生 DashScope 协议不通用）；
+  // key 用官方环境变量名 DASHSCOPE_API_KEY
+  { id: 'qwen', envKey: 'DASHSCOPE_API_KEY', envBase: 'DASHSCOPE_BASE_URL', defaultBaseUrl: 'https://dashscope.aliyuncs.com/compatible-mode/v1' },
 ];
 
 export const API_PROVIDER_MAP: Record<string, ApiProviderSpec> = Object.fromEntries(

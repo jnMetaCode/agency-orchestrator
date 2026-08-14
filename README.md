@@ -256,6 +256,15 @@ analyze ──→ tech_review  ──→ summary
 | 火山引擎（豆包 / Kimi / GLM，赞助商） | `provider: "volcengine"` | `ARK_API_KEY` |
 | Claude API | `provider: "claude"` | `ANTHROPIC_API_KEY` |
 | OpenAI | `provider: "openai"` | `OPENAI_API_KEY` |
+| Gemini（Google 官方 OpenAI 兼容层） | `provider: "gemini"` | `GOOGLE_GENAI_API_KEY` |
+| xAI Grok | `provider: "xai"` | `XAI_API_KEY` |
+| Moonshot Kimi | `provider: "moonshot"` | `MOONSHOT_API_KEY` |
+| 智谱 GLM | `provider: "zhipu"` | `ZHIPU_API_KEY` |
+| 通义千问（DashScope 兼容模式） | `provider: "qwen"` | `DASHSCOPE_API_KEY` |
+
+> 这几家都**不预设默认模型**（各家模型编码互不通用，写死一个就是给你埋一个"跑起来才发现模型不存在"）：
+> 在 YAML 里写 `model:`，或在 Studio 供应商页配好 key 后点「获取模型列表」拉真实全量。
+> Gemini 的 key 变量名**特意不叫 `GEMINI_API_KEY`**——那个名字被 gemini-cli 占着，共用会把你本机的 CLI 一起改道。
 
 **自定义 API（智谱、月之暗面、硅基流动等 OpenAI 兼容 API）：**
 

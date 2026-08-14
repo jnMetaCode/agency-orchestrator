@@ -766,6 +766,19 @@ export const API_PROVIDERS: ApiProviderMeta[] = [
   // 教错——doctor 也按同一口径提示（多写 /v1 会被明确指出来）。
   { id: "claude", name: "Claude (Anthropic)", shortName: "Claude", hint: "console.anthropic.com", defaultBaseUrl: "https://api.anthropic.com", vendor: true, modelSuggestions: ["claude-sonnet-5", "claude-opus-4-8", "claude-haiku-4-5-20251001"] },
   { id: "openai", name: "OpenAI", hint: "gpt-5.5 {etc} · platform.openai.com", defaultBaseUrl: "https://api.openai.com/v1", vendor: true, modelSuggestions: ["gpt-5.5", "gpt-5.4-mini", "gpt-4o"] },
+  // ── 第一方厂商官方 API（2026-08 补齐，非赞助商，排在赞助商组之后）──────────────
+  // 端点都无 key 实测过存在；**一律不给 modelSuggestions / defaultModel**：各家原生模型
+  // 编码互不通用，拿不到清单就不猜（多元探索那次的教训）。这五家都有 OpenAI 兼容的
+  // GET /models，配了 key 点「获取模型列表」拉真实全量即可。
+  // Gemini 补的是 Google 官方 **OpenAI 兼容层**（/v1beta/openai）；gemini-cli 已停服，
+  // 此前云端列表里没有任何 Gemini 直连入口。
+  { id: "gemini", name: "Gemini (Google)", shortName: "Gemini", hint: "generativelanguage.googleapis.com · Gemini", defaultBaseUrl: "https://generativelanguage.googleapis.com/v1beta/openai", signupUrl: "https://aistudio.google.com/apikey", vendor: true },
+  { id: "xai", name: "xAI Grok", shortName: "Grok", hint: "api.x.ai · Grok", defaultBaseUrl: "https://api.x.ai/v1", signupUrl: "https://console.x.ai", vendor: true },
+  { id: "moonshot", name: "Moonshot Kimi", shortName: "Kimi", hint: "api.moonshot.cn · Kimi", defaultBaseUrl: "https://api.moonshot.cn/v1", signupUrl: "https://platform.moonshot.cn/console/api-keys", vendor: true },
+  // 端点自带版本段 /paas/v4（不是 /v1）——照 OpenAI 惯例改写会 404
+  { id: "zhipu", name: "智谱 GLM", shortName: "智谱", hint: "open.bigmodel.cn · GLM", defaultBaseUrl: "https://open.bigmodel.cn/api/paas/v4", signupUrl: "https://open.bigmodel.cn/usercenter/apikeys", vendor: true },
+  // DashScope 的 **兼容模式**端点；原生 DashScope 协议我们不支持
+  { id: "qwen", name: "通义千问 Qwen", shortName: "通义千问", hint: "dashscope.aliyuncs.com · Qwen", defaultBaseUrl: "https://dashscope.aliyuncs.com/compatible-mode/v1", signupUrl: "https://bailian.console.aliyun.com/?apiKey=1", vendor: true },
   { id: "agnes", name: "Agnes AI", hint: "agnes-2.0-flash · agnes-ai.com", defaultBaseUrl: "https://apihub.agnes-ai.com/v1", modelSuggestions: ["agnes-2.0-flash", "agnes-1.5-flash"] },
   // RootFlowAI / CCSub：赞助已于 2026-08 下架 —— 摘掉赞助标识、推广链接与置顶位，但
   // **保留为可用供应商**并排在末位。已经配好它们 key 的用户不该因为商务关系变化就被

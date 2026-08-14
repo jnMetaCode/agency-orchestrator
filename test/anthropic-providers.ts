@@ -61,6 +61,22 @@ test('env 变量名彼此不重复，且与 OpenAI 兼容那批也不撞', () =>
   }
 });
 
+test('云端 provider 的 env 名不得与本地 CLI 中转那几条撞（撞了就会把用户的 CLI 一起改道）', () => {
+  // server.js 的 KEY_ENV 里，claude-code / gemini-cli 用的是这几个变量名 —— 它们会被注入
+  // 进程 env 并被所有子进程继承。云端 provider 若复用同名变量，用户只是配了个直连 API，
+  // 本机的编码 CLI 就被一起改道了（ANTHROPIC_BASE_URL 那次踩过；补 Gemini 直连时同款风险，
+  // 所以它用的是 GOOGLE_GENAI_*，不是 gemini-cli 的 GEMINI_API_KEY）。
+  const server = readFileSync('web/server.js', 'utf-8');
+  const block = server.slice(server.indexOf("'claude-code': {"), server.indexOf('function readKeys'));
+  const cliEnvNames = new Set([...block.matchAll(/'([A-Z][A-Z0-9_]+)'/g)].map((m) => m[1]));
+  assert(cliEnvNames.size >= 3, `没解析到 CLI 中转的 env 名，这条断言已失效：${[...cliEnvNames]}`);
+  for (const p of [...API_PROVIDERS, ...ANTHROPIC_PROVIDERS]) {
+    for (const v of [p.envKey, p.envBase]) {
+      assert(!cliEnvNames.has(v), `${p.id} 的 ${v} 与本地 CLI 中转共用同一变量名 —— 配它会把用户的 CLI 一起改道`);
+    }
+  }
+});
+
 test('默认端点是 https 且不带 /v1（客户端自己接 /v1/messages）', () => {
   for (const p of ANTHROPIC_PROVIDERS) {
     assert(/^https:\/\//.test(p.defaultBaseUrl), `${p.id} 默认端点不是 https`);
