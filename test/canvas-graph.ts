@@ -94,5 +94,35 @@ const g2 = workflowToGraph(out);
 assert(g2.nodes.length === 3 && g2.edges.length === 3, '二次往返节点/边数量稳定');
 assert(g2.nodes.find((n) => n.id === 'research')?.position.x === 100, '二次往返坐标读回正确');
 
+// 6) assert（机械检查）往返保真 —— 尤其是 Studio 界面上**没有暴露**的 matches。
+//    画布保存走的是 `{ ...node.data }` 全量透传，理论上不会掉字段；但"理论上"不算数：
+//    只要哪天有人给 steps 加了字段白名单，界面上改一下字数就会把用户手写的 matches 静默洗掉。
+//    这条测试就是钉死这件事。
+{
+  const src = [
+    'name: t',
+    'llm: { provider: claude-code, model: sonnet }',
+    'steps:',
+    '  - id: a',
+    '    role: engineering/engineering-sre',
+    '    task: 转成课节文件',
+    '    assert:',
+    '      emits_files: 6',
+    '      min_bytes: 2000',
+    '      contains: ["## 验收清单"]',
+    '      matches: { "^## ": 6 }',
+    '',
+  ].join('\n');
+  const g = workflowToGraph(src);
+  // 模拟用户只在界面上改了「最少字节数」
+  const node = g.nodes[0] as { data: Record<string, unknown> };
+  node.data.assert = { ...(node.data.assert as Record<string, unknown>), min_bytes: 3000 };
+  const back = (yaml.load(graphToWorkflow(g, src)) as { steps: { assert: Record<string, unknown> }[] }).steps[0].assert;
+  assert(back.emits_files === 6, 'assert.emits_files 往返保真');
+  assert(back.min_bytes === 3000, 'assert.min_bytes 采纳界面改动');
+  assert(JSON.stringify(back.contains) === JSON.stringify(['## 验收清单']), 'assert.contains 往返保真');
+  assert((back.matches as Record<string, number>)?.['^## '] === 6, '界面未暴露的 assert.matches 未被洗掉');
+}
+
 console.log(`\n  结果: ${passed} 通过, ${failed} 失败\n`);
 if (failed > 0) process.exit(1);

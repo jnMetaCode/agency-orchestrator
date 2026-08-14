@@ -100,6 +100,11 @@ function toRfNode(n: CanvasNode): Node<StepData> {
   return { id: n.id, type: "aoStep", position: n.position, data: { ...n.data, id: n.id } };
 }
 
+/** 取某个节点上的 assert（没有就当空对象），避免每处都写一遍类型断言。 */
+function assertOf(n: { data?: Record<string, unknown> } | null | undefined): Record<string, unknown> {
+  return ((n?.data as Record<string, unknown> | undefined)?.assert ?? {}) as Record<string, unknown>;
+}
+
 export function WorkflowCanvas({ file, name, onClose, onSaved }: { file: string; name: string; onClose: () => void; onSaved?: (newFile: string) => void }) {
   const [nodes, setNodes, onNodesChange] = useNodesState<Node<StepData>>([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([]);
@@ -172,6 +177,26 @@ export function WorkflowCanvas({ file, name, onClose, onSaved }: { file: string;
       setNodes((nds) => nds.map((n) => (n.id === selectedId ? { ...n, data: { ...n.data, ...patch } } : n)));
     },
     [selectedId, setNodes],
+  );
+
+  /**
+   * 机械检查（assert）的合并写入。
+   * ⚠️ 必须 **合并** 而不是整个替换：`matches`（正则→次数）这一档故意不在界面上暴露
+   * （面向零代码用户，正则不该出现在这里），但它会随 YAML 原样带进来。
+   * 如果这里直接覆盖整个 assert，用户在界面上改一下字数，手写的 matches 就被静默洗掉了。
+   */
+  const patchAssert = useCallback(
+    (kv: Record<string, unknown>) => {
+      const cur = ((selected?.data as Record<string, unknown> | undefined)?.assert ?? {}) as Record<string, unknown>;
+      const next: Record<string, unknown> = { ...cur, ...kv };
+      for (const k of Object.keys(next)) {
+        const v = next[k];
+        if (v === undefined || v === "" || (Array.isArray(v) && v.length === 0)) delete next[k];
+      }
+      // 空对象等于没写（引擎那边空 assert 会在解析期报错），所以清空时要整个删掉
+      patchSelected({ assert: Object.keys(next).length ? next : undefined } as StepData);
+    },
+    [selected, patchSelected],
   );
 
   const addStep = useCallback(() => {
@@ -351,6 +376,39 @@ export function WorkflowCanvas({ file, name, onClose, onSaved }: { file: string;
                     onChange={(e) => patchSelected({ acceptance: e.target.value || undefined })}
                     rows={3}
                     placeholder={"1. 可核对的条件…\n2. …"}
+                    className="mb-3 w-full resize-y rounded-lg border border-border/70 bg-background px-2.5 py-2 text-xs outline-none focus:border-primary/50"
+                  />
+
+                  <label className="mb-1 block text-xs text-muted-foreground">
+                    机械检查（可选，不问 AI，直接数）
+                  </label>
+                  <p className="mb-1.5 text-[11px] leading-relaxed text-muted-foreground/80">
+                    上面的「验收标准」是让 AI 判内容好不好；这里是脚本直接数结构。
+                    差一个文件、被截断这类问题 AI 判不出来——它看不见「本该有几个」。
+                  </p>
+                  <div className="mb-2 grid grid-cols-2 gap-2">
+                    <input
+                      type="number"
+                      min={0}
+                      value={String(assertOf(selected).emits_files ?? "")}
+                      onChange={(e) => patchAssert({ emits_files: e.target.value === "" ? undefined : Number(e.target.value) })}
+                      placeholder="必须产出几个文件"
+                      className="h-9 w-full rounded-lg border border-border/70 bg-background px-2.5 text-xs outline-none focus:border-primary/50"
+                    />
+                    <input
+                      type="number"
+                      min={0}
+                      value={String(assertOf(selected).min_bytes ?? "")}
+                      onChange={(e) => patchAssert({ min_bytes: e.target.value === "" ? undefined : Number(e.target.value) })}
+                      placeholder="最少多少字节（防截断）"
+                      className="h-9 w-full rounded-lg border border-border/70 bg-background px-2.5 text-xs outline-none focus:border-primary/50"
+                    />
+                  </div>
+                  <textarea
+                    value={(assertOf(selected).contains as string[] | undefined)?.join("\n") ?? ""}
+                    onChange={(e) => patchAssert({ contains: e.target.value.split("\n").map((x) => x.trim()).filter(Boolean) })}
+                    rows={2}
+                    placeholder={"必须出现的内容，每行一条"}
                     className="mb-3 w-full resize-y rounded-lg border border-border/70 bg-background px-2.5 py-2 text-xs outline-none focus:border-primary/50"
                   />
 
