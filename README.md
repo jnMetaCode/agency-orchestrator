@@ -13,7 +13,7 @@
 
 **一句话出结果 · 267 个专业 AI 角色 · YAML 零代码 · 11 种大模型 · 支持 key（推荐 DeepSeek），也有 8 种免 key 方式**
 
-> 📖 [完整上手教程](https://mp.weixin.qq.com/s/XcGbkMb6TM6NLQiL7ICwbw)（从安装到实战，10 分钟上手）&nbsp;·&nbsp; 🎓 **官方配套课程**：[AI 专家团队实战](https://aiolaola.com/course/ai-agency?utm_source=github&utm_campaign=orchestrator)（33 节免费，桌面端零代码：单兵点名→自动组队→一人公司全流程，含官方评测的诚实用法边界）· 另有 [从零学会 AI 编程](https://aiolaola.com/?utm_source=github&utm_campaign=orchestrator)（180 节）＋ [从零构建 AI 智能体](https://aiolaola.com/course/ai-agent?utm_source=github&utm_campaign=orchestrator)（40 节）
+> 📖 [完整上手教程](https://mp.weixin.qq.com/s/XcGbkMb6TM6NLQiL7ICwbw)（从安装到实战，10 分钟上手）&nbsp;·&nbsp; 🎓 **官方配套课程**：[AI 专家团队实战](https://aiolaola.com/course/ai-agency?utm_source=github&utm_campaign=orchestrator)（33 节免费，桌面端零代码：单兵点名→自动组队→一人公司全流程，含官方评测的诚实用法边界）· 另有 [AI 内容流水线](https://aiolaola.com/course/ai-pipeline?utm_source=github&utm_campaign=orchestrator)（31 节免费——**用 AO 产线真实生产两门课的全过程留档**：蒸馏、换角色审核、机械闸门、断点续跑，含七类翻车现场）＋ [从零学会 AI 编程](https://aiolaola.com/?utm_source=github&utm_campaign=orchestrator)（180 节）＋ [从零构建 AI 智能体](https://aiolaola.com/course/ai-agent?utm_source=github&utm_campaign=orchestrator)（40 节）
 
 > 觉得有用？请点个 **Star** — 帮助更多人发现这个项目。
 
