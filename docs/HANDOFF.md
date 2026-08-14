@@ -78,14 +78,20 @@ npm error This operation requires a one-time password from your authenticator.
   - 它的模型编码不跟通用命名（文档示例 `gpt-5.6-sol`），官方明说可用性以 `GET /v1/models` 为准 → **故意不给默认模型**，别照别家的名字补。
   - Claude 系走 Anthropic 原生端点（`/v1/messages`，实测 `x-api-key` 与 `Bearer` 都认），所以直连与编码 CLI 中转两条路都通；但它**没有 Gemini 端点**，中转预设里就不该有那一项。
 - **一次全接口巡检**（脚本没进仓，逻辑已沉淀成 `test/web-server.ts` 的断言）：把 50 条路由逐条真打，5xx 清零。修掉的四处见 CHANGELOG「全接口巡检发现的三处」+ 坏 JSON 回 HTML。**巡检时务必隔离 `HOME`**——`claude/apply|repair|restore` 会写 `~/.claude`，不隔离就是拿自己的机器当靶子。
+- **第一方厂商只补五家，范围已定死**（Gemini / xAI Grok / Moonshot Kimi / 智谱 GLM / 通义千问）。对着 cc-switch 比对过，它还带 OpenRouter / 硅基流动 / MiniMax，Groq、Mistral 也都实测可用 —— **有意不加**：供应商列表同时是赞助商的货架，每多一条都在稀释曝光；长尾需求走「添加自定义供应商」。再有人提议加，先确认是商务决定而不是顺手补齐。
 - **两条"写死的东西迟早说谎"已改为自己报警**：中转商卡片的"支持哪几个 CLI"改为按端点推导；文档站的 provider 数量与注册表比对（有断言，不一致就 CI 报红）。
 
 ## 四、下一步建议顺序
 
 1. **发版**（见第一节）→ 发完回 issue 补一句。**这是唯一还卡着的事**：官网侧全部已部署生效，引擎侧的修复要发版才到用户机器。
 2. ~~push 官网~~ → 已完成（2026-08-14 前的所有改动均已 push，Vercel 自动部署，线上核对过）。
-3. **#86 antigravity CLI 接入** —— 唯一还没动的用户诉求，需要先摸清它的非交互参数和登录态复用。
-4. **#93 / #96 / #90 可直接关闭** —— 0.12.0 已交付并回复过。
+3. **#86 antigravity CLI 接入** —— 唯一还没动的用户诉求，**且已变紧急**：Gemini CLI 于 2026-06-18 停服，Google 转 Antigravity CLI，我们的 `gemini-cli` provider 对新用户已是死入口。调研做完了，接入形态与现有 CLI provider 完全对得上（`spawn-cli` 那套）：
+   - 二进制 `agy`（macOS/Linux `~/.local/bin/agy`，Windows `%LOCALAPPDATA%\agy\bin`）
+   - 非交互 `agy -p "<提示词>"`（别名 `--print`/`--prompt`），`--output-format text|json|stream-json`
+   - `--model <slug>`、`--effort low|medium|high`、`--print-timeout`（默认 5m）、`--dangerously-skip-permissions`、`--sandbox`
+   - **鉴权走系统钥匙串里的缓存登录态，没有 API key 环境变量** → 属于"订阅制、免 key"那一类，与 claude-code 同款
+   - 本机没装、且要 Google 账号交互登录一次，所以**实现可以照文档做 + 单测钉住参数拼装，但真跑一次必须由有账号的人来**
+4. ~~#93 / #96 / #90~~ —— 已于 2026-08-14 核实并关闭（镜像在 ghcr、文件读入在 Studio+CLI、`params:` 透传三处都实测在；三条都在已发布的 0.12.x 里）。
 5. **#66 / #44 桌面端打包工程**（瘦身 / 签名公证）。
 
 ## 五、几个不要踩回去的坑

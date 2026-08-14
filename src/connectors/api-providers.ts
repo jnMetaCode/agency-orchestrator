@@ -76,6 +76,11 @@ export const API_PROVIDERS: ApiProviderSpec[] = [
   { id: 'shengsuanyun', envKey: 'SHENGSUANYUN_API_KEY', envBase: 'SHENGSUANYUN_BASE_URL', defaultBaseUrl: 'https://router.shengsuanyun.com/api/v1', defaultModel: 'anthropic/claude-sonnet-5' },
 
   // ── 第一方厂商官方 API（非赞助商，2026-08 补齐）────────────────────────────
+  // **范围是有意收住的：只收这五家主流**（2026-08-14 决定）。cc-switch 还带着
+  // OpenRouter / 硅基流动 / MiniMax 等，Groq、Mistral 也都实测可用 —— 我们不跟进：
+  // 供应商列表同时是赞助商的货架，每多一条都在稀释曝光；长尾需求用 Studio 的
+  // 「添加自定义供应商」填个 OpenAI 兼容端点就能用，不必进内置注册表。
+  // 想再加请先确认这是商务上的决定，别当成"顺手补齐"。
   // 端点均已无 key 实测存在（401/400 = 鉴权失败而非 404）。**一律不设 defaultModel**：
   // 拿不到各家原生模型清单（要 key），而各家的编码互不通用，猜一个就是给用户埋一个
   // "跑起来才报模型不存在"。配了 key 在 Studio 点「获取模型列表」即拉真实全量——
