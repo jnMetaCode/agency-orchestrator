@@ -18,9 +18,17 @@
  * 两个有意为之的取舍：
  *  1. **用 text 而不是 json**：json 的具体字段形状官方文档没写全，猜结构解析等于给自己
  *     埋一个"跑完了但什么都没解析出来"。text 就是纯回答正文，够用且不会错。
- *  2. **不传 --dangerously-skip-permissions**：那是"自动批准所有工具调用"，而 AO 是把
+ *  2. **默认不传 --dangerously-skip-permissions**：那是"自动批准所有工具调用"，而 AO 是把
  *     这些 CLI 当文本生成器用、往往就在用户的项目目录里跑 —— 默认自动放行等于替用户
- *     承担改文件的风险。保持默认（读它自己的 permissions 配置）。
+ *     承担改文件的风险。需要时用 `params.skipPermissions: true` 显式开（见下）。
+ *
+ * 还有两件官方文档明确了、值得写下来的事：
+ *  - **它不支持第三方中转**：settings（`~/.gemini/antigravity-cli/settings.json`）里没有
+ *    任何 base_url / API key 的配置项，鉴权只走系统钥匙串里的登录态。所以别给它加
+ *    「CLI 中转商预设」——claude-code / codex / gemini-cli 那套在这儿不适用。
+ *  - **工具调用的放行策略在 settings 的 `toolPermission`**（request-review / proceed-in-sandbox /
+ *    strict / always-proceed）。默认要人工审批，而 `-p` 是非交互的 —— 真遇到需要动工具的
+ *    任务时它会卡到超时、AO 这边只看到"空输出"。所以空输出的报错里必须点破这一条。
  */
 import { CLIBaseConnector } from './cli-base.js';
 import type { LLMConfig } from '../types.js';
@@ -41,11 +49,16 @@ export function printTimeoutArg(timeoutMs?: number): string {
 
 /** 构建命令行参数（抽出来单测：这类拼装错了要等真跑才发现） */
 export function buildAntigravityArgs(prompt: string, config: LLMConfig): string[] {
+  const params = (config.params ?? {}) as Record<string, unknown>;
+  const truthy = (v: unknown) => v === true || /^(1|true|yes|on)$/i.test(String(v ?? ''));
   const args = ['-p', prompt, '--output-format', 'text'];
   // provider 名本身不是模型名（用户在 YAML 里只写 provider 时 model 会是它），别当 slug 传下去
   if (config.model && config.model !== 'antigravity-cli') args.push('--model', config.model);
-  const effort = String((config.params as Record<string, unknown> | undefined)?.effort ?? '').toLowerCase();
+  const effort = String(params.effort ?? '').toLowerCase();
   if (EFFORTS.has(effort)) args.push('--effort', effort);
+  // 需要它真的动工具时才显式开——是用户在 YAML 里写下的决定，不是我们替他默认的
+  if (truthy(params.sandbox)) args.push('--sandbox');
+  if (truthy(params.skipPermissions)) args.push('--dangerously-skip-permissions');
   args.push('--print-timeout', printTimeoutArg(config.timeout));
   return args;
 }
@@ -60,6 +73,13 @@ export class AntigravityCLIConnector extends CLIBaseConnector {
       // 没确认的通道不能开：切过去只会让模型收到一个字面量 "-"（gemini/codex 那边的教训）
       supportsStdin: false,
       buildArgs: buildAntigravityArgs,
+      emptyOutputHint:
+        'Antigravity 特有的一种卡法：它的工具调用默认要人工审批（settings 里的 toolPermission，' +
+        '文件在 ~/.gemini/antigravity-cli/settings.json），而 -p 是非交互模式，' +
+        '真需要动工具时就会一直等到超时、这边只看到空输出。若该步骤确实需要它读写文件，' +
+        '在工作流里给这一步加 params: { skipPermissions: true }（等于 --dangerously-skip-permissions，' +
+        '会自动批准所有工具调用，请确认目录里没有你不想被改的东西）；' +
+        '若只是要它写文字，把任务描述改成纯写作、不要求它动文件。',
     });
   }
 }

@@ -70,9 +70,36 @@ await test('--print-timeout 跟 AO 的单步超时对齐（否则长步骤会被
   assert(args[args.indexOf('--print-timeout') + 1] === '30m', 'buildArgs 要把超时带上');
 });
 
-await test('不自动放行工具调用（AO 常在用户项目目录里跑）', () => {
+await test('默认不自动放行工具调用（AO 常在用户项目目录里跑）', () => {
   const args = buildAntigravityArgs('x', cfg({ timeout: 60_000, model: 'm', params: { effort: 'high' } }));
   assert(!args.includes('--dangerously-skip-permissions'), '绝不能默认替用户自动批准所有工具调用');
+  assert(!args.includes('--sandbox'), '沙箱也不默认开（会改变它能做什么，属于用户的决定）');
+});
+
+await test('确实需要动工具时，用 params 显式打开（是用户写下的决定）', () => {
+  const on = buildAntigravityArgs('x', cfg({ params: { skipPermissions: true, sandbox: true } }));
+  assert(on.includes('--dangerously-skip-permissions'), 'params.skipPermissions 应打开自动批准');
+  assert(on.includes('--sandbox'), 'params.sandbox 应打开沙箱');
+  // YAML 里写成字符串 "true" 也很常见
+  assert(buildAntigravityArgs('x', cfg({ params: { skipPermissions: 'true' } })).includes('--dangerously-skip-permissions'), '字符串 true 同样认');
+  assert(!buildAntigravityArgs('x', cfg({ params: { skipPermissions: 'false' } })).includes('--dangerously-skip-permissions'), 'false 不该打开');
+});
+
+await test('空输出的报错要点破 Antigravity 特有的卡法（等人工审批）', async () => {
+  const dir = mkdtempSync(join(tmpdir(), 'ao-agy-silent-'));
+  const fake = join(dir, 'agy');
+  writeFileSync(fake, '#!/bin/sh\nexit 0\n', 'utf-8');   // 装死：退出码 0、什么都不输出
+  chmodSync(fake, 0o755);
+  const savedPath = process.env.PATH;
+  process.env.PATH = `${dir}:${savedPath}`;
+  try {
+    const msg = await new AntigravityCLIConnector().chat('s', 'u', cfg({ timeout: 20_000 })).then(() => '', (e: Error) => e.message);
+    assert(/toolPermission/.test(msg), `报错应点名 toolPermission，实际：${msg.slice(0, 120)}`);
+    assert(/skipPermissions/.test(msg), '应给出可照做的开关');
+    assert(/settings\.json/.test(msg), '应指出配置文件在哪');
+  } finally {
+    process.env.PATH = savedPath;
+  }
 });
 
 console.log('\n─── 注册与探测 ───');

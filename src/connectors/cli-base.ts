@@ -99,6 +99,12 @@ export interface CLIConnectorConfig {
   buildStdinArgs?: (config: LLMConfig) => string[];
   /** 从 stdout 提取内容（默认 trim） */
   parseOutput?: (stdout: string) => string;
+  /**
+   * 该 CLI 特有的"空输出"排查提示（追加在通用提示之后）。
+   * 通用那段只能说到"可能没认证/参数变了"，而每个 CLI 卡住的真实原因往往很具体
+   * （如 Antigravity 在等工具调用的人工审批），说清楚才省得用户去猜。
+   */
+  emptyOutputHint?: string;
 }
 
 export class CLIBaseConnector implements LLMConnector {
@@ -228,7 +234,8 @@ export class CLIBaseConnector implements LLMConnector {
           const hint = stderrSnippet
             ? `stderr: ${stderrSnippet}`
             : `进程退出码 ${code} 但 stdout/stderr 都为空。可能原因: CLI 命令格式已变（参考 issue #14 hermes 的 chat -q → -z）/ agent 或 model 配置不对 / CLI 需要先认证。建议在终端直接跑一次:\n    ${this.cfg.command} ${args.slice(0, 4).join(' ')}${args.length > 4 ? ' ...' : ''}\n  看真实输出再调整 ao 配置`;
-          reject(new Error(`${this.cfg.displayName} 返回空内容。${hint}`));
+          const extra = this.cfg.emptyOutputHint ? `\n  ${this.cfg.emptyOutputHint}` : '';
+          reject(new Error(`${this.cfg.displayName} 返回空内容。${hint}${extra}`));
           return;
         }
 
