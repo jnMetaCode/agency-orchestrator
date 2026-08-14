@@ -63,6 +63,11 @@ export function parseWorkflow(
 
   for (const step of steps) {
     if (!step.id) fail(t('parse.missing_step_id'));
+    // step id 会被拼进文件路径（steps/<n>-<id>.md、assets/<id>.png）——带路径分隔符或 ".."
+    // 的 id 此前要到落盘那一刻才炸（ENOENT / 写出目录），在解析期就说清楚。中文 id 不受影响。
+    if (/[\\/:*?"<>|\x00-\x1f]/.test(step.id) || step.id.includes('..') || step.id.startsWith('.')) {
+      fail(`step id "${step.id}" 含路径字符（/ \\ : * ? " < > | 或 ..）——id 会用作产物文件名，请改用字母数字、中文、-、_`);
+    }
     if (stepIds.has(step.id)) fail(`step id 重复: ${step.id}`);
     stepIds.add(step.id);
 
@@ -75,6 +80,10 @@ export function parseWorkflow(
     }
     if (!step.task && !isHumanNode) {
       fail(`step "${step.id}" 缺少 task${isImageNode ? '（image 步骤的 task 就是图片提示词）' : ''}`);
+    }
+    if (isImageNode && (step.acceptance || step.assert)) {
+      // 静默忽略 = 用户以为核验生效了。诚实做法：说清目前不支持，别装作跑了
+      fail(`step "${step.id}" 是 image 步骤，暂不支持 acceptance / assert（它们核验的是文本产出；图片核验是另一件事，需要时把图片交给下游视觉模型步骤去审）`);
     }
     if (isImageNode && !step.image?.model) {
       // 与文本侧"不猜默认模型"同一条纪律；在解析期就拦下来，别烧一次调用再报"模型不存在"

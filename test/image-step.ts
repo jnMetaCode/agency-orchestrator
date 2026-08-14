@@ -62,6 +62,31 @@ await test('CLI provider 不是图片端点——报错要把这条说清并给�
   assert(/claude-code/.test(msg) && /llm:/.test(msg), `应点名 provider 并给"步骤级 llm 覆盖"的出路，实际：${msg.slice(0, 100)}`);
 });
 
+await test('step id 带路径字符在解析期就拦（id 会拼进产物文件名）', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'ao-img-wf3-'));
+  const f = join(dir, 'w.yaml');
+  for (const bad of ['../escape', 'a/b', 'x:y', '.hidden']) {
+    writeFileSync(f, `name: "x"\nllm:\n  provider: "lanox"\n  model: "m"\nsteps:\n  - id: "${bad}"\n    role: "r/r"\n    task: "t"\n`, 'utf-8');
+    let msg = '';
+    try { parseWorkflow(f); } catch (e) { msg = e instanceof Error ? e.message : String(e); }
+    assert(/路径字符/.test(msg), `id "${bad}" 应被拦，实际：${msg.slice(0, 60)}`);
+  }
+  // 中文 / 下划线 / 连字符照常放行
+  writeFileSync(f, 'name: "x"\nllm:\n  provider: "lanox"\n  model: "m"\nsteps:\n  - id: "写文案-步骤_1"\n    role: "r/r"\n    task: "t"\n', 'utf-8');
+  assert(parseWorkflow(f).steps[0].id === '写文案-步骤_1', '中文 id 不该被误伤');
+  rmSync(dir, { recursive: true, force: true });
+});
+
+await test('image 步骤上写 acceptance/assert → 解析期明确报不支持（不静默忽略）', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'ao-img-wf4-'));
+  const f = join(dir, 'w.yaml');
+  writeFileSync(f, 'name: "x"\nllm:\n  provider: "lanox"\n  model: "m"\nsteps:\n  - id: a\n    type: image\n    task: "t"\n    acceptance: "1. 好看"\n    image:\n      model: "m2"\n', 'utf-8');
+  let msg = '';
+  try { parseWorkflow(f); } catch (e) { msg = e instanceof Error ? e.message : String(e); }
+  assert(/acceptance/.test(msg) && /不支持|暂不/.test(msg), `应明说不支持，实际：${msg.slice(0, 80)}`);
+  rmSync(dir, { recursive: true, force: true });
+});
+
 console.log('\n─── 协议 A：Images API ───');
 {
   const seen: Array<{ url: string; body: Record<string, unknown> }> = [];

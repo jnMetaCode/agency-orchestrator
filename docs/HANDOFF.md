@@ -87,6 +87,8 @@ npm error This operation requires a one-time password from your authenticator.
 
 - 落地形态见 CHANGELOG。三条决定值得记住：**task 即提示词**（不另设字段，用户中途确认过）；**image.model 必填不猜**；**协议 A（Images API）打不通自动降 B（Responses+工具）**——判定复用 isGatewayRouteMissShell，LanoX 那种 200 壳也认。
 - **创意库（/creative，229 条图片提示词）加"一键生成"是明确的下一步**，用户已认可方向：后端加一个薄接口调同一个 generateImage()，卡片上加按钮；**演示站上必须走 demoNeedsEngine 降级**（无后端点了必 405，前车之鉴）。这轮没做，别丢。
+- **执行器图片分支现在有自动化端到端了**（`test/e2e-image.ts`：in-process 真跑 run()，两种协议各一条）——upsert 那个 bug 当时就是从"单测全绿但链路断了"的缝里漏掉的，这类"数据从 node 传进 StepResult"的环节以后新增字段都该走这条。
+- **运行中的实时视图（SSE）里图片显示不出来**是已知边界：相对引用的改写只发生在 GET /api/runs/:id（运行结束后的历史视图），直播流里拿到的还是 `assets/…` 相对路径，浏览器解析不了。跑完后在历史里看是好的。要修的话在 SSE done 事件带上 run dir 再改写，工作量不大但这轮没做。
 - 已知边界（v1 故意不做）：`--resume` 跳过图片步骤时，新运行目录里没有旧图的字节，markdown 引用会指向旧目录（变量文本仍可用）；重跑该步则重新生成。metadata 只留 filename。
 
 ## 四、下一步建议顺序
