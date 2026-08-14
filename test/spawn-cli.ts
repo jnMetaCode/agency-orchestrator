@@ -15,7 +15,7 @@ import {
 } from '../src/connectors/cli-base.js';
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { extname, join } from 'node:path';
 import type { LLMConfig } from '../src/types.js';
 
 let passed = 0;
@@ -130,9 +130,31 @@ const winBin = mkdtempSync(join(tmpdir(), 'ao-winpath-'));
 const entryDir = join(winBin, 'node_modules', 'gemini-cli', 'dist');
 mkdirSync(entryDir, { recursive: true });
 writeFileSync(join(entryDir, 'index.js'), '// entry', 'utf-8');
-writeFileSync(join(winBin, 'gemini.cmd'), NPM_SHIM.replace('@google\\gemini-cli', 'gemini-cli'), 'utf-8');
-writeFileSync(join(winBin, 'hermes.exe'), 'MZ', 'utf-8');
-writeFileSync(join(winBin, 'legacy.cmd'), '@echo off\r\nnative-tool.exe %*\r\n', 'utf-8');
+
+/**
+ * 落盘时把扩展名的**两种拼法都写一份**。
+ *
+ * 真实 Windows 上这没必要：PATHEXT 按惯例是大写（`.CMD`），磁盘上是 `gemini.cmd`，
+ * 而 NTFS 不区分大小写 —— 两边天然对得上。但这段模拟要在**大小写敏感**的文件系统上
+ * 也成立（CI 跑 ubuntu），照抄那套就会一个都找不到，于是整段 Windows 判定
+ * "在 CI 上永远是失败的"—— 本仓库的 CI 正是这么红了一路，本地 macOS（默认大小写不敏感）
+ * 却怎么跑都绿，白白丢了这段覆盖。
+ * macOS 上两次写入落到同一个文件，无副作用。
+ */
+function writeWinBin(name: string, content: string): void {
+  writeFileSync(join(winBin, name), content, 'utf-8');
+  const ext = extname(name);
+  if (ext) writeFileSync(join(winBin, `${name.slice(0, -ext.length)}${ext.toUpperCase()}`), content, 'utf-8');
+}
+function rmWinBin(name: string): void {
+  const ext = extname(name);
+  rmSync(join(winBin, name), { force: true });
+  if (ext) rmSync(join(winBin, `${name.slice(0, -ext.length)}${ext.toUpperCase()}`), { force: true });
+}
+
+writeWinBin('gemini.cmd', NPM_SHIM.replace('@google\\gemini-cli', 'gemini-cli'));
+writeWinBin('hermes.exe', 'MZ');
+writeWinBin('legacy.cmd', '@echo off\r\nnative-tool.exe %*\r\n');
 const winEnv = { PATH: winBin, PATHEXT: '.COM;.EXE;.BAT;.CMD' };
 
 await test('.cmd shim → 用当前 Node 直接跑它的 JS 入口（参数原样传）', () => {
@@ -153,10 +175,10 @@ await test('.exe → 直接启动真实可执行文件，含换行的参数照�
 });
 
 await test('PATHEXT 顺序生效：同名 .exe 优先于 .cmd', () => {
-  writeFileSync(join(winBin, 'gemini.exe'), 'MZ', 'utf-8');
+  writeWinBin('gemini.exe', 'MZ');
   const plan = planLaunch('gemini', ['-p', 'x'], 'Gemini CLI', winEnv, 'win32');
   assert(plan.file.toLowerCase() === join(winBin, 'gemini.exe').toLowerCase(), `应优先取 .exe，实际 ${plan.file}`);
-  rmSync(join(winBin, 'gemini.exe'));
+  rmWinBin('gemini.exe');
 });
 
 await test('非 node 的 .cmd → 退回 cmd.exe，且参数带引号（& 不会被当成命令分隔）', () => {
@@ -177,7 +199,7 @@ await test('非 node 的 .cmd + 含换行的提示词 → 抛可读错误（不�
 });
 
 await test('shim 指向的入口文件不存在 → 不硬用，退回 cmd.exe 兜底', () => {
-  writeFileSync(join(winBin, 'broken.cmd'), '"%_prog%" "%dp0%\\node_modules\\gone\\index.js" %*', 'utf-8');
+  writeWinBin('broken.cmd', '"%_prog%" "%dp0%\\node_modules\\gone\\index.js" %*');
   const plan = planLaunch('broken', ['--msg', 'hi'], 'Broken CLI', winEnv, 'win32');
   assert(plan.viaCmd === true, '入口不存在时应退回 cmd.exe 而不是拿不存在的路径去跑');
 });
