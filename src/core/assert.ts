@@ -13,11 +13,6 @@
  *   这个模块只做后一半:纯函数,同样输入永远同样结论,不花 token,不会因为网络抖动"核验不可用"。
  *
  * 用法(工作流 YAML 的步骤上):
- * 已实测的链路（2026-08-14，走画布真实接口 POST/GET /api/workflows/graph）：
- *   带 assert 的图 → 落盘 YAML → 读回画布，四个字段原样往返（含界面不暴露的 matches）；
- *   配错的 assert（空对象 / 字段名写错 / 非法正则 / 数字写成字符串）在**保存这一步**就被 400 挡下，
- *   响应的 errors[] 会点名字段与可用取值；不写 assert 的老工作流照常保存，无回归。
- *
  *   - id: write
  *     task: 把这 6 节草稿转成课节文件
  *     assert:
@@ -25,6 +20,11 @@
  *       min_bytes: 2000                # 产出最小字节数,防截断
  *       contains: ["## 验收清单"]       # 必须出现的字面串
  *       matches: { "^## ": 6 }         # 正则(多行模式)必须命中 6 次
+ *
+ * 已实测的链路(2026-08-14,走画布真实接口 POST/GET /api/workflows/graph):
+ *   带 assert 的图 → 落盘 YAML → 读回画布,四个字段原样往返(含 Studio 界面不暴露的 matches);
+ *   配错的 assert(空对象/字段名写错/非法正则/数字写成字符串)在**保存这一步**就被 400 挡下,
+ *   响应的 errors[] 点名字段与可用取值;不写 assert 的老工作流照常保存,无回归。
  */
 import { parseFileBlocks } from '../cli/materialize.js';
 import type { StepAssert } from '../types.js';
