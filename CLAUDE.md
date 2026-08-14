@@ -128,7 +128,20 @@ steps:
       back_to: step_id
       max_iterations: 3
       exit_condition: "{{var}} contains approved"
+
+  - id: cover                        # text-to-image step: task IS the image prompt
+    type: image                      # no role needed; requires an OpenAI-compatible API provider
+    task: "Generate a poster for {{copy_text}}"
+    image:
+      model: "gpt-image-2"           # REQUIRED — image model ids are vendor-specific, never guessed
+      size: "1024x1024"              # optional; also: quality, background
+    output: cover_img                # variable = markdown image ref; PNG saved to <run>/assets/
+    depends_on: [some_step]
 ```
+
+Image steps try the OpenAI Images API (`/images/generations`) first and automatically fall
+back to the Responses API + `image_generation` tool (LanoX-style). PNG lands in
+`ao-output/<run>/assets/`, Studio renders it inline via `GET /api/runs/:id/assets/:file`.
 
 ## Role Directory
 

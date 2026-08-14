@@ -5,6 +5,7 @@
 ## [Unreleased]
 
 ### Added（本次新增）
+- **文生图步骤 `type: image`**（工作流第一次能产出图片）：**`task` 就是图片提示词**——`{{变量}}` 照常渲染，上游文字步骤的产出直接流进来，不需要 role，不另设提示词字段。`image.model` **必填**（各家图片模型编码互不通用，与文本侧"不猜默认模型"同一条纪律，解析期就拦住、不烧一次调用才报错）。引擎先打 OpenAI 经典 Images API（`/images/generations`，`b64_json` 与 `url` 两种返回形态都认），端点不存在（404/405/LanoX 那种 200 壳）时自动降级到 **Responses + `image_generation` 工具**（LanoX 文档明说 chat 端点不支持图片工具、必须走这条）。PNG 落在 `ao-output/<run>/assets/`，输出变量是 markdown 图片引用；步骤 md、summary、metadata 全接上（**base64 绝不进 metadata**，只留 filename——一张 2MB 的图会把它撑成巨型 JSON）。Studio 侧新增只读产物接口 `GET /api/runs/:id/assets/:file`（路径先 resolve 再校验包含关系 + 必须落在带 metadata.json 的真实运行目录，与删除接口同一套守卫），运行详情把相对引用改写到该接口，Markdown 渲染器内联显示（限宽限高防撑破面板）。工作流主体用 CLI provider 跑也没关系——给图片步骤单独配 `llm: { provider: <API provider> }` 即可，CLI 不是图片端点这件事在报错里说清并给出路。SIGTERM 中断兜底也带图片（settle 即写入 sink）。
 - **Studio 画布能零代码配机械检查**:`assert` 加进画布后,桌面端用户不写 YAML 也能设
   「必须产出几个文件 / 最少多少字节 / 必须包含什么」。此前它只对写 YAML 的 CLI 用户可用——
   而按产品自己的定位(桌面端双击即用、CLI 只在要进终端或 CI 时才装),那等于把新能力发给了少数派。

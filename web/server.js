@@ -636,12 +636,33 @@ app.get('/api/runs/:id', (req, res) => {
         const headerEnd = content.indexOf('\n---\n');
         if (headerEnd >= 0) content = content.slice(headerEnd + 5).trim();
       }
+      // 图片步骤的引用在 md 里是 ../assets/xx.png（相对 steps/ 目录）——浏览器解析不了，
+      // 改写成本服务的只读产物接口，Studio 直接 <img> 内联渲染
+      content = content.replace(/\]\((?:\.\.\/)?assets\//g, `](/api/runs/${encodeURIComponent(req.params.id)}/assets/`);
       return { ...s, content };
     });
     res.json({ ...meta, dir: req.params.id, steps });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
+});
+
+// 运行产物里的图片（type: image 步骤生成）——只读，路径先 resolve 再校验包含关系，
+// 且必须落在一个带 metadata.json 的真实运行目录里（与删除接口同一套守卫，防 ../ 穿越）。
+app.get('/api/runs/:id/assets/:file', (req, res) => {
+  const runDir = resolve(join(OUTPUT_DIR, req.params.id));
+  if (!isInside(runDir, OUTPUT_DIR) || !existsSync(join(runDir, 'metadata.json'))) {
+    return res.status(404).json({ error: 'run not found' });
+  }
+  const filePath = resolve(join(runDir, 'assets', req.params.file));
+  if (!isInside(filePath, join(runDir, 'assets')) || !existsSync(filePath)) {
+    return res.status(404).json({ error: 'asset not found' });
+  }
+  // 目前图片步骤只产 png；即便未来有别的扩展名，白名单兜底成通用二进制
+  const mime = /\.png$/i.test(filePath) ? 'image/png' : 'application/octet-stream';
+  res.setHeader('Content-Type', mime);
+  res.setHeader('Cache-Control', 'private, max-age=86400');   // 产物不可变，放心缓存
+  res.send(readFileSync(filePath));
 });
 
 // ── YAML preview ──

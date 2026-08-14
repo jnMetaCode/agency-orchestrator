@@ -45,7 +45,9 @@ export interface StepDefinition {
   skill?: string;             // 给本步挂一个方法论 skill（注入 system prompt），如 "test-driven-development"
   skills?: string[];          // 多个 skill（与 skill 合并）
   depends_on?: string[];      // 依赖的步骤 id
-  type?: 'normal' | 'approval' | 'human_input'; // 节点类型
+  type?: 'normal' | 'approval' | 'human_input' | 'image'; // 节点类型（image = 文生图：task 即图片提示词）
+  /** type: image 专用——图片模型与参数（model 必填：各家图片模型编码互不通用，不猜） */
+  image?: { model?: string; size?: string; quality?: string; background?: string };
   prompt?: string;            // approval / human_input 类型的提示文本
   condition?: string;           // 如 "{{category}} contains bug"
   depends_on_mode?: 'all' | 'any_completed';  // 默认 'all'（任一跳过→跳过），'any_completed' = 只要有一个完成就执行
@@ -73,6 +75,8 @@ export interface DAGNode {
   agentEmoji?: string;        // 角色 emoji
   acceptance?: string;        // 执行时渲染后的验收标准（executeStep 写入，进 StepResult/metadata）
   verification?: StepVerification; // acceptance 自动核验结果（executeStep 写入）
+  /** type: image 的产物（base64 只在内存里过一道手，saveResults 落成 assets/ 下的文件） */
+  imageAsset?: { filename: string; base64: string };
 }
 
 /**
@@ -150,4 +154,6 @@ export interface StepResult {
   tokens: { input: number; output: number };
   iterations?: number;          // 该步骤实际执行次数（循环场景 > 1）
   verification?: StepVerification; // acceptance 自动核验结果（进 metadata，查看器/summary 展示）
+  /** type: image 的产物。base64 仅在 saveResults 落盘前存在，metadata 里只留 filename */
+  imageAsset?: { filename: string; base64?: string };
 }

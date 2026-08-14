@@ -66,13 +66,19 @@ export function parseWorkflow(
     if (stepIds.has(step.id)) fail(`step id 重复: ${step.id}`);
     stepIds.add(step.id);
 
-    // approval / human_input 是无角色的人工节点，不需要 role / task
+    // approval / human_input 是无角色的人工节点，不需要 role / task；
+    // image 是文生图节点：task 就是图片提示词，不需要 role
     const isHumanNode = step.type === 'approval' || step.type === 'human_input';
-    if (!isHumanNode && !step.role) {
+    const isImageNode = step.type === 'image';
+    if (!isHumanNode && !isImageNode && !step.role) {
       fail(`step "${step.id}" 缺少 role`);
     }
     if (!step.task && !isHumanNode) {
-      fail(`step "${step.id}" 缺少 task`);
+      fail(`step "${step.id}" 缺少 task${isImageNode ? '（image 步骤的 task 就是图片提示词）' : ''}`);
+    }
+    if (isImageNode && !step.image?.model) {
+      // 与文本侧"不猜默认模型"同一条纪律；在解析期就拦下来，别烧一次调用再报"模型不存在"
+      fail(`step "${step.id}" 是 image 步骤，必须写 image: { model: "<图片模型>" }（各家图片模型编码互不通用，如 gpt-image-2 / doubao-seedream 等，见服务商文档或 Studio 的「获取模型列表」）`);
     }
 
     // depends_on 的引用校验在 validateWorkflow() 中处理

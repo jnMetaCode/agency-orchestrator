@@ -194,6 +194,22 @@ steps:
               en: "Top-level `inputs` declares runtime inputs, provided via the CLI. Reference inputs or any upstream step's `output` with `{{name}}` in a task.",
             },
           },
+          {
+            heading: { zh: "文生图步骤（type: image）", en: "Image steps (type: image)" },
+            body: {
+              zh: "步骤写 `type: image` 就是文生图：**`task` 就是图片提示词**（`{{变量}}` 照常渲染，上游文字产出可直接流进来），不需要 role。`image.model` **必填**——各家图片模型编码互不通用（gpt-image-2 / doubao-seedream 等），不猜。引擎先打 OpenAI 经典 Images API（`/images/generations`），端点不存在时自动降级到 Responses + `image_generation` 工具（LanoX 文档明说 chat 端点不支持图片工具、必须走后者）。PNG 落在 `ao-output/<run>/assets/`，输出变量是 markdown 图片引用，报告与 Studio 运行页直接内联显示。需要 OpenAI 兼容的 API provider（本地 CLI 不是图片端点）——工作流主体用 CLI 跑也没关系，给这一步单独配 `llm: { provider: ... }` 即可。",
+              en: "A step with `type: image` generates an image: **`task` is the image prompt** ({{variables}} render as usual, so upstream text flows straight in) and no role is needed. `image.model` is **required** — image model ids are vendor-specific (gpt-image-2, doubao-seedream, …), we never guess. The engine tries the classic OpenAI Images API (`/images/generations`) first and automatically falls back to the Responses API + `image_generation` tool (LanoX's docs state chat endpoints don't support image tools). The PNG lands in `ao-output/<run>/assets/`, the output variable is a markdown image reference, and both the report and the Studio run view render it inline. Needs an OpenAI-compatible API provider (local CLIs are not image endpoints) — if the rest of the workflow runs on a CLI, just give this one step its own `llm: { provider: ... }`.",
+            },
+            code: `steps:
+  - id: cover
+    type: image
+    task: "为 {{copy_text}} 生成一张海报"
+    image:
+      model: "gpt-image-2"     # 必填
+      size: "1024x1024"        # 可选；另有 quality / background
+    output: cover_img
+    depends_on: [write_copy]`,
+          },
         ],
       },
       {

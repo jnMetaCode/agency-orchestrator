@@ -38,6 +38,19 @@ export function saveResults(result: WorkflowResult, outputDir: string): string {
 
   mkdirSync(stepsDir, { recursive: true });
 
+  // 图片步骤的产物：base64 只在内存里过一道手，这里落成 assets/ 下的真文件。
+  // 落完就把 base64 从 StepResult 上摘掉 —— metadata.json 里只留 filename，
+  // 免得一张 2MB 的图以 base64 形态把 metadata 撑成巨型 JSON。
+  const withAssets = result.steps.filter((s) => s.imageAsset?.base64);
+  if (withAssets.length) {
+    const assetsDir = join(dir, 'assets');
+    mkdirSync(assetsDir, { recursive: true });
+    for (const s of withAssets) {
+      writeFileSync(join(assetsDir, s.imageAsset!.filename), Buffer.from(s.imageAsset!.base64!, 'base64'));
+      delete s.imageAsset!.base64;
+    }
+  }
+
   // 保存每步的输出（带角色头部）
   for (let i = 0; i < result.steps.length; i++) {
     const step = result.steps[i];
@@ -57,7 +70,8 @@ export function saveResults(result: WorkflowResult, outputDir: string): string {
       ? `> 🔍 ${verifLine}${step.verification!.failed.length ? `\n> ${step.verification!.failed.map(f => `· ${f}`).join('\n> ')}` : ''}\n`
       : '';
     const header = `> ${emoji} **${name}** | ${stepLabel} ${i + 1}/${result.steps.length}${duration ? ` | ${duration}` : ''}\n${accBlock}${verifBlock}\n---\n\n`;
-    const body = step.output || step.error || '(无输出)';
+    // 图片引用按运行目录根写（assets/x.png）；步骤 md 落在 steps/ 里，写文件时补一层 ../
+    const body = (step.output || step.error || '(无输出)').replace(/\]\(assets\//g, '](../assets/');
     writeFileSync(join(stepsDir, filename), header + body, 'utf-8');
   }
 
@@ -145,6 +159,8 @@ export function saveResults(result: WorkflowResult, outputDir: string): string {
       error: s.error,
       duration: `${(s.duration / 1000).toFixed(1)}s`,
       tokens: s.tokens,
+      // 图片步骤只留 filename（base64 在上面落盘时已摘掉）——Studio 据此把图渲染出来
+      imageAsset: s.imageAsset,
     })),
   };
   writeFileSync(join(dir, 'metadata.json'), JSON.stringify(metadata, null, 2), 'utf-8');

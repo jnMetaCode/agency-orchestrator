@@ -15,6 +15,7 @@ import { evaluateCondition } from './condition.js';
 import { loadAgent } from '../agents/loader.js';
 import { collectSkillNames, injectSkills } from '../skills/loader.js';
 import { createConnector } from '../connectors/factory.js';
+import { generateImage } from '../connectors/image.js';
 import { verifyAcceptance, buildReworkBlock, formatFailedItems } from './verify.js';
 import { checkAssert, buildAssertReworkBlock } from './assert.js';
 import { createInterface } from 'node:readline';
@@ -191,6 +192,7 @@ export async function executeDAG(dag: DAG, options: ExecutorOptions): Promise<Wo
               verification: node.verification,
               duration: Date.now() - (node.startTime || Date.now()),
               tokens: node.tokenUsage || { input: 0, output: 0 },
+              imageAsset: node.imageAsset,
             });
           }
           return value;
@@ -239,6 +241,7 @@ export async function executeDAG(dag: DAG, options: ExecutorOptions): Promise<Wo
           duration: (node.endTime || 0) - (node.startTime || 0),
           tokens: node.tokenUsage || { input: 0, output: 0 },
           iterations: iterCount > 0 ? iterCount + 1 : undefined,
+          imageAsset: node.imageAsset,
         });
 
         onStepComplete?.(node);
@@ -428,6 +431,23 @@ async function executeStep(
   // 人工输入节点：跑到这步暂停、读取用户输入，作为该步产出注入下游
   if (node.step.type === 'human_input') {
     return await handleHumanInput(node, opts.context);
+  }
+
+  // 文生图节点：task 就是图片提示词（{{变量}} 照常渲染，上游文字产出可直接流进来）。
+  // 产出 = markdown 图片引用（assets/<id>.png），变量值也是这串 —— 下游文本步骤引用它时
+  // 模型能看懂"这里有张图"，报告与 Studio 则按路径把图渲染出来。
+  if (node.step.type === 'image') {
+    node.agentName = node.step.name || '文生图';
+    node.agentEmoji = node.step.emoji || '🎨';
+    const prompt = renderTemplate(node.step.task, opts.context);
+    const stepLlmImg = node.step.llm;
+    const imgConfig = (stepLlmImg ? { ...opts.llmConfig, ...stepLlmImg } : opts.llmConfig) as LLMConfig;
+    const img = await generateImage(imgConfig, prompt, node.step.image ?? {}, (m: string) => process.stderr.write(`  ${m}\n`));
+    const filename = `${node.step.id}.png`;
+    node.imageAsset = { filename, base64: img.buffer.toString('base64') };
+    const kb = (img.buffer.length / 1024).toFixed(0);
+    process.stderr.write(`  🎨 ${node.step.id} 生成图片 ${filename}（${kb}KB，${img.via === 'images-api' ? 'Images API' : 'Responses 工具'}）\n`);
+    return `![${node.step.id}](assets/${filename})`;
   }
 
   // 加载角色定义（步骤级 name/emoji 优先）

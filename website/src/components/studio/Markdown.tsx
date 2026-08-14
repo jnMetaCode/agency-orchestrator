@@ -24,6 +24,11 @@ export function Markdown({ children, className }: { children: string; className?
             <blockquote className="my-2 border-l-2 border-primary/40 pl-3 text-muted-foreground" {...p} />
           ),
           hr: () => <hr className="my-3 border-border/60" />,
+          // type: image 步骤的产物（/api/runs/:id/assets/…）内联展示；限宽防撑破面板
+          img: ({ node, ...p }) => (
+            // eslint-disable-next-line jsx-a11y/alt-text
+            <img className="my-2 max-h-96 max-w-full rounded-lg border border-border/60" loading="lazy" {...p} />
+          ),
           code: ({ node, className: c, children, ...p }) => {
             const inline = !String(c ?? "").includes("language-");
             return inline ? (

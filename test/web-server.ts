@@ -190,6 +190,26 @@ try {
     writeFileSync(join(outDir, newRun, 'metadata.json'), JSON.stringify({ name: '新运行', success: false, finishedAt: '2026-07-16T08:00:00.000+08:00', steps: [] }), 'utf-8');
     mkdirSync(join(outDir, notARun), { recursive: true });
 
+    // ── type: image 产物：详情里路径改写 + 只读产物接口 + 穿越守卫 ──
+    const imgRun = '图片运行-2026-07-17T00-00-00';
+    const PNG = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==', 'base64');
+    mkdirSync(join(outDir, imgRun, 'steps'), { recursive: true });
+    mkdirSync(join(outDir, imgRun, 'assets'), { recursive: true });
+    writeFileSync(join(outDir, imgRun, 'metadata.json'), JSON.stringify({ name: '图片运行', success: true, steps: [{ id: 'poster', role: '', status: 'completed', duration: '1.0s', tokens: { input: 0, output: 0 }, imageAsset: { filename: 'poster.png' } }] }), 'utf-8');
+    writeFileSync(join(outDir, imgRun, 'steps', '1-poster.md'), '> 🎨 **文生图** | 步骤 1/1\n\n---\n\n![poster](../assets/poster.png)', 'utf-8');
+    writeFileSync(join(outDir, imgRun, 'assets', 'poster.png'), PNG);
+    const imgDetail = (await (await fetch(base + '/api/runs/' + encodeURIComponent(imgRun))).json()) as { steps: Array<{ id: string; content?: string }> };
+    const posterStep = imgDetail.steps.find((x) => x.id === 'poster');
+    assert(!!posterStep?.content?.includes(`/api/runs/${encodeURIComponent(imgRun)}/assets/poster.png`),
+      `详情里的 ../assets/ 引用应被改写成产物接口(实际 ${posterStep?.content})`);
+    const assetRes = await fetch(base + '/api/runs/' + encodeURIComponent(imgRun) + '/assets/poster.png');
+    assert(assetRes.status === 200 && assetRes.headers.get('content-type') === 'image/png', `产物接口应 200 image/png(实际 ${assetRes.status} ${assetRes.headers.get('content-type')})`);
+    assert(Buffer.from(await assetRes.arrayBuffer()).equals(PNG), '产物字节应与落盘一致');
+    const traverse = await fetch(base + '/api/runs/' + encodeURIComponent(imgRun) + '/assets/..%2Fmetadata.json');
+    assert(traverse.status === 404, `路径穿越应被挡(实际 ${traverse.status})`);
+    const noRun = await fetch(base + '/api/runs/' + encodeURIComponent(notARun) + '/assets/x.png');
+    assert(noRun.status === 404, '没有 metadata.json 的目录不提供产物');
+
     const runsList = (await (await fetch(base + '/api/runs')).json()) as Array<{ id: string; startedAt?: string }>;
     const legacy = runsList.find((r) => r.id === legacyRun);
     const fresh = runsList.find((r) => r.id === newRun);

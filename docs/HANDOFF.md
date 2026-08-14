@@ -83,6 +83,12 @@ npm error This operation requires a one-time password from your authenticator.
 - **第一方厂商只补五家，范围已定死**（Gemini / xAI Grok / Moonshot Kimi / 智谱 GLM / 通义千问）。对着 cc-switch 比对过，它还带 OpenRouter / 硅基流动 / MiniMax，Groq、Mistral 也都实测可用 —— **有意不加**：供应商列表同时是赞助商的货架，每多一条都在稀释曝光；长尾需求走「添加自定义供应商」。再有人提议加，先确认是商务决定而不是顺手补齐。
 - **两条"写死的东西迟早说谎"已改为自己报警**：中转商卡片的"支持哪几个 CLI"改为按端点推导；文档站的 provider 数量与注册表比对（有断言，不一致就 CI 报红）。
 
+### 2026-08-14 追加：文生图步骤（type: image）
+
+- 落地形态见 CHANGELOG。三条决定值得记住：**task 即提示词**（不另设字段，用户中途确认过）；**image.model 必填不猜**；**协议 A（Images API）打不通自动降 B（Responses+工具）**——判定复用 isGatewayRouteMissShell，LanoX 那种 200 壳也认。
+- **创意库（/creative，229 条图片提示词）加"一键生成"是明确的下一步**，用户已认可方向：后端加一个薄接口调同一个 generateImage()，卡片上加按钮；**演示站上必须走 demoNeedsEngine 降级**（无后端点了必 405，前车之鉴）。这轮没做，别丢。
+- 已知边界（v1 故意不做）：`--resume` 跳过图片步骤时，新运行目录里没有旧图的字节，markdown 引用会指向旧目录（变量文本仍可用）；重跑该步则重新生成。metadata 只留 filename。
+
 ## 四、下一步建议顺序
 
 1. **发版**（见第一节）→ 发完回 issue 补一句。**这是唯一还卡着的事**：官网侧全部已部署生效，引擎侧的修复要发版才到用户机器。
