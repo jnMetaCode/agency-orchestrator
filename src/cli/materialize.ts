@@ -33,16 +33,28 @@ function pathFromHeadingLine(line: string): string | null {
   if (/^[\w.\-]+(\/[\w.\-]+)*$/.test(stripped) && (stripped.includes('.') || stripped.includes('/'))) {
     return stripped;
   }
+  // 非 ASCII 文件名（中文课节名、日文素材名…）也是合法路径。以前只认 \w，
+  // 于是 `### 课程/w4.6-阶梯产出验收清单.mdx` 一个都认不出来 —— --materialize 静默落盘 0 个文件，
+  // 而这恰恰是本项目的主力场景（文档/课程类产出几乎全是中文名）。
+  // ⚠️ 放宽的同时必须要求**ASCII 扩展名**：否则 `优点/缺点`、`第一章.总则` 这类中文标题
+  //    会被当成文件路径写到盘上。有扩展名才当路径，是这里唯一可靠的判据。
+  if (/^[\p{L}\p{N}._\-]+(\/[\p{L}\p{N}._\-]+)*$/u.test(stripped) && /\.[A-Za-z0-9]{1,8}$/.test(stripped)) {
+    return stripped;
+  }
   return null;
 }
 
 /** 从围栏信息串里取路径：```ts path=src/x.ts 或 ```ts file=src/x.ts 或 ```src/x.ts */
 function pathFromFenceInfo(info: string): string | null {
-  const m = info.match(/(?:path|file)\s*=\s*([\w.\-/]+)/i);
+  // ⚠️ 这里也要认非 ASCII：原本是 [\w.\-/]+，`path=课程/w1.1-开篇.mdx` 会在第一个中文字符处
+  //    直接匹配失败（不是截断成半截，是整条不匹配），于是中文路径全都取不到。
+  const m = info.match(/(?:path|file)\s*=\s*([\p{L}\p{N}._\-/]+)/iu);
   if (m) return m[1];
   const tok = info.trim().split(/\s+/)[0] || '';
   // 信息串第一个 token 本身是路径（含 . 或 /），而非单纯语言名
   if ((tok.includes('/') || /\.[a-zA-Z0-9]+$/.test(tok)) && /^[\w.\-/]+$/.test(tok)) return tok;
+  // 同上：围栏信息串里的中文文件名也要认，同样以 ASCII 扩展名为准
+  if (/^[\p{L}\p{N}._\-/]+$/u.test(tok) && /\.[A-Za-z0-9]{1,8}$/.test(tok)) return tok;
   return null;
 }
 

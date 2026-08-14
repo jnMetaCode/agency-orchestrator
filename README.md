@@ -214,6 +214,12 @@ steps:
     role: "product/product-manager"
     task: "综合反馈输出结论：\n\n{{tech_report}}\n\n{{design_report}}"
     acceptance: "1. 明确给出通过/不通过结论  2. 列出必须解决的问题"  # 可选：验收标准，注入 prompt 并作评审依据
+    assert:                     # 可选：机械断言（纯函数，不过模型）。模型审内容，脚本审结构
+      emits_files: 6            #   产出里必须恰好 6 个文件块（与 --materialize 同一套解析）
+      min_bytes: 2000           #   最小字节数，防截断
+      matches: { "^## ": 6 }    #   正则命中次数（裸模式默认多行）
+      contains: ["## 验收清单"]  #   必须出现的字面串
+                                # 未过 = 定向返工一轮，仍不过则该步失败（缺件产物不放行）
     depends_on: [tech_review, design_review]
 ```
 

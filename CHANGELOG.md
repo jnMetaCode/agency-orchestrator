@@ -5,6 +5,17 @@
 ## [Unreleased]
 
 ### Added（本次新增）
+- **步骤级机械断言 `assert`:不过模型、不过网络的结构校验**。`acceptance` 是让模型判产出满不满足标准,
+  它擅长判内容,却系统性抓不到**「本该有几个」**——真实事故:让模型产出 6 个文件它给了 5 个,剩下 5 个格式完好,
+  模型验收员照样说"满足标准",编译也过,整个文件就这么带着绿灯没了(同一故障在两个项目上各撞一次,两次都亮绿灯)。
+  根因不神秘:验收员看不见"应该有 6 个"这个事实,它只看得见眼前这 5 个。
+  所以分工是**模型审内容、脚本审结构**,新增的这半边是纯函数:同样输入永远同样结论,不花 token,
+  不会因为网络抖动"核验不可用"。四种断言:`emits_files`(文件块数量,解析规则与 `--materialize` 完全一致,
+  保证"断言数的"和"落盘落的"是同一个计数)、`min_bytes`(防截断)、`contains`、`matches`(正则→命中次数)。
+  **未过的语义比 `acceptance` 更硬**:定向返工一轮,仍不过则该步失败——缺件的产物不该带着 ⚠️ 流向下游,
+  静默损坏比失败贵得多(失败当场就知道,缺件要等上线后才发现)。执行顺序排在 `acceptance` 之前:
+  结构都不合格,没必要再花 token 让模型评内容。配置在解析期校验(未知字段、非法正则、空断言全部当场报错——
+  一个写错的正则会变成永远命中不了、或永远命中的哑弹检查,比没有检查更糟)。
 - **AICodeMirror 上架（赞助商）**：三个编码 CLI 的中转预设（`claude-code` → `/api/claudecode`、`gemini-cli` → `/api/gemini`、`codex-cli` → `/api/codex/backend-api/codex`，注意 API 主机是 `aicodemirror.com` 而非官网的 `.ai`），以及**直连 API**——它走 Anthropic Messages 协议而非 OpenAI 兼容（根 `/v1/chat/completions` 实测 404），所以配在 `provider: claude` 上，Studio 的「Claude (Anthropic)」页新增「Anthropic 协议中转商」一键填充。端点做过无 key 探测核实（三个前缀均 401=存在，同级不存在的前缀 404）。
 - **`provider: claude` 支持自定义接入点**：任意 Anthropic 协议中转商都能直连。此前 `factory` 建连接器时只传 `api_key`、连接器也从没给 SDK 设过 `baseURL`、后端 `KEY_ENV` 写死 `base: null` 让前端隐藏地址框——三处叠加导致在 YAML/Studio 里配的中转地址被**静默忽略**，请求照旧打官方端点（拿中转 key 去打必然 401，且看不出是配置没生效）。新增 `normalizeAnthropicBaseUrl`：SDK 自己会接 `/v1/messages`，所以 base 里多写的 `/v1`、`/messages` 会被削掉，中转商的子路径基址（如 `/api/claudecode`）保持不动。
 - **`ao doctor` 覆盖 Anthropic 协议端点**：claude 配了中转却没有体检等于给了能力不给诊断，而"地址配错"正是中转用户最常踩的坑。现按原生协议单独探测，认出中转还是官方端点，并对"只填域名""多写 /v1"分别给出能照做的指引。
@@ -14,11 +25,18 @@
 - **Gemini 直连的 env 名特意与 `gemini-cli` 分开**（`GOOGLE_GENAI_*` 而非 `GEMINI_API_KEY`）：后者被本地 CLI 中转占着，共用会把用户本机的 CLI 一起改道——与 `ANTHROPIC_BASE_URL` 那次同源。新增断言把「云端 provider 的 env 名不得与本地 CLI 中转撞」钉死，此前只防了 `ANTHROPIC_*` 一族。
 - **赞助商上/下架彻底不用发版**：远程清单（`website/public/providers-manifest.json`，改官网仓 push 即对所有已安装用户生效）新增 `sponsorRotation`（引导横幅轮换池，配了就整池替换），并启用 `removedProviders` 与 `relayPresets`。轮换算法抽成 `rotateFrom(pool)` 由内置与清单共用，份额口径不会因来源不同而漂移。
 
+
 ### Changed
 - **RootFlowAI 与 CCSub 赞助下架**：从引导轮换池、官网赞助商列表、Studio 赞助标识/推广链接/置顶位一并摘除，曝光位由 AICodeMirror 顶上；随后 LanoX AI 与胜算云先后加入，轮换池现为 **7 家均分（每家 2/7 天）**，且这一池已同步写进远程清单（清单配了就整池替换内置的，所以两份必须逐条一致——有测试钉住）。两家**仍保留为可用供应商**并排在末位——已配好 key 的用户不该因商务关系变化就连不上。
 - **Studio 的 Claude 默认端点改为不带 `/v1`**：原默认值 `https://api.anthropic.com/v1` 与 doctor 的"多写 /v1 要去掉"自相矛盾，而它正是用户配中转时照抄的形状样板。
 
 ### Fixed
+- **`--materialize` 认不出非 ASCII 文件名**:路径判定只认 `\w`,于是 `### 课程/w4.6-阶梯产出验收清单.mdx`
+  这类中文文件名一个都识别不出来,**静默落盘 0 个文件**(不报错,就是什么都没有);
+  围栏信息串里的 `path=课程/…` 同样在第一个中文字符处整条匹配失败。
+  这恰恰是本项目的主力场景——文档/课程类产出几乎全是中文名。
+  已放宽为 Unicode 字母数字,但**要求 ASCII 扩展名**:否则 `优点/缺点`、`第一章.总则` 这类中文标题
+  会被当成文件路径写到盘上。有扩展名才当路径,是这里唯一可靠的判据。
 - **CI 从 2026-08-07 起一直是红的，而且红在一处"只有大小写敏感文件系统才暴露"的测试模拟**：`test/spawn-cli.ts` 造 Windows 的 PATH 目录时按小写扩展名落盘（`gemini.cmd`），而 PATHEXT 按 Windows 惯例是大写（`.CMD`）——真实 Windows 的 NTFS 与 macOS 默认卷都不区分大小写，两边天然对得上，所以本地怎么跑都绿；CI 跑 ubuntu（大小写敏感）就一个都找不到。更糟的是 `npm test` 用 `&&` 串联、它排在链条第 5 位，**后面 50 多个测试文件在 CI 上从来没跑过**。修的是模拟本身（落盘时两种拼法都写一份），**没动 `findExecutable`**——那是 #102 刚修好、报告者确认过的 Windows 启动路径，没有 Windows 机器验证之前不该为了让测试变绿去碰它。验证用 `hdiutil` 造了个 Case-sensitive APFS 卷把 CI 的失败原样复现出来再修。修复后 CI（Node 20 / 22 两个矩阵）**双双转绿**。
 - **AO 自己的请求现在会走 `HTTP(S)_PROXY`**（新增可选依赖 `undici`）：Node 的 `fetch` 默认**不读**这些变量，导致在需要代理才能访问 OpenAI / Gemini / xAI / Anthropic 官方端点的机器上，用户 curl 验得好好的地址、AO 一跑就是 `fetch failed`。现在检测到代理变量时接管全局 dispatcher（CLI、引擎、Studio 三个入口都装，幂等）。三条自我约束：**没配代理就什么都不做**（绝大多数走中转商的用户行为一个字节不变）、**本机地址永远直连**（否则 Ollama / Studio 自身 / 测试假端点全被绕进代理）、`AO_NO_PROXY=1` 可彻底关掉。没用 undici 现成的 `EnvHttpProxyAgent`——实测它自己读 `process.env` 且**忽略显式传入的代理地址**，会造成"看着接管了、实际走的是另一个代理"这种最难查的故障；改为自己按 origin 路由（命中 no_proxy 走直连 Agent，其余走 ProxyAgent）。真机验证：同一条 `ao doctor` 从 `fetch failed` 变成 OpenAI 的 401、xAI 的 400（请求真的到了对面）。
 - **配了代理却「curl 能通、AO 连不上」时，报错完全没提代理**（本轮核实端点时自己撞上的）：Node 的 `fetch` 默认**不读** `HTTP(S)_PROXY`/`ALL_PROXY`，而 curl、浏览器都读。表现是 `fetch failed / UND_ERR_CONNECT_TIMEOUT`，用户前一秒刚用 curl 验过同一个地址是通的，于是会一路去怀疑 base_url、key、甚至我们的代码。现在连接器、`ao doctor`、Studio 的「获取模型列表」在连接类失败时统一点破这一点，并给三条可照做的出路。**代理地址里的账号密码不会被打进日志**（只回显 `scheme://host:port`，有断言钉着）。注意这只解决"说清楚"，AO 自身仍不走代理——真要走代理得另外引依赖，是个单独的决定。

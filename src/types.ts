@@ -39,6 +39,8 @@ export interface StepDefinition {
   task: string;               // 任务描述，支持 {{变量}} 模板
   acceptance?: string;        // 验收标准（支持 {{变量}}）：注入 prompt 末尾要求产出满足；产出后自动核验，未过自动返工一轮；随产出展示，并作盲评评分锚点
   verify?: boolean;           // false = 本步关闭 acceptance 自动核验（优先级高于顶层 verify）
+  assert?: StepAssert;        // 机械断言：不过模型、不过网络的结构校验（数文件块 / 字节数 / 正则命中次数）。
+                              // 与 acceptance 分工：模型审内容，脚本审结构。未过 = 定向返工一轮，仍不过则本步失败。
   output?: string;            // 输出变量名
   skill?: string;             // 给本步挂一个方法论 skill（注入 system prompt），如 "test-driven-development"
   skills?: string[];          // 多个 skill（与 skill 合并）
@@ -77,6 +79,18 @@ export interface DAGNode {
  * acceptance 自动核验结果。验收不过是质量信号而非执行错误：步骤不会因此 failed，
  * 最坏情况是"带 ⚠️ 标记的返工版"照常流向下游。
  */
+/**
+ * 机械断言（core/assert.ts 执行）。全部为「与」关系，纯函数判定。
+ * 存在的理由：acceptance 由模型判，判不出「本该有 6 个却只给了 5 个」——
+ * 少的那个不在它眼前。数量、体量这类事实交给数数，不交给概率。
+ */
+export interface StepAssert {
+  emits_files?: number;              // 产出里的文件块数量必须恰好等于此值（解析规则与 --materialize 完全一致）
+  min_bytes?: number;                // 产出最小字节数（UTF-8），防截断
+  contains?: string[];               // 必须出现的字面串
+  matches?: Record<string, number>;  // 正则 → 必须命中的次数。裸模式默认 gm；也可写 /pattern/flags
+}
+
 export interface StepVerification {
   pass: boolean;              // 最终产出是否通过核验（返工后复核不可用时保守记 false）
   failed: string[];           // 未满足条目（"条目（原因）"），pass=true 时为空

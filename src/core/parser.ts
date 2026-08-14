@@ -197,6 +197,46 @@ export function validateWorkflow(workflow: WorkflowDefinition, agentsDir?: strin
       errors.push(`step "${step.id}" 的 verify 必须是布尔值（true/false，不要加引号）`);
     }
 
+    // assert 是机械断言：配错了必须在解析期就报，不能等跑到一半才崩。
+    // 尤其是 matches 里的正则——写错的正则会静默匹配 0 次，
+    // 那就成了"永远命中不了、于是永远报缺"或"永远命中、于是形同虚设"的哑弹检查。
+    if (step.assert !== undefined) {
+      const a = step.assert as Record<string, unknown>;
+      if (typeof a !== 'object' || a === null || Array.isArray(a)) {
+        errors.push(`step "${step.id}" 的 assert 必须是映射（emits_files / min_bytes / contains / matches）`);
+      } else {
+        const known = ['emits_files', 'min_bytes', 'contains', 'matches'];
+        for (const k of Object.keys(a)) {
+          if (!known.includes(k)) errors.push(`step "${step.id}" 的 assert 不认识字段 "${k}"（可用：${known.join(' / ')}）`);
+        }
+        for (const k of ['emits_files', 'min_bytes']) {
+          const v = a[k];
+          if (v !== undefined && (typeof v !== 'number' || !Number.isInteger(v) || v < 0)) {
+            errors.push(`step "${step.id}" 的 assert.${k} 必须是非负整数`);
+          }
+        }
+        if (a.contains !== undefined && (!Array.isArray(a.contains) || a.contains.some((x) => typeof x !== 'string'))) {
+          errors.push(`step "${step.id}" 的 assert.contains 必须是字符串数组`);
+        }
+        if (a.matches !== undefined) {
+          if (typeof a.matches !== 'object' || a.matches === null || Array.isArray(a.matches)) {
+            errors.push(`step "${step.id}" 的 assert.matches 必须是「正则 → 次数」的映射`);
+          } else {
+            for (const [pat, cnt] of Object.entries(a.matches as Record<string, unknown>)) {
+              if (typeof cnt !== 'number' || !Number.isInteger(cnt) || cnt < 0) {
+                errors.push(`step "${step.id}" 的 assert.matches["${pat}"] 必须是非负整数`);
+              }
+              try { new RegExp(pat.replace(/^\/(.*)\/[gimsuy]*$/, '$1')); }
+              catch { errors.push(`step "${step.id}" 的 assert.matches 里 "${pat}" 不是合法正则`); }
+            }
+          }
+        }
+        if (Object.keys(a).length === 0) {
+          errors.push(`step "${step.id}" 的 assert 是空的——空断言永远通过，等于没写`);
+        }
+      }
+    }
+
     // 检查 {{变量}} 引用：必须来自 inputs，或来自当前 step 的 DAG 上游 step.output
     // （之前只检查"任意 step 是否产出该变量"，让"早期 step 引用下游 output"这种
     // 拓扑反向错误漏过 validate，到 run 阶段才崩。和 autoFix 的拓扑约束对齐）

@@ -16,6 +16,7 @@ import { loadAgent } from '../agents/loader.js';
 import { collectSkillNames, injectSkills } from '../skills/loader.js';
 import { createConnector } from '../connectors/factory.js';
 import { verifyAcceptance, buildReworkBlock, formatFailedItems } from './verify.js';
+import { checkAssert, buildAssertReworkBlock } from './assert.js';
 import { createInterface } from 'node:readline';
 
 export interface ExecutorOptions {
@@ -565,7 +566,35 @@ async function executeStep(
     throw lastError || new Error(`step "${node.step.id}" 执行失败`);
   };
 
-  const content = await callLLM(userMessage);
+  let content = await callLLM(userMessage);
+
+  // ── 机械断言（core/assert.ts）。**必须排在 acceptance 之前**：
+  //    结构都不合格，没必要再花 token 让模型评内容好不好。
+  //    与 acceptance 的关键差别：这里不过 = 步骤**失败**，不是质量信号。
+  //    理由是这类问题的破坏方式不同——少一个文件不会让下游报错，它会让下游
+  //    拿着缺件的产物一路绿灯跑完。带 ⚠️ 放行等于把静默损坏留给下一环。
+  if (node.step.assert) {
+    const first = checkAssert(content, node.step.assert);
+    if (!first.pass) {
+      process.stderr.write(`\n  ⟳ ${node.step.id} 机械断言未过（${first.failures.length} 条），定向返工一轮...\n`);
+      first.failures.forEach((f) => process.stderr.write(`      · ${f}\n`));
+      let retried: string;
+      try {
+        retried = await callLLM(userMessage + buildAssertReworkBlock(first.failures));
+      } catch (err) {
+        const msg = err instanceof Error ? err.message.slice(0, 80) : String(err);
+        throw new Error(`step "${node.step.id}" 机械断言未过且返工生成失败（${msg}）：\n  - ${first.failures.join('\n  - ')}`);
+      }
+      const second = checkAssert(retried, node.step.assert);
+      if (!second.pass) {
+        // 到这里就停。宁可让这一步红着，也不能让缺件的产物流下去——
+        // 静默损坏比失败贵得多：失败当场就知道，缺件要等上线后才发现。
+        throw new Error(`step "${node.step.id}" 机械断言两次未过：\n  - ${second.failures.join('\n  - ')}`);
+      }
+      process.stderr.write(`  ✅ ${node.step.id} 返工后机械断言通过\n`);
+      content = retried;
+    }
+  }
 
   // acceptance 自动核验 + 一轮自动返工。验收不过是质量信号而非执行错误：
   // 步骤不会因此 failed，最坏情况是返回"带 ⚠️ 标记的返工版"照常流向下游。
