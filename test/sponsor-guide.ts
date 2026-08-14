@@ -91,8 +91,9 @@ console.log('\n─── 返利码一致性（同一赞助商的推广参数散�
  * 而且没有任何报错，只能靠对账发现。这里跨文件按 host 比对返利标识。
  */
 // 注意大小写：URLSearchParams.get 大小写敏感，'invitecode' 抓不到 LanoX 的 `inviteCode`，
-// 所以两种写法都列。'c' 是 LanoX 的渠道码（?c=…&inviteCode=…，两个参数都得处处一致）。
-const AFFILIATE_KEYS = ['invitecode', 'inviteCode', 'invite', 'aff', 'ref', 'referral_code', 'code', 'c'];
+// 所以两种写法都列。'c' 是 LanoX 的渠道码（?c=…&inviteCode=…，两个参数都得处处一致），
+// 'from' 是胜算云的（?from=CH_…）—— 每家用的参数名都不一样，漏一个等于这家根本没被守着。
+const AFFILIATE_KEYS = ['invitecode', 'inviteCode', 'invite', 'aff', 'ref', 'referral_code', 'code', 'c', 'from'];
 const SOURCES = [
   'src/utils/sponsor-guide.ts',
   'website/src/content/sponsors.ts',

@@ -42,8 +42,8 @@ export const docGroups: DocGroup[] = [
           {
             heading: { zh: "解决什么问题", en: "What problems it solves" },
             body: {
-              zh: "- **让 agency-agents 的专家真正协作起来**：单个专家只解决一个环节，AO 让多位专家按 DAG 分工、并行、交接\n- 单次 prompt 难以覆盖复杂任务，多专家分工 + 收口质量更高\n- 不想写编排代码：用 YAML 声明依赖，引擎自动并行；或一句话 `compose` 自动选专家、生成并运行\n- 267 位专家覆盖营销、工程、设计、产品、财务、法律、销售、学术等领域\n- 20 个 provider（云端 API + 编码 CLI + 本地模型），其中 7 个免 API key",
-              en: "- **Make agency-agents' experts actually collaborate**: one expert handles one step; AO has many experts divide work, run in parallel, and hand off via a DAG\n- A single prompt struggles with complex tasks; multi-expert division + a finalizer yields higher quality\n- No orchestration code: declare dependencies in YAML, or `compose` from one sentence to auto-pick experts, generate and run\n- 267 experts across marketing, engineering, design, product, finance, legal, sales, academic, and more\n- 20 providers (cloud APIs + coding CLIs + local models), 7 of which need no API key",
+              zh: "- **让 agency-agents 的专家真正协作起来**：单个专家只解决一个环节，AO 让多位专家按 DAG 分工、并行、交接\n- 单次 prompt 难以覆盖复杂任务，多专家分工 + 收口质量更高\n- 不想写编排代码：用 YAML 声明依赖，引擎自动并行；或一句话 `compose` 自动选专家、生成并运行\n- 267 位专家覆盖营销、工程、设计、产品、财务、法律、销售、学术等领域\n- 21 个 provider（云端 API + 编码 CLI + 本地模型），其中 7 个免 API key",
+              en: "- **Make agency-agents' experts actually collaborate**: one expert handles one step; AO has many experts divide work, run in parallel, and hand off via a DAG\n- A single prompt struggles with complex tasks; multi-expert division + a finalizer yields higher quality\n- No orchestration code: declare dependencies in YAML, or `compose` from one sentence to auto-pick experts, generate and run\n- 267 experts across marketing, engineering, design, product, finance, legal, sales, academic, and more\n- 21 providers (cloud APIs + coding CLIs + local models), 7 of which need no API key",
             },
           },
           {

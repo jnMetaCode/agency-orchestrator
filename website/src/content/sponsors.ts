@@ -3,7 +3,7 @@ import type { Language } from "@/i18n/translations";
 /**
  * 赞助商数据。
  *
- * 当前赞助商：APINEBULA（旗舰，银河录像局旗下 AI 聚合平台）、优云智算（UCloud 旗下 AI 云平台）、Cubence（API 中转服务商）、火山引擎（字节跳动云服务，中英文分别对应 volcengine.com / byteplus.com 两个不同站点）、多元探索（AI 模型 API 聚合与源头直供）、AICodeMirror（Claude / Codex / Gemini 官方高稳定中转）、LanoX AI（全球模型聚合，500+ 模型）。
+ * 当前赞助商：APINEBULA（旗舰，银河录像局旗下 AI 聚合平台）、优云智算（UCloud 旗下 AI 云平台）、Cubence（API 中转服务商）、火山引擎（字节跳动云服务，中英文分别对应 volcengine.com / byteplus.com 两个不同站点）、多元探索（AI 模型 API 聚合与源头直供）、AICodeMirror（Claude / Codex / Gemini 官方高稳定中转）、LanoX AI（全球模型聚合，500+ 模型）、胜算云（面向 AI 原生团队的模型 API 聚合 + 企业级网关）。
  * 均为真实付费赞助，非占位样例。新增赞助商时按 Sponsor 结构追加即可。
  */
 
@@ -210,6 +210,29 @@ export const sponsors: Sponsor[] = [
     perk: {
       zh: "注册即送 5 美金，免费领取百万 Token，另有 500+ 免费模型可用",
       en: "Sign up for $5 in free credit, claim millions of free tokens, plus 500+ free models",
+    },
+  },
+  {
+    id: "shengsuanyun",
+    name: "胜算云",
+    badge: "SS",
+    accent: "from-indigo-600 to-violet-500",
+    logo: "/sponsors/logo-shengsuanyun-icon.png",
+    url: "https://www.shengsuanyun.com/?from=CH_QKH696UI",
+    tier: "standard",
+    since: "2026-08",
+    featured: false,
+    tagline: {
+      zh: "面向 AI 原生团队的模型 API 聚合 · 合规直供 + 企业级定制网关",
+      en: "Model API aggregation for AI-native teams · compliant supply + enterprise gateway",
+    },
+    description: {
+      zh: "感谢胜算云对本项目的赞助！胜算云是面向 AI 原生团队的模型 API 聚合平台，汇集 Claude、ChatGPT、Gemini 等海内外大语言模型及多媒体模型，支持统一接入与按量调用。平台坚持合规 API 服务，杜绝逆向工程和资源稀释。此外平台提供企业级定制网关，包括团队成本与权限管理、智能路由、安全防护及 BYOK 密钥托管，并提供发票服务。",
+      en: "Thanks to ShengSuanYun for sponsoring this project! ShengSuanYun is a model API aggregation platform built for AI-native teams, bringing together Claude, ChatGPT, Gemini and other Chinese and international LLMs plus multimedia models under one integration with pay-as-you-go billing. It sticks to compliant API supply — no reverse engineering, no resource dilution — and offers an enterprise-grade custom gateway with team cost and permission controls, smart routing, security protection, BYOK key custody and invoicing.",
+    },
+    perk: {
+      zh: "新用户通过专属链接注册，即可领取 5 元 Token 体验额度",
+      en: "New users get ¥5 in token credit when signing up via our link",
     },
   },
 ];

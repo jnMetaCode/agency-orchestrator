@@ -34,9 +34,10 @@ export const PREMIUM_SPONSOR: SponsorGuideEntry = {
   url: 'https://duoyuanx.com/register?aff=LErO',
 };
 
-/** 引导横幅轮换池：旗舰 + 标准共 6 家（顺序无偏好，轮值即公平；每家 2/6 天数）。
+/** 引导横幅轮换池：旗舰 + 标准共 7 家（顺序无偏好，轮值即公平；每家 2/7 天数）。
  *  RootFlowAI 与 CCSub 已下架赞助（2026-08），AICodeMirror 顶上其中一位；
- *  LanoX AI 于 2026-08 新增（池子 5 → 6 家，份额同步从 2/5 稀释为 2/6）。 */
+ *  LanoX AI 于 2026-08 新增（池子 5 → 6 家，份额同步从 2/5 稀释为 2/6）；
+ *  胜算云于 2026-08 新增（6 → 7 家，份额再稀释为 2/7）。 */
 export const SPONSOR_ROTATION: SponsorGuideEntry[] = [
   { providerId: 'apinebula', name: 'APINEBULA', bonus: '充值码 agent 九折', url: 'https://apinebula.ai/V6ekjG' },
   { providerId: 'cubence', name: 'Cubence', bonus: '首购 9 折', url: 'https://cubence.com/signup?code=SCW29JP9&source=agency' },
@@ -47,6 +48,7 @@ export const SPONSOR_ROTATION: SponsorGuideEntry[] = [
   // `--provider` 示例命令。配置走 Studio 供应商页的 CLI 中转商预设。
   { name: 'AICodeMirror', relayOnly: true, bonus: '首充 8 折', url: 'https://www.aicodemirror.ai/register?invitecode=XO5L7R' },
   { providerId: 'lanox', name: 'LanoX AI', bonus: '注册送 5 美金', url: 'https://lanox.ai/?c=X3RD38F7&inviteCode=A3HRUB6M' },
+  { providerId: 'shengsuanyun', name: '胜算云', bonus: '注册送 5 元 Token', url: 'https://www.shengsuanyun.com/?from=CH_QKH696UI' },
 ];
 
 /**

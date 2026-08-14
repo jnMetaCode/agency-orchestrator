@@ -138,6 +138,15 @@ test('LanoX AI 的中转预设已上架，且端点与内置预设一致（2026-
   assert(!lx!.baseUrls['gemini-cli'], 'LanoX 没有已核实的 Gemini 端点，不该凭空填一个');
 });
 
+test('胜算云的中转预设已上架，且端点与内置预设一致（2026-08 新增）', () => {
+  const ssy = (m.relayPresets ?? []).find((r) => /胜算云|shengsuanyun/i.test(r.name));
+  assert(!!ssy, '清单里应有胜算云预设（这样还停在旧版的用户不等发版也能用）');
+  // 主域 api.shengsuanyun.com 整站 404，端点在 router 子域的 /api 前缀下——照主域猜必错
+  assert(ssy!.baseUrls['claude-code'] === 'https://router.shengsuanyun.com/api', `claude-code 端点不对（Anthropic 协议，base 不带 /v1）: ${ssy!.baseUrls['claude-code']}`);
+  assert(ssy!.baseUrls['gemini-cli'] === 'https://router.shengsuanyun.com/api', `gemini-cli 端点不对: ${ssy!.baseUrls['gemini-cli']}`);
+  assert(ssy!.baseUrls['codex-cli'] === 'https://router.shengsuanyun.com/api/v1', `codex-cli 端点不对: ${ssy!.baseUrls['codex-cli']}`);
+});
+
 test('轮换池与代码里的那份逐条一致（清单配了就整池替换，漏一家=那家线上零曝光）', () => {
   const pool = m.sponsorRotation ?? [];
   assert(pool.length === SPONSOR_ROTATION.length,
@@ -151,7 +160,7 @@ test('轮换池与代码里的那份逐条一致（清单配了就整池替换�
 test('清单里的返利/渠道参数与代码里的一致（改一处漏一处 = 返利悄悄流走）', () => {
   // 按 host + 参数名比对，而不是只认 invitecode 一种写法：LanoX 用的是 ?c=…&inviteCode=…，
   // 只匹配 invitecode 会静默漏过（大小写敏感），返利错了没有任何环节会报错。
-  const AFFILIATE_KEYS = ['invitecode', 'inviteCode', 'invite', 'aff', 'ref', 'referral_code', 'code', 'c'];
+  const AFFILIATE_KEYS = ['invitecode', 'inviteCode', 'invite', 'aff', 'ref', 'referral_code', 'code', 'c', 'from'];
   const collect = (text: string, into: Map<string, Map<string, Set<string>>>) => {
     for (const raw of text.match(/https:\/\/[^\s"'`,)]+/g) ?? []) {
       let u: URL;

@@ -65,6 +65,15 @@ export const API_PROVIDERS: ApiProviderSpec[] = [
   // 多元探索踩过的坑（默认模型平台没上架 → 一跑就报错）。留空 = 强制用户在下拉里自选，
   // 配了 key 点「获取模型列表」即拉全量；确认后再补默认值（或走清单 providerOverrides）。
   { id: 'lanox', envKey: 'LANOX_API_KEY', envBase: 'LANOX_BASE_URL', defaultBaseUrl: 'https://api.lanox.ai/v1' },
+  // 胜算云 ShengSuanYun（赞助商）—— 面向 AI 原生团队的模型 API 聚合：Claude / ChatGPT /
+  // Gemini 等海内外大模型 + 多媒体模型，合规 API 直供（不做逆向）。
+  // 端点已探测核实：OpenAI 兼容在 **router.shengsuanyun.com/api/v1**（api.shengsuanyun.com
+  // 那个域名整站 404，别照着主域猜），无 key 时 /api/v1/chat/completions 回 401
+  // invalid_api_key（存在、仅鉴权失败），而同级乱写路径回的是 404 —— 401 不是全站兜底。
+  // 与 LanoX 不同，**它的模型清单 GET /api/v1/models 无需 key 就能拉**，且每个模型自带
+  // pricing 与 support_apis，所以默认模型不用猜：claude-sonnet-5 在列、已定价、
+  // support_apis 含 /v1/chat/completions（2026-08-14 实拉核实）。模型名带厂商前缀。
+  { id: 'shengsuanyun', envKey: 'SHENGSUANYUN_API_KEY', envBase: 'SHENGSUANYUN_BASE_URL', defaultBaseUrl: 'https://router.shengsuanyun.com/api/v1', defaultModel: 'anthropic/claude-sonnet-5' },
 ];
 
 export const API_PROVIDER_MAP: Record<string, ApiProviderSpec> = Object.fromEntries(

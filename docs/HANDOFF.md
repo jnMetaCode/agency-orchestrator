@@ -56,8 +56,9 @@ npm error This operation requires a one-time password from your authenticator.
 ### 赞助商
 - **AICodeMirror 上架**：CLI 中转预设（三个端点）+ **直连 API**（Anthropic 协议，引擎新增 `ANTHROPIC_PROVIDERS` 注册表）+ 赞助位（Studio 第 2 行首位 / 官网多元探索右边）。
 - **LanoX AI 上架**（2026-08-13）：直连 API 走 OpenAI 兼容 `api.lanox.ai/v1`（内置 provider `lanox`，env `LANOX_API_KEY`）+ CLI 中转预设（claude-code 走根路径的 Anthropic 端点、codex 走 `/v1`；**没有 Gemini 端点，没探到就没填**）+ 赞助位**排最后**（两张列表都是）。**没给默认模型**——无 key 核实不了它实际上架的模型名，宁可让用户自选也不重演多元探索那次"默认模型平台没上架、一跑就报错"。
+- **胜算云上架**（2026-08-14）：直连 API 走 OpenAI 兼容 `router.shengsuanyun.com/api/v1`（内置 provider `shengsuanyun`，env `SHENGSUANYUN_API_KEY`）+ CLI 中转预设**三个都有**（claude-code / gemini-cli 走 `/api`，codex 走 `/api/v1`）+ 赞助位**排最后**（LanoX 顺位后移，两张列表都改了）。两个坑：**主域 `api.shengsuanyun.com` 整站 404**，端点在 `router` 子域；**模型名带厂商前缀**（`anthropic/claude-sonnet-5`），少写前缀会 404。它跟 LanoX 相反——`GET /api/v1/models` 无需 key 就能拉，且每个模型自带 `support_apis` 与 `pricing`，所以协议支持和默认模型都是查出来的，不是猜的。
 - **RootFlowAI、CCSub 下架**：摘掉赞助身份与曝光位，但**保留为可用供应商**——已配过 key 的用户照常显示、照常能跑。
-- 轮换池现为 6 家均分（每家 2/6 天），且**已整池写进远程清单**——清单里配了就整池替换内置的，所以以后改轮换必须两处一起改（有测试逐条比对）。多元探索**按约定不进轮换**，它持有的是「默认 provider 位」。
+- 轮换池现为 7 家均分（每家 2/7 天），且**已整池写进远程清单**——清单里配了就整池替换内置的，所以以后改轮换必须两处一起改（有测试逐条比对）。多元探索**按约定不进轮换**，它持有的是「默认 provider 位」。
 
 ### 一类反复出现的缺陷（值得记住）
 新增能力之后，**围绕它的诊断/提示/隔离没跟上**，这一轮抓到 6 个，全部同源：

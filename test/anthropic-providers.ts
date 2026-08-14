@@ -124,20 +124,22 @@ test('官网赞助商页：AICodeMirror 紧跟多元探索之后', () => {
   assert(d >= 0 && ids[d + 1] === 'aicodemirror', `顺序不对：${ids.join(' → ')}`);
 });
 
-test('Studio 供应商列表：LanoX AI 排赞助商组最后一位（2026-08 约定）', () => {
+// 「最后一位」这个位置是给最新上架的那家的：LanoX 于 2026-08 上架时占着，
+// 同月胜算云上架后顺位后移。改这条断言时记得两处一起改（Studio 列表 + 官网卡片）。
+test('Studio 供应商列表：胜算云排赞助商组最后一位（2026-08 约定）', () => {
   const order = providerOrder();
-  const i = order.indexOf('lanox');
-  assert(i >= 0, `lanox 不在 Studio 供应商列表里：${order.join(' → ')}`);
+  const i = order.indexOf('shengsuanyun');
+  assert(i >= 0, `shengsuanyun 不在 Studio 供应商列表里：${order.join(' → ')}`);
   // 后面只允许跟「非赞助商」（自家 API / 已下架的），不能再冒出别的赞助商把它顶到中间
   const block = studioSrc.slice(studioSrc.indexOf('export const API_PROVIDERS: ApiProviderMeta[]'));
   const lines = block.slice(0, block.indexOf('\n];')).split('\n').filter((l) => /\{ id: "/.test(l));
   const after = lines.slice(i + 1).filter((l) => /sponsor: true|flagship: true|advanced: true/.test(l));
-  assert(after.length === 0, `LanoX 之后还排着别的赞助商：\n    ${after.join('\n    ')}`);
+  assert(after.length === 0, `胜算云之后还排着别的赞助商：\n    ${after.join('\n    ')}`);
 });
 
-test('官网赞助商页：LanoX AI 排最后一张卡', () => {
+test('官网赞助商页：胜算云排最后一张卡', () => {
   const ids = [...sponsorsSrc.matchAll(/^    id: "([\w-]+)"/gm)].map((m) => m[1]);
-  assert(ids[ids.length - 1] === 'lanox', `LanoX 应是最后一位，实际顺序：${ids.join(' → ')}`);
+  assert(ids[ids.length - 1] === 'shengsuanyun', `胜算云应是最后一位，实际顺序：${ids.join(' → ')}`);
 });
 
 test('CLI 中转商卡片按实际端点写"支持哪几个 CLI"，不写死三个', () => {

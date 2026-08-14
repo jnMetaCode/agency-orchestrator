@@ -72,6 +72,16 @@
         "claude-code": "https://api.lanox.ai",
         "codex-cli": "https://api.lanox.ai/v1"
       }
+    },
+    {
+      "name": "胜算云",
+      "sponsor": true,
+      "signupUrl": "https://www.shengsuanyun.com/?from=CH_QKH696UI",
+      "baseUrls": {
+        "claude-code": "https://router.shengsuanyun.com/api",
+        "gemini-cli": "https://router.shengsuanyun.com/api",
+        "codex-cli": "https://router.shengsuanyun.com/api/v1"
+      }
     }
   ],
   "sponsorRotation": [
@@ -110,6 +120,12 @@
       "name": "LanoX AI",
       "bonus": "注册送 5 美金",
       "url": "https://lanox.ai/?c=X3RD38F7&inviteCode=A3HRUB6M"
+    },
+    {
+      "providerId": "shengsuanyun",
+      "name": "胜算云",
+      "bonus": "注册送 5 元 Token",
+      "url": "https://www.shengsuanyun.com/?from=CH_QKH696UI"
     }
   ],
   "removedProviders": [

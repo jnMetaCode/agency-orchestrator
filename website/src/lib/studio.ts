@@ -497,7 +497,7 @@ export function groupModelsByVendor(models: string[], vendors?: Record<string, s
 
 // 有正方形图标素材的赞助商/供应商 → website/public/sponsors/logo-<id>-icon.png（served at /sponsors/…）。
 // 只对确有文件的 id 返回路径，避免其它供应商拿到 404 的 <img>。
-const PROVIDER_LOGO_IDS = new Set(["compshare", "cubence", "apinebula", "rootflowai", "ccsub", "volcengine", "duoyuanx", "aicodemirror", "lanox"]);
+const PROVIDER_LOGO_IDS = new Set(["compshare", "cubence", "apinebula", "rootflowai", "ccsub", "volcengine", "duoyuanx", "aicodemirror", "lanox", "shengsuanyun"]);
 /** 少数供应商的 logo 是 svg（AICodeMirror），其余是 png —— 硬编码扩展名会 404 */
 const PROVIDER_LOGO_SVG_IDS = new Set(["aicodemirror"]);
 export function providerLogo(id: string): string | undefined {
@@ -754,6 +754,12 @@ export const API_PROVIDERS: ApiProviderMeta[] = [
   // modelSuggestions 里 gpt-5.6-sol 取自它官方文档的示例模型编码；其余是跨家中转通用兜底。
   // 官方明确「模型可用性以 GET /v1/models 的实时结果为准」——配了 key 点「获取模型列表」即拉真实全量。
   { id: "lanox", name: "LanoX AI", hint: "api.lanox.ai · 注册送 5 美金", defaultBaseUrl: "https://api.lanox.ai/v1", signupUrl: "https://lanox.ai/?c=X3RD38F7&inviteCode=A3HRUB6M", sponsor: true, modelSuggestions: ["gpt-5.6-sol", ...COMMON_RELAY_MODELS] },
+  // 赞助商 胜算云（2026-08 新增，按约定排赞助商组最后一位）—— 面向 AI 原生团队的模型 API
+  // 聚合，合规直供、企业级网关（成本/权限、智能路由、BYOK 托管、开票）。
+  // 直连走 OpenAI 兼容 router.shengsuanyun.com/api/v1（**不是 api.shengsuanyun.com**，那个域名整站 404）。
+  // modelSuggestions 全部取自它公开的 GET /api/v1/models 实拉结果（无需 key），不是猜的；
+  // 模型名带厂商前缀（anthropic/…、openai/…），少写前缀会 404。
+  { id: "shengsuanyun", name: "胜算云", shortName: "胜算云", hint: "router.shengsuanyun.com · 注册送 5 元 Token", defaultBaseUrl: "https://router.shengsuanyun.com/api/v1", signupUrl: "https://www.shengsuanyun.com/?from=CH_QKH696UI", sponsor: true, modelSuggestions: ["anthropic/claude-sonnet-5", "anthropic/claude-opus-5", "openai/gpt-5.2", "google/gemini-3-flash", "deepseek/deepseek-v4-pro"] },
   { id: "deepseek", name: "DeepSeek", hint: "platform.deepseek.com", defaultBaseUrl: "https://api.deepseek.com/v1", vendor: true, modelSuggestions: ["deepseek-chat", "deepseek-reasoner"] },
   // 默认端点**不带 /v1**：Anthropic 客户端（SDK / claude CLI）自己会接 /v1/messages，
   // base 里再写一遍就成了 /v1/v1/messages。这里是用户配中转时照抄的形状样板，写错等于
@@ -907,6 +913,26 @@ export const CLI_RELAY_PRESETS: CliRelayPreset[] = [
     baseUrls: {
       "claude-code": "https://api.lanox.ai",
       "codex-cli": "https://api.lanox.ai/v1",
+    },
+  },
+  // 胜算云（赞助商）—— 三个 CLI 都能配，且这次不是靠猜：它公开的 GET /api/v1/models
+  // 每个模型自带 support_apis 字段，实拉可见 /v1/chat/completions、/v1/messages、
+  // /v1/responses、/v1beta/models/*，即 Anthropic / OpenAI / Google 三种协议都在同一网关上。
+  // 端点前缀是 **router.shengsuanyun.com/api**（主域 api.shengsuanyun.com 整站 404）：
+  //   Claude Code → …/api（Anthropic 兼容，不带 /v1，CLI 自己接 /v1/messages，实测 401=存在）
+  //   Gemini CLI  → …/api（CLI 自己接 /v1beta/models/{model}:generateContent，实测 401=存在）
+  //   Codex       → …/api/v1（OpenAI 兼容，wire_api=responses 落到 /v1/responses）
+  // 它的网关对乱写路径回的是 404 page not found，所以上面的 401 确实代表路径存在，
+  // 不是 LanoX 那种"哪儿都回 200"的假阳性。
+  {
+    name: "胜算云",
+    sponsor: true,
+    signupUrl: "https://www.shengsuanyun.com/?from=CH_QKH696UI",
+    anthropicApiBaseUrl: "https://router.shengsuanyun.com/api",
+    baseUrls: {
+      "claude-code": "https://router.shengsuanyun.com/api",
+      "gemini-cli": "https://router.shengsuanyun.com/api",
+      "codex-cli": "https://router.shengsuanyun.com/api/v1",
     },
   },
 ];
