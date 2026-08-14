@@ -87,12 +87,7 @@ npm error This operation requires a one-time password from your authenticator.
 
 1. **发版**（见第一节）→ 发完回 issue 补一句。**这是唯一还卡着的事**：官网侧全部已部署生效，引擎侧的修复要发版才到用户机器。
 2. ~~push 官网~~ → 已完成（2026-08-14 前的所有改动均已 push，Vercel 自动部署，线上核对过）。
-3. **#86 antigravity CLI 接入** —— 唯一还没动的用户诉求，**且已变紧急**：Gemini CLI 于 2026-06-18 停服，Google 转 Antigravity CLI，我们的 `gemini-cli` provider 对新用户已是死入口。调研做完了，接入形态与现有 CLI provider 完全对得上（`spawn-cli` 那套）：
-   - 二进制 `agy`（macOS/Linux `~/.local/bin/agy`，Windows `%LOCALAPPDATA%\agy\bin`）
-   - 非交互 `agy -p "<提示词>"`（别名 `--print`/`--prompt`），`--output-format text|json|stream-json`
-   - `--model <slug>`、`--effort low|medium|high`、`--print-timeout`（默认 5m）、`--dangerously-skip-permissions`、`--sandbox`
-   - **鉴权走系统钥匙串里的缓存登录态，没有 API key 环境变量** → 属于"订阅制、免 key"那一类，与 claude-code 同款
-   - 本机没装、且要 Google 账号交互登录一次，所以**实现可以照文档做 + 单测钉住参数拼装，但真跑一次必须由有账号的人来**
+3. ~~#86 antigravity CLI 接入~~ —— **代码已完成**（provider `antigravity-cli`，见 CHANGELOG）。**唯一没做的是真机跑通**：本机没装 `agy`，而且它要 Google 账号交互登录一次。有账号的人请这样验：`curl -fsSL https://antigravity.google/cli/install.sh | bash` → 跑一次 `agy` 完成登录 → `ao run <工作流> --provider antigravity-cli`。若报错，先看 `agy -p "hi" --output-format text` 在终端裸跑是什么反应，再回来调参数拼装（`src/connectors/antigravity-cli.ts` 的 `buildAntigravityArgs`，有单测）。
 4. ~~#93 / #96 / #90~~ —— 已于 2026-08-14 核实并关闭（镜像在 ghcr、文件读入在 Studio+CLI、`params:` 透传三处都实测在；三条都在已发布的 0.12.x 里）。
 5. **#66 / #44 桌面端打包工程**（瘦身 / 签名公证）。
 

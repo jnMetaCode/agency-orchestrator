@@ -51,8 +51,8 @@ export function parseWorkflow(
   if (!llm.provider) {
     fail(t('parse.missing_provider'));
   }
-  // CLI providers (claude-code, gemini-cli, copilot-cli, codex-cli, openclaw-cli, hermes-cli) 和 ollama 不需要 model
-  const cliProviders = ['claude-code', 'gemini-cli', 'copilot-cli', 'codex-cli', 'openclaw-cli', 'hermes-cli', 'ollama'];
+  // CLI providers（claude-code / antigravity-cli / gemini-cli / copilot-cli / codex-cli / openclaw-cli / hermes-cli）和 ollama 不需要 model
+  const cliProviders = ['claude-code', 'antigravity-cli', 'gemini-cli', 'copilot-cli', 'codex-cli', 'openclaw-cli', 'hermes-cli', 'ollama'];
   if (!llm.model && !cliProviders.includes(llm.provider as string)) {
     fail(t('parse.missing_model'));
   }

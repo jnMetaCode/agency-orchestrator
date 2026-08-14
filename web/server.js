@@ -121,7 +121,7 @@ function isInside(child, parent) {
 }
 const ALLOWED_WORKFLOW_DIRS = [WORKFLOWS_DIR, WORKFLOWS_DIR_EN, USER_WORKFLOWS_DIR, COMPOSED_DIR].filter(Boolean);
 
-const CLI_PROVIDERS = ['claude-code', 'gemini-cli', 'copilot-cli', 'codex-cli', 'openclaw-cli', 'hermes-cli'];
+const CLI_PROVIDERS = ['claude-code', 'antigravity-cli', 'gemini-cli', 'copilot-cli', 'codex-cli', 'openclaw-cli', 'hermes-cli'];
 // LLM config: provider + (model/base_url where the runtime needs them). Reads any
 // per-provider overrides the user saved in the Studio (model name, custom base_url).
 // Already YAML-safe (no undefined fields) — used for compose, run args and run-role.

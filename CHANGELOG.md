@@ -5,6 +5,7 @@
 ## [Unreleased]
 
 ### Added（本次新增）
+- **接入 Antigravity CLI**（#86，provider `antigravity-cli`）：Google 已于 2026-06-18 停掉 Gemini CLI、转向 Antigravity CLI，我们的 `gemini-cli` 对新用户其实已经是死入口。新 provider 走"订阅制、免 key"那一类（登录态存在系统钥匙串，没有 API key 环境变量），二进制是 `agy`。参数按官方 headless 文档拼：`-p` 非交互 + 显式 `--output-format text`（json 的字段形状官方没写全，猜结构等于埋"跑完了什么都没解析出来"）+ `--model` + `--effort`（只认 low/medium/high）+ **`--print-timeout` 与 AO 的单步超时对齐**（agy 自己默认 5 分钟、AO 默认等 10 分钟，不对齐的话长步骤会被它先掐断，AO 这边只看到"没输出"）。**不传 `--dangerously-skip-permissions`**：那是自动批准所有工具调用，而 AO 常常就在用户的项目目录里跑。安装探测认得官方安装路径 `~/.local/bin` 与 Windows 的 `%LOCALAPPDATA%\agy\bin`——`install.sh` 装那儿，**默认不在 PATH 上**，只查 PATH 会得出"没装"的错误结论。本机没有 `agy`（且需 Google 账号交互登录一次），所以真机跑通要由有账号的人做；这里用一个假的 `agy` 把整条链路真跑了一遍，验证参数一字不差地到达子进程。
 - **步骤级机械断言 `assert`:不过模型、不过网络的结构校验**。`acceptance` 是让模型判产出满不满足标准,
   它擅长判内容,却系统性抓不到**「本该有几个」**——真实事故:让模型产出 6 个文件它给了 5 个,剩下 5 个格式完好,
   模型验收员照样说"满足标准",编译也过,整个文件就这么带着绿灯没了(同一故障在两个项目上各撞一次,两次都亮绿灯)。

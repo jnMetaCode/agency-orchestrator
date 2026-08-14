@@ -190,7 +190,7 @@ async function handleRun(): Promise<void> {
 
   try {
     // --provider / --model / --base-url / --api-key / --timeout: 命令行覆盖 YAML 中的 LLM 配置
-    const cliProviders = ['claude-code', 'gemini-cli', 'copilot-cli', 'codex-cli', 'openclaw-cli', 'hermes-cli'];
+    const cliProviders = ['claude-code', 'antigravity-cli', 'gemini-cli', 'copilot-cli', 'codex-cli', 'openclaw-cli', 'hermes-cli'];
     const runTemperature = parseTemperatureArg();
     let llmOverride: Partial<LLMConfig> | undefined;
     if (provider || model || baseUrl || apiKey || timeoutMs !== undefined || runTemperature !== undefined) {
@@ -415,7 +415,7 @@ async function handleCompose(): Promise<void> {
   }
 
   const provider = autoProvider(getArgValue('--provider') || process.env.AO_PROVIDER, 'deepseek') as LLMConfig['provider'];
-  const cliProviders = ['claude-code', 'gemini-cli', 'copilot-cli', 'codex-cli', 'openclaw-cli', 'hermes-cli'];
+  const cliProviders = ['claude-code', 'antigravity-cli', 'gemini-cli', 'copilot-cli', 'codex-cli', 'openclaw-cli', 'hermes-cli'];
   const knownApiProviders = ['claude', 'ollama', ...API_PROVIDERS.map((p) => p.id)];
   const isUnknownProvider = !cliProviders.includes(provider) && !knownApiProviders.includes(provider);
   const cliModel = getArgValue('--model') || process.env.AO_MODEL;
@@ -646,7 +646,7 @@ async function handleDoctor(): Promise<void> {
   const installed = detectInstalledCliProviders();
   console.log(installed.length
     ? `  ✅ 已装 CLI（零配置可用）：${installed.join(', ')}`
-    : `  ·  未检测到订阅制 CLI（claude-code / gemini-cli 等）`);
+    : `  ·  未检测到订阅制 CLI（claude-code / antigravity-cli 等）`);
 
   // 2) 环境变量里已配 key 的 API provider
   const envKeys: Record<string, string> = { claude: 'ANTHROPIC_API_KEY', ...Object.fromEntries(API_PROVIDERS.map((p) => [p.id, p.envKey])) };
@@ -837,7 +837,7 @@ function parseVerifyFlag(): boolean | undefined {
   return undefined;
 }
 
-const COMPOSE_CLI_PROVIDERS = ['claude-code', 'gemini-cli', 'copilot-cli', 'codex-cli', 'openclaw-cli', 'hermes-cli'];
+const COMPOSE_CLI_PROVIDERS = ['claude-code', 'antigravity-cli', 'gemini-cli', 'copilot-cli', 'codex-cli', 'openclaw-cli', 'hermes-cli'];
 
 /** R2.1：判断 compose 要用的 provider 是否已有可用凭证。保守——不确定时返回 true（不拦已能跑的配置）。 */
 function composeProviderHasCredentials(provider: string, apiKey?: string, baseUrl?: string): boolean {
@@ -860,7 +860,7 @@ function printFirstRunGuide(provider: string): void {
     L(`  ① 用本机已装的 CLI（零配置、复用登录态、不额外花钱）：`);
     L(`       ao compose "…" --run --provider ${installed[0]}`);
   } else {
-    L(`  ① 装个订阅制 CLI（零配置）：如 claude-code / gemini-cli，装好并登录后：`);
+    L(`  ① 装个订阅制 CLI（零配置）：如 claude-code / antigravity-cli，装好并登录后：`);
     L(`       ao compose "…" --run --provider claude-code`);
   }
   L('');
@@ -887,7 +887,7 @@ function printFirstRunGuide(provider: string): void {
 function resolveProviderModel(teamProvider?: string, teamModel?: string): { provider: LLMConfig['provider']; model: string } {
   const explicit = getArgValue('--provider') || process.env.AO_PROVIDER || teamProvider;
   const provider = autoProvider(explicit, 'deepseek') as LLMConfig['provider'];
-  const cliProviders = ['claude-code', 'gemini-cli', 'copilot-cli', 'codex-cli', 'openclaw-cli', 'hermes-cli'];
+  const cliProviders = ['claude-code', 'antigravity-cli', 'gemini-cli', 'copilot-cli', 'codex-cli', 'openclaw-cli', 'hermes-cli'];
   const model = getArgValue('--model') || process.env.AO_MODEL || teamModel || (
     cliProviders.includes(provider) ? '' :
     provider === 'claude' ? 'claude-sonnet-4-20250514' :
@@ -927,7 +927,7 @@ async function runWithTeam(teamRef: string): Promise<void> {
     if (parsed === null) { console.error(`--timeout 值无效: "${timeoutRaw}"`); process.exit(1); }
     timeoutMs = parsed;
   }
-  const cliProviders = ['claude-code', 'gemini-cli', 'copilot-cli', 'codex-cli', 'openclaw-cli', 'hermes-cli'];
+  const cliProviders = ['claude-code', 'antigravity-cli', 'gemini-cli', 'copilot-cli', 'codex-cli', 'openclaw-cli', 'hermes-cli'];
 
   console.log(`\n  🎭 团队「${team.name}」(${team.roles.length} 位专家) 接到新任务\n`);
   for (const r of team.roles) console.log(`    ${r.emoji || '•'} ${r.name || r.role}`);
@@ -1117,7 +1117,7 @@ async function handlePrompt(): Promise<void> {
     }
     return undefined;
   };
-  const cliProviders = ['claude-code', 'gemini-cli', 'copilot-cli', 'codex-cli', 'openclaw-cli', 'hermes-cli'];
+  const cliProviders = ['claude-code', 'antigravity-cli', 'gemini-cli', 'copilot-cli', 'codex-cli', 'openclaw-cli', 'hermes-cli'];
   const provider = autoProvider(getArgValue('--provider') || process.env.AO_PROVIDER, 'deepseek') as LLMConfig['provider'];
   const model = getArgValue('--model') || process.env.AO_MODEL || (
     cliProviders.includes(provider) ? '' :

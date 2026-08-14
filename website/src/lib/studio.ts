@@ -952,13 +952,14 @@ export const CLI_RELAY_PRESETS: CliRelayPreset[] = [
 
 // CLI 列表必须和后端 web/server.js 的 CLI_PROVIDERS 对齐——之前漏了 codex/copilot/hermes,
 // 导致面板里能看到、顶部下拉却选不了(用户实测 codex 已检测到但无法切换)
-export const CLI_PROVIDER_IDS = new Set(["claude-code", "gemini-cli", "codex-cli", "copilot-cli", "openclaw-cli", "hermes-cli"]);
+export const CLI_PROVIDER_IDS = new Set(["claude-code", "antigravity-cli", "gemini-cli", "codex-cli", "copilot-cli", "openclaw-cli", "hermes-cli"]);
 export const PROVIDERS = [...API_PROVIDERS.map((p) => p.id), ...CLI_PROVIDER_IDS, "ollama"];
 
 // 仅品牌名（语言无关）。
 export const PROVIDER_LABELS: Record<string, string> = {
   ...Object.fromEntries(API_PROVIDERS.map((p) => [p.id, p.shortName ?? p.name])),
   "claude-code": "Claude Code CLI",
+  "antigravity-cli": "Antigravity CLI",
   "gemini-cli": "Gemini CLI",
   "codex-cli": "Codex CLI",
   "copilot-cli": "Copilot CLI",

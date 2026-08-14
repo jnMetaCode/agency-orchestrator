@@ -118,7 +118,7 @@ export async function startServer(verbose = false): Promise<void> {
     {
       path: z.string().describe('Path to workflow YAML file'),
       inputs: z.record(z.string(), z.string()).optional().describe('Key-value input variables'),
-      provider: z.enum(['claude-code', 'gemini-cli', 'copilot-cli', 'codex-cli', 'openclaw-cli', 'hermes-cli', 'deepseek', 'claude', 'openai', 'ollama']).optional().describe('Override LLM provider'),
+      provider: z.enum(['claude-code', 'antigravity-cli', 'gemini-cli', 'copilot-cli', 'codex-cli', 'openclaw-cli', 'hermes-cli', 'deepseek', 'claude', 'openai', 'ollama']).optional().describe('Override LLM provider'),
       model: z.string().optional().describe('Override model name'),
     },
     async ({ path: workflowPath, inputs, provider, model }) => {

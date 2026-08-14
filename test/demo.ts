@@ -2,6 +2,7 @@
  * ao demo unit tests
  */
 import { detectAvailableLLMs, type DetectedLLM } from '../src/cli/demo.js';
+import { CLI_PROVIDER_BINS } from '../src/providers/detect.js';
 
 let passed = 0;
 let failed = 0;
@@ -75,8 +76,13 @@ await test('available list filters correctly', async () => {
   const llms = await detectAvailableLLMs();
   const available = llms.filter(l => l.available);
   const unavailable = llms.filter(l => !l.available);
-  assert(llms.length === 10, 'should always list 10 providers');
-  assert(available.length + unavailable.length === 10, 'available + unavailable should equal 10');
+  // 数量别写死：每加一个 provider 这条就说一次谎（antigravity-cli 加进来时就绊住了）。
+  // 真正要钉的是"三类都在、且每条非此即彼"
+  assert(llms.length >= 10, `provider 列表不该缩水，实际 ${llms.length}`);
+  assert(available.length + unavailable.length === llms.length, 'available + unavailable 应等于总数');
+  for (const must of ['deepseek', 'claude', 'openai', 'ollama', 'claude-code', 'antigravity-cli']) {
+    assert(llms.some((l) => l.provider === must), `列表里缺 ${must}`);
+  }
 });
 
 await test('each provider has correct fields', async () => {
@@ -86,7 +92,8 @@ await test('each provider has correct fields', async () => {
     assert(typeof llm.name === 'string', `name should be string: ${llm.name}`);
     assert(typeof llm.available === 'boolean', `available should be boolean: ${llm.provider}`);
     // CLI-based providers and Ollama don't have envVar
-    const noEnvVarProviders = ['ollama', 'claude-code', 'gemini-cli', 'copilot-cli', 'codex-cli', 'openclaw-cli', 'hermes-cli'];
+    // 免 key 的那批（本地 CLI + ollama）没有 envVar —— 与 detect.ts 的 CLI_PROVIDER_BINS 同源，别再手抄一份
+    const noEnvVarProviders = ['ollama', ...Object.keys(CLI_PROVIDER_BINS)];
     if (!noEnvVarProviders.includes(llm.provider)) {
       assert(typeof llm.envVar === 'string', `envVar should be string for ${llm.provider}`);
     }

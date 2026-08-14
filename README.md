@@ -11,7 +11,7 @@
 [![License: Apache-2.0](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](./LICENSE)
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](./CONTRIBUTING.md)
 
-**一句话出结果 · 267 个专业 AI 角色 · YAML 零代码 · 11 种大模型 · 支持 key（推荐 DeepSeek），也有 7 种免 key 方式**
+**一句话出结果 · 267 个专业 AI 角色 · YAML 零代码 · 11 种大模型 · 支持 key（推荐 DeepSeek），也有 8 种免 key 方式**
 
 > 📖 [完整上手教程](https://mp.weixin.qq.com/s/XcGbkMb6TM6NLQiL7ICwbw)（从安装到实战，10 分钟上手）&nbsp;·&nbsp; 🎓 **官方配套课程**：[AI 专家团队实战](https://aiolaola.com/course/ai-agency?utm_source=github&utm_campaign=orchestrator)（33 节免费，桌面端零代码：单兵点名→自动组队→一人公司全流程，含官方评测的诚实用法边界）· 另有 [从零学会 AI 编程](https://aiolaola.com/?utm_source=github&utm_campaign=orchestrator)（180 节）＋ [从零构建 AI 智能体](https://aiolaola.com/course/ai-agent?utm_source=github&utm_campaign=orchestrator)（40 节）
 
@@ -110,7 +110,7 @@ ao compose "设计一个 SaaS 产品的定价策略" --run                   # �
 |---|--------|-----------|---------------------|
 | 角色数 | 1 个通用 | 自己写 | **267 个专业角色** |
 | 使用方式 | 对话 | 写 Python | **一句话 / YAML** |
-| API key | — | 必须 | **支持 key，也有 7 种免 key 方式** |
+| API key | — | 必须 | **支持 key，也有 8 种免 key 方式** |
 | 依赖 | — | pip + 几十个包 | **npm + 2 个依赖** |
 | 并行 | — | 手动建图 | **DAG 自动检测** |
 | 中文角色 | — | 无 | **267 个** |
@@ -248,6 +248,7 @@ analyze ──→ tech_review  ──→ summary
 | Google 账号 | `provider: "gemini-cli"` | `npm i -g @google/gemini-cli` | **免费**（1000 次/天，Gemini 2.5 Pro） |
 | GitHub Copilot（$10/月） | `provider: "copilot-cli"` | `npm i -g @github/copilot` | **不花钱** |
 | ChatGPT Plus/Pro（$20/月） | `provider: "codex-cli"` | `npm i -g @openai/codex` | **不花钱** |
+| Antigravity 账号（Google，Gemini CLI 继任者） | `provider: "antigravity-cli"` | [install.sh](https://antigravity.google/docs/cli/install)（二进制 `agy`） | **不花钱** |
 | OpenClaw 账号 | `provider: "openclaw-cli"` | `npm i -g openclaw` | **不花钱** |
 | Hermes Agent（🔥 NousResearch 热门开源） | `provider: "hermes-cli"` | [安装指南](https://github.com/NousResearch/hermes-agent) | **免费** |
 | 一台电脑 | `provider: "ollama"` | [ollama.ai](https://ollama.ai) | **免费**（本地模型，见下方提示） |

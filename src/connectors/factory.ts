@@ -5,6 +5,7 @@ import type { LLMConfig, LLMConnector } from '../types.js';
 import { ClaudeConnector } from './claude.js';
 import { ClaudeCodeConnector } from './claude-code.js';
 import { GeminiCLIConnector } from './gemini-cli.js';
+import { AntigravityCLIConnector } from './antigravity-cli.js';
 import { CopilotCLIConnector } from './copilot-cli.js';
 import { CodexCLIConnector } from './codex-cli.js';
 import { OpenClawCLIConnector } from './openclaw-cli.js';
@@ -20,6 +21,9 @@ export function createConnector(config: LLMConfig): LLMConnector {
       return new ClaudeCodeConnector();
     case 'gemini-cli':
       return new GeminiCLIConnector();
+    // Gemini CLI 的继任者（Google 已于 2026-06-18 停掉前者）
+    case 'antigravity-cli':
+      return new AntigravityCLIConnector();
     case 'copilot-cli':
       return new CopilotCLIConnector();
     case 'codex-cli':
@@ -76,7 +80,7 @@ export function createConnector(config: LLMConfig): LLMConnector {
         '    api_key: "your-key"\n' +
         '    model: "model-name"\n\n' +
         '内置 provider:\n' +
-        '  免 API key: claude-code / gemini-cli / copilot-cli / codex-cli / openclaw-cli / hermes-cli / ollama\n' +
+        '  免 API key: claude-code / antigravity-cli / gemini-cli / copilot-cli / codex-cli / openclaw-cli / hermes-cli / ollama\n' +
         '  需 API key: claude / deepseek / openai'
       );
     }
