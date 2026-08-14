@@ -78,6 +78,7 @@ npm error This operation requires a one-time password from your authenticator.
   - 它的模型编码不跟通用命名（文档示例 `gpt-5.6-sol`），官方明说可用性以 `GET /v1/models` 为准 → **故意不给默认模型**，别照别家的名字补。
   - Claude 系走 Anthropic 原生端点（`/v1/messages`，实测 `x-api-key` 与 `Bearer` 都认），所以直连与编码 CLI 中转两条路都通；但它**没有 Gemini 端点**，中转预设里就不该有那一项。
 - **一次全接口巡检**（脚本没进仓，逻辑已沉淀成 `test/web-server.ts` 的断言）：把 50 条路由逐条真打，5xx 清零。修掉的四处见 CHANGELOG「全接口巡检发现的三处」+ 坏 JSON 回 HTML。**巡检时务必隔离 `HOME`**——`claude/apply|repair|restore` 会写 `~/.claude`，不隔离就是拿自己的机器当靶子。
+- **AO 自身不走代理，这是个已知缺口**（本轮撞上）：Node 的 fetch 不读 `HTTP(S)_PROXY`，所以在需要代理才能访问 OpenAI/Gemini/xAI/Anthropic 官方端点的机器上，`curl` 通而 AO 报 `fetch failed`。**已做的只是把话说清楚**（连接器/doctor/模型列表三处会点破代理这件事）；**真正的修法**是引入 `undici` 依赖用 `ProxyAgent` + `setGlobalDispatcher` 接管 —— 会新增一个运行时依赖并改变全局网络行为，属于要单独拍板的事，没做。国内用户多数走中转商（不需要代理），所以不是所有人都受影响。
 - **第一方厂商只补五家，范围已定死**（Gemini / xAI Grok / Moonshot Kimi / 智谱 GLM / 通义千问）。对着 cc-switch 比对过，它还带 OpenRouter / 硅基流动 / MiniMax，Groq、Mistral 也都实测可用 —— **有意不加**：供应商列表同时是赞助商的货架，每多一条都在稀释曝光；长尾需求走「添加自定义供应商」。再有人提议加，先确认是商务决定而不是顺手补齐。
 - **两条"写死的东西迟早说谎"已改为自己报警**：中转商卡片的"支持哪几个 CLI"改为按端点推导；文档站的 provider 数量与注册表比对（有断言，不一致就 CI 报红）。
 

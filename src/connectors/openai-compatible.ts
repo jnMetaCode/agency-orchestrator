@@ -11,10 +11,10 @@ import type { LLMConnector, LLMResult, LLMConfig } from '../types.js';
 export {
   joinEndpoint, normalizeBaseUrl, chatEndpointCandidates, endpointCandidates,
   isAzureDeploymentUrl, sameCredentialScope, postChatCompletions, postApiEndpoint, endpointHint,
-  isGatewayRouteMissShell,
+  isGatewayRouteMissShell, envProxyHint,
 } from './endpoint.js';
 export type { ChatPostResult } from './endpoint.js';
-import { normalizeBaseUrl, isAzureDeploymentUrl, postChatCompletions, endpointHint, isGatewayRouteMissShell } from './endpoint.js';
+import { normalizeBaseUrl, isAzureDeploymentUrl, postChatCompletions, endpointHint, isGatewayRouteMissShell, envProxyHint } from './endpoint.js';
 
 
 /** 估算 token 数：CJK 字符按 1.5 token/char，ASCII 按 0.25 token/char */
@@ -203,9 +203,11 @@ export class OpenAICompatibleConnector implements LLMConnector {
         if (abortState.stalled) {
           throw makeStallError(stallMs, 0);
         }
+        const proxy = envProxyHint();
         const hint = !this.apiKey
           ? '\n  可能原因: 未设置 API Key，请检查环境变量（DEEPSEEK_API_KEY 或 OPENAI_API_KEY）或 .env 配置'
-          : `\n  可能原因: 无法连接 ${this.baseUrl}，请检查 base_url 是否正确、网络是否可达`;
+          : `\n  可能原因: 无法连接 ${this.baseUrl}，请检查 base_url 是否正确、网络是否可达`
+            + (proxy ? `\n  ${proxy}` : '');
         throw new Error(`请求失败: ${requestUrl}\n  ${err instanceof Error ? err.message : err}${hint}`);
       }
 

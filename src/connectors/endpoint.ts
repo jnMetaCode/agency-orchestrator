@@ -232,6 +232,34 @@ export async function postApiEndpoint(opts: {
   return result;
 }
 
+/**
+ * 「curl 能通，AO 连不上」的头号原因：环境里配了代理，而 **Node 的 fetch 默认不读
+ * `HTTP(S)_PROXY`**（curl、浏览器都读）。表现是 `fetch failed / UND_ERR_CONNECT_TIMEOUT`，
+ * 而用户刚用 curl 验过同一个地址是通的，于是会一路去怀疑 base_url、key、甚至我们的代码。
+ *
+ * 这里只负责**把话说清楚**，不擅自改全局网络行为。检测到代理变量就在报错里点破。
+ * 代理地址里可能带账号密码（`http://user:pass@host`）—— 只回显 scheme://host:port，
+ * 绝不把凭证打进日志。
+ */
+export function envProxyHint(env: NodeJS.ProcessEnv = process.env): string {
+  const names = ['HTTPS_PROXY', 'https_proxy', 'HTTP_PROXY', 'http_proxy', 'ALL_PROXY', 'all_proxy'];
+  const hit = names.find((n) => (env[n] || '').trim());
+  if (!hit) return '';
+  const raw = String(env[hit]).trim();
+  let shown = raw;
+  try {
+    const u = new URL(raw.includes('://') ? raw : `http://${raw}`);
+    shown = `${u.protocol}//${u.host}`;   // 丢掉可能存在的 user:pass
+  } catch { shown = '(无法解析)'; }
+  return [
+    `检测到代理环境变量 ${hit}=${shown}，但 Node 的 fetch 默认不走它（curl / 浏览器会走）——`,
+    `  "curl 能通、AO 连不上" 基本都是这个原因，别急着怀疑 base_url 或 key。`,
+    `  可选做法：① 换用不需要代理的中转商端点（Studio 供应商页有一批）；`,
+    `  ② 用支持 --use-env-proxy 的 Node 版本启动（\`node --help | grep -i proxy\` 可确认你的 Node 有没有这个开关）；`,
+    `  ③ 让代理软件开启系统级 TUN/透明代理，使 Node 的直连也被接管。`,
+  ].join('\n  ');
+}
+
 /** 把 HTTP 错误码翻成用户能照做的排查话术（连接器与「测试连接」共用） */
 export function endpointHint(status: number, url: string, baseUrl: string, drift?: string): string {
   const lines = [`请求地址: POST ${url}`];

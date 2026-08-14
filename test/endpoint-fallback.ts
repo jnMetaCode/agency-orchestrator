@@ -13,6 +13,7 @@ import {
   joinEndpoint,
   sameCredentialScope,
   isGatewayRouteMissShell,
+  envProxyHint,
 } from '../src/connectors/openai-compatible.js';
 import { OllamaConnector } from '../src/connectors/ollama.js';
 
@@ -321,6 +322,20 @@ assert(new OllamaConnector('localhost:11434') instanceof OllamaConnector, 'Ollam
   assert(!isGatewayRouteMissShell(ok), '带 choices 的正常响应不会被误判为「接口不存在」');
   assert(isGatewayRouteMissShell('{"data":null,"code":"404","codeMsg":"接口不存在"}'), '网关壳能被认出来');
   assert(!isGatewayRouteMissShell('{"data":[],"code":"200"}'), '业务码 200 不是路由未命中');
+}
+
+// ── 14. 配了代理但 Node 的 fetch 不走它 —— "curl 能通、AO 连不上"的头号原因 ──────
+// 这条不改网络行为，只保证报错里把话说清楚；重点是**别把代理里的账号密码打进日志**。
+{
+  assert(envProxyHint({} as NodeJS.ProcessEnv) === '', '没配代理时不出提示（别制造噪音）');
+  const hint = envProxyHint({ HTTPS_PROXY: 'http://127.0.0.1:7890' } as NodeJS.ProcessEnv);
+  assert(/HTTPS_PROXY/.test(hint) && /127\.0\.0\.1:7890/.test(hint), '配了代理时点破，并回显地址');
+  assert(/fetch/.test(hint) || /curl/.test(hint), '要说清"curl 能通不代表 AO 能通"');
+  const withCreds = envProxyHint({ ALL_PROXY: 'http://alice:s3cret@proxy.internal:8080' } as NodeJS.ProcessEnv);
+  assert(!/s3cret/.test(withCreds) && !/alice/.test(withCreds), '代理地址里的账号密码绝不能打进错误信息');
+  assert(/proxy\.internal:8080/.test(withCreds), '去掉凭证后仍要能看出打的是哪个代理');
+  // 大小写两种写法都要认（很多人只 export 小写的）
+  assert(envProxyHint({ https_proxy: 'http://127.0.0.1:1080' } as NodeJS.ProcessEnv) !== '', '小写 https_proxy 也要认');
 }
 
 console.log(`\n${failed === 0 ? '✅' : '❌'} ${passed} passed, ${failed} failed\n`);

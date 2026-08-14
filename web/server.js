@@ -25,6 +25,8 @@ import { diagnoseClaudeConfig, HIJACK_ENV_KEYS } from '../dist/utils/claude-repa
 import { applyClaudeProvider, restoreClaudeToOfficial, readClaudeSwitchStatus, readClaudeProxyStatus, probeProxyReachable, clearClaudeProxy, syncClaudeProxy, detectSystemProxy } from '../dist/utils/claude-apply.js';
 import { validateCustomProviderId, readCustomProviders, addCustomProvider, removeCustomProvider, updateCustomProvider } from '../dist/utils/custom-providers.js';
 import { rotatingSponsors, rotateFrom } from '../dist/utils/sponsor-guide.js';
+// 代理诊断与连接器共用同一份口径（curl 能通而 AO 连不上的头号原因）
+import { envProxyHint } from '../dist/connectors/endpoint.js';
 
 // Codex 没有环境变量覆盖机制，中转配置写在 ~/.codex/config.toml + auth.json 里，
 // 用固定的内部 provider id（不管用户填的是哪家中转商），避免还要在 UI 里加个
@@ -2226,7 +2228,10 @@ app.post('/api/provider-models', async (req, res) => {
       // 404/405 = 该路径不对/不支持 GET，换下一个候选；401/403 等换路径也没用，直接停（对齐 cc-switch）
       if (r.status !== 404 && r.status !== 405) break;
     }
-    return await modelsDevFallback(!key && /HTTP 40[13]/.test(lastErr) ? `未设置 API key（${lastErr}）` : lastErr);
+    // 代理变量设了但 Node 的 fetch 不走它 —— 拉不到模型列表时最常见的「其实不是我们的问题」
+    const proxyNote = /fetch failed|CONNECT_TIMEOUT|ENOTFOUND|ECONNREFUSED|超时/i.test(lastErr) ? envProxyHint() : '';
+    const withProxy = proxyNote ? `${lastErr}\n${proxyNote}` : lastErr;
+    return await modelsDevFallback(!key && /HTTP 40[13]/.test(lastErr) ? `未设置 API key（${withProxy}）` : withProxy);
   } catch (e) {
     return await modelsDevFallback(e?.message || String(e));
   }

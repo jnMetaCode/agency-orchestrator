@@ -19,6 +19,7 @@
 - **Studio 的 Claude 默认端点改为不带 `/v1`**：原默认值 `https://api.anthropic.com/v1` 与 doctor 的"多写 /v1 要去掉"自相矛盾，而它正是用户配中转时照抄的形状样板。
 
 ### Fixed
+- **配了代理却「curl 能通、AO 连不上」时，报错完全没提代理**（本轮核实端点时自己撞上的）：Node 的 `fetch` 默认**不读** `HTTP(S)_PROXY`/`ALL_PROXY`，而 curl、浏览器都读。表现是 `fetch failed / UND_ERR_CONNECT_TIMEOUT`，用户前一秒刚用 curl 验过同一个地址是通的，于是会一路去怀疑 base_url、key、甚至我们的代码。现在连接器、`ao doctor`、Studio 的「获取模型列表」在连接类失败时统一点破这一点，并给三条可照做的出路。**代理地址里的账号密码不会被打进日志**（只回显 `scheme://host:port`，有断言钉着）。注意这只解决"说清楚"，AO 自身仍不走代理——真要走代理得另外引依赖，是个单独的决定。
 - **全接口巡检发现的三处**（把 `web/server.js` 里注册的 50 条路由逐条真打了一遍，假 LLM 上游 + 临时 HOME 隔离）：
   - `/api/compare` 对「工作流本身写得不对」回 **500**（实测：产物缺 `llm:` 段 → `工作流缺少 llm 配置`）。500 会让人以为引擎坏了跑去重启，其实是 YAML 的问题。解析类错误现在带 `userError` 标记，web 层据此回 4xx；「找不到角色库目录」同理。
   - **YAML 没写 `llm:` 时，`--provider` / Studio 里选的供应商救不了它**：解析器在 override 生效之前就抛了。现在 `parseWorkflow` 接受调用方给的 llm 兜底——用户明明在命令行/界面上指定了 provider 却被挡住，说不通。

@@ -19,7 +19,7 @@ import { listAgents, filterAgentsByKeyword } from './agents/loader.js';
 import { run, findAgentsDir, compareWorkflowVsBaseline } from './index.js';
 import { detectInstalledCliProviders } from './providers/detect.js';
 import { API_PROVIDERS, API_PROVIDER_MAP } from './connectors/api-providers.js';
-import { postChatCompletions, postApiEndpoint, endpointHint, normalizeBaseUrl } from './connectors/openai-compatible.js';
+import { postChatCompletions, postApiEndpoint, endpointHint, normalizeBaseUrl, envProxyHint } from './connectors/openai-compatible.js';
 // claude 走原生 SDK，端点体检要按 Anthropic 协议单独来（见 doctor 的 3.6 段）
 import { normalizeAnthropicBaseUrl } from './connectors/claude.js';
 import { diagnoseClaudeConfig, repairClaudeConfig } from './utils/claude-repair.js';
@@ -715,7 +715,10 @@ async function handleDoctor(): Promise<void> {
       problems++;
       const msg = ctrl.signal.aborted ? '超时（12s）' : (err instanceof Error ? err.message : String(err));
       console.log(`  ❌ 端点不通：${msg}`);
-      console.log(`     ↳ 检查 ${apiSpec.envBase}（当前 ${base}）是否正确、网络/代理是否可达`);
+      console.log(`     ↳ 检查 ${apiSpec.envBase}（当前 ${base}）是否正确、网络是否可达`);
+      // 配了代理但 Node 的 fetch 不走它 —— "curl 能通、AO 连不上"的头号原因，必须点破
+      const proxyNote = envProxyHint();
+      if (proxyNote) console.log(`     ↳ ${proxyNote.replace(/\n {2}/g, '\n     ')}`);
     } finally {
       clearTimeout(timer);
     }
