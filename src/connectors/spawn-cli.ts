@@ -25,6 +25,9 @@
 import { spawn, type ChildProcess, type SpawnOptions } from 'node:child_process';
 import { existsSync, readFileSync } from 'node:fs';
 import { delimiter, dirname, extname, join, sep } from 'node:path';
+// 与安装探测共用「这个 CLI 装在哪」——只给探测加目录会造成
+// 「doctor 说已安装、一跑却报找不到命令」（Antigravity 装在 ~/.local/bin，默认不在 PATH）
+import { extraBinDirs, hasExtraBinDirs } from '../utils/bin-lookup.js';
 
 /** 在 PATH 上找到命令对应的真实文件（Windows 按 PATHEXT 逐个试）。找不到返回 null。 */
 export function findExecutable(
@@ -36,11 +39,11 @@ export function findExecutable(
     return existsSync(command) ? command : null;
   }
   const PATH = env.PATH || env.Path || '';
-  if (!PATH) return null;
+  if (!PATH && !hasExtraBinDirs(command)) return null;
   const exts = platform === 'win32'
     ? (env.PATHEXT || '.COM;.EXE;.BAT;.CMD').split(';').filter(Boolean)
     : [''];
-  for (const dir of PATH.split(delimiter)) {
+  for (const dir of [...PATH.split(delimiter), ...extraBinDirs(command, env)]) {
     if (!dir) continue;
     for (const ext of exts) {
       const p = join(dir, command + ext);
@@ -115,6 +118,14 @@ export function planLaunch(
   platform: NodeJS.Platform = process.platform,
 ): CLILaunchPlan {
   if (platform !== 'win32') {
+    // POSIX 下一般把裸命令交给 Node 按 PATH 解析即可（保持既有行为）。
+    // 唯一的例外：这个命令有已知的官方安装目录、而它**不在 PATH 上** —— Antigravity 的
+    // install.sh 就装到 ~/.local/bin，很多 shell 并不会把它加进 PATH。此时若还交给 Node，
+    // 就会出现"doctor 说已安装、一跑却 ENOENT"这种两边各说各话的失败，所以补成绝对路径。
+    if (hasExtraBinDirs(command) && !command.includes('/')) {
+      const resolvedPosix = findExecutable(command, env, platform);
+      if (resolvedPosix) return { file: resolvedPosix, args, viaCmd: false };
+    }
     return { file: command, args, viaCmd: false };
   }
 

@@ -155,6 +155,29 @@ await test('各处 provider 清单都登记了（漏一处 = 能选不能跑 / �
   }
 });
 
+await test('探测说"已安装"，就必须真的跑得起来（两边共用同一份"装在哪"）', async () => {
+  // 真实场景：官方 install.sh 把 agy 装到 ~/.local/bin，而这个目录**默认不在 PATH 上**。
+  // 之前只给探测加了这个目录 → doctor/Studio 说"已安装"、点下去报"找不到 agy 命令"，
+  // 两边各说各话是最难自证的一类失败。
+  const home = mkdtempSync(join(tmpdir(), 'ao-agy-consistency-'));
+  const bin = join(home, '.local', 'bin');
+  mkdirSync(bin, { recursive: true });
+  writeFileSync(join(bin, 'agy'), '#!/bin/sh\necho ok-from-local-bin\n', 'utf-8');
+  chmodSync(join(bin, 'agy'), 0o755);
+  const savedHome = process.env.HOME;
+  const savedPath = process.env.PATH;
+  process.env.HOME = home;
+  process.env.PATH = '/usr/bin:/bin';   // 故意不含 ~/.local/bin
+  try {
+    assert(detectInstalledCliProviders(process.env).includes('antigravity-cli'), '前提：探测应认为已安装');
+    const r = await new AntigravityCLIConnector().chat('s', 'u', cfg({ timeout: 20_000 }));
+    assert(r.content.includes('ok-from-local-bin'), `探测说已安装就必须跑得起来，实际 ${JSON.stringify(r.content)}`);
+  } finally {
+    if (savedHome === undefined) delete process.env.HOME; else process.env.HOME = savedHome;
+    process.env.PATH = savedPath;
+  }
+});
+
 console.log('\n─── 用一个假的 agy 真跑一遍（验证参数原样到达进程） ───');
 
 await test('假 agy：参数一字不差地到达子进程，stdout 原样回来', async () => {
