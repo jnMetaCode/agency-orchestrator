@@ -27,6 +27,7 @@ import { validateCustomProviderId, readCustomProviders, addCustomProvider, remov
 import { rotatingSponsors, rotateFrom } from '../dist/utils/sponsor-guide.js';
 // 代理诊断与连接器共用同一份口径（curl 能通而 AO 连不上的头号原因）
 import { envProxyHint } from '../dist/connectors/endpoint.js';
+import { BUDGET_CAPABLE_PROVIDERS } from '../dist/cli/compose.js';
 // 环境里配了代理就接管全局 dispatcher（Node 的 fetch 默认不读 HTTP(S)_PROXY）。
 // 放在最前面:清单拉取、测试连接、获取模型列表都要用它;没配代理时什么都不做。
 import { installEnvProxy } from '../dist/utils/env-proxy.js';
@@ -1757,6 +1758,8 @@ app.get('/api/config', async (_req, res) => {
     relayPresets: manifest.relayPresets,
     removedProviders: manifest.removedProviders,
     defaultProvider: process.env.AO_PROVIDER || 'duoyuanx',
+    // 省钱模式对哪些 provider 真的生效（引擎降档表的键）——前端据此在不生效时明说
+    budgetProviders: BUDGET_CAPABLE_PROVIDERS,
     // 角色库下拉的可选项:zh/en + 已安装的官方语言包(agency-agents-ko 等)
     roleLibs: installedRoleLibs(),
   });

@@ -58,7 +58,7 @@ export function RolesPicker({
   };
   useEffect(() => {
     if (demo) return;
-    api.config().then((c) => setRoleLibs(c.roleLibs ?? [])).catch(() => setRoleLibs([]));
+    api.config().then((c) => { setRoleLibs(c.roleLibs ?? []); setBudgetProviders(c.budgetProviders ?? null); }).catch(() => setRoleLibs([]));
   }, [demo]);
 
   // 用户自选「常用」角色：点星收藏（localStorage，与工作流的 ☆ 同一交互）
@@ -95,6 +95,9 @@ export function RolesPicker({
   const [needKeyGuide, setNeedKeyGuide] = useState<{ installedCli?: string[]; sponsors?: { name: string; bonus?: string; url: string }[] } | null>(null);
   // 省钱模式：轻活步骤自动降便宜档（传 budget 给 /api/compose，后端 R3.2）
   const [budget, setBudget] = useState(false);
+  // 省钱模式的能力清单（引擎降档表的键）。null = 后端没给（老版本/演示站），按支持处理不吓人
+  const [budgetProviders, setBudgetProviders] = useState<string[] | null>(null);
+  const budgetSupported = !budgetProviders || budgetProviders.includes(provider);
   const [detail, setDetail] = useState<Role | null>(null);
   const [preview, setPreview] = useState<{ result: ComposeResult; meta: Workflow | null; loading: boolean } | null>(null);
 
@@ -397,10 +400,15 @@ export function RolesPicker({
             {t.studio.chat.btn}
           </Button>
         </div>
-        <label className="mt-2.5 flex w-fit cursor-pointer items-center gap-2 text-xs text-muted-foreground" title={t.studio.roles.budgetModeHint}>
-          <input type="checkbox" checked={budget} onChange={(e) => setBudget(e.target.checked)} className="size-3.5 accent-primary" />
+        <label className={"mt-2.5 flex w-fit items-center gap-2 text-xs text-muted-foreground " + (budgetSupported ? "cursor-pointer" : "cursor-not-allowed opacity-60")} title={budgetSupported ? t.studio.roles.budgetModeHint : t.studio.roles.budgetNoTier}>
+          <input type="checkbox" checked={budget && budgetSupported} disabled={!budgetSupported} onChange={(e) => setBudget(e.target.checked)} className="size-3.5 accent-primary" />
           <span>{t.studio.roles.budgetMode}</span>
         </label>
+        {/* 当前 provider 没有已核实的便宜档 → 明说不生效,并告诉用户换到哪些能生效。
+            静默空操作比不支持更糟 —— 用户以为省了钱,其实一分没省 */}
+        {!budgetSupported && (
+          <p className="mt-1 text-[11px] text-amber-600 dark:text-amber-400">{t.studio.roles.budgetNoTier}</p>
+        )}
         {composing && (
           <p className="mt-2.5 flex items-center gap-1.5 rounded-lg border border-primary/30 bg-primary/[0.06] px-3 py-2 text-xs text-primary">
             <Loader2 className="size-3.5 shrink-0 animate-spin" />

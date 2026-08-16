@@ -7,6 +7,8 @@ import {
   repairInvalidRolesInYaml,
   buildComposeSystemPrompt,
   buildComposeUserPrompt,
+  applyBudgetTiering,
+  BUDGET_CAPABLE_PROVIDERS,
   ensureLlmBlock,
   extractYamlFromResponse,
   formatCatalogForPrompt,
@@ -14,7 +16,7 @@ import {
   detectLang,
   type RoleSummary,
 } from '../src/cli/compose.js';
-import { writeFileSync, readFileSync, mkdtempSync } from 'node:fs';
+import { writeFileSync, readFileSync, mkdtempSync, existsSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 
@@ -634,5 +636,44 @@ test('没 provider 可填时不硬造（宁可保持原样，让上层报清楚�
 });
 
 await Promise.all(pending);
+
+// ─── 省钱模式的诚实性（勾了不生效=静默空操作，比不支持更糟） ───
+
+console.log('\n─── 省钱模式（budget）───');
+
+await test('降档表的键都是引擎真认识的 provider（写错=永远静默 no-op）', async () => {
+  const { API_PROVIDERS } = await import('../src/connectors/api-providers.js');
+  const known = new Set([...API_PROVIDERS.map((x) => x.id), 'claude', 'claude-code', 'antigravity-cli', 'gemini-cli', 'copilot-cli', 'codex-cli', 'openclaw-cli', 'hermes-cli', 'ollama']);
+  for (const k of BUDGET_CAPABLE_PROVIDERS) {
+    assert(known.has(k), `降档表里的 "${k}" 不是已注册 provider`);
+  }
+});
+
+await test('claude-code 在能力清单里（订阅额度同样是钱，轻活降 haiku）', () => {
+  assert(BUDGET_CAPABLE_PROVIDERS.includes('claude-code'), 'claude-code 应支持省钱模式');
+  assert(BUDGET_CAPABLE_PROVIDERS.includes('shengsuanyun'), '胜算云的便宜档已实拉核实，应在列');
+});
+
+await test('claude-code 下轻活步骤真的被降档（不是只进了清单）', () => {
+  const yaml = ['name: "x"', 'llm:', '  provider: "claude-code"', 'steps:', '  - id: a', '    role: "r/r"', '    task: "把要点整理成表格"'].join('\n');
+  const out = applyBudgetTiering(yaml, 'claude-code');
+  assert(/claude-haiku/.test(out.yaml), `轻活应降到 haiku,实际:\n${out.yaml}`);
+});
+
+await test('不在降档表的 provider（如 lanox）budget 是显式 no-op，不乱写模型', () => {
+  const yaml = ['name: "x"', 'llm:', '  provider: "lanox"', '  model: "gpt-5.6-sol"', 'steps:', '  - id: a', '    role: "r/r"', '    task: "把要点整理成表格"'].join('\n');
+  const out = applyBudgetTiering(yaml, 'lanox');
+  assert(out.yaml === yaml, '没有已核实便宜档就不动 YAML（猜错=轻活全线报模型不存在）');
+});
+
+await test('前端把"不生效"明说出来（能力清单接进了勾选框）', () => {
+  if (!existsSync('website/src/components/studio/RolesPicker.tsx')) return;  // 引擎单独发包时跳过
+  const picker = readFileSync('website/src/components/studio/RolesPicker.tsx', 'utf-8');
+  assert(/budgetProviders/.test(picker) && /budgetSupported/.test(picker), 'RolesPicker 应消费能力清单');
+  assert(/disabled=\{!budgetSupported\}/.test(picker), '不支持时勾选框应禁用而不是静默无效');
+  const i18n = readFileSync('website/src/i18n/translations.ts', 'utf-8');
+  assert((i18n.match(/budgetNoTier/g) || []).length >= 2, '中英都要有"不生效"文案');
+});
+
 console.log(`\n  结果: ${passed} 通过, ${failed} 失败\n`);
 if (failed > 0) process.exit(1);

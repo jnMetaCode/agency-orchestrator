@@ -23,7 +23,19 @@ const BUDGET_LIGHT_MODEL: Record<string, string> = {
   ccsub: 'claude-haiku-4-5-20251001',
   // deepseek：默认若走贵的 reasoner，轻活降到便宜的 chat；默认已是 chat 时则 no-op（light===topModel）
   deepseek: 'deepseek-chat',
+  // Claude Code CLI 也认 --model：轻活降到 haiku，订阅额度同样是钱。用官方模型名，CLI 自己映射
+  'claude-code': 'claude-haiku-4-5-20251001',
+  // 胜算云（赞助商）：便宜档取自它**公开的** GET /api/v1/models（2026-08-16 实拉核实在架），
+  // 模型名带厂商前缀。其余赞助商（多元探索/LanoX/火山/优云）没有可核实的便宜档编码，
+  // **宁缺毋滥不猜** —— 猜错=轻活步骤全线报"模型不存在"，比不降档糟得多。
+  shengsuanyun: 'anthropic/claude-haiku-4.5',
 };
+
+/**
+ * 省钱模式对哪些 provider 真的生效。暴露给 Studio：不在此列时勾选框要**明说不生效**，
+ * 而不是让用户勾了个静默空操作（这正是本仓库反复在修的那类"给了开关不给诊断"）。
+ */
+export const BUDGET_CAPABLE_PROVIDERS: string[] = Object.keys(BUDGET_LIGHT_MODEL);
 // 「轻活」词（抽取/汇总/格式化/罗列/翻译/润色…）→ 可降档；「重活」词（分析/设计/评审/创作…）→ 保贵档。
 // 保守策略：重活优先，命中难词或不确定一律保贵档，只对明确的轻活降档，护住关键质量。
 // 明确的「把 X 重塑成 Y」动作（整理成/格式化/翻译成…）——这类步骤只是重组已有内容，

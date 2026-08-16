@@ -290,6 +290,8 @@ export interface ConfigResponse {
   installedCli?: string[];
   /** 推荐默认 provider：已装 CLI 优先 > 已配 key > 默认。 */
   recommended?: string;
+  /** 省钱模式对哪些 provider 真的生效（引擎降档表的键）；不在列时前端明说不生效 */
+  budgetProviders?: string[];
   /** 用户自己加的自定义供应商（任意 OpenAI 兼容 endpoint）。 */
   customProviders?: CustomProviderMeta[];
   /** 远程清单：增量上架的赞助商 / CLI 中转商 / 下架的内置 id。 */
