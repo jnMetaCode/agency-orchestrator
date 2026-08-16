@@ -1,4 +1,4 @@
-import { Globe, LifeBuoy, Loader2, Network, RotateCw, ShieldAlert, ShieldCheck, Undo2 } from "lucide-react";
+import { ChevronDown, Globe, LifeBuoy, Loader2, Network, RotateCw, ShieldAlert, ShieldCheck, Undo2 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Tip } from "@/components/ui/tip";
@@ -26,6 +26,9 @@ export function ClaudeHealthCard() {
   const [result, setResult] = useState<ClaudeRepairResult | null>(null);
   const [proxy, setProxy] = useState<ClaudeProxyStatus | null>(null);
   const [proxyBusy, setProxyBusy] = useState(false);
+  // 折叠态：健康时这张卡平时不需要看,收成一行别把供应商列表顶出首屏;
+  // 有事(被劫持/代理不可达/刚修复完/有残留)时**自动展开**,该看见的时候一定看得见
+  const [expanded, setExpanded] = useState(false);
 
   const check = () => {
     setLoading(true);
@@ -109,6 +112,13 @@ export function ClaudeHealthCard() {
   const shellRemaining = result?.shellOverridesRemaining ?? Object.keys(health?.shellOverrides ?? {});
   const skipped = result?.skipped ?? health?.files.filter((f) => f.parseError).map((f) => ({ path: f.path, reason: f.parseError! })) ?? [];
 
+  // 这些情况用户必须看到,不吃折叠:被劫持 / 刚执行过修复(要看结果) / 写入报错 /
+  // 代理不可达或漂移 / shell 残留 / 有文件被跳过
+  const attention = hijacked || !!result || !!applyError
+    || proxy?.reachable === false || !!proxy?.drift
+    || shellRemaining.length > 0 || skipped.length > 0;
+  const open = expanded || attention;
+
   return (
     <div
       className={cn(
@@ -120,7 +130,7 @@ export function ClaudeHealthCard() {
             : "border-border/60 bg-card/50",
       )}
     >
-      <div className="flex items-center gap-2.5">
+      <div className="flex cursor-pointer select-none items-center gap-2.5" onClick={() => setExpanded((v) => !v)}>
         {loading ? (
           <Loader2 className="size-4 shrink-0 animate-spin text-muted-foreground" />
         ) : hijacked ? (
@@ -132,20 +142,33 @@ export function ClaudeHealthCard() {
         )}
         <span className="min-w-0 flex-1">
           <span className="block text-sm font-semibold">{tr.title}</span>
-          <span className="block text-[11px] text-muted-foreground">{tr.subtitle}</span>
+          {/* 收起时标题下那行直接给结论(正常/已切换/被劫持),而不是一句固定说明 —— 一行也要有信息量 */}
+          <span className={cn("block truncate text-[11px]", !open && !loading
+            ? (hijacked ? "font-medium text-red-500" : aoManaged ? "text-primary" : "text-emerald-500")
+            : "text-muted-foreground")}>
+            {!open && !loading ? (hijacked ? tr.hijacked : aoManaged ? tr.managed : tr.healthy) : tr.subtitle}
+          </span>
         </span>
+        {/* 收起时代理状态也压缩成一个点:可达绿、不可达红 —— Clash 没开导致连不上时,收着也能看见 */}
+        {!open && !loading && proxy?.configured && (
+          <span className={cn("hidden shrink-0 items-center gap-1 text-[11px] sm:flex", proxy.reachable === false ? "font-medium text-red-500" : "text-muted-foreground")}>
+            <Network className="size-3" />
+            {proxy.reachable === false ? tr.proxyUnreachable : tr.proxyReachable}
+          </span>
+        )}
         <Tip label={tr.recheck}>
           <button
-            onClick={check}
+            onClick={(e) => { e.stopPropagation(); check(); }}
             disabled={loading || repairing}
             className="grid size-8 shrink-0 place-items-center rounded-lg border border-border/70 text-muted-foreground transition-colors hover:border-primary/40 hover:text-foreground disabled:opacity-50"
           >
             <RotateCw className={cn("size-3.5", loading && "animate-spin")} />
           </button>
         </Tip>
+        <ChevronDown className={cn("size-4 shrink-0 text-muted-foreground transition-transform", open && "rotate-180")} />
       </div>
 
-      {!loading && (
+      {!loading && open && (
         <div className="mt-2.5 space-y-2 text-[12px]">
           {/* 修复完成横幅 */}
           {result?.changed && <p className="font-medium text-emerald-500">✓ {tr.done} · {tr.doneHint}</p>}
