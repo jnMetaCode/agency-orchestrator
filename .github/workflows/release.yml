@@ -3,34 +3,63 @@ name: Release (npm)
 # tag 驱动发布:推一个 v* tag（如 v0.8.0）→ 校验 + 测试 + 发 npm。
 # 把"发布"从易被跳过的手工仪式变成一条命令,根治"代码已修但线上没发"(#80/#81)。
 #
-# 前置:仓库 Secrets 配 NPM_TOKEN(npmjs 的 automation token)。
+# 认证走 npm Trusted Publishing(OIDC),仓库不再存 NPM_TOKEN ——
+# 长期卡住发版的就是 token:存进来的那个 bypass_2fa=false,CI 输不了 2FA 验证码,
+# 每次都死在 EOTP;而能绕 2FA 的 token 又会过期/被吊销。OIDC 没有凭据可过期。
+#
+# 一次性前置(在 npmjs.com 上配,配完永久有效):
+#   包页面 → Settings → Trusted Publisher → GitHub Actions,填:
+#     Organization or user = jnMetaCode
+#     Repository           = agency-orchestrator
+#     Workflow filename    = release.yml      ← 只填文件名,不带路径
+#     Allowed actions      = 勾选 npm publish
+# 配好之前这条流水线会发布失败,这是预期行为(宁可红,不要发错身份)。
+#
 # 用法:
 #   npm version 0.8.0 --no-git-tag-version   # 或手动改 package.json version
 #   git commit -am "release: 0.8.0" && git tag v0.8.0 && git push origin main --tags
 on:
   push:
     tags: ["v*"]
+  # 发布失败后可在 Actions 页填 tag 重跑,不必删远端 tag 再重推。
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "要发布的 tag(如 v0.14.0)"
+        required: true
 
 permissions:
   contents: read
+  id-token: write # Trusted Publishing 取 OIDC token 必需,同时自动带上 provenance
 
 jobs:
   publish:
     runs-on: ubuntu-latest
     steps:
+      # 手动重跑时按 tag 检出,否则默认检出触发的 tag
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.tag || github.ref_name }}
 
+      # Trusted Publishing 要求 Node >= 22.14.0(CI 矩阵已覆盖 22)
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
           registry-url: "https://registry.npmjs.org"
+
+      # Trusted Publishing 要求 npm >= 11.5.1,而 Node 22 自带的是 10.x
+      - name: Upgrade npm for trusted publishing
+        run: |
+          npm install -g npm@latest
+          echo "npm=$(npm -v)  node=$(node -v)"
 
       # tag 必须与 package.json 的 version 一致,避免发错版本
       - name: Verify tag matches package.json version
         run: |
           PKG=$(node -p "require('./package.json').version")
-          TAG="${GITHUB_REF_NAME#v}"
+          REF="${{ inputs.tag || github.ref_name }}"
+          TAG="${REF#v}"
           echo "package.json=$PKG  tag=$TAG"
           if [ "$PKG" != "$TAG" ]; then
             echo "::error::tag v$TAG 与 package.json version $PKG 不一致,拒绝发布"
@@ -55,8 +84,6 @@ jobs:
       - name: Run tests
         run: npm test
 
-      # prepublishOnly 会再跑一遍 build + verify,这里 --provenance 留痕;artifacts 已就绪
+      # 无 NODE_AUTH_TOKEN:凭据由 OIDC 现取现用,provenance 由 npm 自动附加
       - name: Publish to npm
         run: npm publish --access public
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
