@@ -11,6 +11,7 @@ import { spawn, execFileSync } from 'node:child_process';
 import { readFileSync, readdirSync, existsSync, statSync, writeFileSync, unlinkSync, mkdirSync, rmSync } from 'node:fs';
 import { resolve, join, dirname, basename, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { createHash } from 'node:crypto';
 import { tmpdir, homedir } from 'node:os';
 import yaml from 'js-yaml';
 import { detectInstalledCliProviders } from '../dist/providers/detect.js';
@@ -2383,14 +2384,28 @@ app.post('/api/ccswitch-import', (req, res) => {
 // 引擎代码热更新检测：进程启动后若 server.js / dist（注册表、CLI）被重新构建，
 // 内存里跑的仍是旧代码——会出现"前端认识新供应商、引擎报 unknown provider"、
 // 新端点 404 之类的版本漂移谜题。health 带上 stale 标记，前端据此提示重启引擎。
+//
+// **判据是内容变了，不是文件被碰过**：只看 mtime 会把 git 的每一次改写都当成漂移
+// （切分支、merge、rebase、stash 都会重写文件并刷新 mtime，内容却可能一字未变——
+// 本轮合并 main 后就误报了一次）。一个"切个分支就喊重启"的警报，喊几次之后就没人
+// 信了，而它要防的恰恰是那种最难自证的故障。所以 mtime 只当**便宜的门**：先看时间，
+// 时间变了才去算哈希，哈希不同才算真漂移。稳态下（绝大多数轮询）一次哈希都不算。
 const BOOT_TIME = Date.now();
 const STALE_PROBES = [
   join(__dirname, 'server.js'),
   join(ROOT, 'dist', 'connectors', 'api-providers.js'),
   CLI,
 ];
-const isEngineStale = () => STALE_PROBES.some(f => {
-  try { return statSync(f).mtimeMs > BOOT_TIME; } catch { return false; }
+const fileFingerprint = (f) => {
+  try { return createHash('sha1').update(readFileSync(f)).digest('hex'); } catch { return null; }
+};
+// 启动时的内容指纹（探针文件不存在就记 null——之后凭空出现同样算漂移）
+const BOOT_FINGERPRINTS = new Map(STALE_PROBES.map((f) => [f, fileFingerprint(f)]));
+const isEngineStale = () => STALE_PROBES.some((f) => {
+  let touched;
+  try { touched = statSync(f).mtimeMs > BOOT_TIME; } catch { return false; }
+  if (!touched) return false;                       // 没被碰过：直接过，不读文件
+  return fileFingerprint(f) !== BOOT_FINGERPRINTS.get(f);
 });
 app.get('/api/health', (_req, res) => res.json({ ok: true, version: PKG_VERSION, stale: isEngineStale() }));
 

@@ -3,7 +3,7 @@
  * 不需要 LLM——只打不依赖模型的端点。server.js 不在 tsc/其余测试覆盖内，这是它唯一的自动化网。
  */
 import { spawn, type ChildProcess } from 'node:child_process';
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, statSync, symlinkSync, utimesSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { createServer } from 'node:net';
@@ -51,6 +51,32 @@ try {
     // ── 基本端点 ──
     const health = await (await fetch(base + '/api/health')).json();
     assert(!!health.version, '/api/health 含 version');
+    assert(health.stale === false, `刚启动的引擎不该被判定为待重启(stale=${health.stale})`);
+
+    // ── 「引擎待重启」只该在**内容真的变了**时响 ──
+    // 判据曾经是 mtime，于是 git 的每一次改写（切分支 / merge / rebase / stash）都会
+    // 误报——实际撞到过一次：ff 合并把 web/server.js 回退再写回，内容一字未变，界面
+    // 却开始喊重启。一个"切个分支就喊重启"的警报，喊几次之后就没人信了。
+    {
+      const probe = resolve('web/server.js');
+      const st = statSync(probe);
+      // 只把 mtime 推到未来（内容一个字节不动）= 模拟 git 改写
+      utimesSync(probe, st.atime, new Date(Date.now() + 60_000));
+      const h2 = await (await fetch(base + '/api/health')).json();
+      assert(h2.stale === false, 'mtime 变了但内容没变，不该判定为待重启（git 切分支/合并会这样）');
+      // 真改内容才该响：往构建产物尾部加一行注释，断言完立刻还原
+      const cliProbe = resolve('dist/cli.js');
+      const orig = readFileSync(cliProbe);
+      try {
+        writeFileSync(cliProbe, Buffer.concat([orig, Buffer.from('\n// stale-probe\n')]));
+        const h3 = await (await fetch(base + '/api/health')).json();
+        assert(h3.stale === true, '构建产物内容变了，必须提示重启引擎（这是它存在的意义）');
+      } finally {
+        writeFileSync(cliProbe, orig);   // 万一断言抛了也还原，别把 dist 留脏
+      }
+      const h4 = await (await fetch(base + '/api/health')).json();
+      assert(h4.stale === false, '内容还原后应恢复正常（跑的代码与盘上一致了）');
+    }
 
     const roles = await (await fetch(base + '/api/roles')).json();
     assert(Array.isArray(roles) && roles.length > 0, `/api/roles 返回非空数组(${roles.length})`);
