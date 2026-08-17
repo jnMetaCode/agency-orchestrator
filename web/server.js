@@ -1760,6 +1760,15 @@ app.get('/api/config', async (_req, res) => {
     defaultProvider: process.env.AO_PROVIDER || 'duoyuanx',
     // 省钱模式对哪些 provider 真的生效（引擎降档表的键）——前端据此在不生效时明说
     budgetProviders: BUDGET_CAPABLE_PROVIDERS,
+    // 文生图只有 OpenAI 兼容的 API provider 能跑（引擎 resolveImageAccess 同一口径）：
+    // 本地 CLI 是编码工具、Anthropic 原生协议压根没有图片端点。前端据此只列能跑的，
+    // 而不是把 family:'api' 的全塞进下拉——claude-code / gemini-cli 也在那一族里。
+    imageProviders: Object.entries(providers)
+      .filter(([id, p]) => p.family === 'api'
+        && !CLI_PROVIDERS.includes(id)
+        && id !== 'claude'
+        && !ANTHROPIC_PROVIDER_MAP[id])
+      .map(([id]) => id),
     // 角色库下拉的可选项:zh/en + 已安装的官方语言包(agency-agents-ko 等)
     roleLibs: installedRoleLibs(),
   });
@@ -2137,6 +2146,46 @@ app.post('/api/test-provider', async (req, res) => {
     return res.json({ ok: false, error: e?.name === 'AbortError' ? '超时（12s）' : (e?.message || String(e)) });
   } finally {
     clearTimeout(timer);
+  }
+});
+
+// ── 文生图（创意库「一键生成」与任意直连出图共用）────────────────────────────
+// 复用引擎的 generateImage：两种协议自动切换、报错口径与 type: image 步骤一致。
+// 演示站没有后端 —— 前端自己降级提示，这里不用管。apiKey/baseUrl 可覆盖（"填了就能测"）。
+app.post('/api/image/generate', async (req, res) => {
+  const { provider, model, prompt, size, quality, apiKey: overrideKey, baseUrl: overrideBase } = req.body || {};
+  if (!prompt || typeof prompt !== 'string' || !prompt.trim()) return res.status(400).json({ ok: false, error: '缺少提示词' });
+  if (!model || typeof model !== 'string' || !model.trim()) {
+    return res.status(400).json({ ok: false, error: '缺少图片模型：各家编码互不通用（如 gpt-image-2），配好 key 后可在供应商页「获取模型列表」查看' });
+  }
+  const keyErr = keyCharsetError(overrideKey);
+  if (keyErr) return res.json({ ok: false, error: keyErr });
+  try {
+    const llm = buildLLMConfig(provider);
+    const cfg = {
+      ...llm,
+      ...(overrideBase ? { base_url: normalizeBaseUrl(overrideBase) } : {}),
+      ...(typeof overrideKey === 'string' && overrideKey.trim() ? { api_key: overrideKey.trim() } : {}),
+      timeout: 300_000,   // 出图普遍 30-120s，别用文本那套短超时
+    };
+    const { generateImage } = await import('../dist/connectors/image.js');
+    const img = await generateImage(cfg, prompt.trim(), {
+      model: model.trim(),
+      ...(typeof size === 'string' && size.trim() ? { size: size.trim() } : {}),
+      ...(typeof quality === 'string' && quality.trim() ? { quality: quality.trim() } : {}),
+    });
+    // data URL 直接给前端 <img> 用；一张图几百 KB~几 MB，一次性响应可接受。
+    // width/height 是从 PNG 头量出来的真实尺寸——各家把 size 当建议的不少（实测 LanoX），
+    // 界面照实显示，用户才不会以为是自己参数写错了。
+    res.json({
+      ok: true,
+      dataUrl: `data:image/png;base64,${img.buffer.toString('base64')}`,
+      via: img.via,
+      ...(img.width && img.height ? { width: img.width, height: img.height } : {}),
+    });
+  } catch (err) {
+    // 引擎的报错本来就是给人看的（缺模型/两种协议都试过/CLI 不是图片端点），原样透传
+    res.status(400).json({ ok: false, error: err?.message || String(err) });
   }
 });
 

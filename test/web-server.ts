@@ -551,6 +551,43 @@ try {
     assert(!('mystery-1' in vendors) && (m2.body.models as string[]).includes('mystery-1'),
       '占位厂商(api-transfer-server)被过滤，但模型本身照常列出');
 
+    // 9.5) 文生图接口：baseUrl 覆盖打到假图片上游 → data URL；缺模型 → 400 且说人话
+    let lastImgBody = '';
+    const imgUp = http.createServer((req2, res2) => {
+      let bb = ''; req2.on('data', (d) => (bb += d));
+      req2.on('end', () => {
+        lastImgBody = bb;
+        if (/images\/generations/.test(String(req2.url))) {
+          res2.writeHead(200, { 'Content-Type': 'application/json' });
+          return res2.end(JSON.stringify({ data: [{ b64_json: 'aGVsbG8=' }] }));
+        }
+        res2.writeHead(404, { 'Content-Type': 'application/json' });
+        res2.end('{"error":"nope"}');
+      });
+    });
+    await new Promise<void>((r) => imgUp.listen(0, '127.0.0.1', () => r()));
+    const imgPort = (imgUp.address() as { port: number }).port;
+    const g1 = await postJson('/api/image/generate', { provider: 'relaytest', model: 'img-m', prompt: '画一只猫', baseUrl: `http://127.0.0.1:${imgPort}/v1`, apiKey: 'sk-x' });
+    assert(g1.status === 200 && String(g1.body.dataUrl).startsWith('data:image/png;base64,'), `出图应回 data URL(实际 ${g1.status} ${JSON.stringify(g1.body).slice(0, 80)})`);
+    const g2 = await postJson('/api/image/generate', { provider: 'relaytest', prompt: '画一只猫' });
+    assert(g2.status === 400 && /图片模型/.test(String(g2.body.error)), `缺模型应 400 并说清(实际 ${g2.status} ${g2.body.error})`);
+    const g3 = await postJson('/api/image/generate', { provider: 'relaytest', model: 'm' });
+    assert(g3.status === 400 && /提示词/.test(String(g3.body.error)), '缺提示词应 400');
+    // 尺寸原样透传（界面上选了 1536x1024 却按默认出图 = 静默不生效，最难自证的一类）
+    const g4 = await postJson('/api/image/generate', { provider: 'relaytest', model: 'img-m', prompt: '画一只猫', size: '1536x1024', baseUrl: `http://127.0.0.1:${imgPort}/v1`, apiKey: 'sk-x' });
+    assert(g4.status === 200 && /"size":"1536x1024"/.test(lastImgBody), `size 应原样到达上游(实际 body: ${lastImgBody.slice(0, 80)})`);
+    // Anthropic 原生协议压根没有图片端点 —— 必须当场说清，而不是让它去打 api.anthropic.com
+    // 两次 404 后甩一句 404 正文（claude 有 base_url，不会掉进"没有端点"那条分支）
+    const g5 = await postJson('/api/image/generate', { provider: 'claude', model: 'img-m', prompt: '画一只猫', apiKey: 'sk-x' });
+    assert(g5.status === 400 && /没有图片生成端点/.test(String(g5.body.error)), `claude 出图应当场说清(实际 ${g5.status} ${String(g5.body.error).slice(0, 80)})`);
+    // 前端下拉的候选来自后端（引擎口径）：CLI 与 Anthropic 协议不在列，OpenAI 兼容的在
+    const cfgImg = (await (await fetch(base3 + '/api/config')).json()) as { imageProviders?: string[] };
+    const imgList = cfgImg.imageProviders ?? [];
+    assert(imgList.includes('openai') && imgList.includes('relaytest'), `能出图的供应商应在列(实际 ${imgList.slice(0, 6).join(',')})`);
+    assert(!imgList.some((id) => id === 'claude' || id === 'aicodemirror' || id.endsWith('-cli')),
+      `CLI 与 Anthropic 协议不该进文生图下拉(实际 ${imgList.join(',')})`);
+    imgUp.close();
+
     // 10) 工作流写得不对（这里：一个 steps 为空的 YAML）→ compare 该回 4xx 并说清楚，
     //     而不是 500 让人以为引擎坏了。真实触发点：自动组队产物偶尔缺 llm/steps。
     const badWf = join(dataDir3, 'ao-workflows', 'bad.yaml');

@@ -292,6 +292,12 @@ export interface ConfigResponse {
   recommended?: string;
   /** 省钱模式对哪些 provider 真的生效（引擎降档表的键）；不在列时前端明说不生效 */
   budgetProviders?: string[];
+  /**
+   * 能跑文生图的 provider（引擎 resolveImageAccess 的口径：只有 OpenAI 兼容 API）。
+   * 本地 CLI 是编码工具、Anthropic 原生协议没有图片端点，都不在列——
+   * 前端别拿 family:"api" 自己筛，那一族里混着 claude-code / gemini-cli。
+   */
+  imageProviders?: string[];
   /** 用户自己加的自定义供应商（任意 OpenAI 兼容 endpoint）。 */
   customProviders?: CustomProviderMeta[];
   /** 远程清单：增量上架的赞助商 / CLI 中转商 / 下架的内置 id。 */
@@ -526,6 +532,10 @@ export const api = {
   providerModels: (body: { provider?: string; baseUrl?: string; apiKey?: string; protocol?: "anthropic" }) =>
     // vendors: 模型 id → 供应商响应里的 owned_by/provider（分组标题用，缺省则前端按模型名推断）
     postJSON<{ ok: boolean; models?: string[]; vendors?: Record<string, string>; error?: string; source?: string }>("/provider-models", body),
+  // 文生图（创意库一键生成 / 直连出图）；返回 data URL 直接喂 <img>
+  generateImage: (body: { provider?: string; model: string; prompt: string; size?: string; quality?: string }) =>
+    // width/height：从 PNG 头量出的真实尺寸（不少服务商把 size 当建议，实际尺寸会不一样）
+    postJSON<{ ok: boolean; dataUrl?: string; via?: string; width?: number; height?: number; error?: string }>("/image/generate", body),
   // 本机 cc-switch 已配供应商（一键导入 key 用；key 只回脱敏预览，原文不出后端）
   ccswitchProviders: () =>
     getJSON<{ ok: boolean; providers?: { id: string; name: string; appType: string; baseUrl: string; keyPreview: string; isCurrent: boolean }[] }>("/ccswitch-providers"),
