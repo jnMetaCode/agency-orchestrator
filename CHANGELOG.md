@@ -4,6 +4,8 @@
 
 ## [Unreleased]
 
+## [0.14.0] - 2026-08-17
+
 ### Added（本次新增）
 - **创意库（`/creative`，229 条图片提示词）能一键出图**：卡片上的提示词此前只能复制走、再去别处贴——现在选个供应商、填上图片模型就直接出图，图片内联显示并可下载 PNG。后端是一层薄接口 `POST /api/image/generate`，**复用引擎同一个 `generateImage()`**：两种协议自动切换、报错口径与 `type: image` 步骤完全一致（一处修复两边都好）。三条约束值得记住：① **下拉里只列真能出图的供应商**——`/api/config` 新增 `imageProviders`，由后端按引擎 `resolveImageAccess` 的口径算好（前端别自己按 `family: "api"` 筛，那一族里混着 `claude-code` / `gemini-cli` / `codex-cli`），并且只留**已配 key** 的（没 key 生成必失败，不如直接引导去配）；② **公开演示站没有引擎后端**，`/api/*` 会落到 SPA 兜底回 HTML，所以面板降级成"怎么在本机跑"的说明，而不是给一个点了必失败的按钮；③ 供应商 / 图片模型 / 尺寸**记在 localStorage 并跨卡片共享**——229 张卡片每开一张都重填一遍模型编码不合理，而模型编码恰恰是最难记的那一项。探测**只在第一次展开生成面板时**才发（这是一张公开 SEO 页，绝大多数访客只是来复制提示词的）。
 - **文生图步骤 `type: image`**（工作流第一次能产出图片）：**`task` 就是图片提示词**——`{{变量}}` 照常渲染，上游文字步骤的产出直接流进来，不需要 role，不另设提示词字段。`image.model` **必填**（各家图片模型编码互不通用，与文本侧"不猜默认模型"同一条纪律，解析期就拦住、不烧一次调用才报错）。引擎先打 OpenAI 经典 Images API（`/images/generations`，`b64_json` 与 `url` 两种返回形态都认），端点不存在（404/405/LanoX 那种 200 壳）时自动降级到 **Responses + `image_generation` 工具**（LanoX 文档明说 chat 端点不支持图片工具、必须走这条）。PNG 落在 `ao-output/<run>/assets/`，输出变量是 markdown 图片引用；步骤 md、summary、metadata 全接上（**base64 绝不进 metadata**，只留 filename——一张 2MB 的图会把它撑成巨型 JSON）。Studio 侧新增只读产物接口 `GET /api/runs/:id/assets/:file`（路径先 resolve 再校验包含关系 + 必须落在带 metadata.json 的真实运行目录，与删除接口同一套守卫），运行详情把相对引用改写到该接口，Markdown 渲染器内联显示（限宽限高防撑破面板）。工作流主体用 CLI provider 跑也没关系——给图片步骤单独配 `llm: { provider: <API provider> }` 即可，CLI 不是图片端点这件事在报错里说清并给出路。SIGTERM 中断兜底也带图片（settle 即写入 sink）。
@@ -81,6 +83,10 @@
 - 新增覆盖：`spawn-cli`（Windows 三条启动路径，CI 是 ubuntu 探不到）、`sponsor-guide`（轮换份额与返利码一致性）、`providers-manifest`（唯一绕过发版流程的通道，按代码来测）、`claude-base-url`、`depends-on-ids`、`legacy-ui`（`web/index.html` 不过 tsc 也不进构建，此前零覆盖）。
 
 ## [0.13.0] - 2026-08-07
+
+> ⚠️ **这一版从未发到 npm**：发布流水线最后一步卡在 npm 的 2FA（`EOTP`，仓库 Secret 里的
+> token 不是 Automation 类型），测试/构建/产物校验全过、只死在 publish。所以从 npm 上看是
+> `0.12.1` 直接跳到 `0.14.0`，本节内容随 0.14.0 一并送达。
 
 ### Added（本次新增）
 - **Claude 全局安全切换 + 一键急救**：Studio 可把中转商的 key/base_url 写进全局 `~/.claude/settings.json`（`ao doctor --fix` 同款写入器 `claude-apply`），体检卡认得 AO 自己写的标记并支持一键切回官方。写入时同时记下 **base_url 指纹**：标记还在但 env 已被别的工具（cc-switch 等）或手改走时判定 `managed=false` 照常报红，外部工具无从冒名。代理也从"看不见"变成可管理——探测可达性、检测漂移、一键移除；还原时自动同步系统代理到 settings（修复"还原后仍连不上"），系统代理探测从 macOS（scutil）扩到 **Windows**（读 WinINET 注册表，无第三方依赖）。

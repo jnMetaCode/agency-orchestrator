@@ -1,12 +1,16 @@
-# 工作交接：v0.13.0 之后这一轮做了什么、卡在哪、怎么接着干
+# 工作交接：0.14.0 这一版做了什么、卡在哪、怎么接着干
 
-> 更新时间：2026-08-16 ｜ 对应 HEAD：`40ebb3d`
+> 更新时间：2026-08-17 ｜ 定版：`v0.14.0` + `desktop-v0.4.3`
 > 这份文档只记**从 git log 里看不出来的东西**：为什么这么做、哪些是有意的取舍、下一步该按什么顺序动。
-> 具体改了哪些代码看 `CHANGELOG.md` 的 `[Unreleased]` 段和各条提交说明。
+> 具体改了哪些代码看 `CHANGELOG.md` 的 `[0.14.0]` 段和各条提交说明。
 
 ## 一、现在卡在哪（唯一阻塞）
 
-**npm 上还是 `0.12.1`，本地已累积 23 个提交未发布。**
+**npm 上还是 `0.12.1`，本地已累积 80+ 个提交未发布；本轮已定版 `0.14.0`（+ `desktop-v0.4.3`），就差 publish 这一步。**
+
+> 为什么跳过 0.13.0：那一版打过 tag、写过 CHANGELOG，但**从没发到 npm**（就是下面这个 2FA 问题），
+> tag `v0.13.0` 又停在 `fd3b7a7`（落后现在的 main 很多）。与其挪 tag，不如直接发 0.14.0——
+> 对 npm 用户来说是 `0.12.1 → 0.14.0`，0.13.0 的内容随这一版一并送达（CHANGELOG 已注明）。
 
 发布流水线（`.github/workflows/release.yml`，推 `v*` tag 触发）跑到最后一步失败：
 
@@ -28,7 +32,9 @@ npm error This operation requires a one-time password from your authenticator.
    gh run rerun 31157163095 --failed --repo jnMetaCode/agency-orchestrator
    ```
 
-> 注意：`v0.13.0` 和 `desktop-v0.4.2` 两个 tag 都指向 `fd3b7a7`，**在这一轮的大部分工作之前**。发布时要么把 tag 挪到当前 main，要么直接发 `v0.13.1` + `desktop-v0.4.3`。桌面端必须跟着发一版，Windows 用户才拿得到 #102 的修复。
+> 旧 tag `v0.13.0` / `desktop-v0.4.2` 都停在 `fd3b7a7`（本轮大部分工作之前），**没有去挪它们**——
+> 挪 tag 会让已经拉过的下游对不上。新 tag 是 `v0.14.0` 与 `desktop-v0.4.3`，都打在当前 main 上。
+> 桌面端必须跟着发，Windows 用户才拿得到 #102 的修复（它构建时打包 `../dist` 与 `../website/dist`）。
 
 ## 二、两条互相独立的生效路径（重要）
 
