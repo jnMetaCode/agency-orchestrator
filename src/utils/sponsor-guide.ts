@@ -1,11 +1,13 @@
 /**
  * 赞助商曝光位——CLI 与 web 服务共用这份数据。
  *
- * 档位规则（2026-07-17 与赞助商约定）：
- * - 进阶档（多元探索）的定制权益 = **默认 provider 位**（Studio 下拉默认选中 +
- *   服务端 AO_PROVIDER 兜底 + 无凭证响应的 provider 字段）——不再占引导横幅
- * - 无凭证引导横幅/CLI ② 路径 = 其余 6 家（旗舰 APINEBULA + 5 家标准）按自然日
- *   轮换，每天显示相邻 2 家：等份轮值、确定性、可向赞助商解释份额（每家 2/6 天数）
+ * 档位规则（2026-07-17 与赞助商约定，2026-08-17 更新）：
+ * - 进阶档的定制权益 = **默认 provider 位**（Studio 下拉默认选中 + 服务端兜底 +
+ *   无凭证响应的 provider 字段）——不占引导横幅，避免双份曝光。
+ *   **该档位现无人持有**（多元探索 2026-08-17 到期下架），默认 provider 位暂由
+ *   旗舰赞助商 APINEBULA 顶上（旗舰权益的延伸，不是进阶档本身）。
+ * - 无凭证引导横幅/CLI ② 路径 = 轮换池 7 家（旗舰 APINEBULA + 标准 6 家）按自然日
+ *   轮换，每天显示相邻 2 家：等份轮值、确定性、可向赞助商解释份额（每家 2/7 天数）
  */
 
 export interface SponsorGuideEntry {
@@ -26,13 +28,16 @@ export interface SponsorGuideEntry {
   relayOnly?: boolean;
 }
 
-/** 进阶档（默认 provider 位持有者，provider id: duoyuanx）。不进横幅轮换。 */
-export const PREMIUM_SPONSOR: SponsorGuideEntry = {
-  providerId: 'duoyuanx',
-  name: '多元探索',
-  bonus: '注册送 3 元',
-  url: 'https://duoyuanx.com/register?aff=LErO',
-};
+/**
+ * 进阶档（默认 provider 位持有者）——**目前无人持有**：多元探索的赞助于 2026-08-17 到期下架。
+ *
+ * 为什么是 null 而不是随手填一家：进阶档是独立的付费档位，拿轮换池里的某家来充数
+ * 等于白送双份曝光（横幅轮值 + 进阶位），对其余 7 家不公平——有断言钉着"进阶档持有者
+ * 不得同时在轮换池里"。默认 provider 位（DEFAULT_PROVIDER / DEFAULT_PROVIDER_ID）
+ * 眼下暂交给旗舰赞助商 APINEBULA，那是旗舰权益的延伸，与这里的进阶档是两件事。
+ * 下一家买进阶档时，把它填回来即可（届时须把它从轮换池移出）。
+ */
+export const PREMIUM_SPONSOR: SponsorGuideEntry | null = null;
 
 /** 引导横幅轮换池：旗舰 + 标准共 7 家（顺序无偏好，轮值即公平；每家 2/7 天数）。
  *  RootFlowAI 与 CCSub 已下架赞助（2026-08），AICodeMirror 顶上其中一位；

@@ -128,16 +128,32 @@ function providerOrder(): string[] {
   return [...block.slice(0, block.indexOf('\n];')).matchAll(/\{ id: "([\w-]+)"/g)].map((m) => m[1]);
 }
 
-test('Studio 供应商列表：AICodeMirror 紧跟两个高亮位（= 第 2 行首位）', () => {
+test('Studio 供应商列表：AICodeMirror 紧跟高亮位（多元探索下架后只剩旗舰一个高亮位）', () => {
   const order = providerOrder();
   const i = order.indexOf('aicodemirror');
-  assert(i === 2, `应排在第 3 位（索引 2，即两个高亮位之后），实际索引 ${i}：${order.slice(0, 4).join(' → ')}`);
+  // 2026-08-17 之前是两个高亮位（进阶档多元探索 + 旗舰 APINEBULA），AICodeMirror 排索引 2；
+  // 多元探索赞助到期下架、退到末位的已下架组后，高亮位只剩旗舰一个 → 它前移到索引 1。
+  assert(i === 1, `应紧跟旗舰高亮位（索引 1），实际索引 ${i}：${order.slice(0, 4).join(' → ')}`);
+  assert(order[0] === 'apinebula', `首位应是旗舰赞助商，实际 ${order[0]}`);
 });
 
-test('官网赞助商页：AICodeMirror 紧跟多元探索之后', () => {
+test('下架的多元探索退到末位，但仍在注册表里（已配 key 的用户照常能用）', () => {
+  const order = providerOrder();
+  const i = order.indexOf('duoyuanx');
+  assert(i >= 0, 'duoyuanx 不该被整条删掉——已配过 key 的用户还要看得到、改得动');
+  const tail = order.slice(i);
+  // 后面只允许跟同样已下架的（rootflowai / ccsub），不能把在架供应商压到它后面
+  assert(tail.every((id) => ['duoyuanx', 'rootflowai', 'ccsub'].includes(id)),
+    `已下架的应排在末位组，实际其后还有：${tail.slice(1).join(' → ')}`);
+});
+
+test('官网赞助商页：旗舰打头，AICodeMirror 紧随其后；已下架的不再出现', () => {
   const ids = [...sponsorsSrc.matchAll(/^    id: "([\w-]+)"/gm)].map((m) => m[1]);
-  const d = ids.indexOf('duoyuanx');
-  assert(d >= 0 && ids[d + 1] === 'aicodemirror', `顺序不对：${ids.join(' → ')}`);
+  assert(ids[0] === 'apinebula' && ids[1] === 'aicodemirror', `顺序不对：${ids.join(' → ')}`);
+  // 下架就要摘干净：赞助商页是"谁在付钱"的名单，留着等于替已经结束的合作继续曝光
+  for (const gone of ['duoyuanx', 'rootflowai', 'ccsub']) {
+    assert(!ids.includes(gone), `${gone} 赞助已下架，不该还在官网赞助商页：${ids.join(' → ')}`);
+  }
 });
 
 // 「最后一位」这个位置是给最新上架的那家的：LanoX 于 2026-08 上架时占着，
@@ -183,6 +199,21 @@ test('logo 资源真实存在（扩展名写错就是个 404 破图）', () => {
     const p = `website/public/sponsors/logo-${id}-icon.${svgIds.has(id) ? 'svg' : 'png'}`;
     assert(existsSync(p), `按代码推导出的 logo 路径不存在: ${p}`);
   }
+});
+
+test('默认 provider 位：前后端必须是同一个 id，且指向在架赞助商', () => {
+  // 这个 id 同时写在前端（Studio 下拉默认选中）和后端（无 provider 时的兜底），
+  // 两处漂移的表现是"界面默认选 A、实际跑的是 B"——最难自证的一类错位。
+  // 它还是一项**付费赞助权益**，所以既不能落到已下架的头上，也不该悄悄落给非赞助商。
+  const fe = studioSrc.match(/export const DEFAULT_PROVIDER = "([\w-]+)"/)?.[1];
+  const be = readFileSync('web/server.js', 'utf-8').match(/const DEFAULT_PROVIDER_ID = '([\w-]+)'/)?.[1];
+  assert(!!fe && !!be, `没解析出默认 provider（前端 ${fe} / 后端 ${be}），这条断言已失效`);
+  assert(fe === be, `前端默认 ${fe} 与后端兜底 ${be} 不一致`);
+  const block = studioSrc.slice(studioSrc.indexOf('export const API_PROVIDERS: ApiProviderMeta[]'));
+  const entry = block.slice(0, block.indexOf('\n];')).split('\n').find((l) => l.includes(`{ id: "${fe}"`)) ?? '';
+  assert(!!entry, `默认 provider ${fe} 不在 API_PROVIDERS 注册表里`);
+  assert(!/delisted:\s*true/.test(entry), `默认 provider ${fe} 已标记下架，不能再占默认位`);
+  assert(sponsorsSrc.includes(`id: "${fe}"`), `默认 provider 位是赞助权益，${fe} 不在官网赞助商名单里`);
 });
 
 console.log('\n─── 文档里的数字（写死的数字迟早说谎，让它自己报警）───');

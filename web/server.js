@@ -122,12 +122,18 @@ function isInside(child, parent) {
 }
 const ALLOWED_WORKFLOW_DIRS = [WORKFLOWS_DIR, WORKFLOWS_DIR_EN, USER_WORKFLOWS_DIR, COMPOSED_DIR].filter(Boolean);
 
+// 默认 provider 位 = 一项赞助权益（前端同一口径在 website/src/lib/studio.ts 的
+// DEFAULT_PROVIDER）。此前这个 id 在本文件里写死了 5 处，改一处漏四处就会出现
+// "界面默认选 A、后端兜底跑 B"这种最难自证的错位 —— 收成一个常量。
+// 沿革：deepseek → apinebula → duoyuanx（2026-07-17）→ apinebula（2026-08-17，
+// 多元探索赞助到期下架）。AO_PROVIDER 环境变量永远优先于它。
+const DEFAULT_PROVIDER_ID = 'apinebula';
 const CLI_PROVIDERS = ['claude-code', 'antigravity-cli', 'gemini-cli', 'copilot-cli', 'codex-cli', 'openclaw-cli', 'hermes-cli'];
 // LLM config: provider + (model/base_url where the runtime needs them). Reads any
 // per-provider overrides the user saved in the Studio (model name, custom base_url).
 // Already YAML-safe (no undefined fields) — used for compose, run args and run-role.
 function buildLLMConfig(provider) {
-  const p = provider || process.env.AO_PROVIDER || 'duoyuanx';
+  const p = provider || process.env.AO_PROVIDER || DEFAULT_PROVIDER_ID;
   const cfg = { provider: p, max_tokens: 4096 };
   if (CLI_PROVIDERS.includes(p)) return cfg; // local CLI: no model/key/base needed
   let saved = {};
@@ -157,7 +163,7 @@ const isAllowedWorkflow = (file) => ALLOWED_WORKFLOW_DIRS.some(d => isInside(fil
 
 // R2.2 首跑守卫：compose 要用的 provider 是否已有可用凭证（网页/桌面同后端）。保守——不确定不拦。
 function composeProviderReady(provider) {
-  const p = provider || process.env.AO_PROVIDER || 'duoyuanx';
+  const p = provider || process.env.AO_PROVIDER || DEFAULT_PROVIDER_ID;
   let saved = {}; try { saved = readKeys()[p] || {}; } catch {}
   // 自定义/远程清单供应商没有内置默认端点：只填了 key 没填地址 = 还没配完，
   // 该走「先去配供应商」的引导，而不是掉到连接器里报一句晦涩的连接错。
@@ -1285,7 +1291,7 @@ app.post('/api/compose', async (req, res) => {
     return res.status(400).json({
       code: 'no_credentials',
       error: 'no_credentials',
-      provider: provider || process.env.AO_PROVIDER || 'duoyuanx',
+      provider: provider || process.env.AO_PROVIDER || DEFAULT_PROVIDER_ID,
       installedCli: detectInstalledCliProviders(),
       // 赞助商位规则（src/utils/sponsor-guide.ts）：进阶档（多元探索）持有默认
       // provider 位（上面的 provider 字段兜底就是它），不占横幅；横幅 = 其余几家
@@ -1747,7 +1753,7 @@ app.get('/api/config', async (_req, res) => {
   const cli = CLI_PROVIDERS.map((name) => ({ name, installed: installedCli.includes(name) }));
   // 推荐 provider：已装的 CLI 优先（零配置）> 已配 key 的 provider > 默认。前端据此默认选中并给提示。
   const keyedWithKey = Object.entries(providers).find(([, p]) => p.hasKey)?.[0];
-  const recommended = installedCli[0] || keyedWithKey || (process.env.AO_PROVIDER || 'duoyuanx');
+  const recommended = installedCli[0] || keyedWithKey || (process.env.AO_PROVIDER || DEFAULT_PROVIDER_ID);
   res.json({
     providers,
     cli,
@@ -1757,7 +1763,7 @@ app.get('/api/config', async (_req, res) => {
     remoteProviders: manifest.providers,
     relayPresets: manifest.relayPresets,
     removedProviders: manifest.removedProviders,
-    defaultProvider: process.env.AO_PROVIDER || 'duoyuanx',
+    defaultProvider: process.env.AO_PROVIDER || DEFAULT_PROVIDER_ID,
     // 省钱模式对哪些 provider 真的生效（引擎降档表的键）——前端据此在不生效时明说
     budgetProviders: BUDGET_CAPABLE_PROVIDERS,
     // 文生图只有 OpenAI 兼容的 API provider 能跑（引擎 resolveImageAccess 同一口径）：

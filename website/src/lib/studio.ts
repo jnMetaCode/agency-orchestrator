@@ -687,10 +687,12 @@ export function runRole(
   return streamSse("/run-role", body, onEvent, signal);
 }
 
-// 默认 provider：旗舰赞助商 APINEBULA（取代原来的 DeepSeek 默认）
-// 默认 provider 位 = 进阶赞助商定制权益（2026-07-17 调整：apinebula → duoyuanx，
-// 与服务端 AO_PROVIDER 兜底、无凭证引导首位保持一致）
-export const DEFAULT_PROVIDER = "duoyuanx";
+// 默认 provider 位（= 一项赞助权益，与服务端 web/server.js 的 DEFAULT_PROVIDER_ID
+// 兜底必须一致）。沿革：deepseek → apinebula → duoyuanx（2026-07-17）→ apinebula
+// （2026-08-17，多元探索赞助到期下架，位子暂由旗舰赞助商 APINEBULA 顶上）。
+// 换人时记得三处一起改：这里、web/server.js 的 DEFAULT_PROVIDER_ID、以及
+// sponsor-guide.ts 的进阶档说明（有断言钉住"默认位必须是在架赞助商"）。
+export const DEFAULT_PROVIDER = "apinebula";
 
 /**
  * 需要 API key 的云端聚合 provider 的统一注册表（Studio 前端专用）。
@@ -743,9 +745,6 @@ export const COMMON_RELAY_MODELS = [
 // 供应商的 GET /models（配了 key 即生效）；模型换代时优先改官网远程清单的
 // providerOverrides（push 即生效，不用发版），这里的静态基线随版本更新兜底。
 export const API_PROVIDERS: ApiProviderMeta[] = [
-  // 进阶赞助商 多元探索 DuoyuanX —— 置顶第一 + 主色(紫)高亮；全球 AI 模型 API 聚合与源头直供：
-  // 一个 key 通 OpenAI/Claude/Gemini/DeepSeek 等数百款；专属链接注册送 3 元
-  { id: "duoyuanx", name: "多元探索", shortName: "多元探索", hint: "duoyuanx.com · 注册送 3 元", defaultBaseUrl: "https://duoyuanx.com/v1", signupUrl: "https://duoyuanx.com/register?aff=LErO", advanced: true, modelSuggestions: COMMON_RELAY_MODELS },
   // 旗舰赞助商 APINEBULA —— 金色高亮（大屏特有）
   { id: "apinebula", name: "APINEBULA", hint: "apinebula.ai", defaultBaseUrl: "https://apinebula.ai/v1", signupUrl: "https://apinebula.ai/V6ekjG", flagship: true, modelSuggestions: ["gpt-5.5", "claude-opus-4-8", "claude-sonnet-5", "gemini-3.5-flash", "deepseek-chat"] },
   // 赞助商 AICodeMirror —— 顶替 RootFlowAI 的位置（两个高亮位之后的首位）。
@@ -792,6 +791,11 @@ export const API_PROVIDERS: ApiProviderMeta[] = [
   // DashScope 的 **兼容模式**端点；原生 DashScope 协议我们不支持
   { id: "qwen", name: "通义千问 Qwen", shortName: "通义千问", hint: "dashscope.aliyuncs.com · Qwen", defaultBaseUrl: "https://dashscope.aliyuncs.com/compatible-mode/v1", signupUrl: "https://bailian.console.aliyun.com/?apiKey=1", vendor: true },
   { id: "agnes", name: "Agnes AI", hint: "agnes-2.0-flash · agnes-ai.com", defaultBaseUrl: "https://apihub.agnes-ai.com/v1", modelSuggestions: ["agnes-2.0-flash", "agnes-1.5-flash"] },
+  // 多元探索 DuoyuanX：赞助已于 2026-08-17 下架 —— 摘掉进阶档的置顶位与紫色高亮、
+  // 推广链接（含返利参数）与"注册送 3 元"的权益文案，**保留为可用供应商**排在末位。
+  // 它此前是默认 provider，配过 key 的用户基数很可能是所有供应商里最大的，
+  // 把入口直接抽走等于让这批人以为"我的 key 丢了"。
+  { id: "duoyuanx", name: "多元探索", shortName: "多元探索", hint: "duoyuanx.com", defaultBaseUrl: "https://duoyuanx.com/v1", delisted: true, modelSuggestions: COMMON_RELAY_MODELS },
   // RootFlowAI / CCSub：赞助已于 2026-08 下架 —— 摘掉赞助标识、推广链接与置顶位，但
   // **保留为可用供应商**并排在末位。已经配好它们 key 的用户不该因为商务关系变化就被
   // 搞坏（连不上、存的 key 读不到）；等确认无人使用再整条移除。

@@ -3,8 +3,10 @@ import type { Language } from "@/i18n/translations";
 /**
  * 赞助商数据。
  *
- * 当前赞助商：APINEBULA（旗舰，银河录像局旗下 AI 聚合平台）、优云智算（UCloud 旗下 AI 云平台）、Cubence（API 中转服务商）、火山引擎（字节跳动云服务，中英文分别对应 volcengine.com / byteplus.com 两个不同站点）、多元探索（AI 模型 API 聚合与源头直供）、AICodeMirror（Claude / Codex / Gemini 官方高稳定中转）、LanoX AI（全球模型聚合，500+ 模型）、胜算云（面向 AI 原生团队的模型 API 聚合 + 企业级网关）。
+ * 当前赞助商：APINEBULA（旗舰，银河录像局旗下 AI 聚合平台）、优云智算（UCloud 旗下 AI 云平台）、Cubence（API 中转服务商）、火山引擎（字节跳动云服务，中英文分别对应 volcengine.com / byteplus.com 两个不同站点）、AICodeMirror（Claude / Codex / Gemini 官方高稳定中转）、LanoX AI（全球模型聚合，500+ 模型）、胜算云（面向 AI 原生团队的模型 API 聚合 + 企业级网关）。
  * 均为真实付费赞助，非占位样例。新增赞助商时按 Sponsor 结构追加即可。
+ * 已下架：RootFlowAI、CCSub（2026-08）、多元探索（2026-08-17，赞助到期）——赞助身份与
+ * 曝光位一并摘除，但它们在 Studio 里仍是可用供应商（已配过 key 的用户不该被搞坏）。
  */
 
 export type SponsorTier = "flagship" | "standard";
@@ -66,29 +68,6 @@ export const sponsors: Sponsor[] = [
       en: "Get the exclusive offer",
     },
     couponCode: "agent",
-  },
-  {
-    id: "duoyuanx",
-    name: "多元探索",
-    badge: "DX",
-    accent: "from-zinc-800 to-zinc-500",
-    logo: "/sponsors/logo-duoyuanx-icon.png",
-    url: "https://duoyuanx.com/register?aff=LErO",
-    tier: "standard",
-    since: "2026-07",
-    featured: false,
-    tagline: {
-      zh: "全球 AI 模型 API 聚合与源头直供 · 一次接入调用数百款主流模型",
-      en: "Global AI model API aggregation & first-hand supply · one integration, hundreds of models",
-    },
-    description: {
-      zh: "感谢多元探索赞助本项目！多元探索专注全球 AI 模型 API 聚合与源头直供服务，已与多家头部科技企业建立合作，汇集 OpenAI、Claude、Gemini、DeepSeek 等数百款主流模型。平台构建统一、稳定、安全、高性价比的服务体系，实现一次接入、多模型调用，持续提升使用效率并优化算力成本；同时提供企业级解决方案、专业技术支持与快速客服响应，为每一次 AI 调用提供可靠保障。",
-      en: "Thanks to DuoyuanX (多元探索) for sponsoring this project! DuoyuanX focuses on global AI model API aggregation and first-hand supply, partnering with leading tech companies to bring together hundreds of mainstream models including OpenAI, Claude, Gemini and DeepSeek. The platform delivers a unified, stable, secure and cost-effective service — integrate once and call any model — continuously improving efficiency and optimizing compute costs, with enterprise solutions, professional technical support and fast customer service backing every AI call.",
-    },
-    perk: {
-      zh: "专属链接注册立获 3 元免费测试额度，充值 100 元以上返现 10%（找客服领取）",
-      en: "¥3 free trial credit on sign-up via our link, plus 10% cashback on top-ups over ¥100 (via support)",
-    },
   },
   {
     id: "aicodemirror",

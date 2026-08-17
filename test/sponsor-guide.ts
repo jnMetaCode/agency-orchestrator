@@ -32,10 +32,13 @@ function assert(condition: boolean, msg: string): void {
 
 const DAY = 86_400_000;
 
+/** 当前真正占着曝光位的赞助商：轮换池 + 进阶档（进阶档可能空着，见 sponsor-guide.ts）。 */
+const exposed = () => [...SPONSOR_ROTATION, ...(PREMIUM_SPONSOR ? [PREMIUM_SPONSOR] : [])];
+
 console.log('\n─── 赞助位数据 ───');
 
 test('每家都有名字和 https 链接', () => {
-  for (const s of [...SPONSOR_ROTATION, PREMIUM_SPONSOR]) {
+  for (const s of exposed()) {
     assert(!!s.name, '缺 name');
     assert(/^https:\/\//.test(s.url), `${s.name} 的链接不是 https: ${s.url}`);
   }
@@ -43,7 +46,7 @@ test('每家都有名字和 https 链接', () => {
 
 test('带 providerId 的赞助商必须是 AO 真实支持的 provider', () => {
   const known = new Set(API_PROVIDERS.map((p) => p.id));
-  for (const s of [...SPONSOR_ROTATION, PREMIUM_SPONSOR]) {
+  for (const s of exposed()) {
     if (!s.providerId) continue;
     assert(known.has(s.providerId), `${s.name} 的 providerId "${s.providerId}" 不在 API_PROVIDERS 里`);
   }
@@ -63,7 +66,7 @@ test('轮换池里没有重名', () => {
 
 test('已下架的赞助商不得出现在曝光位（RootFlowAI / CCSub，2026-08 下架）', () => {
   const delisted = [/rootflow/i, /ccsub/i];
-  for (const s of [...SPONSOR_ROTATION, PREMIUM_SPONSOR]) {
+  for (const s of exposed()) {
     for (const re of delisted) {
       assert(!re.test(s.name) && !re.test(s.url), `${s.name} 已下架赞助，不该还在曝光位`);
     }
@@ -77,8 +80,19 @@ test('下架赞助 ≠ 下架供应商：它们仍是可用 provider（不搞坏
   }
 });
 
-test('持有默认 provider 位的进阶档不进轮换（避免双份曝光）', () => {
-  assert(!SPONSOR_ROTATION.some((s) => s.name === PREMIUM_SPONSOR.name), 'PREMIUM_SPONSOR 不该出现在轮换池');
+test('进阶档若有人持有，不得同时在轮换池里（避免双份曝光）', () => {
+  // 现状是无人持有（多元探索 2026-08-17 下架）——那就没什么可冲突的；
+  // 但下一家买进阶档时这条必须仍然拦得住"既拿进阶位又留在轮换池"。
+  if (!PREMIUM_SPONSOR) return;
+  assert(!SPONSOR_ROTATION.some((x) => x.name === PREMIUM_SPONSOR.name), 'PREMIUM_SPONSOR 不该出现在轮换池');
+});
+
+test('已下架的多元探索不得出现在任何曝光位，但仍是可用 provider', () => {
+  for (const s of exposed()) {
+    assert(!/多元探索|duoyuanx/i.test(s.name), `${s.name} 已下架赞助，不该还在曝光位`);
+    assert(!/duoyuanx\.com/i.test(s.url), `${s.name} 的链接还指向已下架的多元探索：${s.url}`);
+  }
+  assert(API_PROVIDERS.some((p) => p.id === 'duoyuanx'), 'duoyuanx 应保留为可用供应商——已配过 key 的用户不该被搞坏');
 });
 
 console.log('\n─── 返利码一致性（同一赞助商的推广参数散落在三份清单里） ───');
