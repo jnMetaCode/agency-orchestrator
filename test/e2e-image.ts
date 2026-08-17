@@ -148,5 +148,50 @@ console.log('\n─── 端到端：Images API 不存在 → 自动降级 Respo
   }
 }
 
+console.log('\n─── 一个角色都不用的工作流，不该被"找不到角色库"挡住 ───');
+{
+  // 真机上第一条纯出图工作流就死在这儿：整条流程没有任何 role，却先要 ao init 准备角色库。
+  // 仓库里 agency-agents-zh 永远解析得到，所以这条只有把 agents_dir 指向一个不存在的名字才暴露。
+  const srv = http.createServer((req, res) => {
+    let b = ''; req.on('data', (d) => (b += d));
+    req.on('end', () => {
+      if (/images\/generations/.test(String(req.url))) {
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        return res.end(JSON.stringify({ data: [{ b64_json: PNG_B64 }] }));
+      }
+      res.writeHead(404); res.end('{}');
+    });
+  });
+  const port = await listen(srv);
+  const dir = mkdtempSync(join(tmpdir(), 'ao-img-e2e-c-'));
+  const wf = join(dir, 'w.yaml');
+  writeFileSync(wf, [
+    'name: "图e2eC"',
+    'agents_dir: "根本不存在的角色库-xyz"',
+    'llm:',
+    '  provider: "lanox"',
+    '  model: "m"',
+    `  base_url: "http://127.0.0.1:${port}/v1"`,
+    'steps:',
+    '  - id: pic',
+    '    type: image',
+    '    task: "出一张图"',
+    '    image:',
+    '      model: "gpt-image-2"',
+  ].join('\n'), 'utf-8');
+  const saved = process.env.LANOX_API_KEY;
+  process.env.LANOX_API_KEY = 'sk-e2e';
+  try {
+    const result = await run(wf, {}, { quiet: true, outputDir: join(dir, 'out') });
+    assert(result.success === true, '没有 role 的工作流即使角色库不存在也应跑通');
+  } catch (e) {
+    assert(false, `没有 role 的工作流不该被角色库挡住，实际抛了：${e instanceof Error ? e.message.split('\n')[0] : e}`);
+  } finally {
+    if (saved === undefined) delete process.env.LANOX_API_KEY; else process.env.LANOX_API_KEY = saved;
+    srv.close();
+    rmSync(dir, { recursive: true, force: true });
+  }
+}
+
 console.log(`\n  结果: ${passed} 通过, ${failed} 失败\n`);
 process.exit(failed > 0 ? 1 : 0);

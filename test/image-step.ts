@@ -62,6 +62,16 @@ await test('CLI provider 不是图片端点——报错要把这条说清并给�
   assert(/claude-code/.test(msg) && /llm:/.test(msg), `应点名 provider 并给"步骤级 llm 覆盖"的出路，实际：${msg.slice(0, 100)}`);
 });
 
+await test('Anthropic 原生协议没有图片端点——当场说清，而不是去打官方端点撞 404', () => {
+  for (const p of ['claude', 'aicodemirror']) {
+    let msg = '';
+    // 注意这两家都**有** base_url（不会掉进"没有可用端点"那条分支），所以必须显式拦
+    try { resolveImageAccess(cfg({ provider: p, base_url: 'https://api.anthropic.com' })); }
+    catch (e) { msg = e instanceof Error ? e.message : String(e); }
+    assert(/没有图片生成端点/.test(msg) && /llm:/.test(msg), `${p} 应点破并给出路，实际：${msg.slice(0, 100)}`);
+  }
+});
+
 await test('step id 带路径字符在解析期就拦（id 会拼进产物文件名）', () => {
   const dir = mkdtempSync(join(tmpdir(), 'ao-img-wf3-'));
   const f = join(dir, 'w.yaml');
@@ -163,6 +173,52 @@ await test('两条协议都不通时，报错说清试过哪两条路', async ()
   const port = await listen(srv);
   const msg = await generateImage(cfg({ base_url: `http://127.0.0.1:${port}/v1` }), 'p', { model: 'm' }).then(() => '', (e: Error) => e.message);
   assert(/images\/generations/.test(msg) && /responses/.test(msg), `报错应列出两条已试路径，实际：${msg.slice(0, 160)}`);
+  srv.close();
+});
+
+await test('B 回 200 却没有图片时，报错要带上 A 说的那句原因（真机最常见的形态）', async () => {
+  // 实测胜算云：A 明说 `model "X" does not support request path "/v1/images/generations"`，
+  // B 则被网关当普通文本请求跑了 —— HTTP 200、正文里压根没有 image_generation_call。
+  // 此前这一支只甩 200 字原始 JSON，把 A 那句唯一能解释原因的话丢了。
+  const srv = http.createServer((q, res) => {
+    if (/images\/generations/.test(String(q.url))) {
+      res.writeHead(400, { 'Content-Type': 'application/json' });
+      return res.end('{"error":{"message":"model \\"m\\" does not support request path \\"/v1/images/generations\\""}}');
+    }
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ object: 'response', status: 'completed', output: [{ type: 'message', content: [{ type: 'output_text', text: '好的' }] }] }));
+  });
+  const port = await listen(srv);
+  const msg = await generateImage(cfg({ base_url: `http://127.0.0.1:${port}/v1` }), 'p', { model: 'm' }).then(() => '', (e: Error) => e.message);
+  assert(/does not support request path/.test(msg), `应带上 A 的原文诊断，实际：${msg.slice(0, 200)}`);
+  assert(/image_generation_call/.test(msg) && /"m"/.test(msg), `应说清 B 的形态与用的模型名，实际：${msg.slice(0, 200)}`);
+  srv.close();
+});
+
+await test('实际尺寸与请求的 size 不一致时要说破（真机：LanoX 把 size 当建议）', async () => {
+  // 造一张 2x1 的 PNG：宽高写在 IHDR 里，settle 从头 24 字节读，不解码整图
+  const png2x1 = Buffer.from(
+    'iVBORw0KGgoAAAANSUhEUgAAAAIAAAABCAYAAAD0In+KAAAAEUlEQVR4nGP8//8/AwwwMSABADkGAxqCLdWmAAAAAElFTkSuQmCC',
+    'base64',
+  );
+  const srv = http.createServer((_q, res) => {
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ data: [{ b64_json: png2x1.toString('base64') }] }));
+  });
+  const port = await listen(srv);
+  const notices: string[] = [];
+  const img = await generateImage(
+    cfg({ base_url: `http://127.0.0.1:${port}/v1` }),
+    'p',
+    { model: 'm', size: '1024x1024' },
+    (m) => notices.push(m),
+  );
+  assert(img.width === 2 && img.height === 1, `真实尺寸应从 PNG 头量出来，实际 ${img.width}x${img.height}`);
+  assert(notices.some((n) => /2x1/.test(n) && /1024x1024/.test(n)), `尺寸对不上要说破，实际提示：${notices.join(' / ')}`);
+  // 没请求 size 就不该无端报警（各家默认档不同，那不是"没生效"）
+  const notices2: string[] = [];
+  await generateImage(cfg({ base_url: `http://127.0.0.1:${port}/v1` }), 'p', { model: 'm' }, (m) => notices2.push(m));
+  assert(!notices2.some((n) => /不一致/.test(n)), `没写 size 时不该报尺寸不符，实际：${notices2.join(' / ')}`);
   srv.close();
 });
 

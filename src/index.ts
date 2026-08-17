@@ -115,8 +115,14 @@ export async function run(
   // 选好了供应商，却被一句"工作流缺少 llm 配置"挡住，是说不通的（自动组队产物偶尔就少这一段）
   const workflow = parseWorkflow(workflowPath, { llmFrom: options?.llmOverride });
 
-  // 自动解析 agents_dir
-  workflow.agents_dir = resolveAgentsDir(workflow.agents_dir, workflowPath);
+  // 自动解析 agents_dir。**一个角色都不用的工作流不该被"找不到角色库"挡在门外**——
+  // `type: image` 步骤不需要 role，而"只出一张图"恰恰是这个新能力最自然的第一条工作流；
+  // 真机验证时第一条纯出图工作流就撞在这儿：整条流程一个专家都没有，却先让人去 ao init。
+  // 有 role 的步骤照旧强制解析（角色缺失必须当场报，不能等到执行时才发现）。
+  const needsRoles = workflow.steps.some((s) => !!s.role);
+  workflow.agents_dir = needsRoles
+    ? resolveAgentsDir(workflow.agents_dir, workflowPath)
+    : (findAgentsDir(workflow.agents_dir, workflowPath) ?? workflow.agents_dir);
 
   // 校验（agents_dir 已解析为绝对路径，顺带校验 role 真实存在）
   const errors = validateWorkflow(workflow, workflow.agents_dir);

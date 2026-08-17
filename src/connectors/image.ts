@@ -10,7 +10,7 @@
  *
  * 落盘/传变量的约定见 executor：这里只负责"拿到图片字节"。
  */
-import { API_PROVIDER_MAP } from './api-providers.js';
+import { API_PROVIDER_MAP, ANTHROPIC_PROVIDER_MAP } from './api-providers.js';
 import { postApiEndpoint, isGatewayRouteMissShell } from './endpoint.js';
 import type { LLMConfig } from '../types.js';
 
@@ -32,6 +32,40 @@ export interface GeneratedImage {
   mime: 'image/png';
   /** 走的哪条协议（诊断/测试用） */
   via: 'images-api' | 'responses-tool';
+  /** 真实像素尺寸（从 PNG 头读，不信厂商回执）——拿不到就没有这两个字段 */
+  width?: number;
+  height?: number;
+}
+
+/**
+ * 从 PNG 头读真实尺寸（签名 8 字节 + IHDR 长度/类型 8 字节，宽高固定在 16/20 偏移）。
+ * 不解码整张图，只读 24 字节。不是 PNG 就返回 undefined。
+ */
+function pngSize(buf: Buffer): { width: number; height: number } | undefined {
+  if (buf.length < 24 || buf.readUInt32BE(0) !== 0x89504e47) return undefined;
+  const width = buf.readUInt32BE(16);
+  const height = buf.readUInt32BE(20);
+  return width > 0 && height > 0 ? { width, height } : undefined;
+}
+
+/**
+ * 出图成功后统一收口：量出真实尺寸，**和请求的 size 不一致就说破**。
+ * 实测 LanoX 的 gpt-image-2：请求 1024x1024，回执自己写着 `size: "1254x1254"`，
+ * 图也确实是 1254 见方；换个"海报"提示词又给了竖图。也就是说这家把 size 当建议而非约束。
+ * 这种"配了却没生效"如果不吭声，用户会一直以为是自己写错了参数。
+ */
+function settle(
+  buffer: Buffer,
+  via: GeneratedImage['via'],
+  opts: ImageStepOptions,
+  onNotice?: (msg: string) => void,
+): GeneratedImage {
+  const dim = pngSize(buffer);
+  const want = opts.size?.trim();
+  if (dim && want && `${dim.width}x${dim.height}` !== want) {
+    onNotice?.(`⚠️ 实际出图 ${dim.width}x${dim.height}，与请求的 size ${want} 不一致 —— 该服务商把 size 当建议而非硬约束（换一家或换图片模型才可能精确控制）。`);
+  }
+  return { buffer, mime: 'image/png', via, ...(dim ?? {}) };
 }
 
 /**
@@ -40,6 +74,16 @@ export interface GeneratedImage {
  * 报错必须把这条说清，别让用户拿 CLI provider 撞一头雾水。
  */
 export function resolveImageAccess(config: LLMConfig): { baseUrl: string; apiKey: string } {
+  // Anthropic 原生协议的 provider（claude 本身 + AICodeMirror 这类中转）**有** base_url，
+  // 所以不会掉进下面"没有端点"的分支——不显式拦住的话，请求会照打
+  // `https://api.anthropic.com/images/generations`，两条协议各撞一次 404，
+  // 用户看到的是一句 404 正文而不是"这家没有图片 API"。这类"能力不存在"必须当场说清。
+  if (config.provider === 'claude' || ANTHROPIC_PROVIDER_MAP[config.provider]) {
+    throw new Error(
+      `provider "${config.provider}" 走 Anthropic Messages 协议，**没有图片生成端点**（Anthropic 官方也不提供文生图 API）。` +
+      `图片步骤请单独配一个 OpenAI 兼容的 API provider：llm: { provider: <如 openai / lanox / shengsuanyun> }（步骤级配置只影响本步）。`
+    );
+  }
   const spec = API_PROVIDER_MAP[config.provider];
   const baseUrl = config.base_url || (spec ? process.env[spec.envBase] || spec.defaultBaseUrl : '');
   const apiKey = config.api_key || (spec ? process.env[spec.envKey] || '' : '');
@@ -116,7 +160,7 @@ export async function generateImage(
       const j = JSON.parse(aText) as { data?: Array<{ b64_json?: string; url?: string }> };
       const item = j.data?.[0];
       const raw = item?.b64_json || item?.url;
-      if (raw) return { buffer: await toBuffer(raw), mime: 'image/png', via: 'images-api' };
+      if (raw) return settle(await toBuffer(raw), 'images-api', opts, onNotice);
       // 200 但没有图片字段 → 当路由未命中处理，去试协议 B（有网关这么干）
     }
     if (!isRouteMiss(aStatus, aText)) {
@@ -166,9 +210,20 @@ export async function generateImage(
     const j = JSON.parse(text) as { output?: Array<{ type?: string; result?: string }> };
     const call = j.output?.find((o) => o?.type === 'image_generation_call' && o.result);
     if (!call?.result) {
-      throw new Error(`图片生成失败：Responses 返回里没有 image_generation_call 结果（${text.slice(0, 200)}）`);
+      // 真机上最常见的失败形态就是这一条：网关**照常跑了那个文本模型**、HTTP 200、
+      // 正文里压根没有图片工具的结果（实测胜算云即如此）。此前这里只甩 200 字原始 JSON，
+      // 而真正能解释原因的那句话在**协议 A 的响应里**（如 `model "X" does not support
+      // request path "/v1/images/generations"`）——不带上它，用户看到的是一段读不懂的报文。
+      throw new Error(
+        `图片生成失败（两种协议都试过，但都没拿到图片）：\n` +
+        `  ① POST …/images/generations → HTTP ${aStatus || '无响应'}${aText ? ` ${aText.slice(0, 200)}` : ''}\n` +
+        `  ② POST …/responses → HTTP 200，但返回里没有 image_generation_call 结果（${text.slice(0, 160)}）\n` +
+        `  多半是该服务商没有上架图片模型，或 image.model（当前 "${opts.model}"）不是它的图片模型编码。` +
+        `配了 key 可在 Studio「供应商」页点「获取模型列表」核对。` +
+        `注意②这条会真实计费（网关把它当普通文本请求跑了）。`
+      );
     }
-    return { buffer: await toBuffer(call.result), mime: 'image/png', via: 'responses-tool' };
+    return settle(await toBuffer(call.result), 'responses-tool', opts, onNotice);
   } finally {
     clearTimeout(timerB);
   }
