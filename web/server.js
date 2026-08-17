@@ -1293,10 +1293,11 @@ app.post('/api/compose', async (req, res) => {
       error: 'no_credentials',
       provider: provider || process.env.AO_PROVIDER || DEFAULT_PROVIDER_ID,
       installedCli: detectInstalledCliProviders(),
-      // 赞助商位规则（src/utils/sponsor-guide.ts）：进阶档（多元探索）持有默认
-      // provider 位（上面的 provider 字段兜底就是它），不占横幅；横幅 = 其余几家
-      // 按天轮换 2 家，等份轮值。池子优先取远程清单（上/下架不用发版，老用户也能
-      // 立刻同步），清单没配就用引擎内置的那份。
+      // 赞助商位规则（src/utils/sponsor-guide.ts）：进阶档持有默认 provider 位
+      // （上面 provider 字段的兜底），不占横幅——但该档位自 2026-08-17 起无人持有
+      // （多元探索下架），默认位暂由旗舰 APINEBULA 顶上。横幅 = 池子里几家按天轮换
+      // 2 家，等份轮值。池子优先取远程清单（上/下架不用发版，老用户也能立刻同步），
+      // 清单没配就用引擎内置的那份。
       sponsors: guideSponsors(await getRemoteManifest()),
     });
   }

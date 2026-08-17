@@ -26,7 +26,7 @@ const BUDGET_LIGHT_MODEL: Record<string, string> = {
   // Claude Code CLI 也认 --model：轻活降到 haiku，订阅额度同样是钱。用官方模型名，CLI 自己映射
   'claude-code': 'claude-haiku-4-5-20251001',
   // 胜算云（赞助商）：便宜档取自它**公开的** GET /api/v1/models（2026-08-16 实拉核实在架），
-  // 模型名带厂商前缀。其余赞助商（多元探索/LanoX/火山/优云）没有可核实的便宜档编码，
+  // 模型名带厂商前缀。其余赞助商（LanoX/火山/优云等）没有可核实的便宜档编码，
   // **宁缺毋滥不猜** —— 猜错=轻活步骤全线报"模型不存在"，比不降档糟得多。
   shengsuanyun: 'anthropic/claude-haiku-4.5',
 };

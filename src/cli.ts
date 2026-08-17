@@ -865,8 +865,9 @@ function printFirstRunGuide(provider: string): void {
   }
   L('');
   L(`  ② 用「送额度」的聚合/中转（几十秒拿 key，一个 key 通 Claude/GPT/Gemini 全家桶）：`);
-  // 赞助商位规则（src/utils/sponsor-guide.ts）：多元探索持有默认 provider 位不占此处；
-  // 这里是其余 7 家（旗舰+标准）按天轮换 2 家
+  // 赞助商位规则（src/utils/sponsor-guide.ts）：进阶档持有默认 provider 位、不占此处，
+  // 但该档位自 2026-08-17 起无人持有（多元探索下架），所以此处就是全部 7 家
+  // （旗舰+标准）按天轮换 2 家
   const rots = rotatingSponsors();
   for (const s of rots) {
     // 纯编码 CLI 中转商（relayOnly）拿到 key 后不是配 --provider，而是在 Studio 里给

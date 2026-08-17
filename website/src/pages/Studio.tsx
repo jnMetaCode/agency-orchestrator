@@ -22,9 +22,10 @@ import { cn } from "@/lib/utils";
 // recharts(~390kB)只在用量 tab 用 → 懒加载，避免拖累 Studio 首屏与演示模式
 const UsagePanel = lazy(() => import("@/components/studio/UsagePanel").then((m) => ({ default: m.UsagePanel })));
 
-// 需要 API key 的 provider，来自 lib/studio.ts 的统一注册表。duoyuanx 是当前默认 provider（进阶赞助商定制位），
-// 必须在列——否则新用户没填 key 时不会弹「需要配置 key」提示，直接运行才报认证错
-// （commit 61e84a6 改默认后遗漏）。新增 provider 只需改 API_PROVIDERS，这里自动跟上。
+// 需要 API key 的 provider，来自 lib/studio.ts 的统一注册表。**当前默认 provider
+// （DEFAULT_PROVIDER，2026-08-17 起是 apinebula）必须在列**——否则新用户没填 key 时
+// 不会弹「需要配置 key」提示，直接运行才报认证错（commit 61e84a6 改默认后遗漏过一次；
+// 换默认位时留意这条）。新增 provider 只需改 API_PROVIDERS，这里自动跟上。
 const KEYED = API_PROVIDERS.map((p) => p.id);
 
 // 提示词优化已在顶部主导航单独成页(/prompt)，Studio 内不再重复一个 tab。
