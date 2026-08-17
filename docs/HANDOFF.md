@@ -1,6 +1,6 @@
 # 工作交接：v0.13.0 之后这一轮做了什么、卡在哪、怎么接着干
 
-> 更新时间：2026-08-14 ｜ 对应 HEAD：`bc902f0`
+> 更新时间：2026-08-16 ｜ 对应 HEAD：`40ebb3d`
 > 这份文档只记**从 git log 里看不出来的东西**：为什么这么做、哪些是有意的取舍、下一步该按什么顺序动。
 > 具体改了哪些代码看 `CHANGELOG.md` 的 `[Unreleased]` 段和各条提交说明。
 
@@ -86,10 +86,21 @@ npm error This operation requires a one-time password from your authenticator.
 ### 2026-08-14 追加：文生图步骤（type: image）
 
 - 落地形态见 CHANGELOG。三条决定值得记住：**task 即提示词**（不另设字段，用户中途确认过）；**image.model 必填不猜**；**协议 A（Images API）打不通自动降 B（Responses+工具）**——判定复用 isGatewayRouteMissShell，LanoX 那种 200 壳也认。
-- **创意库（/creative，229 条图片提示词）加"一键生成"是明确的下一步**，用户已认可方向：后端加一个薄接口调同一个 generateImage()，卡片上加按钮；**演示站上必须走 demoNeedsEngine 降级**（无后端点了必 405，前车之鉴）。这轮没做，别丢。
+- ~~**创意库（/creative）加"一键生成"**~~ —— **已完成（2026-08-16）**。后端 `POST /api/image/generate` 是薄接口，直接调同一个 `generateImage()`（两种协议、报错口径全复用）。三处是踩出来的：① 下拉候选**必须由后端给**（`/api/config` 新增 `imageProviders`，按引擎 `resolveImageAccess` 口径算）——前端按 `family: "api"` 自己筛会把 `claude-code` / `gemini-cli` / `codex-cli` 也列进去，那一族在 `/api/config` 里就是 `api`；② `claude` 与 AICodeMirror 这类 **Anthropic 协议供应商有 base_url**，不显式拦就会去打 `api.anthropic.com/images/generations` 撞两次 404（已在引擎侧拦掉，见 CHANGELOG Fixed）；③ 演示站降级走的是"`/api/*` 落到 SPA 兜底回 HTML → `res.json()` 解析失败 → catch"，不是状态码——SPA 的 `_redirects` 是 `200`，按状态码判会得出"后端在线"的假结论。**运行中的 SSE 实时视图里图片仍显示不出来**（见下条）——那条边界没动。
 - **执行器图片分支现在有自动化端到端了**（`test/e2e-image.ts`：in-process 真跑 run()，两种协议各一条）——upsert 那个 bug 当时就是从"单测全绿但链路断了"的缝里漏掉的，这类"数据从 node 传进 StepResult"的环节以后新增字段都该走这条。
 - **运行中的实时视图（SSE）里图片显示不出来**是已知边界：相对引用的改写只发生在 GET /api/runs/:id（运行结束后的历史视图），直播流里拿到的还是 `assets/…` 相对路径，浏览器解析不了。跑完后在历史里看是好的。要修的话在 SSE done 事件带上 run dir 再改写，工作量不大但这轮没做。
 - 已知边界（v1 故意不做）：`--resume` 跳过图片步骤时，新运行目录里没有旧图的字节，markdown 引用会指向旧目录（变量文本仍可用）；重跑该步则重新生成。metadata 只留 filename。
+
+### 2026-08-17 追加：文生图真机验证（此前全是假上游）
+
+**这条能力此前一张真图都没出过**——引擎单测、端到端、Studio 接口全部对着 `http.createServer` 的假上游测。这次拿真 key 跑通了，记下只有真机才知道的事：
+
+- **LanoX 能出图，且两条路径都验过**：CLI（`ao run` 的 `type: image` 步骤，35s / 24s 两次）与 Studio 的 `/api/image/generate`（30s，创意库走的就是这条）。产物逐项核对无误：PNG 真文件（0.9–1.6MB）、`metadata.json` 零 base64 只留 filename、步骤 md 用 `../assets/`。它的图片模型是**实拉**出来的四个：`lanox-image-2`、`lanox-banana-2`、`gpt-image-2`、`gemini-3.1-flash-image`。
+- **LanoX 的模型元数据说谎**：`GET /v1/models` 里这些图片模型的 `supported_endpoint_types` 只写了 `chat.completions / responses / messages`，**没有 images**；但实际 `POST /v1/images/generations` 是通的（无余额时回 402 而不是 404，有余额直接出图）。**端点靠探不靠读元数据**——与它当年那个"200 壳"同一类坑。
+- **胜算云现阶段不能出图**：key 有效有余额（文本调通），`/v1/images/generations` 端点**存在**，但它 194 个模型**没有一个**支持该路径（错误原文 `model "X" does not support request path ...`）。所以创意库下拉里选它必然失败——报错已经能说清原因，但别指望它能出图。
+- **`size` 是建议不是约束**（至少 LanoX/gpt-image-2 如此）：请求 `1024x1024`，回执自报 `1254x1254`；换成海报类提示词又给 1024x1536。引擎现在自己量 PNG 头并在不一致时说破（见 CHANGELOG）。
+- 顺手核了写死的模型：胜算云的默认模型 `anthropic/claude-sonnet-5`、省钱模式降档的 `anthropic/claude-haiku-4.5`、以及 5 条 `modelSuggestions` **当前全部仍在架**。
+- **装包冒烟做过了**：`npm pack` → 干净目录装 tgz → `ao roles`（267 个角色从捆绑依赖解析）/ `ao doctor --no-probe` / `ao web`（`/studio`、`/creative`、`/api/*` 全 200）。注意 **`npm pack` 打的是工作区**，未提交的改动也会进 tarball——拿它验"发布后的样子"时要意识到这点。
 
 ## 四、下一步建议顺序
 
