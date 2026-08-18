@@ -42,11 +42,16 @@ jobs:
           ref: ${{ inputs.tag || github.ref_name }}
 
       # Trusted Publishing 要求 Node >= 22.14.0(CI 矩阵已覆盖 22)
+      #
+      # 刻意不设 registry-url:带上它,setup-node 会写一个内容为
+      #   //registry.npmjs.org/:_authToken=${NODE_AUTH_TOKEN}
+      # 的 .npmrc;而 OIDC 模式下我们不设该变量,占位符 XXXXX-XXXXX-...
+      # 会被当成真凭据发出去 —— npm 以为已认证遂跳过 OIDC,registry 回 E404。
+      # 不设则不生成该 .npmrc,npm 默认仍走 registry.npmjs.org。
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: 22
-          registry-url: "https://registry.npmjs.org"
 
       # Trusted Publishing 要求 npm >= 11.5.1,而 Node 22 自带的是 10.x
       - name: Upgrade npm for trusted publishing
