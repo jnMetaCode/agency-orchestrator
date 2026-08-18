@@ -107,4 +107,4 @@ jobs:
 
       # 无 NODE_AUTH_TOKEN:凭据由 OIDC 现取现用,provenance 由 npm 自动附加
       - name: Publish to npm
-        run: npm publish --access public
+        run: npm publish --access public --loglevel verbose
