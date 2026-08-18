@@ -113,12 +113,15 @@ jobs:
 
             > 不想装、嫌下面的签名提示麻烦？**用网页版也行**：`npm i -g agency-orchestrator && ao web`（功能和桌面版一样，key 只存本机），或直接打开 https://ao.aiolaola.com 演示体验。
 
-            ### macOS 提示「已损坏，无法打开」？
-            未签名版的正常提示，不是真的损坏。先把 App 拖进「应用程序」，再在「终端」运行：
+            ### macOS 提示「已损坏，无法打开」或「无法检查其是否包含恶意软件」？
+            两句话是同一件事的两种文案 —— 未签名版的正常提示，不是真的损坏、也不是真有恶意软件。
+            先把 App 拖进「应用程序」（**必须先拖过去，在 dmg 里直接开是没用的**），再在「终端」运行：
 
                 sudo xattr -cr "/Applications/Agency Orchestrator.app"
 
-            之后双击即可打开。
+            **然后再双击一次** —— 命令执行完不会自动打开，之前那个弹窗也不会自己消失，
+            很容易误以为没生效。想确认命令是否奏效，可运行 `xattr -l "/Applications/Agency Orchestrator.app"`，
+            没有输出就说明隔离属性已清掉。
 
             ### Windows 弹「Windows 已保护你的电脑」？
             点「更多信息」→「仍要运行」。
