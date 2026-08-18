@@ -2,7 +2,8 @@
 
 桌面客户端目前是**未签名版**。本文说明各平台不签名的后果、要彻底去掉系统提示需要什么、以及怎么在发布流程里启用签名。
 
-> TL;DR：**不签名也能用**——Mac 跑一条 `xattr` 命令，Windows 点「仍要运行」。
+> TL;DR：**不签名也能用**——Mac 跑一条 `xattr` 命令（跑完记得**再双击一次**，命令不会自动打开 App，
+> 旧弹窗也不会自己消失，很容易误判成没生效），Windows 点「仍要运行」。
 > 嫌麻烦完全可以不装桌面版，直接用**网页版**（见文末）。
 
 ---
@@ -11,7 +12,7 @@
 
 | 平台 | 提示 | 用户怎么绕过 | 严重程度 |
 |---|---|---|---|
-| **macOS** | 「"Agency Orchestrator"已损坏，无法打开」 | 拖进「应用程序」后终端跑 `sudo xattr -cr "/Applications/Agency Orchestrator.app"` | 硬拦，最影响体验 |
+| **macOS** | 「"Agency Orchestrator"已损坏，无法打开」或「无法检查其是否包含恶意软件」 | 拖进「应用程序」后终端跑 `sudo xattr -cr "/Applications/Agency Orchestrator.app"` | 硬拦，最影响体验 |
 | **Windows** | 「Windows 已保护你的电脑」(SmartScreen) | 「更多信息」→「仍要运行」 | 软提示，一次点击即可 |
 | **Linux** | 无 | —— | 无 |
 
