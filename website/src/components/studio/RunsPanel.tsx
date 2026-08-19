@@ -99,6 +99,9 @@ function DetailPane({ id, provider, onRun }: { id: string; provider: string; onR
             <Button size="sm" variant="ghost" title={t.studio.runs.downloadAllTitle} onClick={() => downloadText(safeFilename(baseName + t.studio.runs.fullProcessSuffix), fullText)}>
               {t.studio.runs.downloadAll}
             </Button>
+            <Button size="sm" variant="ghost" title={t.studio.runs.shareReportTitle} onClick={() => window.open(`/api/runs/${encodeURIComponent(id)}/report`, "_blank")}>
+              {t.studio.runs.shareReport}
+            </Button>
           </div>
         )}
       </div>

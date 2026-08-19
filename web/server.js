@@ -673,6 +673,25 @@ app.get('/api/runs/:id/assets/:file', (req, res) => {
   res.send(readFileSync(filePath));
 });
 
+// 可分享运行报告：与 CLI 的 `ao report` 同一渲染器（dist/cli/share-report.js）。
+// 直接以 HTML 响应——浏览器新标签打开即是成品页，用户 Cmd/Ctrl+S 或右键即可保存转发；
+// 同时落一份 report.html 到运行目录，和 CLI 行为一致。
+app.get('/api/runs/:id/report', async (req, res) => {
+  const runDir = resolve(join(OUTPUT_DIR, req.params.id));
+  if (!isInside(runDir, OUTPUT_DIR) || !existsSync(join(runDir, 'metadata.json'))) {
+    return res.status(404).json({ error: 'run not found' });
+  }
+  try {
+    const { renderRunDirReport } = await import('../dist/cli/share-report.js');
+    const html = renderRunDirReport(runDir, new Date().toLocaleString());
+    try { writeFileSync(join(runDir, 'report.html'), html, 'utf-8'); } catch { /* 只读盘也不挡预览 */ }
+    res.setHeader('Content-Type', 'text/html; charset=utf-8');
+    res.send(html);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // ── YAML preview ──
 app.get('/api/workflows/yaml', (req, res) => {
   const file = req.query.file;

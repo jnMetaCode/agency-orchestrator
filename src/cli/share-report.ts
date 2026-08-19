@@ -8,6 +8,8 @@
  * 约束：单文件、零外链（图片内联为 data URI）、亮暗色自适应、可打印。
  */
 import { marked } from 'marked';
+import { existsSync, readFileSync, readdirSync } from 'node:fs';
+import { join } from 'node:path';
 
 export interface ShareStep {
   id: string;
@@ -51,6 +53,59 @@ function mdToHtml(md: string, resolveAsset?: (src: string) => string | null): st
     });
   }
   return html;
+}
+
+/**
+ * 从一个运行输出目录直接产出报告 HTML（CLI 的 `ao report` 与 Studio 的
+ * `GET /api/runs/:id/report` 共用；目录不合法时抛 Error，消息可直接给用户看）。
+ */
+export function renderRunDirReport(runDir: string, generatedAt?: string): string {
+  const metaFile = join(runDir, 'metadata.json');
+  if (!existsSync(metaFile)) throw new Error(`"${runDir}" 里没有 metadata.json —— 不是一个 AO 运行输出目录。`);
+  const meta = JSON.parse(readFileSync(metaFile, 'utf-8'));
+
+  const stepsDir = join(runDir, 'steps');
+  const files = existsSync(stepsDir)
+    ? readdirSync(stepsDir).filter((f) => f.endsWith('.md'))
+        .sort((a, b) => (parseInt(a, 10) || 0) - (parseInt(b, 10) || 0))
+    : [];
+  if (files.length === 0) throw new Error(`"${runDir}" 里没有步骤产出（steps/*.md）。`);
+
+  const metaSteps: Array<Record<string, any>> = Array.isArray(meta.steps) ? meta.steps : [];
+  const steps: ShareStep[] = files.map((f) => {
+    const id = f.replace(/^\d+-/, '').replace(/\.md$/, '');
+    const m = metaSteps.find((s) => s.id === id) ?? {};
+    return {
+      id,
+      agentName: m.agentName, agentEmoji: m.agentEmoji, role: m.role,
+      status: m.status, duration: m.duration, tokens: m.tokens,
+      markdown: readFileSync(join(stepsDir, f), 'utf-8'),
+    };
+  });
+
+  // 相对图片内联成 data URI。注意 md 里的引用是相对 steps/ 目录写的
+  // （image 步骤产物是 `../assets/xx.png`），所以先按 steps/ 为基准解析，再退回 runDir。
+  const MIME: Record<string, string> = { '.png': 'image/png', '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.gif': 'image/gif', '.webp': 'image/webp', '.svg': 'image/svg+xml' };
+  const resolveAsset = (src: string): string | null => {
+    if (/^(https?:|data:)/.test(src)) return null;
+    const ext = (src.match(/\.[a-z]+$/i)?.[0] || '').toLowerCase();
+    if (!MIME[ext]) return null;
+    for (const base of [join(runDir, 'steps'), runDir]) {
+      const f = join(base, src);
+      if (existsSync(f)) return `data:${MIME[ext]};base64,${readFileSync(f).toString('base64')}`;
+    }
+    return null;
+  };
+
+  return renderShareReport({
+    name: meta.name || runDir,
+    success: meta.success,
+    totalDuration: meta.totalDuration,
+    totalTokens: meta.totalTokens,
+    steps,
+    generatedAt,
+    resolveAsset,
+  });
 }
 
 export function renderShareReport(d: ShareReportData): string {
