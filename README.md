@@ -453,6 +453,31 @@ ao run workflows/一人公司全员大会.yaml --from marketing_plan \
 
 不写 `--resume` 时默认对**上一次运行**返工（等价于 `--resume last`）。该专家改完后，它的下游步骤会自动用新产出重跑。
 
+### 定时任务 + 群推送（让 AI 团队每天上班）
+
+`--notify <url>` 让工作流跑完自动把结果推到群里——按 webhook 域名**自动适配钉钉 / 飞书 / 企业微信**自定义机器人的消息格式（其他地址发通用 `{text}`，Slack 也认），配合系统 cron 就是一条"AI 团队每天定点交活"的流水线：
+
+```bash
+# 手动跑一次并推送到飞书群
+ao run workflows/每日简报.yaml --notify https://open.feishu.cn/open-apis/bot/v2/hook/xxx
+
+# crontab -e：每天早上 8 点自动生成行业简报并推到钉钉群
+0 8 * * * cd ~/work && ao run workflows/每日简报.yaml --notify https://oapi.dingtalk.com/robot/send?access_token=xxx
+```
+
+> 钉钉机器人若开了"自定义关键词"安全设置，把关键词设为 `AO` 即可（推送文案固定包含）。也可以用环境变量 `AO_NOTIFY_URL` 代替参数。推送失败只提示一行，绝不影响运行本身。想看完整产出？`ao report last` 生成可分享的单文件报告页。
+
+### 可分享报告页（Report）
+
+跑出满意的成果后，一条命令得到能直接发给任何人的静态页面（专家分工时间线 + 每步产出 + 最终成品，双击即开、无需装 AO）：
+
+```bash
+ao report          # 渲染最近一次运行 → <run>/report.html
+ao report <dir>    # 渲染指定运行目录
+```
+
+网页 Studio 的运行详情里也有「分享页」按钮，一样的效果。
+
 ## 编程 API
 
 ```typescript

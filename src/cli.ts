@@ -287,6 +287,23 @@ async function handleRun(): Promise<void> {
       }
     }
 
+    // --notify <url>（或 AO_NOTIFY_URL）：结果推送到钉钉/飞书/企微/通用 webhook。
+    // cron + ao run --notify = "每天 8 点 AI 团队把简报推到群里"。失败只打一行，不影响退出码。
+    const notifyUrl = getArgValue('--notify') || process.env.AO_NOTIFY_URL;
+    if (notifyUrl) {
+      const { sendNotify } = await import('./notify.js');
+      const finalStep = [...result.steps].reverse().find((s) => s.status === 'completed' && s.output);
+      const r = await sendNotify(notifyUrl, {
+        name: result.name,
+        success: result.success,
+        duration: `${(result.totalDuration / 1000).toFixed(1)}s`,
+        completedSteps: result.steps.filter((s) => s.status === 'completed').length,
+        totalSteps: result.steps.length,
+        excerpt: finalStep?.output,
+      });
+      console.log(`  ${r.ok ? '📨' : '⚠️'} ${r.hint}`);
+    }
+
     process.exit(result.success ? 0 : 1);
   } catch (err) {
     console.error(`\n错误: ${err instanceof Error ? err.message : err}`);

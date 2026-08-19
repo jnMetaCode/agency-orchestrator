@@ -229,6 +229,7 @@ const dict: Dict = {
     --model <name>           覆盖 YAML 中的模型名
     --timeout <值>            单步超时，支持 300000/300s/5m/0 (0=不限时)
     --output dir             输出目录 (默认 ao-output/)
+    --notify <url>           跑完把结果推送到 webhook（自动适配钉钉/飞书/企微机器人格式，其他地址发通用 {text}；也可用 AO_NOTIFY_URL）
     --resume <dir|last>      从上次运行恢复（加载已完成步骤的输出）
     --from <step-id>         配合 --resume，从指定步骤重新执行
     --watch                  实时进度显示（终端 UI）
@@ -299,6 +300,7 @@ const dict: Dict = {
     --model <name>           Override model name from YAML
     --timeout <value>        Per-step timeout, accepts 300000/300s/5m/0 (0=no limit)
     --output dir             Output directory (default: ao-output/)
+    --notify <url>           Push the result to a webhook when done (auto-adapts DingTalk/Feishu/WeCom bot formats; generic {text} otherwise; AO_NOTIFY_URL also works)
     --resume <dir|last>      Resume from previous run (reuse completed step outputs)
     --from <step-id>         With --resume, re-run starting from this step
     --watch                  Live progress display (terminal UI)

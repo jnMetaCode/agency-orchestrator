@@ -4,6 +4,11 @@
 
 ## [Unreleased]
 
+### Added
+- **`ao run --notify <url>`（或 `AO_NOTIFY_URL`）——跑完把结果推到群里**：按 webhook 域名自动适配钉钉 / 飞书 / 企业微信自定义机器人的消息格式，其他地址发通用 `{text}`（Slack 也认）。配合 cron 就是"AI 团队每天定点交活"：`0 8 * * * ao run 每日简报.yaml --notify <机器人地址>`。纪律：推送永远不搞坏运行——发送失败只打一行提示，不抛错不改退出码；钉钉/企微对格式错误也回 HTTP 200、真实错误码在响应体里，已按此读体判错（提示会点破"检查关键词/签名安全设置"）。文案固定含 "AO"，钉钉"自定义关键词"安全设置写 AO 即可。
+- **`modelCapabilityHint` 扩展 antigravity-cli 额度提示**（免费档约 20 次/天）：质量不弱、受限的是额度——不提前说清，用户会在第 N 步撞额度并以为是 AO 的问题。Studio CLI 卡片、中英 README 同口径。没有评测证据的 CLI（copilot/hermes/openclaw/codex）一律不猜不提示，测试钉死。
+- **官网 `/evals/` 公开评测基准页**：EVAL_FINDINGS.md 全文上网（构建期渲染成静态页，含一键复现命令），全站静态页导航加「评测」入口。
+
 ## [0.15.0] - 2026-08-19
 
 ### Added（本次新增）
