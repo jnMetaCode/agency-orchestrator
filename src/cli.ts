@@ -91,6 +91,9 @@ async function main(): Promise<void> {
     case 'doctor':
       await handleDoctor();
       break;
+    case 'report':
+      await handleReport();
+      break;
     case 'team':
       await handleTeam();
       break;
@@ -861,6 +864,78 @@ function parseVerifyFlag(): boolean | undefined {
 const COMPOSE_CLI_PROVIDERS = ['claude-code', 'antigravity-cli', 'gemini-cli', 'copilot-cli', 'codex-cli', 'openclaw-cli', 'hermes-cli'];
 
 /** R2.1：判断 compose 要用的 provider 是否已有可用凭证。保守——不确定时返回 true（不拦已能跑的配置）。 */
+/**
+ * ao report [dir|last] —— 把一次运行渲染成可分享的自包含 HTML（写到 <run>/report.html）。
+ * 增长闭环的一环：用户满意的成果 → 一条命令 → 一张可直接发到群里的页面（带产品署名）。
+ */
+async function handleReport(): Promise<void> {
+  const { renderShareReport } = await import('./cli/share-report.js');
+  const { readdirSync } = await import('node:fs');
+  const target = args[1] && !args[1].startsWith('--') ? args[1] : 'last';
+
+  let runDir = target;
+  if (target === 'last') {
+    const { findLatestOutput } = await import('./output/reporter.js');
+    const latest = findLatestOutput('ao-output');
+    if (!latest) {
+      console.error('找不到运行输出（ao-output/ 为空）。先跑一次工作流，或指定目录：ao report <dir>');
+      process.exit(1);
+    }
+    runDir = latest;
+  }
+  const metaFile = join(runDir, 'metadata.json');
+  if (!existsSync(metaFile)) {
+    console.error(`"${runDir}" 里没有 metadata.json —— 不是一个 AO 运行输出目录。`);
+    process.exit(1);
+  }
+
+  const meta = JSON.parse(readFileSync(metaFile, 'utf-8'));
+  const stepsDir = join(runDir, 'steps');
+  const files = existsSync(stepsDir)
+    ? readdirSync(stepsDir).filter((f) => f.endsWith('.md'))
+        .sort((a, b) => (parseInt(a, 10) || 0) - (parseInt(b, 10) || 0))
+    : [];
+  const metaSteps: Array<Record<string, unknown>> = Array.isArray(meta.steps) ? meta.steps : [];
+  const steps = files.map((f) => {
+    const id = f.replace(/^\d+-/, '').replace(/\.md$/, '');
+    const m = (metaSteps.find((s) => s.id === id) ?? {}) as Record<string, any>;
+    return {
+      id,
+      agentName: m.agentName, agentEmoji: m.agentEmoji, role: m.role,
+      status: m.status, duration: m.duration, tokens: m.tokens,
+      markdown: readFileSync(join(stepsDir, f), 'utf-8'),
+    };
+  });
+  if (steps.length === 0) {
+    console.error(`"${runDir}" 里没有步骤产出（steps/*.md）。`);
+    process.exit(1);
+  }
+
+  // 相对图片（如 image 步骤落在 assets/ 的 PNG）内联成 data URI，保证单文件可分享
+  const MIME: Record<string, string> = { '.png': 'image/png', '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.gif': 'image/gif', '.webp': 'image/webp', '.svg': 'image/svg+xml' };
+  const resolveAsset = (src: string): string | null => {
+    if (/^(https?:|data:)/.test(src)) return null;
+    const f = join(runDir, src);
+    const ext = (src.match(/\.[a-z]+$/i)?.[0] || '').toLowerCase();
+    if (!MIME[ext] || !existsSync(f)) return null;
+    return `data:${MIME[ext]};base64,${readFileSync(f).toString('base64')}`;
+  };
+
+  const html = renderShareReport({
+    name: meta.name || runDir,
+    success: meta.success,
+    totalDuration: meta.totalDuration,
+    totalTokens: meta.totalTokens,
+    steps,
+    generatedAt: new Date().toLocaleString(),
+    resolveAsset,
+  });
+  const out = join(runDir, 'report.html');
+  writeFileSync(out, html, 'utf-8');
+  console.log(`\n  📄 报告已生成：${out}`);
+  console.log(`     自包含单文件（图片已内联）——直接发给任何人，双击即开，无需装 AO。\n`);
+}
+
 function composeProviderHasCredentials(provider: string, apiKey?: string, baseUrl?: string): boolean {
   if (apiKey || baseUrl) return true;                 // 显式 --api-key / --base-url
   if (COMPOSE_CLI_PROVIDERS.includes(provider)) return detectInstalledCliProviders().includes(provider);
