@@ -8,9 +8,10 @@
     "dev": "vite",
     "gen:experts": "node scripts/gen-experts.mjs",
     "gen:workflows": "node scripts/gen-workflows.mjs",
-    "build": "vite build",
+    "build": "vite build && node scripts/gen-seo-pages.mjs",
     "typecheck": "tsc --noEmit",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "gen:seo": "node scripts/gen-seo-pages.mjs"
   },
   "dependencies": {
     "@dagrejs/dagre": "^3.0.0",
