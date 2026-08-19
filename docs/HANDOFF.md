@@ -1,5 +1,11 @@
 # 工作交接：0.14.0 这一版做了什么、卡在哪、怎么接着干
 
+> **2026-08-19 更新：本文档的「唯一阻塞」已解决。** npm 发布改走 Trusted Publishing（OIDC）：
+> npmjs.com 上给包配了 GitHub Actions 发布者（jnMetaCode/agency-orchestrator + release.yml，
+> Allowed actions 勾 `npm publish`），推 tag 即自动发版，不再需要 OTP/token。
+> 0.14.0 与 0.15.0 均已由该流水线发布成功（带 provenance）。战略与开发计划见
+> `/Users/yx/work/战略/`（私有，不入仓库）。
+
 > 更新时间：2026-08-17 ｜ 定版：`v0.14.0` + `desktop-v0.4.3`
 > 这份文档只记**从 git log 里看不出来的东西**：为什么这么做、哪些是有意的取舍、下一步该按什么顺序动。
 > 具体改了哪些代码看 `CHANGELOG.md` 的 `[0.14.0]` 段和各条提交说明。
