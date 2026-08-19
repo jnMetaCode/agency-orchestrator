@@ -4,6 +4,23 @@
 
 ## [Unreleased]
 
+## [0.15.0] - 2026-08-19
+
+### Added（本次新增）
+- **`ao report [dir|last]`——把一次运行渲染成可分享的单文件 HTML 报告**：专家分工时间线 + 每步产出 + 末步 ⭐ 最终成品标记，页脚带产品署名与安装命令。自包含零外链（相对图片内联为 data URI）、亮暗色自适应、可打印，双击即开无需装 AO——用户满意的成果直接发到群里就是一张带回流入口的海报。默认取最近一次运行；渲染器是纯函数（`src/cli/share-report.ts`），15 条单测覆盖转义/表格/图片内联/署名。
+- **Studio 运行详情新增「分享页」按钮**（`GET /api/runs/:id/report`）：与 CLI 同一渲染器（`renderRunDirReport`），新标签打开即成品页、可直接保存转发；同时落一份 `report.html` 到运行目录与 CLI 行为一致。端点走与 assets 相同的目录守卫（resolve + 包含关系 + 必须带 metadata.json）。
+- **gemini-cli 软下线机制**（收尾 #86）：Google 已于 2026-06-18 停服（仅企业版 Code Assist 许可可用），但此前停服信息只活在代码注释里——新用户在 Studio 里看到它与 claude-code 平级，README 还写着「免费 1000 次/天」。新增 `DEPRECATED_CLI_PROVIDERS` 注册表与 `detectUsableCliProviders()`：**零配置自动选择（autoProvider / 首跑引导 / Studio recommended）永不选中已停服 CLI**；存量用户显式指定仍可用但 factory 给一行警告；`ao doctor` 对已装的停服 CLI 单独标注原因；Studio 卡片带琥珀色停服说明（中英双语）。CLI provider 一族此前没有任何「下线」机制（`delisted` 只覆盖 API 供应商）——把新用户自动导向一条死路径，比让他去配 key 更糟。
+- **`ao doctor` 新增 Ollama 端点真探测**：compose/run 对 ollama 一律放行不探测，doctor 是唯一说真话的地方——不探的话「配了 ollama 却没启动服务」要到工作流第一步失败才暴露。1.5s 超时，不可达时给出 `ollama serve` 指引。
+- **官网程序化 SEO（不随 npm 包，Vercel 自动部署）**：构建后为 267 个专家角色与 25 个工作流模板各生成一张纯静态详情页（零 JS、内联 CSS——百度爬虫不执行 JS，SPA 内容对国内搜索不存在），sitemap 扩展到 301 条 URL。Vercel rewrites 文件系统优先：静态详情页直接命中，SPA 的 `/experts` 列表页照常回落，互不干扰。
+
+### Fixed
+- **`removedProviders` 不再无条件隐藏已配 key 的老用户**：远程清单的下架列表此前排在 `delisted` 例外之前直接过滤——把「配过 key 的照常显示」这条既定原则（配置还在、还能跑，入口没了用户只会以为 key 丢了）整个绕过，配过 rootflowai/ccsub 的用户已经被搞坏。现在两条下架来源（内置 `delisted` / 远程 `removedProviders`）走同一个例外。
+- **`ao demo` 的 CLI 探测在 Windows 上全判「未安装」**：它用的是独立的 `execSync('which …')`（POSIX-only），与 `detect.ts` 各说各话。统一走 `isOnPath()`（跨平台、不起 shell）。
+- **报告页图片内联的路径解析**：步骤 md 里图片引用是相对 `steps/` 目录写的（image 步骤产物为 `../assets/xx.png`），按运行目录直接拼接会指到错误位置。现按 `steps/` 优先、运行目录兜底两级解析。
+
+### Docs
+- **免 key 口径三套合一，统一为「7 种」**：中文 README 说 8、其小节标题说 7、英文 README 说 7 且表格漏了 Antigravity、官网 docs 列的 8 项是另一组（含无任何代码实现的 LM Studio）。现全部对齐代码注册表：6 个活跃订阅制 CLI + Ollama = 7 种；gemini-cli 明标停服；LM Studio 改为注明「可作为 OpenAI 兼容端点接入」。
+
 ## [0.14.0] - 2026-08-17
 
 ### Added（本次新增）

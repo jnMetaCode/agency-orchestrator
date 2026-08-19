@@ -1,6 +1,6 @@
 {
   "name": "agency-orchestrator",
-  "version": "0.14.0",
+  "version": "0.15.0",
   "description": "Multi-agent YAML workflow engine — 267 CN + 184 EN + 5 more language libraries of AI roles, auto DAG parallelism, zero code. One sentence → multiple AI roles collaborate → complete plan in minutes. 11 LLM providers, 7 need no API key.",
   "keywords": [
     "multi-agent",
