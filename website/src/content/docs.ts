@@ -78,8 +78,8 @@ export const docGroups: DocGroup[] = [
           {
             heading: { zh: "无需 API Key 起步", en: "Start without an API key" },
             body: {
-              zh: "不想配 key 也能跑：AO 支持 claude-code CLI、**Antigravity CLI**（Google 的 Gemini CLI 继任者，`agy`）、Ollama 本地模型等 8 种免 key 方式。装好对应 CLI 或本地模型后，用 `--provider` 指定即可。",
-              en: "No key needed to start: AO supports 8 key-free paths such as the claude-code CLI, **Antigravity CLI** (Google's successor to the Gemini CLI, `agy`), and local Ollama. Install the CLI or local model, then point to it with `--provider`.",
+              zh: "不想配 key 也能跑：AO 支持 claude-code CLI、**Antigravity CLI**（Google 的 Gemini CLI 继任者，`agy`）、Ollama 本地模型等 7 种免 key 方式。装好对应 CLI 或本地模型后，用 `--provider` 指定即可。",
+              en: "No key needed to start: AO supports 7 key-free paths such as the claude-code CLI, **Antigravity CLI** (Google's successor to the Gemini CLI, `agy`), and local Ollama. Install the CLI or local model, then point to it with `--provider`.",
             },
           },
           {
@@ -459,10 +459,10 @@ llm:
   model: "claude-sonnet-5"`,
           },
           {
-            heading: { zh: "8 种免 key 方式", en: "8 key-free options" },
+            heading: { zh: "7 种免 key 方式", en: "7 key-free options" },
             body: {
-              zh: "想零成本起步，不必配 API key：claude-code CLI、**Antigravity CLI**（`agy`，Google 已于 2026-06-18 停掉 gemini-cli，这是它的继任者）、gemini-cli（存量用户仍可用）、openclaw-cli、Ollama 本地、LM Studio、免费聚合、演示模式都可用。装好对应 CLI / 本地模型后用 `--provider` 指定即可。",
-              en: "To start at zero cost without an API key: the claude-code CLI, **Antigravity CLI** (`agy` — Google retired the Gemini CLI on 2026-06-18; this is its successor), gemini-cli (still works for existing users), openclaw-cli, local Ollama, LM Studio, free aggregators, and demo mode all work. Install the CLI / local model, then point to it with `--provider`.",
+              zh: "想零成本起步，不必配 API key：claude-code、**Antigravity CLI**（`agy`，Gemini CLI 的继任者）、copilot-cli、codex-cli、openclaw-cli、hermes-cli 六个订阅制 CLI，加上 Ollama 本地模型，共 7 种。gemini-cli 已于 2026-06-18 被 Google 停服（仅存量企业许可可用）；LM Studio 等本地服务可作为 OpenAI 兼容端点接入（base_url 指向本地）。装好对应 CLI / 本地模型后用 `--provider` 指定即可。",
+              en: "To start at zero cost without an API key: six subscription CLIs — claude-code, **Antigravity CLI** (`agy`, the Gemini CLI's successor), copilot-cli, codex-cli, openclaw-cli, hermes-cli — plus local Ollama: 7 options in total. gemini-cli was retired by Google on 2026-06-18 (existing enterprise licenses only); LM Studio and similar local servers plug in as OpenAI-compatible endpoints (point base_url at localhost). Install the CLI / local model, then point to it with `--provider`.",
             },
             code: "ao run workflow.yaml --provider claude-code",
           },
