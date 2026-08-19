@@ -89,22 +89,7 @@ jobs:
       - name: Run tests
         run: npm test
 
-      # 诊断:Trusted Publishing 全靠这两个变量换 OIDC token,
-      # 它们由 permissions.id-token: write 注入。只打印有无,绝不打印值。
-      - name: Check OIDC endpoint availability
-        run: |
-          if [ -n "${ACTIONS_ID_TOKEN_REQUEST_URL:-}" ]; then
-            echo "ACTIONS_ID_TOKEN_REQUEST_URL   = 已注入"
-          else
-            echo "ACTIONS_ID_TOKEN_REQUEST_URL   = 缺失  ← id-token 权限未生效"
-          fi
-          if [ -n "${ACTIONS_ID_TOKEN_REQUEST_TOKEN:-}" ]; then
-            echo "ACTIONS_ID_TOKEN_REQUEST_TOKEN = 已注入"
-          else
-            echo "ACTIONS_ID_TOKEN_REQUEST_TOKEN = 缺失  ← id-token 权限未生效"
-          fi
-          echo "npm=$(npm -v)"
-
       # 无 NODE_AUTH_TOKEN:凭据由 OIDC 现取现用,provenance 由 npm 自动附加
+      # (npmjs.com 侧需已配置 Trusted Publisher: jnMetaCode/agency-orchestrator + release.yml)
       - name: Publish to npm
-        run: npm publish --access public --loglevel verbose
+        run: npm publish --access public
