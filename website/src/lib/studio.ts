@@ -969,6 +969,15 @@ export const CLI_RELAY_PRESETS: CliRelayPreset[] = [
 // CLI 列表必须和后端 web/server.js 的 CLI_PROVIDERS 对齐——之前漏了 codex/copilot/hermes,
 // 导致面板里能看到、顶部下拉却选不了(用户实测 codex 已检测到但无法切换)
 export const CLI_PROVIDER_IDS = new Set(["claude-code", "antigravity-cli", "gemini-cli", "codex-cli", "copilot-cli", "openclaw-cli", "hermes-cli"]);
+
+// 已停服的 CLI provider（与引擎 src/providers/detect.ts 的 DEPRECATED_CLI_PROVIDERS 对齐）：
+// 卡片保留（存量用户显式可用），但要带停服标注，且永不出现在「一键切换」推荐里
+export const DEPRECATED_CLI_PROVIDERS: Record<string, { zh: string; en: string }> = {
+  "gemini-cli": {
+    zh: "Google 已于 2026-06-18 停服（仅企业版 Code Assist 许可可用），推荐 Antigravity CLI",
+    en: "Retired by Google on 2026-06-18 (enterprise Code Assist licenses only) — use Antigravity CLI",
+  },
+};
 export const PROVIDERS = [...API_PROVIDERS.map((p) => p.id), ...CLI_PROVIDER_IDS, "ollama"];
 
 // 仅品牌名（语言无关）。

@@ -17,7 +17,7 @@ import type { LLMConfig } from './types.js';
 import { buildDAG, formatDAG } from './core/dag.js';
 import { listAgents, filterAgentsByKeyword } from './agents/loader.js';
 import { run, findAgentsDir, compareWorkflowVsBaseline } from './index.js';
-import { detectInstalledCliProviders } from './providers/detect.js';
+import { detectInstalledCliProviders, detectUsableCliProviders, DEPRECATED_CLI_PROVIDERS } from './providers/detect.js';
 import { API_PROVIDERS, API_PROVIDER_MAP } from './connectors/api-providers.js';
 import { postChatCompletions, postApiEndpoint, endpointHint, normalizeBaseUrl, envProxyHint } from './connectors/openai-compatible.js';
 import { installEnvProxy, envProxyStatus } from './utils/env-proxy.js';
@@ -593,8 +593,8 @@ function firstPositional(): string | undefined {
  */
 function autoProvider(explicit: string | undefined, fallback: string): string {
   if (explicit) return explicit;
-  // 1) 本机已装的订阅制 CLI 优先（零配置、复用登录态）
-  const detected = detectInstalledCliProviders();
+  // 1) 本机已装的订阅制 CLI 优先（零配置、复用登录态）——已停服的（如 gemini-cli）绝不自动选
+  const detected = detectUsableCliProviders();
   if (detected.length > 0) {
     console.log(`  🔌 检测到本机已安装 ${detected[0]}，零配置直接用（要换 provider 用 --provider 指定）\n`);
     return detected[0];
@@ -642,11 +642,32 @@ async function handleDoctor(): Promise<void> {
   console.log('\n  🩺 ao doctor —— 环境自检\n');
   let problems = 0;
 
-  // 1) 本机已装的订阅制 CLI（零配置可用）
+  // 1) 本机已装的订阅制 CLI（零配置可用）——已停服的单独标注，不与活跃 CLI 混列
   const installed = detectInstalledCliProviders();
-  console.log(installed.length
-    ? `  ✅ 已装 CLI（零配置可用）：${installed.join(', ')}`
+  const usable = installed.filter((p) => !(p in DEPRECATED_CLI_PROVIDERS));
+  const dead = installed.filter((p) => p in DEPRECATED_CLI_PROVIDERS);
+  console.log(usable.length
+    ? `  ✅ 已装 CLI（零配置可用）：${usable.join(', ')}`
     : `  ·  未检测到订阅制 CLI（claude-code / antigravity-cli 等）`);
+  for (const p of dead) {
+    console.log(`  ⚠️ ${p} 已安装但不再推荐：${DEPRECATED_CLI_PROVIDERS[p]}`);
+  }
+
+  // 1.5) Ollama 本地端点 —— compose/run 对 ollama 一律放行不探测，doctor 是唯一说真话的地方：
+  //      不探的话「配了 ollama 却没启动服务」要到工作流第一步失败才暴露。
+  {
+    const ollamaUrl = (process.env.OLLAMA_BASE_URL || 'http://localhost:11434').replace(/\/+$/, '');
+    try {
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), 1500);
+      const res = await fetch(`${ollamaUrl}/api/tags`, { signal: controller.signal });
+      clearTimeout(timer);
+      if (res.ok) console.log(`  ✅ Ollama 本地服务可达（${ollamaUrl}）`);
+      else console.log(`  ⚠️ Ollama 端点响应异常（${ollamaUrl} → HTTP ${res.status}）`);
+    } catch {
+      console.log(`  ·  Ollama 未运行（${ollamaUrl} 不可达；要用本地模型先 \`ollama serve\`）`);
+    }
+  }
 
   // 2) 环境变量里已配 key 的 API provider
   const envKeys: Record<string, string> = { claude: 'ANTHROPIC_API_KEY', ...Object.fromEntries(API_PROVIDERS.map((p) => [p.id, p.envKey])) };
@@ -851,7 +872,8 @@ function composeProviderHasCredentials(provider: string, apiKey?: string, baseUr
 
 /** R2.1：无凭证时打印「三选一」首跑引导，把「撞墙」变「选路」。 */
 function printFirstRunGuide(provider: string): void {
-  const installed = detectInstalledCliProviders();
+  // 首跑引导不能把新用户指向已停服的 CLI（装了 gemini 二进制 ≠ 还能用）
+  const installed = detectUsableCliProviders();
   const L = (s = '') => console.error(s);
   L('');
   L('  ⚠️  还没有可用的模型凭证 —— 先选一条路（大多 30 秒搞定）：');

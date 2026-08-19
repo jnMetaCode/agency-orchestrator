@@ -1,9 +1,10 @@
 /**
- * Gemini CLI Connector
- * 通过本地 `gemini` CLI 调用，Google 账号免费使用（1000 次/天，Gemini 2.5 Pro）
+ * Gemini CLI Connector —— ⚠️ 已停服（存量企业许可除外）
  *
- * 安装: npm install -g @google/gemini-cli
- * 认证: gemini 首次运行会引导 Google 账号登录，之后自动认证
+ * Google 已于 2026-06-18 停止为免费/AI Pro/Ultra 用户提供 Gemini CLI 服务，
+ * 仅 Gemini Code Assist Standard/Enterprise 许可仍可用（issue #86）。
+ * 保留此 connector 是为了不搞坏存量企业用户；新用户请用继任者 antigravity-cli（`agy`）。
+ * 软下线登记见 src/providers/detect.ts 的 DEPRECATED_CLI_PROVIDERS。
  */
 import { CLIBaseConnector } from './cli-base.js';
 import type { LLMConfig } from '../types.js';

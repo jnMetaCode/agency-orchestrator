@@ -14,7 +14,7 @@ import { fileURLToPath } from 'node:url';
 import { createHash } from 'node:crypto';
 import { tmpdir, homedir } from 'node:os';
 import yaml from 'js-yaml';
-import { detectInstalledCliProviders } from '../dist/providers/detect.js';
+import { detectInstalledCliProviders, detectUsableCliProviders } from '../dist/providers/detect.js';
 import { API_PROVIDERS, API_PROVIDER_MAP, ANTHROPIC_PROVIDERS, ANTHROPIC_PROVIDER_MAP } from '../dist/connectors/api-providers.js';
 // base_url 规整 / 跳转保持 POST / 少写多写 /v1 兜底 —— 与运行时连接器同一份实现，
 // 保证「测试连接」和真正跑起来的行为一致（不会出现测试过了但一跑就 405）。
@@ -1293,7 +1293,7 @@ app.post('/api/compose', async (req, res) => {
       code: 'no_credentials',
       error: 'no_credentials',
       provider: provider || process.env.AO_PROVIDER || DEFAULT_PROVIDER_ID,
-      installedCli: detectInstalledCliProviders(),
+      installedCli: detectUsableCliProviders(),
       // 赞助商位规则（src/utils/sponsor-guide.ts）：进阶档持有默认 provider 位
       // （上面 provider 字段的兜底），不占横幅——但该档位自 2026-08-17 起无人持有
       // （多元探索下架），默认位暂由旗舰 APINEBULA 顶上。横幅 = 池子里几家按天轮换
@@ -1751,8 +1751,10 @@ app.get('/api/config', async (_req, res) => {
     };
   }
   // 探测本机已安装的订阅制 CLI（可零配置直接用，无需在 AO 配 key）。
-  const installedCli = detectInstalledCliProviders();
-  const cli = CLI_PROVIDERS.map((name) => ({ name, installed: installedCli.includes(name) }));
+  const installedAll = detectInstalledCliProviders();
+  const cli = CLI_PROVIDERS.map((name) => ({ name, installed: installedAll.includes(name) }));
+  // 推荐/一键切换只用「可用」列表（排除已停服的 gemini-cli 等）；卡片展示仍保留全量。
+  const installedCli = detectUsableCliProviders();
   // 推荐 provider：已装的 CLI 优先（零配置）> 已配 key 的 provider > 默认。前端据此默认选中并给提示。
   const keyedWithKey = Object.entries(providers).find(([, p]) => p.hasKey)?.[0];
   const recommended = installedCli[0] || keyedWithKey || (process.env.AO_PROVIDER || DEFAULT_PROVIDER_ID);

@@ -2,7 +2,7 @@ import { Check, ChevronDown, Cloud, Copy, Loader2, MonitorCog, Plus, Settings2, 
 import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { useLanguage } from "@/i18n/LanguageProvider";
-import { api, API_PROVIDERS, CLI_RELAY_GLOBAL_WRITE, CLI_RELAY_PRESETS, CLI_RELAY_SUPPORT, DEFAULT_PROVIDER, PROVIDER_LABELS, providerLogo, relayPresetClis, type CliRelayPreset, type ConfigResponse } from "@/lib/studio";
+import { api, API_PROVIDERS, CLI_RELAY_GLOBAL_WRITE, CLI_RELAY_PRESETS, CLI_RELAY_SUPPORT, DEFAULT_PROVIDER, DEPRECATED_CLI_PROVIDERS, PROVIDER_LABELS, providerLogo, relayPresetClis, type CliRelayPreset, type ConfigResponse } from "@/lib/studio";
 import { cn } from "@/lib/utils";
 import { ClaudeHealthCard } from "./ClaudeHealthCard";
 import { ProviderConfigView, type ConfigTarget } from "./ProviderConfigView";
@@ -181,7 +181,7 @@ function RelayVendorRow({ preset, onConfigure }: { preset: CliRelayPreset; onCon
 }
 
 export function ProvidersPanel({ active, onSetActive, offline = false }: { active: string; onSetActive: (p: string) => void; offline?: boolean }) {
-  const { t } = useLanguage();
+  const { t, lang } = useLanguage();
   const [cfg, setCfg] = useState<ConfigResponse | null>(null);
   const [failed, setFailed] = useState(false);
   const [editing, setEditing] = useState<ConfigTarget | null>(null);
@@ -300,10 +300,11 @@ export function ProvidersPanel({ active, onSetActive, offline = false }: { activ
             </h3>
             <div className="grid gap-3 sm:grid-cols-2">
               {API_META
-                .filter((m) => !(cfg.removedProviders ?? []).includes(m.id))
-                // 已下架的赞助商不再向新用户露出；但自己配过 key 的照常显示 ——
-                // 配置还在、还能跑，却把入口抽走的话，用户只会以为"我的 key 丢了"
-                .filter((m) => !m.delisted || cfg?.providers?.[m.id]?.hasKey)
+                // 已下架的赞助商（内置 delisted 或远程清单 removedProviders）不再向新用户露出；
+                // 但自己配过 key 的照常显示 —— 配置还在、还能跑，却把入口抽走的话，
+                // 用户只会以为"我的 key 丢了"。两条下架来源必须走同一个例外，
+                // 之前 removedProviders 无条件过滤，把配过 rootflowai/ccsub key 的老用户搞坏了
+                .filter((m) => !(m.delisted || (cfg.removedProviders ?? []).includes(m.id)) || cfg?.providers?.[m.id]?.hasKey)
                 .map((m) => {
                 const st = keyStatus(m.id);
                 return (
@@ -408,16 +409,20 @@ export function ProvidersPanel({ active, onSetActive, offline = false }: { activ
               ))}
               {cliItems.map(({ name: id, installed }) => {
                 const relayConfigured = !!cfg.providers[id]?.hasKey;
-                const statusLine = installed
-                  ? t.studio.providers.cliInstalledBadge
-                  : relayConfigured
-                    ? t.studio.providers.cliRelaySet
-                    : t.studio.providers.cliRequirement;
+                // 已停服的 CLI（如 gemini-cli）：状态行改为停服说明，且不再用绿色「已装可用」视觉
+                const deprecated = DEPRECATED_CLI_PROVIDERS[id];
+                const statusLine = deprecated
+                  ? deprecated[lang] ?? deprecated.zh
+                  : installed
+                    ? t.studio.providers.cliInstalledBadge
+                    : relayConfigured
+                      ? t.studio.providers.cliRelaySet
+                      : t.studio.providers.cliRequirement;
                 return (
-                  <div key={id} className={cn("flex items-center justify-between gap-2 rounded-xl border bg-card/60 px-4 py-3", installed ? "border-emerald-500/50" : eff === id ? "border-primary/60" : "border-border/70")}>
+                  <div key={id} className={cn("flex items-center justify-between gap-2 rounded-xl border bg-card/60 px-4 py-3", deprecated ? "border-amber-500/40 opacity-80" : installed ? "border-emerald-500/50" : eff === id ? "border-primary/60" : "border-border/70")}>
                     <span className="min-w-0">
                       <span className="block truncate text-sm font-semibold">{PROVIDER_LABELS[id] ?? id}</span>
-                      <span className={cn("block truncate text-[11px]", installed || relayConfigured ? "font-medium text-emerald-500" : "text-muted-foreground")}>
+                      <span className={cn("block truncate text-[11px]", deprecated ? "font-medium text-amber-500" : installed || relayConfigured ? "font-medium text-emerald-500" : "text-muted-foreground")}>
                         {statusLine}
                       </span>
                     </span>

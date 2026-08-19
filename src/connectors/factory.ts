@@ -20,6 +20,9 @@ export function createConnector(config: LLMConfig): LLMConnector {
     case 'claude-code':
       return new ClaudeCodeConnector();
     case 'gemini-cli':
+      // 已停服（2026-06-18，存量企业许可除外）——显式指定仍可用，但要说清楚，
+      // 否则用户跑挂了会以为是 AO 的问题
+      console.warn('  ⚠️ gemini-cli 已停服（仅企业版 Code Assist 许可可用），新用户请改用 antigravity-cli');
       return new GeminiCLIConnector();
     // Gemini CLI 的继任者（Google 已于 2026-06-18 停掉前者）
     case 'antigravity-cli':

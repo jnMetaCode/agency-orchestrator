@@ -12,6 +12,9 @@ import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { existsSync } from 'node:fs';
 import { createInterface } from 'node:readline';
+// 与 doctor/compose 共用同一套探测（跨平台、不起 shell）；之前这里独立用 `which`，
+// Windows 上必然全判「未安装」，且与 detect.ts 判断不一致
+import { CLI_PROVIDER_BINS, isOnPath } from '../providers/detect.js';
 
 // ─── Types ───
 
@@ -30,24 +33,19 @@ export async function detectAvailableLLMs(): Promise<DetectedLLM[]> {
   const results: DetectedLLM[] = [];
 
   // ── 免 API key（检测 CLI 是否安装）──
-  const cliTools: Array<{ provider: DetectedLLM['provider']; name: string; cmd: string }> = [
-    { provider: 'claude-code', name: 'Claude Code (Max/Pro 会员)', cmd: 'claude' },
-    { provider: 'gemini-cli', name: 'Gemini CLI (Google 免费)', cmd: 'gemini' },
-    { provider: 'copilot-cli', name: 'Copilot CLI (GitHub 会员)', cmd: 'copilot' },
-    { provider: 'codex-cli', name: 'Codex CLI (ChatGPT Plus)', cmd: 'codex' },
-    { provider: 'openclaw-cli', name: 'OpenClaw CLI', cmd: 'openclaw' },
-    { provider: 'hermes-cli', name: 'Hermes Agent', cmd: 'hermes' },
-    { provider: 'antigravity-cli', name: 'Antigravity CLI', cmd: 'agy' },
+  const cliTools: Array<{ provider: DetectedLLM['provider']; name: string }> = [
+    { provider: 'claude-code', name: 'Claude Code (Max/Pro 会员)' },
+    { provider: 'antigravity-cli', name: 'Antigravity CLI (Gemini CLI 继任者)' },
+    { provider: 'copilot-cli', name: 'Copilot CLI (GitHub 会员)' },
+    { provider: 'codex-cli', name: 'Codex CLI (ChatGPT Plus)' },
+    { provider: 'openclaw-cli', name: 'OpenClaw CLI' },
+    { provider: 'hermes-cli', name: 'Hermes Agent' },
+    { provider: 'gemini-cli', name: 'Gemini CLI (已停服，仅存量企业许可)' },
   ];
 
   for (const tool of cliTools) {
-    let available = false;
-    try {
-      const { execSync } = await import('node:child_process');
-      execSync(`which ${tool.cmd}`, { stdio: 'ignore' });
-      available = true;
-    } catch { /* not installed */ }
-    results.push({ provider: tool.provider, name: tool.name, available });
+    const bin = CLI_PROVIDER_BINS[tool.provider];
+    results.push({ provider: tool.provider, name: tool.name, available: !!bin && isOnPath(bin) });
   }
 
   // ── Ollama（本地） ──
