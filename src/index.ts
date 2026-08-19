@@ -49,15 +49,22 @@ export function findMissingInputs(
 }
 
 /**
- * 弱模型档位提示：质量评测（EVAL_FINDINGS.md）显示多智能体的增益依赖模型能力——
- * 本地小模型上交接链会放大漂移、产出可能不如单次。仅对 ollama（最常见的弱档来源）给一行
- * 软提示，不阻断；返回 null 表示无需提示。设 AO_NO_MODEL_HINT=1 可关闭。
+ * 档位提示：质量评测（EVAL_FINDINGS.md）显示多智能体的增益依赖模型能力——
+ * 本地小模型上交接链会放大漂移、产出可能不如单次。只对**有证据**的档位给提示
+ * （诚实是卖点：没测过/不了解的 provider 一律不猜），不阻断；返回 null 表示无需提示。
+ * 设 AO_NO_MODEL_HINT=1 可关闭。
  */
 export function modelCapabilityHint(provider: string): string | null {
   if (provider === 'ollama') {
     return '  💡 本地 Ollama：多智能体质量取决于模型能力，小模型(<~30B)可能不如单次 prompt。'
       + '追求质量建议用 DeepSeek/Claude/Gemini 或 70B+ 本地模型（详见 EVAL_FINDINGS.md）。'
       + '（AO_NO_MODEL_HINT=1 关闭）';
+  }
+  if (provider === 'antigravity-cli') {
+    // 质量没问题（Gemini 档），受限的是额度：免费档约 20 次/天，一条多步工作流
+    // 就可能烧掉大半——不提前说清，用户会在第 N 步撞额度并以为是 AO 的问题。
+    return '  💡 Antigravity 免费档额度约 20 次/天，多步工作流消耗较快；'
+      + '撞到额度上限时报错来自 Google 侧，换 provider 或次日再跑即可。（AO_NO_MODEL_HINT=1 关闭）';
   }
   return null;
 }

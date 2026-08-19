@@ -231,7 +231,7 @@ analyze ──→ tech_review  ──→ summary
 | ~~Google Account~~ | `provider: "gemini-cli"` | ⚠️ **Retired** (Google shut down Gemini CLI on 2026-06-18; enterprise Code Assist licenses only) — use Antigravity CLI | — |
 | GitHub Copilot ($10/mo) | `provider: "copilot-cli"` | `npm i -g @github/copilot` | **$0 extra** |
 | ChatGPT Plus ($20/mo) | `provider: "codex-cli"` | `npm i -g @openai/codex` | **$0 extra** |
-| Antigravity account (Google — Gemini CLI's successor) | `provider: "antigravity-cli"` | [install.sh](https://antigravity.google/docs/cli/install) (binary `agy`) | **$0 extra** |
+| Antigravity account (Google — Gemini CLI's successor) | `provider: "antigravity-cli"` | [install.sh](https://antigravity.google/docs/cli/install) (binary `agy`) | **$0 extra** (free tier ~20 req/day) |
 | OpenClaw account | `provider: "openclaw-cli"` | `npm i -g openclaw` | **$0 extra** |
 | Hermes Agent (NousResearch open-source 🔥) | `provider: "hermes-cli"` | [Install guide](https://github.com/NousResearch/hermes-agent) | **Free** |
 | A computer | `provider: "ollama"` | [ollama.ai](https://ollama.ai) | **Free** (local models, see note below) |

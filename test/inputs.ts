@@ -70,6 +70,17 @@ test('强档/CLI → 不提示', () => {
   assert(modelCapabilityHint('claude') === null && modelCapabilityHint('claude-code') === null, '强档不该提示');
 });
 
+test('antigravity-cli → 给额度提示（质量不弱，额度受限）', () => {
+  const h = modelCapabilityHint('antigravity-cli');
+  assert(!!h && h.includes('20 次/天'), `antigravity 应提示额度: ${h}`);
+});
+
+test('没证据的 CLI（copilot/hermes/openclaw）→ 不猜不提示', () => {
+  for (const p of ['copilot-cli', 'hermes-cli', 'openclaw-cli', 'codex-cli']) {
+    assert(modelCapabilityHint(p) === null, `${p} 不该提示`);
+  }
+});
+
 console.log('\n' + '='.repeat(50));
 console.log(`  Inputs 测试: ${passed} 通过, ${failed} 失败 (共 ${passed + failed} 项)`);
 if (failed === 0) console.log('  全部通过!');

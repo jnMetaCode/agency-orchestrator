@@ -972,6 +972,11 @@ export const CLI_PROVIDER_IDS = new Set(["claude-code", "antigravity-cli", "gemi
 
 // 已停服的 CLI provider（与引擎 src/providers/detect.ts 的 DEPRECATED_CLI_PROVIDERS 对齐）：
 // 卡片保留（存量用户显式可用），但要带停服标注，且永不出现在「一键切换」推荐里
+// 有证据的 CLI 额度/能力备注（与引擎 modelCapabilityHint 同一口径：没证据不猜）
+export const CLI_PROVIDER_NOTES: Record<string, { zh: string; en: string }> = {
+  "antigravity-cli": { zh: "免费档约 20 次/天，多步工作流消耗较快", en: "Free tier ~20 req/day — multi-step workflows burn it fast" },
+};
+
 export const DEPRECATED_CLI_PROVIDERS: Record<string, { zh: string; en: string }> = {
   "gemini-cli": {
     zh: "Google 已于 2026-06-18 停服（仅企业版 Code Assist 许可可用），推荐 Antigravity CLI",

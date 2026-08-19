@@ -11,9 +11,13 @@
 import { readFileSync, writeFileSync, existsSync, mkdirSync } from "node:fs";
 import { join, dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { createRequire } from "node:module";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const siteRoot = resolve(__dirname, "..");
+const repoRoot = resolve(siteRoot, "..");
+// marked 在 repo 根 node_modules（引擎依赖），官网包不必重复装
+const { marked } = createRequire(join(repoRoot, "package.json"))("marked");
 const dist = join(siteRoot, "dist");
 const ORIGIN = "https://ao.aiolaola.com";
 
@@ -72,7 +76,7 @@ function page({ title, description, canonical, body }) {
 </head>
 <body>
 <div class="page">
-  <nav><a href="/">Agency Orchestrator</a> · <a href="/experts">267 个专家角色</a> · <a href="/docs">文档</a> · <a href="https://github.com/jnMetaCode/agency-orchestrator">GitHub</a></nav>
+  <nav><a href="/">Agency Orchestrator</a> · <a href="/experts">267 个专家角色</a> · <a href="/evals/">评测</a> · <a href="/docs">文档</a> · <a href="https://github.com/jnMetaCode/agency-orchestrator">GitHub</a></nav>
 ${body}
   <footer>
     <span>开源 AI 专家团队编排器 —— 一句话，让多个 AI 角色自动协作</span>
@@ -170,6 +174,36 @@ ao web   # 图形界面，模板一键运行</code></pre>
     body,
   }));
   wfCount++;
+}
+
+// ── 评测基准页：EVAL_FINDINGS.md 原文上网（诚实评测是差异化资产——
+//    大厂只能吹参数，我们连「什么时候没用」都写清楚）──
+{
+  const evalMd = join(repoRoot, "EVAL_FINDINGS.md");
+  if (existsSync(evalMd)) {
+    const mdHtml = marked.parse(readFileSync(evalMd, "utf-8"), { async: false });
+    const body = `
+  <article class="card eval-doc">
+    <p class="chip">盲评 · 双向评审抵消位置偏置 · 多次取平均 · 持续更新</p>
+    ${mdHtml}
+    <h2>自己复现</h2>
+    <pre><code>git clone https://github.com/jnMetaCode/agency-orchestrator
+npm install && npm run eval</code></pre>
+  </article>
+  <style>
+    .eval-doc h1 { font-size:24px; } .eval-doc h2 { font-size:18px; margin-top:28px; }
+    .eval-doc table { border-collapse:collapse; width:100%; display:block; overflow-x:auto; font-size:14px; }
+    .eval-doc th, .eval-doc td { border:1px solid var(--line); padding:6px 12px; text-align:left; }
+    .eval-doc blockquote { margin:12px 0; padding:2px 16px; border-left:3px solid var(--accent); color:var(--muted); }
+  </style>`;
+    emit("evals", page({
+      title: "多智能体什么时候真的有用——盲评数据 · Agency Orchestrator",
+      description: "AO 的公开质量评测：多角色协作 vs 单次 prompt，盲评、双向评审、多次平均。结论是 Goldilocks 非单调——中档模型（DeepSeek）上多智能体明显更好，极弱模型上反而更差。含复现方法与边界说明。",
+      canonical: `${ORIGIN}/evals/`,
+      body,
+    }));
+    console.log("✅ 评测基准页 → dist/evals/");
+  }
 }
 
 // ── sitemap：核心路由 + 全部生成页 ──

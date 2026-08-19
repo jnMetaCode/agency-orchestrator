@@ -248,7 +248,7 @@ analyze ──→ tech_review  ──→ summary
 | ~~Google 账号~~ | `provider: "gemini-cli"` | ⚠️ **已停服**（Google 2026-06-18 停掉 Gemini CLI，仅企业版 Code Assist 许可可用）——请用下行 Antigravity CLI | — |
 | GitHub Copilot（$10/月） | `provider: "copilot-cli"` | `npm i -g @github/copilot` | **不花钱** |
 | ChatGPT Plus/Pro（$20/月） | `provider: "codex-cli"` | `npm i -g @openai/codex` | **不花钱** |
-| Antigravity 账号（Google，Gemini CLI 继任者） | `provider: "antigravity-cli"` | [install.sh](https://antigravity.google/docs/cli/install)（二进制 `agy`） | **不花钱** |
+| Antigravity 账号（Google，Gemini CLI 继任者） | `provider: "antigravity-cli"` | [install.sh](https://antigravity.google/docs/cli/install)（二进制 `agy`） | **不花钱**（免费档约 20 次/天） |
 | OpenClaw 账号 | `provider: "openclaw-cli"` | `npm i -g openclaw` | **不花钱** |
 | Hermes Agent（🔥 NousResearch 热门开源） | `provider: "hermes-cli"` | [安装指南](https://github.com/NousResearch/hermes-agent) | **免费** |
 | 一台电脑 | `provider: "ollama"` | [ollama.ai](https://ollama.ai) | **免费**（本地模型，见下方提示） |

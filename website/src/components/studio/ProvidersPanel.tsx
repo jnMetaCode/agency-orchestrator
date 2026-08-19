@@ -2,7 +2,7 @@ import { Check, ChevronDown, Cloud, Copy, Loader2, MonitorCog, Plus, Settings2, 
 import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { useLanguage } from "@/i18n/LanguageProvider";
-import { api, API_PROVIDERS, CLI_RELAY_GLOBAL_WRITE, CLI_RELAY_PRESETS, CLI_RELAY_SUPPORT, DEFAULT_PROVIDER, DEPRECATED_CLI_PROVIDERS, PROVIDER_LABELS, providerLogo, relayPresetClis, type CliRelayPreset, type ConfigResponse } from "@/lib/studio";
+import { api, API_PROVIDERS, CLI_PROVIDER_NOTES, CLI_RELAY_GLOBAL_WRITE, CLI_RELAY_PRESETS, CLI_RELAY_SUPPORT, DEFAULT_PROVIDER, DEPRECATED_CLI_PROVIDERS, PROVIDER_LABELS, providerLogo, relayPresetClis, type CliRelayPreset, type ConfigResponse } from "@/lib/studio";
 import { cn } from "@/lib/utils";
 import { ClaudeHealthCard } from "./ClaudeHealthCard";
 import { ProviderConfigView, type ConfigTarget } from "./ProviderConfigView";
@@ -425,6 +425,9 @@ export function ProvidersPanel({ active, onSetActive, offline = false }: { activ
                       <span className={cn("block truncate text-[11px]", deprecated ? "font-medium text-amber-500" : installed || relayConfigured ? "font-medium text-emerald-500" : "text-muted-foreground")}>
                         {statusLine}
                       </span>
+                      {!deprecated && CLI_PROVIDER_NOTES[id] && (
+                        <span className="block truncate text-[11px] text-muted-foreground">{CLI_PROVIDER_NOTES[id][lang] ?? CLI_PROVIDER_NOTES[id].zh}</span>
+                      )}
                     </span>
                     <span className="flex shrink-0 items-center gap-1.5">
                       <ActiveButton on={eff === id} onClick={() => onSetActive(id)} />
