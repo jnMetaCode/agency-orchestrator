@@ -11,13 +11,11 @@
 import { readFileSync, writeFileSync, existsSync, mkdirSync } from "node:fs";
 import { join, dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { createRequire } from "node:module";
+import { marked } from "marked";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const siteRoot = resolve(__dirname, "..");
 const repoRoot = resolve(siteRoot, "..");
-// marked 在 repo 根 node_modules（引擎依赖），官网包不必重复装
-const { marked } = createRequire(join(repoRoot, "package.json"))("marked");
 const dist = join(siteRoot, "dist");
 const ORIGIN = "https://ao.aiolaola.com";
 
