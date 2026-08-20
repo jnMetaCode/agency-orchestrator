@@ -4,7 +4,7 @@ import { Tip } from "@/components/ui/tip";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useLanguage } from "@/i18n/LanguageProvider";
 import { Button } from "@/components/ui/button";
-import { api, getFavWorkflows, setFavWorkflows, type Workflow } from "@/lib/studio";
+import { api, getFavWorkflows, setFavWorkflows, type CommunityTemplate, type Workflow } from "@/lib/studio";
 import { track } from "@/lib/track";
 import { cn } from "@/lib/utils";
 import { RoleAvatar } from "./RoleAvatar";
@@ -170,6 +170,10 @@ export function WorkflowsPanel({ provider, onRun, demo, onInstallPrompt }: { pro
   const [compare, setCompare] = useState<Workflow[] | null>(null);
   const [baseline, setBaseline] = useState<{ wf: Workflow; inputs: Record<string, string> } | null>(null);
   const [canvasFor, setCanvasFor] = useState<Workflow | null>(null);
+  // 社区模板（远程清单收录制）：非 demo 时拉取；空列表整节隐藏
+  const [community, setCommunity] = useState<CommunityTemplate[]>([]);
+  const [importing, setImporting] = useState<string | null>(null);
+  const [importMsg, setImportMsg] = useState<string | null>(null);
   // 删除确认框（应用内，替代 window.confirm）
   const [confirmDel, setConfirmDel] = useState<Workflow | null>(null);
   const [deleting, setDeleting] = useState(false);
@@ -242,6 +246,30 @@ export function WorkflowsPanel({ provider, onRun, demo, onInstallPrompt }: { pro
     });
     return { mine, fav, cats: cats.map((c) => [c, byCat.get(c)!] as [string, Workflow[]]) };
   }, [filtered, favs]);
+
+  useEffect(() => {
+    if (demo) return;
+    api.communityTemplates().then(setCommunity).catch(() => setCommunity([]));
+  }, [demo]);
+
+  const importCommunity = async (c: CommunityTemplate) => {
+    if (demo) return onInstallPrompt?.();
+    const ok = window.confirm(lang === "en"
+      ? `Import "${c.name}" into My Workflows? It will be validated by the engine before saving.`
+      : `把「${c.name}」导入到我的工作流？保存前会先经引擎校验。`);
+    if (!ok) return;
+    setImporting(c.url);
+    setImportMsg(null);
+    try {
+      const r = await api.communityImport(c.url);
+      setImportMsg(lang === "en" ? `Imported "${r.name}" (${r.steps} steps) — see My Workflows.` : `已导入「${r.name}」（${r.steps} 步）——在「我的工作流」分区。`);
+      api.workflows(lang).then(setWfs).catch(() => {});
+    } catch (e) {
+      setImportMsg((lang === "en" ? "Import failed: " : "导入失败：") + (e instanceof Error ? e.message : String(e)));
+    } finally {
+      setImporting(null);
+    }
+  };
 
   const pickedList = Object.values(picked);
 
@@ -455,6 +483,33 @@ export function WorkflowsPanel({ provider, onRun, demo, onInstallPrompt }: { pro
             )}
             {groups.fav.length > 0 && <Section title={lang === "en" ? "Favorites" : "常用（点 ☆ 收藏）"} items={groups.fav} star />}
             {groups.cats.map(([c, items]) => <Section key={c} title={c} items={items} />)}
+            {!demo && community.length > 0 && (
+              <section className="mt-8">
+                <h2 className="mb-3 flex items-baseline gap-2 text-sm font-bold">
+                  {lang === "en" ? "Community Templates" : "社区模板"}
+                  <span className="font-normal text-muted-foreground/60">· {community.length}</span>
+                  <span className="ml-1 truncate font-normal text-xs text-muted-foreground/60">
+                    {lang === "en" ? "curated via the remote manifest; validated on import" : "远程清单收录制；导入前经引擎校验"}
+                  </span>
+                </h2>
+                <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                  {community.map((c) => (
+                    <div key={c.url} className="flex flex-col rounded-2xl border border-dashed border-border/70 bg-card/40 p-4">
+                      <h3 className="font-semibold leading-snug">{c.name}</h3>
+                      {c.description && <p className="mt-1 line-clamp-2 text-xs text-muted-foreground">{c.description}</p>}
+                      <div className="mt-3 flex items-center justify-between">
+                        <span className="truncate text-xs text-muted-foreground">{c.author ? `by ${c.author}` : c.category ?? ""}</span>
+                        <Button size="sm" variant="outline" disabled={importing === c.url} onClick={() => importCommunity(c)}>
+                          {importing === c.url ? <Loader2 className="size-3.5 animate-spin" /> : <Download className="size-3.5" />}
+                          {lang === "en" ? "Import" : "导入"}
+                        </Button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                {importMsg && <p className="mt-2 text-xs text-muted-foreground">{importMsg}</p>}
+              </section>
+            )}
             {filtered.length === 0 && <p className="mt-10 text-center text-sm text-muted-foreground">{lang === "en" ? "No matching workflows" : "没有匹配的工作流"}</p>}
           </>
         );

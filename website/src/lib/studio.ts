@@ -262,6 +262,15 @@ export interface CliProviderStatus {
   installed: boolean;
 }
 
+/** 远程清单收录的社区工作流模板（收录制，导入前引擎校验）。 */
+export interface CommunityTemplate {
+  name: string;
+  url: string;
+  description?: string;
+  author?: string;
+  category?: string;
+}
+
 export interface CustomProviderMeta {
   id: string;
   name: string;
@@ -555,6 +564,8 @@ export const api = {
   role: (category: string, id: string, lang?: string) =>
     getJSON<Role>(`/roles/${encodeURIComponent(category)}/${encodeURIComponent(id)}${lang && lang !== "zh" ? `?lang=${encodeURIComponent(lang)}` : ""}`),
   workflows: (lang?: string) => getJSON<Workflow[]>(`/workflows${lang === "en" ? "?lang=en" : ""}`),
+  communityTemplates: () => getJSON<CommunityTemplate[]>(`/community/templates`),
+  communityImport: (url: string) => postJSON<{ file: string; name: string; steps: number }>(`/community/import`, { url }),
   // 仅用户工作流可删（服务端限制目录）；下载复用 /workflows/yaml 原文
   deleteWorkflow: (file: string) => delJSON<{ ok: boolean }>(`/workflows?file=${encodeURIComponent(file)}`),
   workflowYaml: async (file: string): Promise<string> => {

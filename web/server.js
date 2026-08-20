@@ -221,7 +221,7 @@ function readKeys() {
 // 安全约束:只接受 https 的 baseUrl,id 不能覆盖内置 provider(防清单被篡改后劫持内置流量)。
 const MANIFEST_URL = process.env.AO_MANIFEST_URL || 'https://ao.aiolaola.com/providers-manifest.json';
 const MANIFEST_TTL = 6 * 60 * 60 * 1000;
-const EMPTY_MANIFEST = { providers: [], relayPresets: [], removedProviders: [], providerOverrides: {}, sponsorRotation: [] };
+const EMPTY_MANIFEST = { providers: [], relayPresets: [], removedProviders: [], providerOverrides: {}, sponsorRotation: [], communityTemplates: [] };
 let manifestCache = { data: null, fetchedAt: 0 };
 async function getRemoteManifest() {
   const now = Date.now();
@@ -275,6 +275,17 @@ async function getRemoteManifest() {
             ...(e.relayOnly === true ? { relayOnly: true } : {}),
           };
         });
+      // communityTemplates：社区工作流模板（收录制——只有清单里收录的 URL 才能被导入，
+      // 天然防 SSRF 与任意 YAML 注入；投稿走 GitHub PR 审核入库，上/下架 push 官网即生效）
+      const communityTemplates = (Array.isArray(j?.communityTemplates) ? j.communityTemplates : [])
+        .filter((tpl) => tpl && typeof tpl.name === 'string' && tpl.name.trim() && /^https:\/\//.test(String(tpl.url || '')))
+        .map((tpl) => ({
+          name: tpl.name.trim(),
+          url: String(tpl.url),
+          description: typeof tpl.description === 'string' ? tpl.description : undefined,
+          author: typeof tpl.author === 'string' ? tpl.author : undefined,
+          category: typeof tpl.category === 'string' ? tpl.category : undefined,
+        }));
       // providerOverrides：给「内置」provider 换代模型用（defaultModel/modelSuggestions），
       // 改官网清单即可全网生效,不用发 npm/桌面版。只透传这两个字段,防清单塞进别的东西。
       const providerOverrides = {};
@@ -290,7 +301,7 @@ async function getRemoteManifest() {
           if (Object.keys(entry).length) providerOverrides[id] = entry;
         }
       }
-      manifestCache = { data: { providers, relayPresets, removedProviders, providerOverrides, sponsorRotation }, fetchedAt: now };
+      manifestCache = { data: { providers, relayPresets, removedProviders, providerOverrides, sponsorRotation, communityTemplates }, fetchedAt: now };
       return manifestCache.data;
     }
   } catch { /* 网络失败/超时 → 走下面的短缓存空回退 */ }
@@ -533,6 +544,45 @@ function loadWorkflowMeta(dir, tagPrivate = false, deletable = false) {
 }
 
 // ── Workflow list ──
+// ── 社区工作流模板（远程清单收录制：上/下架 push 官网即生效，不发版）──
+app.get('/api/community/templates', async (_req, res) => {
+  const m = await getRemoteManifest();
+  res.json(m.communityTemplates ?? []);
+});
+
+// 导入：只认清单里收录的 URL（收录制防 SSRF/任意 YAML）。拉取(5s/200KB) → 引擎校验 → 存入「我的工作流」。
+app.post('/api/community/import', async (req, res) => {
+  const { url } = req.body || {};
+  const m = await getRemoteManifest();
+  const entry = (m.communityTemplates ?? []).find((tpl) => tpl.url === url);
+  if (!entry) return res.status(403).json({ error: 'URL 不在社区模板清单里（收录制：先提交收录再导入）' });
+  try {
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), 5000);
+    const r = await fetch(entry.url, { signal: ctrl.signal });
+    clearTimeout(timer);
+    if (!r.ok) return res.status(502).json({ error: `模板源返回 HTTP ${r.status}` });
+    const text = await r.text();
+    if (text.length > 200 * 1024) return res.status(413).json({ error: '模板超过 200KB 上限' });
+    const def = yaml.load(text);
+    if (!def || typeof def !== 'object' || !def.name || !Array.isArray(def.steps)) {
+      return res.status(400).json({ error: '不是有效的 AO 工作流 YAML（缺 name/steps）' });
+    }
+    const { validateWorkflow } = await import('../dist/core/parser.js');
+    const errors = validateWorkflow(def);
+    if (errors.length) return res.status(400).json({ error: `模板未通过引擎校验：${errors.slice(0, 3).join('；')}` });
+    mkdirSync(COMPOSED_DIR, { recursive: true });
+    const safe = String(def.name).replace(/[^一-鿿a-zA-Z0-9_-]+/g, '-').replace(/-+/g, '-').slice(0, 60) || 'community';
+    let file = join(COMPOSED_DIR, `${safe}.yaml`);
+    let n = 2;
+    while (existsSync(file)) file = join(COMPOSED_DIR, `${safe}-${n++}.yaml`);
+    writeFileSync(file, text, 'utf-8');
+    res.json({ file, name: def.name, steps: def.steps.length });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 app.get('/api/workflows', (req, res) => {
   // 英文站优先用英文模板库（workflows/en）；没有英文版的就不混中文进来，保持一致体验。
   const builtinDir = (req.query.lang === 'en' && existsSync(WORKFLOWS_DIR_EN)) ? WORKFLOWS_DIR_EN : WORKFLOWS_DIR;
