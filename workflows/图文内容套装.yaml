@@ -1,0 +1,61 @@
+# 展示 type:image 文生图步骤的内置模板——文案与封面一条流水线成套交付。
+# image.model 故意走必填输入（各家图片模型编码互不通用，绝不替用户猜默认值）。
+name: "图文内容套装"
+description: "小红书运营写种草笔记 → 图像提示词工程师把卖点转成画面描述 → 文生图出封面——一次运行交付「文案 + 封面图」成套内容"
+
+agents_dir: "agency-agents-zh"
+
+llm:
+  provider: "deepseek"
+  model: "deepseek-chat"
+  max_tokens: 4096
+
+concurrency: 2
+
+inputs:
+  - name: product
+    description: "产品或主题（如：便携手冲咖啡杯 / AI 编程入门课）"
+    required: true
+  - name: image_model
+    description: "图片模型编码（各家互不通用，如 gpt-image-2 / lanox-image-2 / doubao-seedream；见服务商文档或 Studio「获取模型列表」。注意文生图需要 OpenAI 兼容的 API 服务商，CLI 订阅类不出图）"
+    required: true
+
+steps:
+  - id: copy
+    role: "marketing/marketing-xiaohongshu-operator"
+    task: |
+      为「{{product}}」写一篇小红书种草笔记：吸睛标题（带 emoji）、正文 600 字以内、
+      5 个话题标签。突出 2-3 个最打动人的卖点，口语化、有真实使用场景。
+    output: note
+
+  - id: cover_prompt
+    role: "design/design-image-prompt-engineer"
+    task: |
+      基于这篇种草笔记，写一段文生图提示词（中文，200 字以内），用于生成它的封面图：
+      突出产品主体、符合小红书审美（明亮、干净、有生活感）、竖版 3:4 构图。
+      只输出提示词本身，不要解释。
+
+      笔记内容：
+      {{note}}
+    output: cover_prompt_text
+    depends_on: [copy]
+
+  - id: cover
+    type: image
+    task: "{{cover_prompt_text}}"
+    image:
+      model: "{{image_model}}"
+      size: "1024x1536"
+    output: cover_img
+    depends_on: [cover_prompt]
+
+  - id: pack
+    role: "marketing/marketing-xiaohongshu-operator"
+    task: |
+      把成品整理成可直接发布的格式：先给封面图引用，再给标题、正文、标签，
+      最后附一句发布建议（发布时间段/首评引导）。
+
+      封面：{{cover_img}}
+      笔记：{{note}}
+    output: final_pack
+    depends_on: [cover, copy]

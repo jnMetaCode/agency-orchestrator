@@ -177,6 +177,66 @@ ao web   # 图形界面，模板一键运行</code></pre>
   wfCount++;
 }
 
+// ── 创意库提示词页 ×229 + 分类索引页 ──
+// 内容源自 CC BY 4.0 开源库（收录时已带作者/出处链），每页逐条署名 + 页脚许可声明。
+// "XX 提示词" 是 AI 绘图领域搜索量最大的长尾词族之一，且每条都有完整正文（不是薄页）。
+{
+  const creative = JSON.parse(readFileSync(join(siteRoot, "src/content/creative-prompts.json"), "utf-8"));
+  const cPrompts = creative.prompts ?? [];
+  const catMap = new Map();
+  for (const cp of cPrompts) {
+    const c = cp.category || "其他";
+    if (!catMap.has(c)) catMap.set(c, []);
+    catMap.get(c).push(cp);
+  }
+  const catSlug = (c) => slugify(c) || "misc";
+  const licenseLine = (creative.sources ?? [])
+    .map((sc) => `<a href="${esc(sc.url)}">${esc(sc.name)}</a>（<a href="${esc(sc.licenseUrl)}">${esc(sc.license)}</a>）`)
+    .join(" · ");
+
+  for (const cp of cPrompts) {
+    const cat = cp.category || "其他";
+    const related = (catMap.get(cat) || []).filter((x) => x.id !== cp.id).slice(0, 8);
+    const body = `
+  <article class="card">
+    <h1>${esc(cp.title)} —— AI 绘图提示词</h1>
+    <p><a class="chip" href="/creative/c/${catSlug(cat)}/">${esc(cat)}</a>${cp.author ? `<span class="chip">by ${esc(cp.author)}</span>` : ""}</p>
+    <p class="desc">${esc(cp.description ?? "")}</p>
+    ${cp.image ? `<p><img src="${esc(cp.image)}" alt="${esc(cp.title)} 示例图" loading="lazy" style="max-width:100%;border-radius:10px;border:1px solid var(--line)"></p>` : ""}
+    <h2>提示词（复制即用）</h2>
+    <pre><code>${esc(cp.prompt ?? "")}</code></pre>
+    <p class="desc">在 <a href="/creative">AO 创意库</a> 可以直接选服务商一键出图；或在工作流里用 <code>type: image</code> 步骤把它接进内容流水线。</p>
+    <h2>署名与来源</h2>
+    <p class="desc">${cp.author ? `作者：${cp.authorUrl ? `<a href="${esc(cp.authorUrl)}">${esc(cp.author)}</a>` : esc(cp.author)} · ` : ""}收录自 ${licenseLine}</p>
+${related.length ? `
+    <h2>同类提示词</h2>
+    <ul class="plain">${related.map((r) => `<li><a href="/creative/p/${esc(r.id)}/">${esc(r.title)}</a></li>`).join("")}</ul>` : ""}
+  </article>`;
+    emit(join("creative", "p", cp.id), page({
+      title: `${cp.title} · AI 绘图提示词`,
+      description: (cp.description ?? "").slice(0, 150),
+      canonical: `${ORIGIN}/creative/p/${cp.id}/`,
+      body,
+    }));
+  }
+
+  for (const [cat, items] of catMap) {
+    const body = `
+  <article class="card">
+    <h1>${esc(cat)} —— AI 绘图提示词合集（${items.length} 条）</h1>
+    <p class="desc">每条都可复制即用，也可以在 <a href="/creative">AO 创意库</a> 一键出图。收录自 ${licenseLine}。</p>
+    <ol class="steps">${items.map((it) => `<li><a href="/creative/p/${esc(it.id)}/">${esc(it.title)}</a><span class="role">${esc((it.description ?? "").slice(0, 60))}</span></li>`).join("")}</ol>
+  </article>`;
+    emit(join("creative", "c", catSlug(cat)), page({
+      title: `${cat} AI 绘图提示词合集 · Agency Orchestrator`,
+      description: `${items.length} 条${cat}方向的 AI 绘图提示词，可复制即用或在 AO 创意库一键出图。`,
+      canonical: `${ORIGIN}/creative/c/${catSlug(cat)}/`,
+      body,
+    }));
+  }
+  console.log(`✅ 创意库：${cPrompts.length} 个提示词页 + ${catMap.size} 个分类页 → dist/creative/`);
+}
+
 // ── 评测基准页：EVAL_FINDINGS.md 原文上网（诚实评测是差异化资产——
 //    大厂只能吹参数，我们连「什么时候没用」都写清楚）──
 {

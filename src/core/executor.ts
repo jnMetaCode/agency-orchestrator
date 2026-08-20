@@ -442,7 +442,11 @@ async function executeStep(
     const prompt = renderTemplate(node.step.task, opts.context);
     const stepLlmImg = node.step.llm;
     const imgConfig = (stepLlmImg ? { ...opts.llmConfig, ...stepLlmImg } : opts.llmConfig) as LLMConfig;
-    const img = await generateImage(imgConfig, prompt, node.step.image ?? {}, (m: string) => process.stderr.write(`  ${m}\n`));
+    // image.model 也过变量渲染：内置模板不能替用户猜图片模型名（各家编码互不通用），
+    // 写成 model: "{{image_model}}" + 必填 input，把选择权明示地交给用户
+    const imageOpts = { ...(node.step.image ?? {}) };
+    if (typeof imageOpts.model === 'string') imageOpts.model = renderTemplate(imageOpts.model, opts.context);
+    const img = await generateImage(imgConfig, prompt, imageOpts, (m: string) => process.stderr.write(`  ${m}\n`));
     const filename = `${node.step.id}.png`;
     node.imageAsset = { filename, base64: img.buffer.toString('base64') };
     const kb = (img.buffer.length / 1024).toFixed(0);

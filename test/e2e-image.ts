@@ -152,10 +152,12 @@ console.log('\n─── 一个角色都不用的工作流，不该被"找不到
 {
   // 真机上第一条纯出图工作流就死在这儿：整条流程没有任何 role，却先要 ao init 准备角色库。
   // 仓库里 agency-agents-zh 永远解析得到，所以这条只有把 agents_dir 指向一个不存在的名字才暴露。
+  let seenModel = '';
   const srv = http.createServer((req, res) => {
     let b = ''; req.on('data', (d) => (b += d));
     req.on('end', () => {
       if (/images\/generations/.test(String(req.url))) {
+        try { seenModel = JSON.parse(b).model; } catch { /* ignore */ }
         res.writeHead(200, { 'Content-Type': 'application/json' });
         return res.end(JSON.stringify({ data: [{ b64_json: PNG_B64 }] }));
       }
@@ -172,18 +174,23 @@ console.log('\n─── 一个角色都不用的工作流，不该被"找不到
     '  provider: "lanox"',
     '  model: "m"',
     `  base_url: "http://127.0.0.1:${port}/v1"`,
+    'inputs:',
+    '  - name: image_model',
+    '    required: true',
     'steps:',
     '  - id: pic',
     '    type: image',
     '    task: "出一张图"',
     '    image:',
-    '      model: "gpt-image-2"',
+    // image.model 支持 {{变量}}：内置模板靠它把「选哪个图片模型」明示交给用户（不猜默认值）
+    '      model: "{{image_model}}"',
   ].join('\n'), 'utf-8');
   const saved = process.env.LANOX_API_KEY;
   process.env.LANOX_API_KEY = 'sk-e2e';
   try {
-    const result = await run(wf, {}, { quiet: true, outputDir: join(dir, 'out') });
+    const result = await run(wf, { image_model: 'gpt-image-2' }, { quiet: true, outputDir: join(dir, 'out') });
     assert(result.success === true, '没有 role 的工作流即使角色库不存在也应跑通');
+    assert(seenModel === 'gpt-image-2', `image.model 的 {{变量}} 应被渲染后发给服务端，实际: ${seenModel}`);
   } catch (e) {
     assert(false, `没有 role 的工作流不该被角色库挡住，实际抛了：${e instanceof Error ? e.message.split('\n')[0] : e}`);
   } finally {
