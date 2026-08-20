@@ -61,7 +61,14 @@ jobs:
       # 功能依赖它们被打进包——绝不能整体 prune --omit=dev，只精准剔这两个。
       - name: Slim node_modules for packaging
         shell: bash   # windows-latest 默认 pwsh，rm -rf 不是 Remove-Item 的参数
-        run: rm -rf node_modules/typescript node_modules/@types
+        # 删包后必须清掉 .bin 里指向它们的悬空符号链接（tsc/tsserver）——
+        # 悬空链接打进 mac 包会让 codesign --deep --strict 直接失败（0.4.5 的 mac 构建就死在这）。
+        # 用 shell 内建 [ 判断，绝不用 `find -exec test`：PATH 里撞名的 test 程序会把判断整个带偏。
+        run: |
+          rm -rf node_modules/typescript node_modules/@types
+          for f in node_modules/.bin/*; do
+            if [ -L "$f" ] && [ ! -e "$f" ]; then rm "$f"; echo "removed dangling: $f"; fi
+          done
 
       - name: Install desktop deps
         working-directory: desktop
