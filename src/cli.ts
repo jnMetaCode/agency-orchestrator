@@ -892,9 +892,12 @@ async function handleReport(): Promise<void> {
   let runDir = target;
   if (target === 'last') {
     const { findLatestOutput } = await import('./output/reporter.js');
-    const latest = findLatestOutput('ao-output');
+    // 与 run/resume 同一套目录解析（AO_OUTPUT_DIR > $AO_HOME/ao-output > cwd 相对）——
+    // 硬编码 'ao-output' 会让设了 AO_HOME 的用户永远"找不到运行输出"
+    const outputDir = getArgValue('--output') || defaultOutputDir();
+    const latest = findLatestOutput(outputDir);
     if (!latest) {
-      console.error('找不到运行输出（ao-output/ 为空）。先跑一次工作流，或指定目录：ao report <dir>');
+      console.error(`找不到运行输出（${outputDir}/ 为空）。先跑一次工作流，或指定目录：ao report <dir>`);
       process.exit(1);
     }
     runDir = latest;
