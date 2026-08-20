@@ -4,10 +4,19 @@
 
 ## [Unreleased]
 
+## [0.16.0] - 2026-08-20
+
 ### Added
+- **社区工作流模板源（清单收录制 + Studio 一键导入）**：远程清单新增 `communityTemplates`，收录/下架 push 官网即对所有已安装用户生效、不发版。`GET /api/community/templates` 列出，`POST /api/community/import` 导入——**只认清单里收录的 https URL**（收录制天然防 SSRF 与任意 YAML 注入），拉取限 5s/200KB，保存前过引擎 `validateWorkflow`，同名自动加序号不覆盖，落到「我的工作流」。Studio 工作流页新增「社区模板」分区（虚线卡片，空清单整节隐藏）。教训一并记下：清单里与内置同名的 relayPresets **对旧版用户不是冗余**（旧版内置表里没有这几家，正是靠清单不发版用上），清单契约测试守着这条——别再清。
 - **`ao run --notify <url>`（或 `AO_NOTIFY_URL`）——跑完把结果推到群里**：按 webhook 域名自动适配钉钉 / 飞书 / 企业微信自定义机器人的消息格式，其他地址发通用 `{text}`（Slack 也认）。配合 cron 就是"AI 团队每天定点交活"：`0 8 * * * ao run 每日简报.yaml --notify <机器人地址>`。纪律：推送永远不搞坏运行——发送失败只打一行提示，不抛错不改退出码；钉钉/企微对格式错误也回 HTTP 200、真实错误码在响应体里，已按此读体判错（提示会点破"检查关键词/签名安全设置"）。文案固定含 "AO"，钉钉"自定义关键词"安全设置写 AO 即可。
 - **`modelCapabilityHint` 扩展 antigravity-cli 额度提示**（免费档约 20 次/天）：质量不弱、受限的是额度——不提前说清，用户会在第 N 步撞额度并以为是 AO 的问题。Studio CLI 卡片、中英 README 同口径。没有评测证据的 CLI（copilot/hermes/openclaw/codex）一律不猜不提示，测试钉死。
 - **官网 `/evals/` 公开评测基准页**：EVAL_FINDINGS.md 全文上网（构建期渲染成静态页，含一键复现命令），全站静态页导航加「评测」入口。
+
+### Fixed
+- **隐私：本地 Studio 不再加载任何统计脚本**。GTM/GA4 此前在 `website/index.html` 里无条件加载——同一份 `website/dist` 被 `ao web` / 桌面端在 localhost 起时，会把埋点事件（**含用户工作流文件名**）发给 Google Analytics，直接违背「数据在本机」的产品承诺。现按域名门控：统计只在公网官网加载，本地界面零统计脚本（`track.ts` 在 gtag 缺失时本就静默跳过，功能不受影响）。这条对桌面端同样生效——桌面包打的是同一份 dist，请随桌面版更新。
+
+### Changed
+- 远程清单给 deepseek 下发 V4 模型建议（`deepseek-v4-flash` / `deepseek-v4-pro`）。官方已把 `deepseek-chat` 别名映射到 `deepseek-v4-flash`（两名实测皆通），默认值不必动，Studio「获取模型列表」与建议下拉保持最新。
 
 ## [0.15.0] - 2026-08-19
 
