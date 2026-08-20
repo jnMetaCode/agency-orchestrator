@@ -236,7 +236,7 @@ analyze ──→ tech_review  ──→ summary
 | Hermes Agent (NousResearch open-source 🔥) | `provider: "hermes-cli"` | [Install guide](https://github.com/NousResearch/hermes-agent) | **Free** |
 | A computer | `provider: "ollama"` | [ollama.ai](https://ollama.ai) | **Free** (local models, see note below) |
 
-> ⚠️ **Model capability drives the value of multi-agent.** We verified this with a quality eval (see [EVAL_FINDINGS.md](EVAL_FINDINGS.md)): on the **DeepSeek tier (capable yet cheap), multi-agent output clearly beats a single prompt**; but with **weak local models (e.g. llama3 8B), the role hand-offs amplify drift and can do worse than a single call**. For quality, use a capable model (DeepSeek/Claude/Gemini); for local Ollama, prefer 70B+ models.
+> ⚠️ **Model capability drives the value of multi-agent.** We verified this with a quality eval (see [EVAL_FINDINGS.md](EVAL_FINDINGS.md); web version: [English](https://ao.aiolaola.com/en/evals/)): on the **DeepSeek tier (capable yet cheap), multi-agent output clearly beats a single prompt**; but with **weak local models (e.g. llama3 8B), the role hand-offs amplify drift and can do worse than a single call**. For quality, use a capable model (DeepSeek/Claude/Gemini); for local Ollama, prefer 70B+ models.
 
 **Or use traditional API keys (DeepSeek recommended for the price/quality sweet spot):**
 
