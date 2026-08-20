@@ -141,5 +141,14 @@
       ]
     }
   },
-  "communityTemplates": []
+  "communityTemplates": [
+    {
+      "name": "图文内容套装",
+      "description": "小红书笔记 + AI 封面图一条流水线成套交付——展示文生图步骤的新模板，老版本无需升级即可导入使用",
+      "author": "AO 官方",
+      "category": "内容创作",
+      "url": "https://raw.githubusercontent.com/jnMetaCode/agency-orchestrator/bd72679fdc2a85e56568dcf52a89ab713a247d3c/workflows/%E5%9B%BE%E6%96%87%E5%86%85%E5%AE%B9%E5%A5%97%E8%A3%85.yaml",
+      "sha256": "d5c249129f6ac7d93136bcb7cef23d8cd2660155eb5d72df5226d9b6f27d2198"
+    }
+  ]
 }
