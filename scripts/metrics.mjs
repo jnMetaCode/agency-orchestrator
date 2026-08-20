@@ -40,8 +40,7 @@ try {
   if (latestDesktop) {
     console.log(`  桌面端下载        最新版 ${latestDesktop.tag_name}: ${fmt(desktopDl(latestDesktop))} · 近 10 版累计: ${fmt(desktopTotal)}`);
   }
-  console.log(`\n  北极星（周活跃运行数）无遥测拿不到——以上是代理组合，盯趋势不盯绝对值。`);
-  console.log(`  记录位置：/Users/yx/work/战略/AO指标周记.md（脚本不自动写，人工确认后记入）\n`);
+  console.log(`\n  北极星（周活跃运行数）无遥测拿不到——以上是代理组合，盯趋势不盯绝对值。\n`);
 } catch (err) {
   console.error(`  ⚠️ 拉取失败：${err.message}（GitHub 匿名限流 60 次/时，稍后再试）`);
   process.exit(1);

@@ -174,6 +174,7 @@ export function WorkflowsPanel({ provider, onRun, demo, onInstallPrompt }: { pro
   const [community, setCommunity] = useState<CommunityTemplate[]>([]);
   const [importing, setImporting] = useState<string | null>(null);
   const [importMsg, setImportMsg] = useState<string | null>(null);
+  const [confirmImport, setConfirmImport] = useState<CommunityTemplate | null>(null);
   // 删除确认框（应用内，替代 window.confirm）
   const [confirmDel, setConfirmDel] = useState<Workflow | null>(null);
   const [deleting, setDeleting] = useState(false);
@@ -252,12 +253,15 @@ export function WorkflowsPanel({ provider, onRun, demo, onInstallPrompt }: { pro
     api.communityTemplates().then(setCommunity).catch(() => setCommunity([]));
   }, [demo]);
 
-  const importCommunity = async (c: CommunityTemplate) => {
+  const importCommunity = (c: CommunityTemplate) => {
     if (demo) return onInstallPrompt?.();
-    const ok = window.confirm(lang === "en"
-      ? `Import "${c.name}" into My Workflows? It will be validated by the engine before saving.`
-      : `把「${c.name}」导入到我的工作流？保存前会先经引擎校验。`);
-    if (!ok) return;
+    setConfirmImport(c); // 应用内确认（本文件约定：不用 window.confirm，桌面端带 127.0.0.1 抬头观感差）
+  };
+
+  const doImportCommunity = async () => {
+    const c = confirmImport;
+    if (!c) return;
+    setConfirmImport(null);
     setImporting(c.url);
     setImportMsg(null);
     try {
@@ -559,6 +563,20 @@ export function WorkflowsPanel({ provider, onRun, demo, onInstallPrompt }: { pro
           error={delErr}
           onConfirm={doDelete}
           onClose={() => { setConfirmDel(null); setDelErr(null); }}
+        />
+      )}
+      {confirmImport && (
+        <ConfirmDialog
+          title={lang === "en" ? "Import community template" : "导入社区模板"}
+          body={
+            lang === "en"
+              ? `Import "${confirmImport.name}" into My Workflows? It will be validated by the engine before saving.`
+              : `把「${confirmImport.name}」导入到我的工作流？保存前会先经引擎校验。`
+          }
+          confirmLabel={lang === "en" ? "Import" : "导入"}
+          cancelLabel={lang === "en" ? "Cancel" : "取消"}
+          onConfirm={doImportCommunity}
+          onClose={() => setConfirmImport(null)}
         />
       )}
       {compare && <CompareOverlay workflows={compare} provider={provider} onClose={() => setCompare(null)} />}

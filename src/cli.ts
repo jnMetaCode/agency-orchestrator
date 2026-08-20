@@ -9,7 +9,7 @@
  *   ao roles --agents-dir ./agents
  */
 import { readFileSync, existsSync, writeFileSync } from 'node:fs';
-import { resolve, join, dirname } from 'node:path';
+import { resolve, join, dirname, basename } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { execSync, spawn } from 'node:child_process';
 import { parseWorkflow, validateWorkflow } from './core/parser.js';
@@ -228,6 +228,8 @@ async function handleRun(): Promise<void> {
           : undefined,
       });
       console.log(formatCompareReport(cmp));
+      // --compare 也是一次完整运行——带 --notify 时同样要推送（此前这里先 exit，通知被静默吞掉）
+      await maybeNotifyRun(cmp.result);
       process.exit(cmp.result.success ? 0 : 1);
     }
 
@@ -287,28 +289,44 @@ async function handleRun(): Promise<void> {
       }
     }
 
-    // --notify <url>（或 AO_NOTIFY_URL）：结果推送到钉钉/飞书/企微/通用 webhook。
-    // cron + ao run --notify = "每天 8 点 AI 团队把简报推到群里"。失败只打一行，不影响退出码。
-    const notifyUrl = getArgValue('--notify') || process.env.AO_NOTIFY_URL;
-    if (notifyUrl) {
-      const { sendNotify } = await import('./notify.js');
-      const finalStep = [...result.steps].reverse().find((s) => s.status === 'completed' && s.output);
-      const r = await sendNotify(notifyUrl, {
-        name: result.name,
-        success: result.success,
-        duration: `${(result.totalDuration / 1000).toFixed(1)}s`,
-        completedSteps: result.steps.filter((s) => s.status === 'completed').length,
-        totalSteps: result.steps.length,
-        excerpt: finalStep?.output,
-      });
-      console.log(`  ${r.ok ? '📨' : '⚠️'} ${r.hint}`);
-    }
-
+    await maybeNotifyRun(result);
     process.exit(result.success ? 0 : 1);
   } catch (err) {
-    console.error(`\n错误: ${err instanceof Error ? err.message : err}`);
+    const msg = err instanceof Error ? err.message : String(err);
+    console.error(`\n错误: ${msg}`);
+    // cron 场景里「跑挂了」恰恰最需要通知——部分失败会推送、硬失败反而沉默是说不通的
+    await maybeNotifyRun({
+      name: basename(filePath),
+      success: false,
+      steps: [],
+      totalDuration: 0,
+    }, `运行失败：${msg}`);
     process.exit(1);
   }
+}
+
+/**
+ * --notify <url>（或 AO_NOTIFY_URL）：结果推送到钉钉/飞书/企微/通用 webhook。
+ * cron + ao run --notify = "每天 8 点 AI 团队把简报推到群里"。失败只打一行，不影响退出码。
+ * 三个出口（正常 / --compare / run 抛错）都要经过这里——漏一个出口就是 cron 用户的静默丢通知。
+ */
+async function maybeNotifyRun(
+  result: Pick<import('./types.js').WorkflowResult, 'name' | 'success' | 'steps' | 'totalDuration'>,
+  excerptOverride?: string,
+): Promise<void> {
+  const notifyUrl = getArgValue('--notify') || process.env.AO_NOTIFY_URL;
+  if (!notifyUrl) return;
+  const { sendNotify } = await import('./notify.js');
+  const finalStep = [...result.steps].reverse().find((s) => s.status === 'completed' && s.output);
+  const r = await sendNotify(notifyUrl, {
+    name: result.name,
+    success: result.success,
+    duration: `${(result.totalDuration / 1000).toFixed(1)}s`,
+    completedSteps: result.steps.filter((s) => s.status === 'completed').length,
+    totalSteps: result.steps.length,
+    excerpt: excerptOverride ?? finalStep?.output,
+  });
+  console.log(`  ${r.ok ? '📨' : '⚠️'} ${r.hint}`);
 }
 
 function handleValidate(): void {

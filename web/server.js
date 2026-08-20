@@ -285,6 +285,7 @@ async function getRemoteManifest() {
           description: typeof tpl.description === 'string' ? tpl.description : undefined,
           author: typeof tpl.author === 'string' ? tpl.author : undefined,
           category: typeof tpl.category === 'string' ? tpl.category : undefined,
+          sha256: typeof tpl.sha256 === 'string' && /^[0-9a-fA-F]{64}$/.test(tpl.sha256) ? tpl.sha256 : undefined,
         }));
       // providerOverrides：给「内置」provider 换代模型用（defaultModel/modelSuggestions），
       // 改官网清单即可全网生效,不用发 npm/桌面版。只透传这两个字段,防清单塞进别的东西。
@@ -557,13 +558,23 @@ app.post('/api/community/import', async (req, res) => {
   const entry = (m.communityTemplates ?? []).find((tpl) => tpl.url === url);
   if (!entry) return res.status(403).json({ error: 'URL 不在社区模板清单里（收录制：先提交收录再导入）' });
   try {
-    const ctrl = new AbortController();
-    const timer = setTimeout(() => ctrl.abort(), 5000);
-    const r = await fetch(entry.url, { signal: ctrl.signal });
-    clearTimeout(timer);
+    // 超时必须覆盖到响应体读完——只罩到响应头的话，坏源「200 头 + 永不结束的 body」
+    // 会把本地 Studio 服务挂死；redirect:'error' 防收录后 302 到任意/内网地址
+    const signal = AbortSignal.timeout(8000);
+    const r = await fetch(entry.url, { signal, redirect: 'error' });
     if (!r.ok) return res.status(502).json({ error: `模板源返回 HTTP ${r.status}` });
+    const declared = Number(r.headers.get('content-length') || 0);
+    if (declared > 200 * 1024) return res.status(413).json({ error: '模板超过 200KB 上限' });
     const text = await r.text();
-    if (text.length > 200 * 1024) return res.status(413).json({ error: '模板超过 200KB 上限' });
+    if (Buffer.byteLength(text, 'utf8') > 200 * 1024) return res.status(413).json({ error: '模板超过 200KB 上限' });
+    // 收录制钉的是 URL 不是内容——可变 URL（分支 raw 链接）收录后可被改写。
+    // 清单条目可带 sha256（推荐，配合 commit-SHA 链接双保险）：带了就校验，不符即拒。
+    if (entry.sha256) {
+      const got = createHash('sha256').update(text, 'utf8').digest('hex');
+      if (got !== String(entry.sha256).toLowerCase()) {
+        return res.status(409).json({ error: '模板内容与清单收录时的 sha256 不符——源已被改动，拒绝导入' });
+      }
+    }
     const def = yaml.load(text);
     if (!def || typeof def !== 'object' || !def.name || !Array.isArray(def.steps)) {
       return res.status(400).json({ error: '不是有效的 AO 工作流 YAML（缺 name/steps）' });
@@ -572,10 +583,13 @@ app.post('/api/community/import', async (req, res) => {
     const errors = validateWorkflow(def);
     if (errors.length) return res.status(400).json({ error: `模板未通过引擎校验：${errors.slice(0, 3).join('；')}` });
     mkdirSync(COMPOSED_DIR, { recursive: true });
-    const safe = String(def.name).replace(/[^一-鿿a-zA-Z0-9_-]+/g, '-').replace(/-+/g, '-').slice(0, 60) || 'community';
+    // 文件名规则与 /api/workflows 保存链路保持一致（含首尾破折号修剪）；写盘前再做一次
+    // 目录包含守卫——与该链路同规的纵深防御，别让两处逻辑漂移
+    const safe = String(def.name).replace(/[^一-鿿a-zA-Z0-9_-]+/g, '-').replace(/-+/g, '-').replace(/^-+|-+$/g, '').slice(0, 60) || 'community';
     let file = join(COMPOSED_DIR, `${safe}.yaml`);
     let n = 2;
     while (existsSync(file)) file = join(COMPOSED_DIR, `${safe}-${n++}.yaml`);
+    if (!isInside(resolve(file), COMPOSED_DIR)) return res.status(400).json({ error: 'invalid template name' });
     writeFileSync(file, text, 'utf-8');
     res.json({ file, name: def.name, steps: def.steps.length });
   } catch (err) {

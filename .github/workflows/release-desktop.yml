@@ -60,6 +60,7 @@ jobs:
       # 运行时用不到；语言包(agency-agents-*)虽在 devDeps 但桌面「多语言角色库」
       # 功能依赖它们被打进包——绝不能整体 prune --omit=dev，只精准剔这两个。
       - name: Slim node_modules for packaging
+        shell: bash   # windows-latest 默认 pwsh，rm -rf 不是 Remove-Item 的参数
         run: rm -rf node_modules/typescript node_modules/@types
 
       - name: Install desktop deps
@@ -70,9 +71,11 @@ jobs:
         working-directory: desktop
         run: npx electron-builder ${{ matrix.builder_flag }} --config electron-builder.config.cjs --publish never
         env:
-          # 有证书/公证 Secrets 时 electron-builder 自动签名+公证；没有就出未签名版
-          CSC_LINK: ${{ secrets.CSC_LINK }}
-          CSC_KEY_PASSWORD: ${{ secrets.CSC_KEY_PASSWORD }}
+          # 有证书/公证 Secrets 时 electron-builder 自动签名+公证；没有就出未签名版。
+          # CSC_LINK 只能给 macOS：app-builder-lib 的 Windows 签名在 WIN_CSC_LINK 缺失时
+          # 会兜底读 CSC_LINK——Apple 证书一填，Windows job 会拿 .p12 去 signtool，必炸
+          CSC_LINK: ${{ runner.os == 'macOS' && secrets.CSC_LINK || '' }}
+          CSC_KEY_PASSWORD: ${{ runner.os == 'macOS' && secrets.CSC_KEY_PASSWORD || '' }}
           APPLE_ID: ${{ secrets.APPLE_ID }}
           APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}

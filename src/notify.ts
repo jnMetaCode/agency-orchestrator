@@ -62,15 +62,15 @@ export async function sendNotify(url: string, s: NotifySummary): Promise<{ ok: b
     return { ok: false, hint: `--notify 地址无效（需要 http(s) URL）：${url}` };
   }
   try {
-    const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), 8000);
+    // AbortSignal.timeout 覆盖整个请求生命周期（含响应体读取）——手动 clearTimeout 的写法
+    // 在「返回 200 头之后 body 永远不结束」的坏 webhook 上会让 ao run（乃至 cron）挂死
+    const signal = AbortSignal.timeout(8000);
     const res = await fetch(url, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(buildNotifyPayload(url, s)),
-      signal: controller.signal,
+      signal,
     });
-    clearTimeout(timer);
     if (!res.ok) return { ok: false, hint: `推送失败：${parsed.hostname} 返回 HTTP ${res.status}` };
     // 钉钉/企微对格式错误也回 200，错误码在响应体里——尽力读一下，读不动就当成功
     try {
