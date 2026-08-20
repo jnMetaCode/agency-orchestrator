@@ -5,21 +5,31 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <!-- 百度站长验证 -->
     <meta name="baidu-site-verification" content="codeva-uMqdeLJ0Jl" />
-    <!-- Google Tag Manager -->
-    <script>(function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':
-    new Date().getTime(),event:'gtm.js'});var f=d.getElementsByTagName(s)[0],
-    j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
-    'https://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);
-    })(window,document,'script','dataLayer','GTM-5WJMJ58D');</script>
-    <!-- End Google Tag Manager -->
-    <!-- Google tag (gtag.js) — AO 站专属 GA4。SPA 路由 PV 由 src/App.tsx 的 PageViews 钩子发送，
-         这里关闭自动 page_view(send_page_view:false)，避免首屏与路由切换重复计数。 -->
-    <script async src="https://www.googletagmanager.com/gtag/js?id=G-1KL6CXKD5N"></script>
+    <!-- 统计（GTM + GA4）只在公网官网加载。本地 Studio（`ao web` / 桌面端，同一份
+         website/dist 在 localhost 起）一律不加载——「数据在本机」是产品承诺，
+         本地界面把 workflow 文件名之类的事件发给 GA 会直接砸掉这个承诺。
+         src/lib/track.ts 在 gtag 缺失时静默跳过，功能不受影响。
+         SPA 路由 PV 由 src/App.tsx 的 PageViews 钩子发送，gtag config 关闭自动
+         page_view(send_page_view:false)，避免首屏与路由切换重复计数。 -->
     <script>
-      window.dataLayer = window.dataLayer || [];
-      function gtag(){dataLayer.push(arguments);}
-      gtag('js', new Date());
-      gtag('config', 'G-1KL6CXKD5N', { send_page_view: false });
+      (function () {
+        var h = location.hostname;
+        var isPublicSite = h === 'ao.aiolaola.com' || h.endsWith('.aiolaola.com') || h.endsWith('.vercel.app');
+        if (!isPublicSite) return; // 本地/桌面端：无任何统计脚本
+        (function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':
+        new Date().getTime(),event:'gtm.js'});var f=d.getElementsByTagName(s)[0],
+        j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
+        'https://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);
+        })(window,document,'script','dataLayer','GTM-5WJMJ58D');
+        window.dataLayer = window.dataLayer || [];
+        window.gtag = function(){dataLayer.push(arguments);};
+        gtag('js', new Date());
+        gtag('config', 'G-1KL6CXKD5N', { send_page_view: false });
+        var s = document.createElement('script');
+        s.async = true;
+        s.src = 'https://www.googletagmanager.com/gtag/js?id=G-1KL6CXKD5N';
+        document.head.appendChild(s);
+      })();
     </script>
     <title>Agency Orchestrator — 一句话，让多个 AI 角色自动协作</title>
     <meta

@@ -132,6 +132,14 @@
     "rootflowai",
     "ccsub"
   ],
-  "providerOverrides": {},
+  "providerOverrides": {
+    "deepseek": {
+      "modelSuggestions": [
+        "deepseek-chat",
+        "deepseek-v4-flash",
+        "deepseek-v4-pro"
+      ]
+    }
+  },
   "communityTemplates": []
 }
