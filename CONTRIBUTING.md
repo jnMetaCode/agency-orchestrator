@@ -13,6 +13,15 @@
 - 确保所引用的角色在 [agency-agents-zh](https://github.com/jnMetaCode/agency-agents-zh) 中存在
 - 运行 `ao validate your-workflow.yaml` 确认无误
 
+### 投稿到「社区模板」（不用发版，全体用户 Studio 里直接可见）
+你的工作流也可以不进仓库、直接被收录进 Studio 工作流页的「社区模板」分区，所有已安装用户（含老版本）一键导入即用：
+
+1. 把工作流 YAML 放在任意公开可访问的 **https 地址**（推荐 GitHub 仓库，用 **commit-SHA 固定链接**而不是分支链接——收录后内容不可再变）
+2. 开一个 Issue，标题带 `[社区模板]`，附上：模板名、一句话描述、YAML 链接、`shasum -a 256` 的内容哈希，以及一次真实运行的效果说明（贴 `ao report` 分享页更佳）
+3. 我们审核后收录进远程清单（导入时引擎会校验结构与 sha256，内容与收录时不符会被拒绝）
+
+收录标准：`ao validate` 通过、角色引用真实存在、任务描述具体可复现、不含任何收集用户数据的行为。
+
 ### 新增 LLM Connector
 - 在 `src/connectors/` 中实现 `LLMConnector` 接口
 - 在 `src/index.ts` 的 `run()` 函数中注册 provider
