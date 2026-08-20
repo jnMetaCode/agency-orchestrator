@@ -155,6 +155,23 @@ ao run workflows/story-creation.yaml -i premise="一个程序员发现AI开始�
 
 也可以在 Cursor / Claude Code 中直接说"帮我跑一个工作流"——支持 **14 个 AI 编程工具**（[集成指南](./integrations/)）。
 
+## 从方案到执行：AO × 编程 Agent 组合拳
+
+大厂 AI 工作台的卖点是"替你操作电脑"。我们的答案是分工：**AO 负责想清楚，编程 Agent 负责干出来**——方案是多专家评审过的，执行是真实编码 Agent 做的，中间没有黑盒，产物全程归你：
+
+```bash
+# ① 多专家把需求想清楚（澄清 → 计划 → 项目脚手架），代码块直接落盘成真实文件
+ao run workflows/需求转项目脚手架.yaml -i idea="一个自动记账的命令行小工具"   --materialize ./my-app
+
+# ② 把 267 个专家角色装进你的编程工具（claude-code / cursor / copilot…共 14 个）
+ao install --tool claude-code --lang zh
+
+# ③ 交给编程 Agent 接着干——脚手架和专家角色都已就位
+cd my-app && claude "按计划把项目补全到可运行，并跑通测试"
+```
+
+每一步产物都在 `ao-output/` 与你的项目目录里：可复跑（`--resume`）、可带意见返工（`--feedback`）、可出分享报告（`ao report`）。**方案错了改方案、代码错了改代码，永远知道错在哪一层。**
+
 ## 更多真实演示
 
 ```
