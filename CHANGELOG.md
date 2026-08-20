@@ -4,8 +4,18 @@
 
 ## [Unreleased]
 
+## [0.16.1] - 2026-08-20
+
+> 0.16.0 发布当天做了两轮独立代码复审（一轮自审 + 一轮多视角机器审查），本版集中修复复审发现。
+
 ### Fixed
-- `ao report last` 尊重 `AO_OUTPUT_DIR` / `AO_HOME`（此前硬编码 `ao-output`，设了 AO_HOME 的用户会永远"找不到运行输出"）；支持 `--output` 覆盖。
+- **`--notify` 不再可能挂死 `ao run`**：坏 webhook「返回 200 响应头但 body 永不结束」会卡住原实现（超时只罩到响应头）——现用 `AbortSignal.timeout` 覆盖整个请求生命周期；拒绝路径上的悬空计时器一并消除。这条直接关系 cron 场景的「推送永不搞坏运行」契约。
+- **`--notify` 补上两个静默缺口**：`--compare` 分支此前先 exit、通知被吞；run 硬失败（key 过期/解析错误）此前反而不通知（部分失败却会通知，不一致）。现三个出口（正常 / compare / 抛错）统一推送，失败通知带原因。
+- **`ao report last` 尊重 `AO_OUTPUT_DIR` / `AO_HOME`**（此前硬编码 `ao-output`，设了 AO_HOME 的用户永远"找不到运行输出"）；支持 `--output` 覆盖。
+- **社区模板导入加固**：下载超时覆盖到响应体 + `Content-Length` 预检 + 字节口径 200KB 上限（原按 UTF-16 code unit 计数）；`redirect: 'error'` 拒绝收录后 302 改道；清单条目支持可选 `sha256` 内容校验（收录制钉的是 URL 不是内容，建议配合 commit-SHA 链接使用）；文件名修剪与写盘目录守卫对齐既有保存链路。
+- **Studio 社区模板导入确认改用应用内对话框**（替换 `window.confirm`，桌面端不再出现 "127.0.0.1 显示" 抬头）。
+- CI：桌面瘦身步骤补 `shell: bash`（windows-latest 默认 PowerShell，`rm -rf` 必炸）；Apple 签名证书环境变量只喂给 macOS job（electron-builder 的 Windows 签名会兜底读 `CSC_LINK`，证书一填 Windows job 会拿 .p12 去 signtool）；Docker 自动构建先轮询等版本出现在 npm（同 tag 触发的构建与发布存在竞态）。
+- 清理泄进公开仓库的维护者本地绝对路径（metrics 输出与 HANDOFF）。
 
 ## [0.16.0] - 2026-08-20
 
