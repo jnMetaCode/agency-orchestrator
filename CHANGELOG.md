@@ -4,6 +4,9 @@
 
 ## [Unreleased]
 
+### Fixed
+- `ao report last` 尊重 `AO_OUTPUT_DIR` / `AO_HOME`（此前硬编码 `ao-output`，设了 AO_HOME 的用户会永远"找不到运行输出"）；支持 `--output` 覆盖。
+
 ## [0.16.0] - 2026-08-20
 
 ### Added
