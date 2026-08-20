@@ -53,7 +53,37 @@
   "version": 2,
   "updatedAt": "2026-08-20",
   "providers": [],
-  "relayPresets": [],
+  "relayPresets": [
+    {
+      "name": "AICodeMirror",
+      "sponsor": true,
+      "signupUrl": "https://www.aicodemirror.ai/register?invitecode=XO5L7R",
+      "baseUrls": {
+        "claude-code": "https://api.aicodemirror.com/api/claudecode",
+        "gemini-cli": "https://api.aicodemirror.com/api/gemini",
+        "codex-cli": "https://api.aicodemirror.com/api/codex/backend-api/codex"
+      }
+    },
+    {
+      "name": "LanoX AI",
+      "sponsor": true,
+      "signupUrl": "https://lanox.ai/?c=X3RD38F7&inviteCode=A3HRUB6M",
+      "baseUrls": {
+        "claude-code": "https://api.lanox.ai",
+        "codex-cli": "https://api.lanox.ai/v1"
+      }
+    },
+    {
+      "name": "胜算云",
+      "sponsor": true,
+      "signupUrl": "https://www.shengsuanyun.com/?from=CH_QKH696UI",
+      "baseUrls": {
+        "claude-code": "https://router.shengsuanyun.com/api",
+        "gemini-cli": "https://router.shengsuanyun.com/api",
+        "codex-cli": "https://router.shengsuanyun.com/api/v1"
+      }
+    }
+  ],
   "sponsorRotation": [
     {
       "providerId": "apinebula",
