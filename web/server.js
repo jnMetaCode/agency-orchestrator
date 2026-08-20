@@ -2492,7 +2492,21 @@ const isEngineStale = () => STALE_PROBES.some((f) => {
   if (!touched) return false;                       // 没被碰过：直接过，不读文件
   return fileFingerprint(f) !== BOOT_FINGERPRINTS.get(f);
 });
-app.get('/api/health', (_req, res) => res.json({ ok: true, version: PKG_VERSION, stale: isEngineStale() }));
+// 新版本感知：桌面端没有自动更新（mac 无签名装不了 electron-updater），装机量会
+// 永远停在装机那天的版本——至少要让界面知道"外面有新版"。6h 缓存 + 3s 超时 +
+// 失败静默（离线/内网环境不该看到任何报错），health 每 5s 被轮询，绝不能阻塞。
+let latestVersionCache = { v: null, at: 0 };
+async function getLatestVersion() {
+  const now = Date.now();
+  if (now - latestVersionCache.at < 6 * 60 * 60 * 1000) return latestVersionCache.v;
+  latestVersionCache.at = now; // 先占位：失败也 6h 内不再重试
+  try {
+    const r = await fetch('https://registry.npmjs.org/agency-orchestrator/latest', { signal: AbortSignal.timeout(3000) });
+    if (r.ok) latestVersionCache.v = (await r.json()).version ?? null;
+  } catch { /* 离线环境静默 */ }
+  return latestVersionCache.v;
+}
+app.get('/api/health', async (_req, res) => res.json({ ok: true, version: PKG_VERSION, stale: isEngineStale(), latest: await getLatestVersion() }));
 
 // SPA fallback: serve the React app for any non-API, non-asset route.
 // 故意「无条件」注册：即便启动时前端缺失（HAS_NEW_UI=false），也要给一个可读的诊断页，

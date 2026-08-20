@@ -41,7 +41,7 @@ const TAB_META: { id: Tab; icon: typeof Users }[] = [
 
 function StudioInner() {
   const { t, lang } = useLanguage();
-  const { status, version, stale } = useBackend();
+  const { status, version, stale, latest, updateAvailable } = useBackend();
   // 防御：任一 tab 文案缺失也不要让整个 Studio 渲染崩溃（否则所有 tab 都点不动）
   const TABS = TAB_META.map((tb) => ({
     ...tb,
@@ -161,6 +161,15 @@ function StudioInner() {
                 <span className={cn("size-1.5 rounded-full", status === "online" && !stale ? "bg-emerald-500" : status === "checking" ? "bg-muted-foreground" : "bg-amber-500")} />
                 {status === "online" ? (stale ? t.studio.shell.statusStale : t.studio.shell.statusOnline) : status === "offline" ? t.studio.shell.statusOffline : t.studio.shell.statusChecking}
               </span>
+              {updateAvailable && (
+                <button
+                  title={t.studio.shell.updateAvailableTitle}
+                  onClick={() => window.open("https://github.com/jnMetaCode/agency-orchestrator/releases/latest", "_blank")}
+                  className="inline-flex items-center gap-1 rounded-full bg-primary/15 px-2.5 py-1 text-xs font-medium text-primary transition-colors hover:bg-primary/25"
+                >
+                  ↑ {t.studio.shell.updateAvailable} v{latest}
+                </button>
+              )}
               <ProviderSelect value={provider} onChange={setProvider} onOpenProviders={() => setTab("providers")} />
               <ModelSelect provider={provider} />
               <Button size="sm" variant="outline" onClick={() => setTab("providers")}>

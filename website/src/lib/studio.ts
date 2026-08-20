@@ -523,7 +523,7 @@ export function providerLogo(id: string): string | undefined {
 }
 
 export const api = {
-  health: () => getJSON<{ ok: boolean; version: string; stale?: boolean }>("/health"),
+  health: () => getJSON<{ ok: boolean; version: string; stale?: boolean; latest?: string | null }>("/health"),
   usage: () => getJSON<UsageResponse>("/usage"),
   config: () => getJSON<ConfigResponse>("/config"),
   // sonnetModel/opusModel/haikuModel 仅 claude-code 用（模型映射，对齐 cc-switch）
