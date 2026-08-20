@@ -99,7 +99,24 @@ function DetailPane({ id, provider, onRun }: { id: string; provider: string; onR
             <Button size="sm" variant="ghost" title={t.studio.runs.downloadAllTitle} onClick={() => downloadText(safeFilename(baseName + t.studio.runs.fullProcessSuffix), fullText)}>
               {t.studio.runs.downloadAll}
             </Button>
-            <Button size="sm" variant="ghost" title={t.studio.runs.shareReportTitle} onClick={() => window.open(`/api/runs/${encodeURIComponent(id)}/report`, "_blank")}>
+            <Button
+              size="sm"
+              variant="ghost"
+              title={t.studio.runs.shareReportTitle}
+              onClick={async () => {
+                // 关键：交付物是自包含 HTML 文件（发微信/邮件对方双击即开），
+                // 绝不能只 window.open 本地地址——127.0.0.1 链接发出去谁也打不开
+                try {
+                  const res = await fetch(`/api/runs/${encodeURIComponent(id)}/report`);
+                  if (!res.ok) throw new Error(`${res.status}`);
+                  const html = await res.text();
+                  downloadText(safeFilename(baseName + (lang === "en" ? "-report" : "-分享报告"), "html"), html, "text/html");
+                  window.open(URL.createObjectURL(new Blob([html], { type: "text/html" })), "_blank");
+                } catch (e) {
+                  window.alert((lang === "en" ? "Report failed: " : "生成报告失败：") + (e instanceof Error ? e.message : String(e)));
+                }
+              }}
+            >
               {t.studio.runs.shareReport}
             </Button>
           </div>
