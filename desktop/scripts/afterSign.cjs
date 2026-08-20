@@ -10,6 +10,12 @@ const path = require("node:path");
 
 exports.default = async function afterSign(context) {
   if (context.electronPlatformName !== "darwin") return;
+  // 真证书签名（CSC_LINK 存在）时绝不能 ad-hoc 重签——`codesign --force --sign -`
+  // 会把 Developer ID 签名整个替换成 ad-hoc，公证与 Gatekeeper 全白做。
+  if (process.env.CSC_LINK) {
+    console.log("[afterSign] 检测到证书签名，跳过 ad-hoc 重签（重签会毁掉 Developer ID 签名）");
+    return;
+  }
   const appName = context.packager.appInfo.productFilename;
   const appPath = path.join(context.appOutDir, `${appName}.app`);
   console.log(`[afterSign] ad-hoc 重签整包: ${appPath}`);

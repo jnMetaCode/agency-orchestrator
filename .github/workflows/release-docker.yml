@@ -4,6 +4,10 @@
 name: Release Docker Image
 
 on:
+  # 跟随 npm 发版自动出镜像——此前只有手动触发，Docker/NAS 用户曾停在旧版一个月
+  # （npm 已到 0.16.0、镜像还是 7 月的），README 又在推荐 docker run，等于推荐旧版。
+  push:
+    tags: ["v*"]
   workflow_dispatch:
     inputs:
       version:
@@ -19,6 +23,14 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - name: Resolve version
+        id: ver
+        run: |
+          if [ -n "${{ inputs.version }}" ]; then
+            echo "version=${{ inputs.version }}" >> "$GITHUB_OUTPUT"
+          else
+            echo "version=${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
+          fi
       - uses: docker/setup-qemu-action@v3
       - uses: docker/setup-buildx-action@v3
       - uses: docker/login-action@v3
@@ -32,7 +44,7 @@ jobs:
           platforms: linux/amd64,linux/arm64
           push: true
           build-args: |
-            AO_VERSION=${{ inputs.version }}
+            AO_VERSION=${{ steps.ver.outputs.version }}
           tags: |
-            ghcr.io/jnmetacode/agency-orchestrator:${{ inputs.version }}
+            ghcr.io/jnmetacode/agency-orchestrator:${{ steps.ver.outputs.version }}
             ghcr.io/jnmetacode/agency-orchestrator:latest

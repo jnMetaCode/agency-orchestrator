@@ -29,16 +29,16 @@
 2. 创建 **Developer ID Application** 证书，导出为 `.p12`。
 3. 生成 **App-Specific Password**（用于公证）。
 
-启用步骤：
-1. 去掉 `desktop/package.json` 里 mac 的 `"identity": null`（让 electron-builder 真正签名）。
-2. 在仓库 **Settings → Secrets and variables → Actions** 添加：
+启用步骤（**无需改任何代码**——`desktop/electron-builder.config.cjs` 检测到证书自动切真签名+公证，
+afterSign 的 ad-hoc 重签也会自动跳过）：
+1. 在仓库 **Settings → Secrets and variables → Actions** 添加：
    - `CSC_LINK` — `.p12` 证书的 base64（`base64 -i cert.p12 | pbcopy`）
    - `CSC_KEY_PASSWORD` — `.p12` 密码
    - `APPLE_ID` — Apple 账号邮箱
    - `APPLE_APP_SPECIFIC_PASSWORD` — App 专用密码
    - `APPLE_TEAM_ID` — 团队 ID
 
-`.github/workflows/release-desktop.yml` 已透传以上 env：**填了就自动签名+公证，没填就出未签名版**，流程无需改动。
+`.github/workflows/release-desktop.yml` 已透传以上 env：**填了就自动签名+公证（Hardened Runtime + entitlements 已备好），没填就出未签名版**，流程无需改动。填完 Secrets 后推下一个 `desktop-v*` tag 即生效；CI 日志里 `[signing]` 一行会说明走了哪条分支。
 
 ---
 

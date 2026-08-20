@@ -6,9 +6,9 @@
   "main": "main.cjs",
   "scripts": {
     "start": "electron .",
-    "dist": "electron-builder",
-    "dist:mac": "electron-builder --mac",
-    "dist:win": "electron-builder --win"
+    "dist": "electron-builder --config electron-builder.config.cjs",
+    "dist:mac": "electron-builder --mac --config electron-builder.config.cjs",
+    "dist:win": "electron-builder --win --config electron-builder.config.cjs"
   },
   "devDependencies": {
     "electron": "^33.2.1",

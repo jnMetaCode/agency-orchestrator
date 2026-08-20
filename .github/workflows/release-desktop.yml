@@ -62,7 +62,7 @@ jobs:
 
       - name: Build desktop installer
         working-directory: desktop
-        run: npx electron-builder ${{ matrix.builder_flag }} --publish never
+        run: npx electron-builder ${{ matrix.builder_flag }} --config electron-builder.config.cjs --publish never
         env:
           # 有证书/公证 Secrets 时 electron-builder 自动签名+公证；没有就出未签名版
           CSC_LINK: ${{ secrets.CSC_LINK }}
