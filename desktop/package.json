@@ -76,6 +76,11 @@
       "target": [
         "AppImage"
       ]
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true
     }
   }
 }

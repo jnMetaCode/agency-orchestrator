@@ -56,6 +56,12 @@ jobs:
       - name: Verify frontend before packaging
         run: node scripts/verify-frontend.mjs website/dist
 
+      # 瘦身（#44）：typescript+@types 共 ~26M 是纯编译期依赖，引擎已编译成 dist、
+      # 运行时用不到；语言包(agency-agents-*)虽在 devDeps 但桌面「多语言角色库」
+      # 功能依赖它们被打进包——绝不能整体 prune --omit=dev，只精准剔这两个。
+      - name: Slim node_modules for packaging
+        run: rm -rf node_modules/typescript node_modules/@types
+
       - name: Install desktop deps
         working-directory: desktop
         run: npm ci
