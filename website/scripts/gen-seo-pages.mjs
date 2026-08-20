@@ -31,9 +31,12 @@ const experts = JSON.parse(readFileSync(join(siteRoot, "src/content/experts.json
 const workflows = JSON.parse(readFileSync(join(siteRoot, "src/content/workflows.json"), "utf-8")).zh ?? [];
 
 // ── 页面骨架（轻量静态页：零 JS、内联 CSS、亮暗自适应，与产品报告页同一气质）──
-function page({ title, description, canonical, body }) {
+function page({ title, description, canonical, body, lang = "zh" }) {
+  const L = lang === "en"
+    ? { experts: "267 expert roles", evals: "Evals", docs: "Docs", tagline: "Open-source AI expert-team orchestrator — one sentence in, a full plan out" }
+    : { experts: "267 个专家角色", evals: "评测", docs: "文档", tagline: "开源 AI 专家团队编排器 —— 一句话，让多个 AI 角色自动协作" };
   return `<!doctype html>
-<html lang="zh-CN">
+<html lang="${lang === "en" ? "en" : "zh-CN"}">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -74,10 +77,10 @@ function page({ title, description, canonical, body }) {
 </head>
 <body>
 <div class="page">
-  <nav><a href="/">Agency Orchestrator</a> · <a href="/experts">267 个专家角色</a> · <a href="/evals/">评测</a> · <a href="/docs">文档</a> · <a href="https://github.com/jnMetaCode/agency-orchestrator">GitHub</a></nav>
+  <nav><a href="/">Agency Orchestrator</a> · <a href="/experts">${L.experts}</a> · <a href="${lang === "en" ? "/en/evals/" : "/evals/"}">${L.evals}</a> · <a href="/docs">${L.docs}</a> · <a href="https://github.com/jnMetaCode/agency-orchestrator">GitHub</a></nav>
 ${body}
   <footer>
-    <span>开源 AI 专家团队编排器 —— 一句话，让多个 AI 角色自动协作</span>
+    <span>${L.tagline}</span>
     <span><code>npm i -g agency-orchestrator</code></span>
     <a href="https://github.com/jnMetaCode/agency-orchestrator">github.com/jnMetaCode/agency-orchestrator</a>
   </footer>
@@ -201,6 +204,30 @@ npm install && npm run eval</code></pre>
       body,
     }));
     console.log("✅ 评测基准页 → dist/evals/");
+  }
+  // 英文版（面向 HN / 英文搜索）：内容源是人工写的 evals.en.md，不是机器翻译
+  const evalEn = join(siteRoot, "src/content/evals.en.md");
+  if (existsSync(evalEn)) {
+    const mdHtml = marked.parse(readFileSync(evalEn, "utf-8"), { async: false });
+    const body = `
+  <article class="card eval-doc">
+    <p class="chip">Blind judging · position-debiased · multi-run averaged · living document</p>
+    ${mdHtml}
+  </article>
+  <style>
+    .eval-doc h1 { font-size:24px; } .eval-doc h2 { font-size:18px; margin-top:28px; }
+    .eval-doc table { border-collapse:collapse; width:100%; display:block; overflow-x:auto; font-size:14px; }
+    .eval-doc th, .eval-doc td { border:1px solid var(--line); padding:6px 12px; text-align:left; }
+    .eval-doc blockquote { margin:12px 0; padding:2px 16px; border-left:3px solid var(--accent); color:var(--muted); }
+  </style>`;
+    emit(join("en", "evals"), page({
+      title: "When do multi-agent pipelines beat a single prompt? · Agency Orchestrator",
+      description: "Blind-judged evals of multi-agent vs one-shot prompting. The result is non-monotonic: mid-tier models (DeepSeek) gain clearly from multi-agent; very weak models get worse; frontier models tie. Full data, bugs found, limits, and how to reproduce.",
+      canonical: `${ORIGIN}/en/evals/`,
+      body,
+      lang: "en",
+    }));
+    console.log("✅ English evals page → dist/en/evals/");
   }
 }
 
