@@ -1,6 +1,7 @@
 /**
  * Claude API Connector
  */
+import { splitVisionMessage } from '../utils/vision.js';
 import Anthropic from '@anthropic-ai/sdk';
 import { normalizeBaseUrl } from './endpoint.js';
 import type { LLMConnector, LLMResult, LLMConfig } from '../types.js';
@@ -70,8 +71,16 @@ export class ClaudeConnector implements LLMConnector {
         max_tokens: config.max_tokens || 4096,
         ...(config.temperature !== undefined ? { temperature: config.temperature } : {}),
         system: systemPrompt,
+        // 带图片输入时拆成 Anthropic 原生 image 块（base64 source）
         messages: [
-          { role: 'user', content: userMessage },
+          { role: 'user', content: (() => {
+            const { text, images } = splitVisionMessage(userMessage);
+            if (!images.length) return userMessage;
+            return [
+              ...images.map((im) => ({ type: 'image' as const, source: { type: 'base64' as const, media_type: im.mime as 'image/png', data: im.base64 } })),
+              { type: 'text' as const, text },
+            ];
+          })() },
         ],
       },
       requestTimeout !== undefined ? { timeout: requestTimeout } : undefined,

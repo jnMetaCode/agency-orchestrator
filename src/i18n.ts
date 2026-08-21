@@ -224,7 +224,7 @@ const dict: Dict = {
 
   选项:
     --input, -i key=value    传入输入变量
-    --input, -i key=@file    从文件读取变量值
+    --input, -i key=@file    从文件读取变量值（图片 png/jpg/gif/webp 自动转 vision 输入，需支持视觉的 API 模型）
     --provider <name>        覆盖 YAML 中的 LLM provider (如 claude-code, deepseek)
     --model <name>           覆盖 YAML 中的模型名
     --timeout <值>            单步超时，支持 300000/300s/5m/0 (0=不限时)

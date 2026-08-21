@@ -1,6 +1,7 @@
 /**
  * 执行结果输出和保存
  */
+import { stripImageDataUris } from '../utils/vision.js';
 import { mkdirSync, writeFileSync, readFileSync, existsSync, readdirSync, statSync } from 'node:fs';
 import { join, relative } from 'node:path';
 import type { WorkflowResult, StepVerification } from '../types.js';
@@ -145,7 +146,10 @@ export function saveResults(result: WorkflowResult, outputDir: string): string {
     success: result.success,
     totalDuration: `${(result.totalDuration / 1000).toFixed(1)}s`,
     totalTokens: result.totalTokens,
-    inputs: result.inputs,
+    // 图片输入的 base64 绝不进 metadata（本仓纪律）；resume 需重新用 -i 提供图片
+    inputs: result.inputs
+      ? Object.fromEntries(Object.entries(result.inputs).map(([k, v]) => [k, stripImageDataUris(String(v), '[图片输入已省略——resume 时请重新用 -i 提供]')]))
+      : result.inputs,
     steps: result.steps.map(s => ({
       id: s.id,
       role: s.role,

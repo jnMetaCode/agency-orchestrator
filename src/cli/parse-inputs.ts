@@ -31,7 +31,21 @@ export function parseInputPairs(
       if (value.startsWith('@') && allowAtFile) {
         const filePath = resolve(value.slice(1));
         try {
-          value = readFileSync(filePath, 'utf-8');
+          // 图片文件 → data URI 字符串（vision 输入协议，见 src/utils/vision.ts）。
+          // 上限 4MB：base64 后 ~5.3MB，再大既超模型限制也拖垮请求。
+          const imgExt = filePath.match(/\.(png|jpe?g|gif|webp)$/i);
+          if (imgExt) {
+            const buf = readFileSync(filePath);
+            if (buf.length > 4 * 1024 * 1024) {
+              onError(`图片过大（上限 4MB）: ${filePath}`);
+            } else {
+              const ext = imgExt[1].toLowerCase();
+              const mime = ext === 'jpg' || ext === 'jpeg' ? 'image/jpeg' : `image/${ext}`;
+              value = `data:${mime};base64,${buf.toString('base64')}`;
+            }
+          } else {
+            value = readFileSync(filePath, 'utf-8');
+          }
         } catch {
           onError(`无法读取文件: ${filePath}`);
         }

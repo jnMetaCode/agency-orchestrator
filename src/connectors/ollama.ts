@@ -1,6 +1,7 @@
 /**
  * Ollama Connector — 本地模型，不需要 API key
  */
+import { hasImageInput, stripImageDataUris } from '../utils/vision.js';
 import type { LLMConnector, LLMResult, LLMConfig } from '../types.js';
 import { normalizeBaseUrl, joinEndpoint, postApiEndpoint } from './endpoint.js';
 
@@ -13,6 +14,11 @@ export class OllamaConnector implements LLMConnector {
   }
 
   async chat(systemPrompt: string, userMessage: string, config: LLMConfig): Promise<LLMResult> {
+    // 图片输入 v1 先剥离（ollama 的 images 字段对 llava 类模型可用，后续按需接）
+    if (hasImageInput(userMessage)) {
+      process.stderr.write('  ⚠️ ollama 路径暂不支持图片输入，已跳过图片\n');
+      userMessage = stripImageDataUris(userMessage, '[图片输入已跳过]');
+    }
     const numPredict = config.max_tokens || 8192;
     const numCtx = estimateNumCtx(systemPrompt, userMessage, numPredict);
 

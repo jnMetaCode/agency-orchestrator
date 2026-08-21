@@ -3,6 +3,11 @@
  * 回归用例——story-creation 等带 default 的旗舰模板要能 `ao run xxx.yaml` 开箱即跑。
  */
 import { findMissingInputs, modelCapabilityHint } from '../src/index.js';
+import { splitVisionMessage, stripImageDataUris, hasImageInput } from '../src/utils/vision.js';
+import { parseInputPairs } from '../src/cli/parse-inputs.js';
+import { writeFileSync, mkdtempSync } from 'node:fs';
+import { join } from 'node:path';
+import { tmpdir } from 'node:os';
 import type { InputDefinition } from '../src/types.js';
 
 let passed = 0, failed = 0;
@@ -53,6 +58,33 @@ test('inputs 为 undefined → 空', () => {
 test('provided 用 Set 也能工作', () => {
   const m = findMissingInputs([{ name: 'a', required: true }], new Set(['a']));
   assert(m.length === 0, 'Set 提供也算已提供');
+});
+
+console.log('\n=== vision 图片输入 ===');
+
+test('splitVisionMessage 拆图并留占位', () => {
+  const uri = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUg==';
+  const msg = `看这张图 ${uri} 说说问题`;
+  const { text, images } = splitVisionMessage(msg);
+  assert(images.length === 1 && images[0].mime === 'image/png' && images[0].uri === uri, '拆出 1 张 png');
+  assert(text.includes('[图片1]') && !text.includes('base64,'), '文本留占位、不含 base64');
+  assert(hasImageInput(msg) && !hasImageInput(text), 'hasImageInput 判定');
+  assert(!stripImageDataUris(msg).includes('base64,'), 'strip 后无 base64');
+  const plain = splitVisionMessage('没有图片的普通文本');
+  assert(plain.images.length === 0 && plain.text === '没有图片的普通文本', '无图时原样返回');
+});
+
+test('parseInputPairs：@图片文件 → data URI', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'ao-vision-'));
+  const png = join(dir, 'a.png');
+  // 1x1 真实 PNG
+  writeFileSync(png, Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==', 'base64'));
+  const inputs = parseInputPairs(['run', 'w.yaml', '-i', `photo=@${png}`], (m) => { throw new Error(m); });
+  assert(inputs.photo.startsWith('data:image/png;base64,'), '图片展开成 data URI');
+  const txt = join(dir, 'b.txt');
+  writeFileSync(txt, 'hello');
+  const inputs2 = parseInputPairs(['run', 'w.yaml', '-i', `doc=@${txt}`], (m) => { throw new Error(m); });
+  assert(inputs2.doc === 'hello', '文本文件行为不变');
 });
 
 console.log('\n=== modelCapabilityHint ===');

@@ -7,6 +7,7 @@
  * 当 prompt 过长（超过 ARG_MAX 安全阈值）时，自动切换为 stdin 传输，
  * 避免 ENAMETOOLONG 错误（GitHub issue #1）
  */
+import { hasImageInput, stripImageDataUris } from '../utils/vision.js';
 import { spawnCLI } from './spawn-cli.js';
 import type { LLMConnector, LLMResult, LLMConfig } from '../types.js';
 import { t } from '../i18n.js';
@@ -111,6 +112,12 @@ export class CLIBaseConnector implements LLMConnector {
   constructor(private cfg: CLIConnectorConfig) {}
 
   async chat(systemPrompt: string, userMessage: string, config: LLMConfig): Promise<LLMResult> {
+    // 图片输入（data URI）：CLI 订阅类 provider 不支持——必须剥离，几 MB base64
+    // 原样进提示词是 token 炸弹。警告一行，指路 API provider。
+    if (hasImageInput(userMessage)) {
+      process.stderr.write(`  ⚠️ ${this.cfg.displayName} 不支持图片输入，已跳过图片（要用图片请换 openai/claude 等支持 vision 的 API provider，并选 vision 模型）\n`);
+      userMessage = stripImageDataUris(userMessage, '[图片输入已跳过：该 provider 不支持]');
+    }
     const fullPrompt = systemPrompt
       ? `<system>\n${systemPrompt}\n</system>\n\n${userMessage}`
       : userMessage;

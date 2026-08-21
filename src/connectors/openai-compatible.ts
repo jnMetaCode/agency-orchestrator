@@ -4,6 +4,7 @@
  *
  * 默认使用 streaming 模式，避免长生成任务被服务端 60s 超时断开（DeepSeek 等常见问题）
  */
+import { splitVisionMessage } from '../utils/vision.js';
 import type { LLMConnector, LLMResult, LLMConfig } from '../types.js';
 
 // 端点地址/发送的公共逻辑抽到 endpoint.ts（Ollama 连接器也要用，放这里会形成奇怪的依赖方向）。
@@ -134,10 +135,16 @@ export class OpenAICompatibleConnector implements LLMConnector {
 
     try {
     for (let continuation = 0; continuation <= maxContinuations; continuation++) {
-      // 构建消息：首次用原始 prompt，续写时追加已有内容让模型接着写
-      const messages: Array<{role: string; content: string}> = [
+      // 构建消息：首次用原始 prompt，续写时追加已有内容让模型接着写。
+      // 带图片输入（data URI，见 utils/vision.ts）时拆成 OpenAI vision content 数组——
+      // 需要模型本身支持 vision，不支持的模型由服务端报错（诚实透传，不静默吞图）。
+      const { text: userText, images: userImages } = splitVisionMessage(userMessage);
+      const userContent: string | Array<Record<string, unknown>> = userImages.length
+        ? [{ type: 'text', text: userText }, ...userImages.map((im) => ({ type: 'image_url', image_url: { url: im.uri } }))]
+        : userMessage;
+      const messages: Array<{role: string; content: string | Array<Record<string, unknown>>}> = [
         { role: 'system', content: systemPrompt },
-        { role: 'user', content: userMessage },
+        { role: 'user', content: userContent },
       ];
       if (continuation > 0 && fullContent) {
         messages.push(
