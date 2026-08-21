@@ -4,6 +4,17 @@
 
 ## [Unreleased]
 
+## [0.18.0] - 2026-08-21
+
+> 对照 WorkBuddy / 千问办公做了一轮功能级差距盘点（两家官网当日实抓），清单上仅有的两项「值得追」当天全部补齐——就是本版的两个主角。
+
+### Added
+- **PPTX 导出**：`ao run <wf> --export pptx` / Studio 导出菜单「PPT 演示 (.pptx)」。沿用导出管线既定设计：**pandoc 优先**（`-t pptx` 原生支持、排版最佳）、**pptxgenjs 纯 JS 兜底**（多数用户的真实路径，已强制隐藏 pandoc 实测）。转换逻辑：封面页（工作流名+产品署名）→ 按 `#`/`##` 切页 → 列表/段落进 bullets → **markdown 表格保结构渲染** → 代码块留占位 → 单页超 9 条自动分「续」页。两家大厂都拿"自动做 PPT"当主卖点——现在这句对 AO 也成立，且是"多专家评审过的内容一键成片"。
+- **图片输入（vision）**：`-i photo=@图.png`（png/jpg/gif/webp，上限 4MB）自动转为视觉输入，工作流步骤在 task 里照常写 `{{photo}}`。架构上零波及：图片以 data URI 字符串走既有变量系统——`LLMConnector` 接口一字未改（15 个连接器无涉），**图片跨步骤传递免费获得**。发送前按连接器分工：openai 兼容拆 OpenAI vision content 数组、claude 拆 Anthropic 原生 image 块；**CLI 订阅类 / ollama 剥离图片并警告指路**（几 MB base64 原样进提示词是 token 炸弹，绝不静默透传）。metadata 纪律不破：inputs 里的 base64 存档前剥掉（resume 需重新 `-i` 提供）。真机验证：GPT-4o 正确识别产品截图并给出针对性 UI 建议。
+
+### Fixed
+- vision 的 token 估算兜底先剥图片——流式响应不带 usage 时走字符估算，data URI 整串被当文本估进去（真机 662KB 截图虚报 226,115 tokens）；现每张图按 vision 常见口径记 ~800，复测 5,880 合理。
+
 ## [0.17.0] - 2026-08-21
 
 ### Added
