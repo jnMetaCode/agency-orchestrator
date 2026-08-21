@@ -295,7 +295,7 @@ const dict: Dict = {
 
   Options:
     --input, -i key=value    Pass an input variable
-    --input, -i key=@file    Read variable value from a file
+    --input, -i key=@file    Read variable value from a file (png/jpg/gif/webp become vision input; needs a vision-capable API model)
     --provider <name>        Override LLM provider (e.g. claude-code, deepseek)
     --model <name>           Override model name from YAML
     --timeout <value>        Per-step timeout, accepts 300000/300s/5m/0 (0=no limit)
