@@ -4,7 +4,7 @@
  *
  * 默认使用 streaming 模式，避免长生成任务被服务端 60s 超时断开（DeepSeek 等常见问题）
  */
-import { splitVisionMessage } from '../utils/vision.js';
+import { splitVisionMessage, stripImageDataUris } from '../utils/vision.js';
 import type { LLMConnector, LLMResult, LLMConfig } from '../types.js';
 
 // 端点地址/发送的公共逻辑抽到 endpoint.ts（Ollama 连接器也要用，放这里会形成奇怪的依赖方向）。
@@ -318,8 +318,10 @@ export class OpenAICompatibleConnector implements LLMConnector {
       content: fullContent,
       usage: {
         // 流式模式下 usage 在最后一个 chunk，已在 readStream 中尝试提取
-        // 兜底用字符估算（CJK 字符 ≈ 1-2 token，英文 ≈ 0.25 token/char）
-        input_tokens: estimateTokens(systemPrompt + userMessage),
+        // 兜底用字符估算（CJK 字符 ≈ 1-2 token，英文 ≈ 0.25 token/char）。
+        // 图片必须先剥掉再估——base64 按字符估会虚报 20 万+ token；每张图按 vision 常见口径记 ~800
+        input_tokens: estimateTokens(systemPrompt + stripImageDataUris(userMessage, ''))
+          + (userMessage.match(/data:image\//g)?.length ?? 0) * 800,
         output_tokens: estimateTokens(fullContent),
       },
     };
