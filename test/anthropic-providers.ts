@@ -169,9 +169,13 @@ test('Studio 供应商列表：胜算云排赞助商组最后一位（2026-08 �
   assert(after.length === 0, `胜算云之后还排着别的赞助商：\n    ${after.join('\n    ')}`);
 });
 
-test('官网赞助商页：胜算云排最后一张卡', () => {
+test('官网赞助商页：最新上架的赞助商排最后一张卡（当前=秘塔科技）', () => {
+  // 惯例：新赞助商上架时排末位（LanoX→胜算云→APIMart→秘塔 均如此）。
+  // 每次上架新赞助商后同步更新这里的末位 id——这条测试的职责是防"顺序被无意打乱"，
+  // 不是阻止正常上架。
   const ids = [...sponsorsSrc.matchAll(/^    id: "([\w-]+)"/gm)].map((m) => m[1]);
-  assert(ids[ids.length - 1] === 'shengsuanyun', `胜算云应是最后一位，实际顺序：${ids.join(' → ')}`);
+  assert(ids[ids.length - 1] === 'metaso', `末位应为 metaso（最新上架），实际顺序：${ids.join(' → ')}`);
+  assert(ids.indexOf('apimart') === ids.length - 2, 'APIMart 应紧邻末位（上架顺序仅早于秘塔）');
 });
 
 test('CLI 中转商卡片按实际端点写"支持哪几个 CLI"，不写死三个', () => {
