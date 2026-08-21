@@ -184,12 +184,11 @@ const dict: Dict = {
   基于 agency-agents-zh 的多智能体编排引擎
 
   快速开始:
+    ao web                            网页图形界面（推荐首次使用：勾专家/跑模板/看产物全可视化）
+    ao compose "一句话描述任务" --run  AI 自动组队并运行，几分钟出完整方案
     ao demo                           零配置体验多智能体协作
-    ao init                           下载 AI 角色定义（中文）
-    ao init --lang en                 下载英文角色定义
-    ao roles                          查看所有可用角色
-    ao plan <workflow.yaml>           查看执行计划 (DAG)
-    ao run <workflow.yaml> [options]  执行工作流
+    ao roles                          查看全部 AI 专家角色（随安装自带，无需 ao init）
+    ao run <workflow.yaml> [options]  执行工作流（ao plan 可先看 DAG）
 
   命令:
     demo                              零配置体验多智能体协作（mock + 真实 AI）
@@ -257,11 +256,11 @@ const dict: Dict = {
   YAML-defined workflows · 170+ English roles · auto DAG parallelism
 
   Quick Start:
+    ao web                            Web GUI (best first run: pick experts / run templates / view outputs)
+    ao compose "describe your task" --run   AI assembles a team and runs it — full plan in minutes
     ao demo                           Zero-config multi-agent demo
-    ao init --lang en                 Download English AI roles
-    ao roles                          List all available roles
-    ao plan <workflow.yaml>           Show execution plan (DAG)
-    ao run <workflow.yaml> [options]  Execute a workflow
+    ao roles                          List all expert roles (bundled — no ao init needed)
+    ao run <workflow.yaml> [options]  Execute a workflow (ao plan previews the DAG)
 
   Commands:
     demo                              Zero-config demo (mock + real AI)
