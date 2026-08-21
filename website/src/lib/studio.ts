@@ -158,7 +158,7 @@ export type SseHandler = (event: string, data: any) => void;
 const API = "/api";
 
 /** 把报告 Markdown 导出成 Word/PDF/Excel/Skill/计划,并触发浏览器下载。 */
-export async function downloadExport(markdown: string, format: "docx" | "pdf" | "xlsx" | "skill" | "plan", name: string): Promise<void> {
+export async function downloadExport(markdown: string, format: "docx" | "pdf" | "xlsx" | "pptx" | "skill" | "plan", name: string): Promise<void> {
   const res = await fetch(`${API}/export`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },

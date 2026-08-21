@@ -1551,7 +1551,7 @@ app.post('/api/workflows/graph', async (req, res) => {
 app.post('/api/export', async (req, res) => {
   const { markdown, format, name } = req.body || {};
   if (!markdown || typeof markdown !== 'string') return res.status(400).json({ error: 'markdown required' });
-  const allowed = ['docx', 'pdf', 'xlsx', 'skill', 'plan'];
+  const allowed = ['docx', 'pdf', 'xlsx', 'pptx', 'skill', 'plan'];
   if (!allowed.includes(format)) return res.status(400).json({ error: `format must be one of ${allowed.join('/')}` });
   try {
     const { exportMarkdown } = await import('../dist/export/convert.js');

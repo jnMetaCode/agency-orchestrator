@@ -11,7 +11,7 @@ import { marked } from 'marked';
 import * as XLSX from 'xlsx';
 import { isOnPath } from '../providers/detect.js';
 
-export type ExportFormat = 'docx' | 'pdf' | 'xlsx' | 'skill' | 'plan';
+export type ExportFormat = 'docx' | 'pdf' | 'xlsx' | 'pptx' | 'skill' | 'plan';
 export interface ExportResult { buffer: Buffer; ext: string; mime: string; engine: string; }
 
 export function hasPandoc(): boolean {
@@ -55,6 +55,80 @@ function toPdf(md: string): ExportResult {
   const viaPandoc = pandocConvert(md, 'pdf', ['--pdf-engine=xelatex', '-V', 'CJKmainfont=PingFang SC']);
   if (viaPandoc) return { buffer: viaPandoc, ext: 'pdf', mime: 'application/pdf', engine: 'pandoc+xelatex' };
   return { buffer: Buffer.from(mdToHtml(md), 'utf-8'), ext: 'html', mime: 'text/html', engine: 'html-fallback' };
+}
+
+const PPTX_MIME = 'application/vnd.openxmlformats-officedocument.presentationml.presentation';
+
+/** Markdown → 幻灯片结构：# / ## 开新页,列表与段落进 bullets,表格保留结构,单页超限自动分「续」页。 */
+export function mdToSlides(md: string, fallbackTitle = '报告'): Array<{ title: string; bullets: string[]; table?: string[][] }> {
+  const MAX_BULLETS = 9;
+  const slides: Array<{ title: string; bullets: string[]; table?: string[][] }> = [];
+  let cur: { title: string; bullets: string[]; table?: string[][] } | null = null;
+  let inCode = false;
+  let codeNoted = false;
+  const push = () => { if (cur && (cur.bullets.length || cur.table)) slides.push(cur); };
+  const ensure = () => { if (!cur) cur = { title: fallbackTitle, bullets: [] }; return cur; };
+  const clean = (s: string) => s.replace(/\*\*([^*]+)\*\*/g, '$1').replace(/`([^`]+)`/g, '$1').replace(/!?\[([^\]]*)\]\([^)]*\)/g, '$1').trim();
+  const addBullet = (text: string) => {
+    const c = ensure();
+    if (c.bullets.length >= MAX_BULLETS) { push(); cur = { title: `${c.title}（续）`, bullets: [] }; }
+    ensure().bullets.push(text.length > 140 ? text.slice(0, 140) + '…' : text);
+  };
+  for (const raw of md.split('\n')) {
+    const line = raw.trimEnd();
+    if (/^```/.test(line.trim())) { inCode = !inCode; if (inCode && !codeNoted) { addBullet('[代码块从略,见原文]'); codeNoted = true; } continue; }
+    if (inCode) continue;
+    codeNoted = false;
+    const h = line.match(/^(#{1,3})\s+(.+)/);
+    if (h) { push(); cur = { title: clean(h[2]), bullets: [] }; continue; }
+    if (/^\s*\|/.test(line)) {
+      if (/^\s*\|[\s:|-]+\|\s*$/.test(line)) continue; // 分隔行
+      const cells = line.replace(/^\s*\||\|\s*$/g, '').split('|').map((x) => clean(x));
+      const c = ensure();
+      (c.table ??= []).push(cells);
+      continue;
+    }
+    const li = line.match(/^\s*(?:[-*+]|\d+[.、)])\s+(.+)/);
+    if (li) { addBullet(clean(li[1])); continue; }
+    const t = clean(line);
+    if (t && !/^[-=*_]{3,}$/.test(t) && !/^>/.test(line.trim())) addBullet(t);
+  }
+  push();
+  return slides.length ? slides : [{ title: fallbackTitle, bullets: ['（内容为空）'] }];
+}
+
+async function toPptx(md: string, opts?: { name?: string }): Promise<ExportResult> {
+  const viaPandoc = pandocConvert(md, 'pptx');
+  if (viaPandoc) return { buffer: viaPandoc, ext: 'pptx', mime: PPTX_MIME, engine: 'pandoc' };
+  // JS 兜底:pptxgenjs——标题页 + 每节一页,表格按结构渲染
+  // pptxgenjs 的类型声明对 ESM default 导入没有构造签名,运行时 default 就是类——cast 绕过
+  const pptxMod = (await import('pptxgenjs')) as unknown as { default: new () => any };
+  const PptxGenJS = pptxMod.default;
+  const pptx = new PptxGenJS();
+  pptx.defineLayout({ name: 'W16x9', width: 13.33, height: 7.5 });
+  pptx.layout = 'W16x9';
+  const title = opts?.name || '工作流报告';
+  const cover = pptx.addSlide();
+  cover.addText(title, { x: 0.8, y: 2.6, w: 11.7, h: 1.4, fontSize: 40, bold: true, color: '1D2530' });
+  cover.addText('由 Agency Orchestrator 多专家协作生成', { x: 0.8, y: 4.1, w: 11.7, h: 0.6, fontSize: 16, color: '5D6B7E' });
+  for (const s of mdToSlides(md, title)) {
+    const slide = pptx.addSlide();
+    slide.addText(s.title, { x: 0.7, y: 0.4, w: 12, h: 0.9, fontSize: 26, bold: true, color: '1D2530' });
+    let y = 1.5;
+    if (s.bullets.length) {
+      slide.addText(s.bullets.map((b) => ({ text: b, options: { bullet: true, breakLine: true } })), {
+        x: 0.9, y, w: 11.6, h: Math.min(0.45 * s.bullets.length + 0.3, 5.6), fontSize: 16, color: '333333', valign: 'top',
+      });
+      y += Math.min(0.45 * s.bullets.length + 0.4, 5.7);
+    }
+    if (s.table && s.table.length && y < 6.2) {
+      slide.addTable(s.table.map((row) => row.map((c) => ({ text: c }))), {
+        x: 0.9, y, w: 11.6, fontSize: 12, border: { type: 'solid', color: 'CCCCCC', pt: 0.5 }, color: '333333',
+      });
+    }
+  }
+  const out = (await pptx.write({ outputType: 'nodebuffer' })) as Buffer;
+  return { buffer: out, ext: 'pptx', mime: PPTX_MIME, engine: 'pptxgenjs' };
 }
 
 /** 从 Markdown 里的表格抽成 xlsx(每个表格一个 sheet)。没有表格则把全文放一个 sheet 的首列。 */
@@ -118,6 +192,7 @@ export async function exportMarkdown(md: string, format: ExportFormat, opts?: { 
     case 'docx': return toDocx(md);
     case 'pdf': return toPdf(md);
     case 'xlsx': return toXlsx(md);
+    case 'pptx': return toPptx(md, opts);
     case 'skill': return toSkillOrPlan(md, 'skill', opts);
     case 'plan': return toSkillOrPlan(md, 'plan', opts);
     default: throw new Error(`不支持的导出格式: ${format}`);

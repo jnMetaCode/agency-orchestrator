@@ -95,6 +95,7 @@
     "html-to-docx": "^1.8.0",
     "js-yaml": "^4.1.0",
     "marked": "^18.0.5",
+    "pptxgenjs": "^4.0.1",
     "smol-toml": "^1.7.0",
     "superpowers-zh": "^1.5.0",
     "undici": "^6.28.0",

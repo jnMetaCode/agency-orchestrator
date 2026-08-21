@@ -61,5 +61,32 @@ assert(plan.buffer.toString('utf-8').includes('严格按下面的计划自动执
 const pdf = await exportMarkdown(MD, 'pdf');
 assert(['pdf', 'html'].includes(pdf.ext), `pdf 产出 ${pdf.ext}(${pdf.engine})`);
 
+// ── pptx ──
+{
+  const r = await exportMarkdown(MD, 'pptx', { name: '进销存系统报告' });
+  assert(r.buffer.length > 1000, `pptx 非空(${r.engine}, ${r.buffer.length}B)`);
+  assert(r.buffer.slice(0, 2).toString() === 'PK', 'pptx 是有效 zip(PK 魔数)');
+  assert(r.ext === 'pptx', 'ext=pptx');
+  // 读回内容：无论 pandoc 还是 pptxgenjs 引擎,包里都必须有 presentation 声明与幻灯片
+  const JSZip = (await import('jszip')).default;
+  const zip = await JSZip.loadAsync(r.buffer);
+  const ct = await zip.file('[Content_Types].xml')!.async('string');
+  assert(ct.includes('presentationml'), 'Content_Types 声明 presentationml');
+  const slideFiles = Object.keys(zip.files).filter((f) => /^ppt\/slides\/slide\d+\.xml$/.test(f));
+  assert(slideFiles.length >= 2, `至少 2 页幻灯片(实际 ${slideFiles.length})`);
+  const allXml = (await Promise.all(slideFiles.map((f) => zip.file(f)!.async('string')))).join('');
+  assert(allXml.includes('进销存') || allXml.includes('概述'), '幻灯片含来源内容文本');
+}
+
+// ── mdToSlides 纯函数 ──
+{
+  const { mdToSlides } = await import('../src/export/convert.js');
+  const slides = mdToSlides('# 标题A\n- 点1\n- 点2\n\n| a | b |\n|---|---|\n| 1 | 2 |\n\n## 标题B\n段落内容');
+  assert(slides.length === 2 && slides[0].title === '标题A' && slides[1].title === '标题B', '按标题切页');
+  assert(slides[0].bullets.length === 2 && slides[0].table?.length === 2, '列表进 bullets、表格保结构(跳过分隔行)');
+  const many = mdToSlides('# 长\n' + Array.from({length: 12}, (_, i) => `- 第${i}条`).join('\n'));
+  assert(many.length === 2 && many[1].title === '长（续）', '超 9 条自动分「续」页');
+}
+
 console.log(`\n  结果: ${passed} 通过, ${failed} 失败\n`);
 if (failed > 0) process.exit(1);

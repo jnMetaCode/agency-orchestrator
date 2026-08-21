@@ -50,7 +50,7 @@ export function RunViewer({ onViewHistory, onGoProviders }: { onViewHistory?: ()
     return () => window.removeEventListener("keydown", onKey);
   }, [run, open]);
 
-  const doExport = async (format: "docx" | "pdf" | "xlsx" | "skill" | "plan") => {
+  const doExport = async (format: "docx" | "pdf" | "xlsx" | "pptx" | "skill" | "plan") => {
     if (!run || !fullText) return;
     setExportOpen(false);
     setExporting(format);
@@ -67,8 +67,9 @@ export function RunViewer({ onViewHistory, onGoProviders }: { onViewHistory?: ()
 
   if (!run) return null;
   const doneCount = run.steps.filter((s) => s.status === "done").length;
-  const EXPORTS: Array<{ fmt: "docx" | "pdf" | "xlsx" | "skill" | "plan"; label: string }> = [
+  const EXPORTS: Array<{ fmt: "docx" | "pdf" | "xlsx" | "pptx" | "skill" | "plan"; label: string }> = [
     { fmt: "docx", label: lang === "en" ? "Word (.docx)" : "Word 文档 (.docx)" },
+    { fmt: "pptx", label: lang === "en" ? "PowerPoint (.pptx)" : "PPT 演示 (.pptx)" },
     { fmt: "pdf", label: "PDF" },
     { fmt: "xlsx", label: lang === "en" ? "Excel (.xlsx)" : "Excel 表格 (.xlsx)" },
     { fmt: "skill", label: lang === "en" ? "Save as Skill (.md)" : "存为 Skill (.md)" },

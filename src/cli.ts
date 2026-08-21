@@ -148,7 +148,7 @@ async function handleRun(): Promise<void> {
     console.error('用法: ao run <workflow.yaml> [--input key=value ...]');
     console.error('  或: ao run --team <名字> "你的任务"   # 用已保存的团队跑新任务');
     console.error('  --materialize <目录>     把开发步产出的「### 路径 + 代码围栏」文件块落盘成真实项目脚手架');
-    console.error('  --export <格式>          把本次产出导出:docx/pdf/xlsx(给人)或 skill/plan(给编码 agent 执行)');
+    console.error('  --export <格式>          把本次产出导出:docx/pdf/xlsx/pptx(给人)或 skill/plan(给编码 agent 执行)');
     console.error('  --no-verify              关闭 acceptance 自动核验（默认：写了 acceptance 的步骤产出后自动核验，未过自动返工一轮）');
     console.error('  --compare                跑完后再跑单次基线 + 盲评，并排对比多智能体 vs 单次');
     console.error('  --judge-provider/--judge-model   --compare 时指定评审模型(默认用生成模型)');
@@ -264,7 +264,7 @@ async function handleRun(): Promise<void> {
     // --export <fmt>：把本次产出导出成 Word/PDF/Excel,或 Skill/可执行计划(给编码 agent 跑)
     const exportFmt = getArgValue('--export');
     if (exportFmt) {
-      const allowed = ['docx', 'pdf', 'xlsx', 'skill', 'plan'];
+      const allowed = ['docx', 'pdf', 'xlsx', 'pptx', 'skill', 'plan'];
       if (!allowed.includes(exportFmt)) {
         console.error(`\n  ⚠️ --export 仅支持: ${allowed.join(' / ')}`);
       } else {
