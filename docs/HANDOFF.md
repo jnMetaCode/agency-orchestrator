@@ -1,45 +1,17 @@
-# 工作交接：0.14.0 这一版做了什么、卡在哪、怎么接着干
+# 工作交接（持续更新）
 
-> **2026-08-19 更新：本文档的「唯一阻塞」已解决。** npm 发布改走 Trusted Publishing（OIDC）：
-> npmjs.com 上给包配了 GitHub Actions 发布者（jnMetaCode/agency-orchestrator + release.yml，
-> Allowed actions 勾 `npm publish`），推 tag 即自动发版，不再需要 OTP/token。
-> 0.14.0 与 0.15.0 均已由该流水线发布成功（带 provenance）。战略与开发计划在维护者本地私有目录（不入仓库）。
+> 这份文档只记**从 git log 里看不出来的东西**：为什么这么做、哪些是有意的取舍、下一步按什么顺序动。
+> 具体改动看 `CHANGELOG.md` 与各条提交说明。历史章节按时间保留在下方，**当前状态只看本节**。
 
-> 更新时间：2026-08-17 ｜ 定版：`v0.14.0` + `desktop-v0.4.3`
-> 这份文档只记**从 git log 里看不出来的东西**：为什么这么做、哪些是有意的取舍、下一步该按什么顺序动。
-> 具体改了哪些代码看 `CHANGELOG.md` 的 `[0.14.0]` 段和各条提交说明。
+## 〇、当前状态速览（2026-08-21）
 
-## 一、现在卡在哪（唯一阻塞）
+**没有阻塞。** 三渠道全部自动发版且版本对齐：npm `v0.18.0` · 桌面 `v0.4.8`（三平台）· Docker `0.18.0`。
 
-**npm 上还是 `0.12.1`，本地已累积 80+ 个提交未发布；本轮已定版 `0.14.0`（+ `desktop-v0.4.3`），就差 publish 这一步。**
-
-> 为什么跳过 0.13.0：那一版打过 tag、写过 CHANGELOG，但**从没发到 npm**（就是下面这个 2FA 问题），
-> tag `v0.13.0` 又停在 `fd3b7a7`（落后现在的 main 很多）。与其挪 tag，不如直接发 0.14.0——
-> 对 npm 用户来说是 `0.12.1 → 0.14.0`，0.13.0 的内容随这一版一并送达（CHANGELOG 已注明）。
-
-发布流水线（`.github/workflows/release.yml`，推 `v*` tag 触发）跑到最后一步失败：
-
-```
-npm error code EOTP
-npm error This operation requires a one-time password from your authenticator.
-```
-
-仓库 Secret 里的 `NPM_TOKEN` 不是 Automation 类型，CI 里没人能输 2FA 验证码。**测试、构建、产物校验、打包全部通过，只死在这一步。**
-
-两条解法（建议都做）：
-
-1. **先把这版发出去**——本机已登录 npm（`jnmetacode`），在会话里输一行即可（`prepublishOnly` 会自动 build + build:studio + verify:release）：
-   ```
-   npm publish --otp=<你的6位码>
-   ```
-2. **一劳永逸**——npmjs → Access Tokens 新建 **Automation** token（专为 CI 设计，绕过 2FA），更新仓库 Secret `NPM_TOKEN`，然后重跑失败的 job：
-   ```
-   gh run rerun 31157163095 --failed --repo jnMetaCode/agency-orchestrator
-   ```
-
-> 旧 tag `v0.13.0` / `desktop-v0.4.2` 都停在 `fd3b7a7`（本轮大部分工作之前），**没有去挪它们**——
-> 挪 tag 会让已经拉过的下游对不上。新 tag 是 `v0.14.0` 与 `desktop-v0.4.3`，都打在当前 main 上。
-> 桌面端必须跟着发，Windows 用户才拿得到 #102 的修复（它构建时打包 `../dist` 与 `../website/dist`）。
+- **发版**：推 `v*` tag → npm（Trusted Publishing/OIDC）+ Docker（内置等-npm-出现的防竞态轮询）；推 `desktop-v*` → 三平台桌面包。macOS 签名流水线已备好，填 5 个 Secrets 即自动真签名+公证（`docs/SIGNING.md`）。**给流水线加新步骤前必须本地原样预演**（悬空 .bin 符号链接曾炸掉一次 mac 构建）。
+- **本轮新增能力**（0.15–0.18）：`ao report` 分享报告页 / `--notify` 群推送（钉钉/飞书/企微自适配）/ `--export pptx` / 图片输入 vision（data URI 协议，`src/utils/vision.ts`）/ 社区模板收录制（远程清单 `communityTemplates`，CONTRIBUTING 有投稿指南）/ Studio「新版可用」角标 / gemini-cli 软下线（`DEPRECATED_CLI_PROVIDERS`）。
+- **官网**：SEO 静态页 sitemap 已达 545 条 URL（267 角色 + 25 工作流 + 229 创意提示词 + 12 分类 + 评测中英）；本地 Studio **零统计脚本**（GA 只在公网域名加载——别回退这条）。
+- **角色库**：`agency-agents-zh` 已补齐 C-suite 六件套（CEO/CTO/CMO/COO/CPO/CFO，v1.3.0 待 npm 发布者配置后自动发版）。发布后记得：AO 依赖升级 + 全站「267」计数刷新 + 角色 SEO 页重新生成。
+- **等维护者动作**：Apple 开发者账号（签名）、agency-agents-zh 的 npm Trusted Publisher 配置、两篇文章发布、HN 投稿。
 
 ## 二、两条互相独立的生效路径（重要）
 

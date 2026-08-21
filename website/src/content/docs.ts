@@ -147,6 +147,38 @@ export const docGroups: DocGroup[] = [
               en: "Every run saves all step outputs to `ao-output/<name>-<timestamp>/`: `metadata.json` holds step ids and states, and `steps/` has each step's output. These artifacts power resume and rework.",
             },
           },
+          {
+            heading: { zh: "分享报告页（ao report）", en: "Shareable report (ao report)" },
+            body: {
+              zh: "跑出满意成果后，一条命令渲染成**自包含单文件 HTML**：专家分工时间线 + 每步产出 + 最终成品标记，图片已内联。发微信/邮件，对方双击即开、无需装 AO。Studio 运行详情里也有「分享页」按钮（直接下载该文件）。",
+              en: "One command renders a finished run into a **self-contained single-file HTML**: expert timeline + every step's output, images inlined. Send the file to anyone — it opens on double-click, no AO needed. The Studio run view has a Share button that downloads the same file.",
+            },
+            code: "ao report          # 最近一次运行 → <run>/report.html\nao report <dir>    # 指定运行目录",
+          },
+          {
+            heading: { zh: "结果推送到群（--notify）", en: "Push results to group chat (--notify)" },
+            body: {
+              zh: "`--notify <webhook>` 让工作流跑完自动把结果推到群里——按域名自动适配钉钉/飞书/企业微信机器人格式，其他地址发通用 `{text}`（Slack 兼容）。配合 cron 就是「AI 团队每天定点交活」。推送失败只提示一行，绝不影响运行；也可用环境变量 `AO_NOTIFY_URL`。钉钉机器人的「自定义关键词」填 `AO` 即可。",
+              en: "`--notify <webhook>` posts the result to a group chat when the run finishes — bot format auto-detected for DingTalk/Feishu/WeCom, generic `{text}` otherwise (Slack-compatible). Pair with cron for a daily pipeline. Push failures print one line and never affect the run; `AO_NOTIFY_URL` also works.",
+            },
+            code: "0 8 * * * ao run 每日简报.yaml --notify https://oapi.dingtalk.com/robot/send?access_token=xxx",
+          },
+          {
+            heading: { zh: "导出 PPT / Word / PDF / Excel（--export）", en: "Export PPT / Word / PDF / Excel (--export)" },
+            body: {
+              zh: "`--export pptx|docx|pdf|xlsx` 把本次产出转成对应格式（Studio 运行详情的导出菜单同款）。PPT 会自动：封面页 → 按标题切页 → 列表进要点 → **表格保留结构** → 超长自动分「续」页。有 pandoc 用 pandoc（排版最佳），没有则纯 JS 兜底，两条路径都能出有效文件。另有 `--export skill|plan` 给编码 Agent 用。",
+              en: "`--export pptx|docx|pdf|xlsx` converts the run output (same as the Studio export menu). PPTX: cover slide → split by headings → lists become bullets → **tables keep structure** → overflow auto-continues. Uses pandoc when present (best layout), pure-JS fallback otherwise. `--export skill|plan` targets coding agents.",
+            },
+            code: "ao run workflows/investment-analysis.yaml -i topic=\"AI 眼镜\" --export pptx",
+          },
+          {
+            heading: { zh: "图片输入（vision）", en: "Image input (vision)" },
+            body: {
+              zh: "`-i photo=@截图.png`（png/jpg/gif/webp，≤4MB）自动变成视觉输入，步骤 task 里照常写 `{{photo}}`——图片还能跨步骤传给下游。需要支持视觉的 **API** 模型（如 openai 的 vision 系）；CLI 订阅类 provider 不支持时会剥离图片并明确提示，绝不把 base64 塞进提示词。",
+              en: "`-i photo=@shot.png` (png/jpg/gif/webp, ≤4MB) becomes vision input automatically; reference `{{photo}}` in the task as usual — images even flow to downstream steps. Requires a vision-capable **API** model; CLI subscription providers strip the image with a clear warning instead of stuffing base64 into the prompt.",
+            },
+            code: "ao run 界面走查.yaml -i photo=@产品截图.png --provider openai --model gpt-4o",
+          },
         ],
       },
     ],
