@@ -3,7 +3,7 @@ import type { Language } from "@/i18n/translations";
 /**
  * 赞助商数据。
  *
- * 当前赞助商：APINEBULA（旗舰，银河录像局旗下 AI 聚合平台）、优云智算（UCloud 旗下 AI 云平台）、Cubence（API 中转服务商）、火山引擎（字节跳动云服务，中英文分别对应 volcengine.com / byteplus.com 两个不同站点）、AICodeMirror（Claude / Codex / Gemini 官方高稳定中转）、LanoX AI（全球模型聚合，500+ 模型）、胜算云（面向 AI 原生团队的模型 API 聚合 + 企业级网关）。
+ * 当前赞助商：APINEBULA（旗舰，银河录像局旗下 AI 聚合平台）、优云智算（UCloud 旗下 AI 云平台）、Cubence（API 中转服务商）、火山引擎（字节跳动云服务，中英文分别对应 volcengine.com / byteplus.com 两个不同站点）、AICodeMirror（Claude / Codex / Gemini 官方高稳定中转）、LanoX AI（全球模型聚合，500+ 模型）、胜算云（面向 AI 原生团队的模型 API 聚合 + 企业级网关）、APIMart（AI 图片/视频生成低价 API）。
  * 均为真实付费赞助，非占位样例。新增赞助商时按 Sponsor 结构追加即可。
  * 已下架：RootFlowAI、CCSub（2026-08）、多元探索（2026-08-17，赞助到期）——赞助身份与
  * 曝光位一并摘除，但它们在 Studio 里仍是可用供应商（已配过 key 的用户不该被搞坏）。
@@ -212,6 +212,29 @@ export const sponsors: Sponsor[] = [
     perk: {
       zh: "新用户通过专属链接注册，即可领取 5 元 Token 体验额度",
       en: "New users get ¥5 in token credit when signing up via our link",
+    },
+  },
+  {
+    id: "apimart",
+    name: "APIMart",
+    badge: "M",
+    accent: "from-neutral-800 to-neutral-500",
+    logo: "/sponsors/logo-apimart-icon.png",
+    url: "https://go.apimart.ai/gh-agency-agents-zh",
+    tier: "standard",
+    since: "2026-08",
+    featured: false,
+    tagline: {
+      zh: "AI 图片/视频生成低价 API · GPT-Image-2 低至 $0.006/张",
+      en: "Low-cost API for AI image & video generation · GPT-Image-2 from $0.006/image",
+    },
+    description: {
+      zh: "感谢 APIMart 赞助了本项目！APIMart 是专注 AI 图片/视频生成的低价 API 平台，GPT-Image-2 低至 $0.006/张，1 美元可出图 160+ 张。图片、视频一套异步 API 通吃，提交任务拿 ID、回调取结果，跑批万张不超时、换模型不改代码。按量付费、无月费，通过此注册链接注册即可开用。",
+      en: "Thanks to APIMart for sponsoring this project! APIMart is a low-cost API platform for AI image & video generation — GPT-Image-2 from $0.006/image, 160+ images per dollar. One async API covers both image and video: submit a task, get an ID, fetch results via polling or callback. Batch tens of thousands of images without timeouts, switch models without changing code. Pay-as-you-go with no monthly fee — sign up here to get started.",
+    },
+    perk: {
+      zh: "按量付费、无月费，1 美元可出图 160+ 张，通过专属链接注册即可开用",
+      en: "Pay-as-you-go with no monthly fee — 160+ images per dollar; sign up via our link to start",
     },
   },
 ];
