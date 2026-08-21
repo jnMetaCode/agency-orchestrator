@@ -30,6 +30,13 @@
 
 Prefer not to use the command line? Run `ao web` locally and pick experts, run workflows, view outputs, and intervene live — all in a GUI, fully bilingual (EN/中文).
 
+> 🆕 **"Solo Company" template series**: build a product / produce content / run investment research + an all-hands meeting — key steps carry acceptance criteria; deliverables are verifiable work, not promised miracles.
+> 🆕 **AI auto-teaming**: don't know which experts to pick? Describe the task in one sentence and AI assembles the team from all 267 roles and runs it.
+> 🆕 **Visual canvas**: drag nodes / wire edges (cycle-safe) / edit tasks & roles / save; nodes light up live while running.
+> 🆕 **Zero-config first run**: already logged into Claude Code or another coding CLI? AO auto-detects it — no API key needed.
+> 🆕 **Shareable report page**: one click on a finished run (CLI: `ao report`) renders a self-contained single-file HTML — expert timeline + every step's output. Send the file to anyone; it opens on double-click, no AO required.
+> 🆕 **Result push to group chats**: `ao run --notify <webhook>` posts the result to DingTalk / Feishu (Lark) / WeCom / Slack-style webhooks when done (bot format auto-detected by domain). Pair with cron: "your AI team delivers every morning."
+> 🆕 **Community templates**: a curated remote-manifest section on the Workflows page — one-click import (engine-validated before saving); submit yours via CONTRIBUTING.
 > 🆕 **Safe provider switching + one-click rescue**: switch your system Claude to any relay in one click — written to global config so `claude` **just works in any terminal** — with an **automatic backup first**, a **one-click revert to official login**, and it never touches your official OAuth credentials. Broke `~/.claude` with another switcher or by hand (fake token overriding login → CLI unusable machine-wide)? The "System Claude health" card fixes it in one click. **Other tools switch everything but may break your setup; AO does one thing — switch safely, and fix what others broke.**
 
 <p align="center">
@@ -140,6 +147,34 @@ ao run workflows/en/business-plan.yaml -i idea="B2B SaaS for remote-team project
 ```
 
 Also works inside Cursor / Claude Code — just say "run a workflow." Supports **14 AI coding tools** ([integration guides](./integrations/)).
+
+## From Plan to Execution: AO × Coding-Agent Combo
+
+Big-tech AI workstations sell "we operate your computer for you." Our answer is division of labor: **AO does the thinking, your coding agent does the doing** — the plan is reviewed by multiple experts, the execution is a real coding agent, and nothing in between is a black box:
+
+```bash
+# 1) Multi-expert planning (clarify → plan → project scaffold), code blocks land as real files
+ao run workflows/en/solo-founder-plan.yaml -i idea="a CLI bookkeeping tool" --materialize ./my-app
+
+# 2) Install the 267 expert roles into your coding tool (claude-code / cursor / copilot… 14 tools)
+ao install --tool claude-code
+
+# 3) Hand off to the coding agent — scaffold and experts are already in place
+cd my-app && claude "complete the project per the plan and make the tests pass"
+```
+
+Every artifact lives in `ao-output/` and your project directory: re-runnable (`--resume`), revisable with notes (`--feedback`), shareable (`ao report`). **Wrong plan? Fix the plan. Wrong code? Fix the code. You always know which layer failed.**
+
+## Scheduled Runs + Group Push (your AI team clocks in daily)
+
+`--notify <url>` posts the result to a group chat when a run finishes — bot format auto-detected for DingTalk / Feishu (Lark) / WeCom, generic `{text}` for everything else (Slack-compatible). With cron it becomes a daily pipeline:
+
+```bash
+# every weekday 8am: brief the team channel automatically
+0 8 * * 1-5 ao run workflows/en/content-pipeline.yaml --notify https://open.feishu.cn/open-apis/bot/v2/hook/xxx
+```
+
+Push failures print one line and never affect the run. Want the full output? `ao report last` renders a shareable single-file report page.
 
 ## More Real Demos
 

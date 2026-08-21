@@ -19,7 +19,28 @@ ao run --team <name> "task"           # Run a new task with a saved team (locked
 ao prompt optimize "<prompt>"         # AI-optimize a prompt (--mode system|user, --save)
 ao prompt test / list / show / rm / garden  # Prompt Lab: test / manage / starter templates
 ao skills [name]                      # List / view methodology skills (superpowers-zh) for step `skill:`
+ao report [dir|last]                  # Render a run into a shareable single-file HTML (default: latest run → <run>/report.html)
+ao run <wf> --notify <webhook>        # Push result to DingTalk/Feishu/WeCom/generic webhook when done (AO_NOTIFY_URL also works; cron-friendly)
+ao run <wf> --export pptx             # Export outputs as PPTX (also docx/pdf/xlsx/skill/plan); pandoc preferred, pptxgenjs fallback
+ao run <wf> -i photo=@img.png         # Image inputs auto-become vision input (data-URI protocol, src/utils/vision.ts); needs a vision-capable API model; CLI providers strip+warn
 ```
+
+## Community Templates (remote manifest)
+
+`providers-manifest.json` (website repo, served from ao.aiolaola.com) carries `communityTemplates` —
+curated-only import (URL must be listed; optional `sha256` verified). Endpoints in `web/server.js`:
+`GET /api/community/templates`, `POST /api/community/import` (engine-validated, saved to 我的工作流).
+Contribution flow documented in CONTRIBUTING.md. Listing/de-listing needs only a website push, no release.
+NOTE: manifest `relayPresets` that duplicate built-ins are NOT redundant — old versions rely on them
+(contract test enforces; do not remove).
+
+## Release Pipeline (all automatic)
+
+Push `v*` tag → npm (Trusted Publishing/OIDC) + Docker (waits for npm version to appear — race guard).
+Push `desktop-v*` tag → 3-platform desktop builds. macOS signing auto-activates when CSC_LINK etc.
+secrets are set (`desktop/electron-builder.config.cjs` branches on cert presence; afterSign skips ad-hoc
+re-sign for real certs). CI-only steps must be rehearsed locally before committing (see memory:
+dangling .bin symlinks broke a mac build once).
 
 ## Skills (methodology playbooks)
 
