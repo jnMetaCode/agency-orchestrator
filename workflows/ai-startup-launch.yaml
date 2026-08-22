@@ -16,7 +16,7 @@ inputs:
 steps:
   # CEO 决策
   - id: ceo_vision
-    role: "strategy/nexus-strategy"
+    role: "specialized/business-strategist"
     task: |
       作为 CEO，请基于以下产品创意制定一份简洁的产品愿景和战略方向：
 
@@ -64,7 +64,7 @@ steps:
 
   # CEO 汇总
   - id: launch_decision
-    role: "strategy/nexus-strategy"
+    role: "specialized/business-strategist"
     task: |
       作为 CEO，所有部门方案已提交：
 

@@ -19,7 +19,7 @@ inputs:
 steps:
   # ── 第 1 层：老板定方向 ──
   - id: ceo_kickoff
-    role: "strategy/nexus-strategy"
+    role: "specialized/business-strategist"
     name: "老板"
     emoji: "👔"
     task: |
@@ -157,7 +157,7 @@ steps:
 
   # ── 第 4 层：老板拍板 ──
   - id: ceo_decision
-    role: "strategy/nexus-strategy"
+    role: "specialized/business-strategist"
     name: "老板"
     emoji: "👔"
     task: |
