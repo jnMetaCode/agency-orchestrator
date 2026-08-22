@@ -87,6 +87,12 @@ function normalizeRoleName(rolePath: string): string {
  * 该走 validate 的「你是不是想用 X」提示，不能在这儿悄悄放行——否则错的路径
  * 一直能跑，等哪天角色库真改了名才炸。
  */
+/**
+ * 已经提示过的老路径。一次 `ao run` 里 loadAgent 会被调用四次（校验、列参与者、
+ * 执行前取角色信息、真正执行），同一句提示打四遍不说，还会插进进度行把界面搅花。
+ */
+const movedRoleWarned = new Set<string>();
+
 function resolveMovedRole(agentsDir: string, rolePath: string): string | null {
   const want = normalizeRoleName(rolePath);
   const fromCat = rolePath.split('/')[0];
@@ -128,7 +134,10 @@ export function loadAgent(agentsDir: string, rolePath: string): AgentDefinition 
       // 角色可能只是换了分类目录（见 resolveMovedRole），老路径照常能跑
       const moved = resolveMovedRole(resolvedDir, rolePath);
       if (moved) {
-        console.warn(`⚠️  角色 ${rolePath} 已移至 ${moved}，本次按新位置加载（建议改一下 workflow）`);
+        if (!movedRoleWarned.has(rolePath)) {
+          movedRoleWarned.add(rolePath);
+          console.warn(`⚠️  角色 ${rolePath} 已移至 ${moved}，本次按新位置加载（建议改一下 workflow）`);
+        }
         const def = parseAgentFile(readFileSync(resolve(resolvedDir, `${moved}.md`), 'utf-8'), moved);
         def.rolePath = moved;
         return def;
