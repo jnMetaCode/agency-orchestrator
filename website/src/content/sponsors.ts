@@ -3,7 +3,7 @@ import type { Language } from "@/i18n/translations";
 /**
  * 赞助商数据。
  *
- * 当前赞助商：APINEBULA（旗舰，银河录像局旗下 AI 聚合平台）、优云智算（UCloud 旗下 AI 云平台）、Cubence（API 中转服务商）、火山引擎（字节跳动云服务，中英文分别对应 volcengine.com / byteplus.com 两个不同站点）、AICodeMirror（Claude / Codex / Gemini 官方高稳定中转）、LanoX AI（全球模型聚合，500+ 模型）、胜算云（面向 AI 原生团队的模型 API 聚合 + 企业级网关）、APIMart（AI 图片/视频生成低价 API）。
+ * 当前赞助商：APINEBULA（旗舰，银河录像局旗下 AI 聚合平台）、优云智算（UCloud 旗下 AI 云平台）、Cubence（API 中转服务商）、火山引擎（字节跳动云服务，中英文分别对应 volcengine.com / byteplus.com 两个不同站点）、AICodeMirror（Claude / Codex / Gemini 官方高稳定中转）、LanoX AI（全球模型聚合，500+ 模型）、胜算云（面向 AI 原生团队的模型 API 聚合 + 企业级网关）、APIMart（AI 图片/视频生成低价 API）、秘塔科技（MiniMax H3 视频生成 API）。
  * 均为真实付费赞助，非占位样例。新增赞助商时按 Sponsor 结构追加即可。
  * 已下架：RootFlowAI、CCSub（2026-08）、多元探索（2026-08-17，赞助到期）——赞助身份与
  * 曝光位一并摘除，但它们在 Studio 里仍是可用供应商（已配过 key 的用户不该被搞坏）。
@@ -235,6 +235,29 @@ export const sponsors: Sponsor[] = [
     perk: {
       zh: "按量付费、无月费，1 美元可出图 160+ 张，通过专属链接注册即可开用",
       en: "Pay-as-you-go with no monthly fee — 160+ images per dollar; sign up via our link to start",
+    },
+  },
+  {
+    id: "metaso",
+    name: "秘塔科技",
+    badge: "Ai",
+    accent: "from-blue-700 to-blue-500",
+    logo: "/sponsors/logo-metaso-icon.png",
+    url: "https://metaso.cn/minimax-h3/?s=gt533367",
+    tier: "standard",
+    since: "2026-08",
+    featured: false,
+    tagline: {
+      zh: "MiniMax H3 视频生成 API · 768P 0.09 元/秒，2K 0.15 元/秒",
+      en: "MiniMax H3 video generation API · 768P ¥0.09/s, 2K ¥0.15/s",
+    },
+    description: {
+      zh: "感谢秘塔科技赞助了本项目！秘塔科技提供高性价比的 MiniMax H3 API 服务，适合漫剧、营销视频及批量视频生成：768P 0.09 元/秒、2K 0.15 元/秒，原生 2K 画质、支持音画同步。API 兼容 OpenAI 协议，支持 ComfyUI，无需自行部署模型和 GPU，开箱即用。",
+      en: "Thanks to MetaSota for sponsoring this project! MetaSota offers cost-effective MiniMax H3 API service for animated series, marketing videos and batch video generation: ¥0.09/s at 768P and ¥0.15/s at 2K, with native 2K quality and synchronized audio. The API is OpenAI-protocol compatible and works with ComfyUI — no model deployment or GPU of your own required, ready to use out of the box.",
+    },
+    perk: {
+      zh: "通过专属链接注册，即可享受赠送额度及专属优惠",
+      en: "Sign up via our link to get bonus credit and an exclusive discount",
     },
   },
 ];
