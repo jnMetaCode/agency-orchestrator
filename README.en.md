@@ -30,14 +30,28 @@
 
 Prefer not to use the command line? Run `ao web` locally and pick experts, run workflows, view outputs, and intervene live — all in a GUI, fully bilingual (EN/中文).
 
-> 🆕 **"Solo Company" template series**: build a product / produce content / run investment research + an all-hands meeting — key steps carry acceptance criteria; deliverables are verifiable work, not promised miracles.
-> 🆕 **AI auto-teaming**: don't know which experts to pick? Describe the task in one sentence and AI assembles the team from all 267 roles and runs it.
-> 🆕 **Visual canvas**: drag nodes / wire edges (cycle-safe) / edit tasks & roles / save; nodes light up live while running.
-> 🆕 **Zero-config first run**: already logged into Claude Code or another coding CLI? AO auto-detects it — no API key needed.
-> 🆕 **Shareable report page**: one click on a finished run (CLI: `ao report`) renders a self-contained single-file HTML — expert timeline + every step's output. Send the file to anyone; it opens on double-click, no AO required.
-> 🆕 **Result push to group chats**: `ao run --notify <webhook>` posts the result to DingTalk / Feishu (Lark) / WeCom / Slack-style webhooks when done (bot format auto-detected by domain). Pair with cron: "your AI team delivers every morning."
-> 🆕 **Community templates**: a curated remote-manifest section on the Workflows page — one-click import (engine-validated before saving); submit yours via CONTRIBUTING.
-> 🆕 **Safe provider switching + one-click rescue**: switch your system Claude to any relay in one click — written to global config so `claude` **just works in any terminal** — with an **automatic backup first**, a **one-click revert to official login**, and it never touches your official OAuth credentials. Broke `~/.claude` with another switcher or by hand (fake token overriding login → CLI unusable machine-wide)? The "System Claude health" card fixes it in one click. **Other tools switch everything but may break your setup; AO does one thing — switch safely, and fix what others broke.**
+**Get running**
+
+- **Zero-config first run** — already logged into Claude Code or another coding CLI? AO auto-detects it — no API key needed
+- **AI auto-teaming** — don't know which experts to pick? Describe the task in one sentence and AI assembles the team from all 267 roles and runs it
+- **"Solo Company" template series** — build a product / produce content / run investment research + an all-hands meeting; key steps carry acceptance criteria, so deliverables are verifiable work, not promised miracles
+
+**Shape it your way**
+
+- **Visual canvas** — drag nodes / wire edges (cycle-safe) / edit tasks & roles / save; nodes light up live while running
+- **Multilingual role libraries** — `npm i agency-agents-ko` (ko / ru / pt-br / id / ar), then switch libraries from the "Role library" dropdown; workflows just put the package name in `agents_dir`
+
+**Ship what you made**
+
+- 🆕 **Shareable report page** — one click on a finished run (CLI: `ao report`) renders a self-contained single-file HTML: expert timeline + every step's output. Send the file to anyone; it opens on double-click, no AO required
+- 🆕 **Result push to group chats** — `ao run --notify <webhook>` posts the result to DingTalk / Feishu (Lark) / WeCom / Slack-style webhooks when done (bot format auto-detected by domain). Pair with cron: "your AI team delivers every morning"
+- 🆕 **Community templates** — a curated remote-manifest section on the Workflows page: one-click import (engine-validated before saving); submit yours via CONTRIBUTING
+
+**The one thing only AO does: safe provider switching + one-click rescue**
+
+Switch your system Claude to any relay in one click — written to global config so `claude` **just works in any terminal** — with an **automatic backup first**, a **one-click revert to official login**, and it never touches your official OAuth credentials. Broke `~/.claude` with another switcher or by hand (fake token overriding login → CLI unusable machine-wide)? The "System Claude health" card fixes it in one click.
+
+> Other tools switch everything but may break your setup; **AO does one thing — switch safely, and fix what others broke.**
 
 <p align="center">
   <img src="./docs/screenshots/studio-role-lib-ko.png" alt="Studio · Build a Team: role-library dropdown (Korean library shown)" width="800"><br/>
