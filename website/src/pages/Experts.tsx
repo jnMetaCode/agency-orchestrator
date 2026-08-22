@@ -155,7 +155,10 @@ export default function Experts() {
   const categories = useMemo(() => {
     const m = new Map<string, string>();
     all.forEach((e) => m.set(e.category, e.categoryName));
-    return Array.from(m, ([id, name]) => ({ id, name }));
+    // 「公司经营」（CEO/CTO/CFO…）排第一个：它是"一人公司"这条叙事的入口，
+    // 按目录字母序会被埋在"学术研究"后面，来的人根本不知道有高管层。
+    return Array.from(m, ([id, name]) => ({ id, name }))
+      .sort((a, b) => (a.id === "company" ? -1 : b.id === "company" ? 1 : 0));
   }, [all]);
 
   const list = useMemo(() => {

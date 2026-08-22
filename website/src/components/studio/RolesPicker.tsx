@@ -206,7 +206,9 @@ export function RolesPicker({
     const map = new Map<string, string>();
     // 「我的」有专属 tab（始终显示，含新建入口），不混进普通类目
     roles.forEach((r) => { if (r.category !== "my") map.set(r.category, r.categoryName || r.category); });
-    return Array.from(map, ([id, name]) => ({ id, name }));
+    // 「公司经营」排普通类目第一个（同 website/src/pages/Experts.tsx）：组队时先看见高管层
+    return Array.from(map, ([id, name]) => ({ id, name }))
+      .sort((a, b) => (a.id === "company" ? -1 : b.id === "company" ? 1 : 0));
   }, [roles]);
 
   const filtered = useMemo(() => {
