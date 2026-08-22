@@ -473,6 +473,16 @@ export async function compareWorkflowVsBaseline(
  * 供 validate/plan 等只读路径做"best-effort role 校验"复用。
  */
 export function findAgentsDir(agentsDir: string, workflowPath: string): string | null {
+  // 0. AO_AGENTS_DIR（自带私有角色库）优先于一切。帮助文案与 CLAUDE.md 都承诺它
+  //    "run/compose/roles/web 全局生效"，但此前只有 compose/roles/web 走 cli.ts 的
+  //    resolveAgentsDir 认这个变量；run/validate/plan 走本函数，而**几乎每个工作流都写了
+  //    `agents_dir:`**（内置模板全写，自动组队产物也会补上），于是设了变量却照样跑内置库——
+  //    用户以为自己的私有专家生效了，实际一个都没用上。
+  if (process.env.AO_AGENTS_DIR) {
+    const custom = resolve(process.env.AO_AGENTS_DIR);
+    if (existsSync(custom)) return custom;
+  }
+
   // 1. 如果 YAML 中指定的路径存在，直接用
   const absolute = resolve(agentsDir);
   if (existsSync(absolute)) return absolute;
