@@ -462,10 +462,12 @@ function getRoleMeta(role) {
 }
 
 const catEmojiMap = {
+  company:'🏢',
   marketing:'📣', 'paid-media':'📺', sales:'🤝', product:'📱',
   'project-management':'📋', testing:'🧪', support:'🛠', 'spatial-computing':'🌐',
   specialized:'⚙️', 'game-development':'🎮', engineering:'💻', design:'🎨',
   academic:'🎓', finance:'💰', hr:'👥', legal:'⚖️', strategy:'🧭', 'supply-chain':'📦',
+  gis:'🗺', security:'🔐',
 };
 
 // 内置工作流分类 + 推荐（集中映射，避免改每个 YAML；用户工作流可在 YAML 自带 category/featured）。
@@ -1010,22 +1012,28 @@ app.post('/api/compare', async (req, res) => {
 });
 
 // ── Roles / Agents ──
+// 没登记的分类会原样显示目录名（gis / security 就这么在官网上露了很久），
+// 角色库加新分类时这里必须同步——website/scripts/gen-experts.mjs 里还有一份同口径的。
 const CATEGORY_NAMES = {
   zh: {
     my: '我的',
+    company: '公司经营',
     marketing: '市场营销', 'paid-media': '付费媒体', sales: '销售', product: '产品',
     'project-management': '项目管理', testing: '质量测试', support: '运营支持',
     'spatial-computing': '空间计算', specialized: '专业服务', 'game-development': '游戏开发',
     engineering: '工程开发', design: '设计', academic: '学术研究', finance: '财务金融',
     hr: '人力资源', legal: '法务', strategy: '战略', 'supply-chain': '供应链',
+    gis: 'GIS 地理信息', security: '安全',
   },
   en: {
     my: 'My Roles',
+    company: 'Company',
     marketing: 'Marketing', 'paid-media': 'Paid Media', sales: 'Sales', product: 'Product',
     'project-management': 'Project Management', testing: 'Testing', support: 'Support',
     'spatial-computing': 'Spatial Computing', specialized: 'Specialized', 'game-development': 'Game Dev',
     engineering: 'Engineering', design: 'Design', academic: 'Academic', finance: 'Finance',
     hr: 'HR', legal: 'Legal', strategy: 'Strategy', 'supply-chain': 'Supply Chain',
+    gis: 'GIS', security: 'Security',
   },
 };
 

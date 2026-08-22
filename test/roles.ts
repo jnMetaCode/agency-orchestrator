@@ -87,5 +87,47 @@ try {
   rmSync(tmp, { recursive: true, force: true });
 }
 
+// ── 角色换分类目录后，老路径仍能加载（agency-agents-zh 1.4.0 把高管收进 company/）──
+console.log('\n=== 换分类兜底（老 rolePath 不炸）===');
+
+const tmp2 = mkdtempSync(join(tmpdir(), 'ao-moved-roles-'));
+mkdirSync(join(tmp2, 'company'), { recursive: true });
+mkdirSync(join(tmp2, 'specialized'), { recursive: true });
+mkdirSync(join(tmp2, 'finance'), { recursive: true });
+writeFileSync(join(tmp2, 'company', 'chief-financial-officer.md'), '---\nname: 首席财务官\n---\n\n你是 CFO。\n');
+writeFileSync(join(tmp2, 'company', 'chief-of-staff.md'), '---\nname: 幕僚长\n---\n\n你是幕僚长。\n');
+writeFileSync(join(tmp2, 'specialized', 'prompt-engineer.md'), '---\nname: 提示词工程师\n---\n\n你是提示词工程师。\n');
+
+try {
+  test('老路径 specialized/chief-financial-officer 落到 company/（同名文件跨分类）', () => {
+    const a = loadAgent(tmp2, 'specialized/chief-financial-officer');
+    assert(a.name === '首席财务官', `应加载到 CFO，实际 ${a.name}`);
+    assert(a.rolePath === 'company/chief-financial-officer', `rolePath 应指向新位置，实际 ${a.rolePath}`);
+  });
+  test('老路径带分类前缀也能对上（specialized-chief-of-staff → chief-of-staff）', () => {
+    assert(loadAgent(tmp2, 'specialized/specialized-chief-of-staff').name === '幕僚长', '应加载到幕僚长');
+  });
+  test('同分类内漏写前缀不兜底（留给 validate 的「你是不是想用 X」）', () => {
+    mkdirSync(join(tmp2, 'engineering'), { recursive: true });
+    writeFileSync(join(tmp2, 'engineering', 'engineering-backend-architect.md'), '---\nname: 后端架构师\n---\n\n你是后端架构师。\n');
+    let threw = false;
+    try { loadAgent(tmp2, 'engineering/backend-architect'); } catch { threw = true; }
+    assert(threw, '同分类内的笔误应报错，而不是悄悄放行');
+  });
+  test('真不存在的角色照常报错，不乱猜', () => {
+    let threw = false;
+    try { loadAgent(tmp2, 'specialized/nope-nobody'); } catch { threw = true; }
+    assert(threw, '应抛「角色文件不存在」');
+  });
+  test('多个分类下有同名角色时不猜，按原样报错', () => {
+    writeFileSync(join(tmp2, 'finance', 'chief-financial-officer.md'), '---\nname: 另一个 CFO\n---\n\n重名。\n');
+    let threw = false;
+    try { loadAgent(tmp2, 'specialized/chief-financial-officer'); } catch { threw = true; }
+    assert(threw, '有歧义时应报错而不是随便挑一个');
+  });
+} finally {
+  rmSync(tmp2, { recursive: true, force: true });
+}
+
 console.log(`\n  结果: ${passed} 通过, ${failed} 失败\n`);
 if (failed > 0) process.exit(1);

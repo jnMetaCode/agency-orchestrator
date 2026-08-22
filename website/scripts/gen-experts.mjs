@@ -9,9 +9,11 @@ import { fileURLToPath } from "node:url";
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const repoRoot = resolve(__dirname, "..", "..");
 
+// 漏登记的分类会拿目录名当中文名显示（gis / security 就这么在专家页上露了很久）——
+// 角色库加新分类时这里和 web/server.js 的 CATEGORY_NAMES 要一起改。
 const CATEGORY_NAMES = {
-  zh: { marketing: "市场营销", "paid-media": "付费媒体", sales: "销售", product: "产品", "project-management": "项目管理", testing: "质量测试", support: "运营支持", "spatial-computing": "空间计算", specialized: "专业服务", "game-development": "游戏开发", engineering: "工程开发", design: "设计", academic: "学术研究", finance: "财务金融", hr: "人力资源", legal: "法务", strategy: "战略", "supply-chain": "供应链" },
-  en: { marketing: "Marketing", "paid-media": "Paid Media", sales: "Sales", product: "Product", "project-management": "Project Management", testing: "Testing", support: "Support", "spatial-computing": "Spatial Computing", specialized: "Specialized", "game-development": "Game Dev", engineering: "Engineering", design: "Design", academic: "Academic", finance: "Finance", hr: "HR", legal: "Legal", strategy: "Strategy", "supply-chain": "Supply Chain" },
+  zh: { company: "公司经营", marketing: "市场营销", "paid-media": "付费媒体", sales: "销售", product: "产品", "project-management": "项目管理", testing: "质量测试", support: "运营支持", "spatial-computing": "空间计算", specialized: "专业服务", "game-development": "游戏开发", engineering: "工程开发", design: "设计", academic: "学术研究", finance: "财务金融", hr: "人力资源", legal: "法务", strategy: "战略", "supply-chain": "供应链", gis: "GIS 地理信息", security: "安全" },
+  en: { company: "Company", marketing: "Marketing", "paid-media": "Paid Media", sales: "Sales", product: "Product", "project-management": "Project Management", testing: "Testing", support: "Support", "spatial-computing": "Spatial Computing", specialized: "Specialized", "game-development": "Game Dev", engineering: "Engineering", design: "Design", academic: "Academic", finance: "Finance", hr: "HR", legal: "Legal", strategy: "Strategy", "supply-chain": "Supply Chain", gis: "GIS", security: "Security" },
 };
 
 function parseRole(raw) {
@@ -72,7 +74,14 @@ function loadLib(dir, lang) {
   return out;
 }
 
-const zh = loadLib(join(repoRoot, "node_modules", "agency-agents-zh"), "zh");
+// 默认读 npm 装的中文库（= 用户真能装到的那一版）。改角色库时用 AO_AGENTS_DIR 指到本地仓库预览，
+// 与引擎的 AO_AGENTS_DIR 同名同义。注意：**提交 experts.json 前要用 npm 装的那份重新生成** ——
+// 官网写着 275 位而 npm 只发了 267 位，用户照着抄 role 路径就是「角色文件不存在」。
+const zhDir = process.env.AO_AGENTS_DIR
+  ? resolve(process.env.AO_AGENTS_DIR)
+  : join(repoRoot, "node_modules", "agency-agents-zh");
+if (process.env.AO_AGENTS_DIR) console.warn(`⚠️  中文库改读 AO_AGENTS_DIR=${zhDir}（本地预览用，别把产物提交上去）`);
+const zh = loadLib(zhDir, "zh");
 const en = loadLib(join(repoRoot, "agency-agents"), "en");
 
 if (!zh || !en) {

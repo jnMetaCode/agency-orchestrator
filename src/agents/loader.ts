@@ -64,6 +64,42 @@ function collectRolePaths(baseDir: string): string[] {
 }
 
 /**
+ * 去掉文件名里跟自己分类同名的前缀：
+ *   specialized/specialized-chief-of-staff → chief-of-staff
+ *   company/chief-financial-officer        → chief-financial-officer
+ * 角色库里两种命名都有（多数带分类前缀，高管这批不带），归一后才能跨分类比对。
+ */
+function normalizeRoleName(rolePath: string): string {
+  const parts = rolePath.split('/');
+  const base = parts[parts.length - 1];
+  const cat = parts[0];
+  return parts.length > 1 && base.startsWith(`${cat}-`) ? base.slice(cat.length + 1) : base;
+}
+
+/**
+ * 角色换了分类目录后的兜底。角色库偶尔会重排分类（1.4.0 就把 CEO/CFO/幕僚长
+ * 这批从 specialized/ 收进了 company/），而用户的 workflow.yaml、~/.ao/teams
+ * 里存的是老路径 —— 硬报「角色文件不存在」等于升级一次角色库就炸一批人的流程。
+ * 这里按归一后的文件名在**别的分类**下找同名角色：唯一命中才用（并提示新路径），
+ * 命中多个说明有歧义，宁可按原样报错也不猜。
+ *
+ * 只认跨分类：同分类内写错名字（engineering/backend-architect 少了前缀）是笔误，
+ * 该走 validate 的「你是不是想用 X」提示，不能在这儿悄悄放行——否则错的路径
+ * 一直能跑，等哪天角色库真改了名才炸。
+ */
+function resolveMovedRole(agentsDir: string, rolePath: string): string | null {
+  const want = normalizeRoleName(rolePath);
+  const fromCat = rolePath.split('/')[0];
+  let hit: string | null = null;
+  for (const candidate of collectRolePaths(agentsDir)) {
+    if (candidate.split('/')[0] === fromCat || normalizeRoleName(candidate) !== want) continue;
+    if (hit) return null; // 多个候选，有歧义
+    hit = candidate;
+  }
+  return hit;
+}
+
+/**
  * 加载指定角色的定义
  * @param agentsDir agency-agents 的 agents 目录路径
  * @param rolePath 角色路径，如 "engineering/engineering-sre"
@@ -87,6 +123,15 @@ export function loadAgent(agentsDir: string, rolePath: string): AgentDefinition 
       const userPath = resolve(userDir, `${rolePath.slice(USER_ROLE_CATEGORY.length + 1)}.md`);
       if (userPath.startsWith(userDir + sep) && existsSync(userPath)) {
         return parseAgentFile(readFileSync(userPath, 'utf-8'), rolePath);
+      }
+    } else if (existsSync(resolvedDir)) {
+      // 角色可能只是换了分类目录（见 resolveMovedRole），老路径照常能跑
+      const moved = resolveMovedRole(resolvedDir, rolePath);
+      if (moved) {
+        console.warn(`⚠️  角色 ${rolePath} 已移至 ${moved}，本次按新位置加载（建议改一下 workflow）`);
+        const def = parseAgentFile(readFileSync(resolve(resolvedDir, `${moved}.md`), 'utf-8'), moved);
+        def.rolePath = moved;
+        return def;
       }
     }
     throw new Error(`角色文件不存在: ${fullPath}\n请确认 agents_dir 和 role 路径正确`);
