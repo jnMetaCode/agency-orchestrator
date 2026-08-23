@@ -157,8 +157,13 @@ export async function run(
     Object.assign(workflow.llm, options.llmOverride);
   }
 
-  // 创建 connector
-  const connector = createConnector(workflow.llm);
+  // 创建 connector。**纯媒体工作流（每步都是 type: image / video）没有文本调用**，
+  // 而视频供应商（秘塔等）压根不是文本连接器 —— 这里硬建就会被"暂不支持 provider"挡死，
+  // 明明那条工作流一次文本模型都用不上。与"没有角色就不强求角色库"是同一条道理。
+  const needsTextConnector = workflow.steps.some((s) => s.type !== 'image' && s.type !== 'video');
+  const connector = needsTextConnector
+    ? createConnector(workflow.llm)
+    : (undefined as unknown as ReturnType<typeof createConnector>);
 
   // 构建输入
   const inputMap = new Map(Object.entries(inputs));

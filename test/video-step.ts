@@ -1,0 +1,269 @@
+/**
+ * 文生视频步骤（type: video）。
+ *
+ * 视频 API 与图片最大的不同是**异步**：建任务 → 轮询 → 下载签名链接。这里钉住的除了
+ * 正常链路，主要是几条真机探出来的坑与花钱纪律：
+ *   - 查询接口**不严格匹配 task_id**（秘塔实测：传 task_id=1 也回全量列表），
+ *     必须按 id 精确过滤，否则并发跑两个视频步骤会张冠李戴
+ *   - 失败要原样带出厂商的 error.code/message，超时要说清"任务还在跑、钱可能花了"
+ *   - 模型必填（不猜）、非视频 provider 给可读报错、mp4 的 base64 绝不进 metadata
+ */
+import http from 'node:http';
+import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { generateVideo, resolveVideoAccess } from '../src/connectors/video.js';
+import { parseWorkflow } from '../src/core/parser.js';
+import { saveResults } from '../src/output/reporter.js';
+import type { LLMConfig, WorkflowResult } from '../src/types.js';
+
+let passed = 0;
+let failed = 0;
+function test(name: string, fn: () => void | Promise<void>): Promise<void> {
+  return Promise.resolve(fn()).then(
+    () => { console.log(`  ✅ ${name}`); passed++; },
+    (err) => { console.log(`  ❌ ${name}: ${err instanceof Error ? err.message : err}`); failed++; },
+  );
+}
+function assert(c: boolean, m: string): void { if (!c) throw new Error(m); }
+const listen = async (srv: http.Server): Promise<number> => {
+  await new Promise<void>((r) => srv.listen(0, '127.0.0.1', () => r()));
+  return (srv.address() as { port: number }).port;
+};
+const MP4 = Buffer.from('0000001c667479706d70343200000000', 'hex');   // 够用的假 mp4 头
+const cfg = (o: Record<string, unknown> = {}): LLMConfig =>
+  ({ provider: 'metaso', api_key: 'mk-test', ...o } as unknown as LLMConfig);
+
+/**
+ * 一个按秘塔实测契约行为的假服务：
+ *   POST /v2/video_generation        → {"task_id": "…"}
+ *   GET  /v2/query/video_generation  → {"items":[…]}（**故意忽略 task_id 参数、返回全量**）
+ *   GET  /file.mp4                   → mp4 字节
+ */
+function fakeMetaso(opts: {
+  status?: string;                 // 目标任务的最终状态
+  pendingRounds?: number;          // 前几轮返回 processing
+  error?: { code: string; message: string };
+  createStatus?: number;
+  createBody?: string;
+} = {}) {
+  const seen: { createBody?: any; queries: number } = { queries: 0 };
+  const srv = http.createServer((req, res) => {
+    const url = new URL(req.url || '/', 'http://x');
+    if (req.method === 'POST' && url.pathname.endsWith('/v2/video_generation')) {
+      let body = '';
+      req.on('data', (c) => { body += c; });
+      req.on('end', () => {
+        seen.createBody = JSON.parse(body || '{}');
+        if (opts.createStatus && opts.createStatus >= 400) {
+          res.writeHead(opts.createStatus, { 'Content-Type': 'application/json' });
+          return res.end(opts.createBody ?? '{"type":"error","error":{"message":"boom"}}');
+        }
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ task_id: '2091363060444401664' }));
+      });
+      return;
+    }
+    if (url.pathname.endsWith('/v2/query/video_generation')) {
+      seen.queries++;
+      const pending = (opts.pendingRounds ?? 0) >= seen.queries;
+      // 第一条是**别人的**已完成任务：拿 items[0] 当结果就会取错（真机上就是这个形状）
+      const items: any[] = [
+        { id: '2090760201004867584', status: 'succeeded', content: { url: `http://127.0.0.1:${port}/other.mp4` }, usage: { total_seconds: 4 } },
+        {
+          id: '2091363060444401664',
+          status: pending ? 'processing' : (opts.status ?? 'succeeded'),
+          ...(opts.error ? { error: opts.error } : {}),
+          ...(!pending && (opts.status ?? 'succeeded') === 'succeeded'
+            ? { content: { url: `http://127.0.0.1:${port}/mine.mp4?expires=1&signature=x` }, usage: { total_seconds: 5 } }
+            : {}),
+        },
+      ];
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      return res.end(JSON.stringify({ items, total: items.length }));
+    }
+    if (url.pathname === '/mine.mp4') {
+      res.writeHead(200, { 'Content-Type': 'video/mp4' });
+      return res.end(MP4);
+    }
+    if (url.pathname === '/other.mp4') {
+      res.writeHead(200, { 'Content-Type': 'video/mp4' });
+      return res.end(Buffer.from('WRONG-VIDEO'));
+    }
+    res.writeHead(404).end('{}');
+  });
+  let port = 0;
+  return { srv, seen, setPort: (p: number) => { port = p; } };
+}
+
+console.log('\n─── 解析期就拦住的错误（视频更贵更慢，别等几分钟才发现） ───');
+
+await test('video 步骤不需要 role，task 就是视频提示词', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'ao-vid-wf-'));
+  const f = join(dir, 'w.yaml');
+  writeFileSync(f, 'name: "x"\nllm:\n  provider: "metaso"\n  model: "m"\nsteps:\n  - id: a\n    type: video\n    task: "一只猫跳上窗台"\n    video:\n      model: "MiniMax-H3"\n', 'utf-8');
+  const wf = parseWorkflow(f);
+  assert(wf.steps[0].type === 'video' && !wf.steps[0].role, '应通过且无需 role');
+  rmSync(dir, { recursive: true, force: true });
+});
+
+await test('缺 video.model 在解析期就报错（不猜模型编码）', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'ao-vid-wf-'));
+  const f = join(dir, 'w.yaml');
+  writeFileSync(f, 'name: "x"\nllm:\n  provider: "metaso"\n  model: "m"\nsteps:\n  - id: a\n    type: video\n    task: "猫"\n', 'utf-8');
+  let msg = '';
+  try { parseWorkflow(f); } catch (e) { msg = e instanceof Error ? e.message : String(e); }
+  assert(/video: \{ model/.test(msg), `报错应指明要写 video.model，实际：${msg}`);
+  rmSync(dir, { recursive: true, force: true });
+});
+
+await test('video 步骤挂 acceptance 直接报错，不静默忽略', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'ao-vid-wf-'));
+  const f = join(dir, 'w.yaml');
+  writeFileSync(f, 'name: "x"\nllm:\n  provider: "metaso"\n  model: "m"\nsteps:\n  - id: a\n    type: video\n    task: "猫"\n    acceptance: "要好看"\n    video:\n      model: "MiniMax-H3"\n', 'utf-8');
+  let msg = '';
+  try { parseWorkflow(f); } catch (e) { msg = e instanceof Error ? e.message : String(e); }
+  assert(/acceptance/.test(msg), `应明说不支持 acceptance，实际：${msg}`);
+  rmSync(dir, { recursive: true, force: true });
+});
+
+console.log('\n─── 端点与凭证解析 ───');
+
+await test('非视频 provider 给可读报错，并列出可用的视频供应商', () => {
+  let msg = '';
+  try { resolveVideoAccess(cfg({ provider: 'deepseek' }), {}); } catch (e) { msg = e instanceof Error ? e.message : String(e); }
+  assert(/不是/.test(msg) && /metaso/.test(msg), `应点破并给出可用项，实际：${msg}`);
+});
+
+await test('缺 key 时报错指明环境变量名', () => {
+  const saved = process.env.METASO_API_KEY;
+  delete process.env.METASO_API_KEY;
+  let msg = '';
+  try { resolveVideoAccess({ provider: 'metaso' } as LLMConfig, {}); } catch (e) { msg = e instanceof Error ? e.message : String(e); }
+  if (saved) process.env.METASO_API_KEY = saved;
+  assert(/METASO_API_KEY/.test(msg), `应指明 env 名，实际：${msg}`);
+});
+
+await test('video.provider 可覆盖 llm.provider（一条工作流里文本走一家、视频走另一家）', () => {
+  const r = resolveVideoAccess(cfg({ provider: 'deepseek' }), { provider: 'metaso' });
+  assert(r.spec.id === 'metaso' && r.baseUrl.includes('metaso.cn'), `应解析到秘塔，实际 ${r.spec?.id} ${r.baseUrl}`);
+});
+
+console.log('\n─── 异步链路：建任务 → 轮询 → 下载 ───');
+
+await test('完整链路跑通，拿到 mp4 字节与计费秒数', async () => {
+  const fake = fakeMetaso({ pendingRounds: 1 });
+  const port = await listen(fake.srv);
+  fake.setPort(port);
+  try {
+    const v = await generateVideo(
+      cfg({ base_url: `http://127.0.0.1:${port}` }),
+      '一只猫跳上窗台',
+      { model: 'MiniMax-H3', resolution: '768P', duration: 5, ratio: '16:9', poll_interval: 10 },
+    );
+    assert(v.buffer.equals(MP4), '应拿到我们那条任务的 mp4');
+    assert(v.taskId === '2091363060444401664', `task_id 应带回，实际 ${v.taskId}`);
+    assert(v.seconds === 5, `应带回计费秒数，实际 ${v.seconds}`);
+    assert(fake.seen.queries >= 2, '应至少轮询到 processing 之后再拿结果');
+  } finally { fake.srv.close(); }
+});
+
+await test('按 task_id 精确过滤——绝不把列表里别人的成品当自己的', async () => {
+  const fake = fakeMetaso();
+  const port = await listen(fake.srv);
+  fake.setPort(port);
+  try {
+    const v = await generateVideo(
+      cfg({ base_url: `http://127.0.0.1:${port}` }),
+      'x',
+      { model: 'MiniMax-H3', poll_interval: 10 },
+    );
+    assert(!v.buffer.toString().includes('WRONG-VIDEO'), '取到了列表里第一条（别人的）任务——按 id 过滤失效');
+    assert(v.buffer.equals(MP4), '应取自己那条');
+  } finally { fake.srv.close(); }
+});
+
+await test('resolution / duration / ratio 原样进请求体（不替用户放大）', async () => {
+  const fake = fakeMetaso();
+  const port = await listen(fake.srv);
+  fake.setPort(port);
+  try {
+    await generateVideo(
+      cfg({ base_url: `http://127.0.0.1:${port}` }),
+      '猫',
+      { model: 'MiniMax-H3', resolution: '2K', duration: 7, ratio: '9:16', poll_interval: 10 },
+    );
+    const b = fake.seen.createBody;
+    assert(b.model === 'MiniMax-H3' && b.resolution === '2K' && b.duration === 7 && b.ratio === '9:16',
+      `参数没原样透传：${JSON.stringify(b)}`);
+    assert(b.content?.[0]?.text === '猫', `提示词应放在 content[0].text，实际 ${JSON.stringify(b.content)}`);
+  } finally { fake.srv.close(); }
+});
+
+await test('任务失败时原样带出厂商的 code/message 与 task_id', async () => {
+  const fake = fakeMetaso({ status: 'failed', error: { code: '1000', message: 'video generation failed' } });
+  const port = await listen(fake.srv);
+  fake.setPort(port);
+  let msg = '';
+  try {
+    await generateVideo(cfg({ base_url: `http://127.0.0.1:${port}` }), 'x', { model: 'MiniMax-H3', poll_interval: 10 });
+  } catch (e) { msg = e instanceof Error ? e.message : String(e); } finally { fake.srv.close(); }
+  assert(/video generation failed/.test(msg) && /1000/.test(msg) && /2091363060444401664/.test(msg),
+    `报错要能拿去对账，实际：${msg}`);
+});
+
+await test('建任务就被拒（如余额不足）→ 原样报出，不轮询', async () => {
+  const fake = fakeMetaso({ createStatus: 402, createBody: '{"type":"error","error":{"type":"insufficient_balance_error","message":"H3 积分余额不足 (1008)"}}' });
+  const port = await listen(fake.srv);
+  fake.setPort(port);
+  let msg = '';
+  try {
+    await generateVideo(cfg({ base_url: `http://127.0.0.1:${port}` }), 'x', { model: 'MiniMax-H3', poll_interval: 10 });
+  } catch (e) { msg = e instanceof Error ? e.message : String(e); } finally { fake.srv.close(); }
+  assert(/402/.test(msg) && /余额不足/.test(msg), `应原样带出厂商正文，实际：${msg}`);
+  assert(fake.seen.queries === 0, '建任务失败后不该再轮询');
+});
+
+await test('超时报错带 task_id，并说清"任务可能还在跑、费用可能已产生"', async () => {
+  const fake = fakeMetaso({ pendingRounds: 999 });
+  const port = await listen(fake.srv);
+  fake.setPort(port);
+  let msg = '';
+  try {
+    await generateVideo(cfg({ base_url: `http://127.0.0.1:${port}` }), 'x',
+      { model: 'MiniMax-H3', poll_interval: 10, timeout: 120 });
+  } catch (e) { msg = e instanceof Error ? e.message : String(e); } finally { fake.srv.close(); }
+  assert(/超时/.test(msg) && /2091363060444401664/.test(msg) && /费用/.test(msg), `实际：${msg}`);
+});
+
+await test('缺 model 时连请求都不发', async () => {
+  let msg = '';
+  try { await generateVideo(cfg(), 'x', {}); } catch (e) { msg = e instanceof Error ? e.message : String(e); }
+  assert(/video: \{ model/.test(msg), `实际：${msg}`);
+});
+
+console.log('\n─── 产物落盘 ───');
+
+await test('mp4 落到 assets/，base64 绝不进 metadata.json', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'ao-vid-out-'));
+  const result = {
+    workflowName: 'v',
+    steps: [{
+      id: 'clip', role: '', status: 'completed', output: '[▶ clip.mp4](assets/clip.mp4)',
+      duration: 1000, tokens: { input: 0, output: 0 },
+      videoAsset: { filename: 'clip.mp4', base64: MP4.toString('base64'), seconds: 5 },
+    }],
+    totalDuration: 1000, totalTokens: { input: 0, output: 0 }, completedSteps: 1, totalSteps: 1,
+  } as unknown as WorkflowResult;
+  const out = saveResults(result, dir, 'v');
+  const mp4 = join(out, 'assets', 'clip.mp4');
+  assert(existsSync(mp4), 'mp4 应落到 assets/');
+  assert(readFileSync(mp4).equals(MP4), 'mp4 字节应完整');
+  const meta = readFileSync(join(out, 'metadata.json'), 'utf-8');
+  assert(!/base64/.test(meta) && meta.includes('clip.mp4'), 'metadata 只该留 filename，不该带 base64');
+  assert(/"seconds": 5/.test(meta), 'metadata 应保留计费秒数（对账用）');
+  rmSync(dir, { recursive: true, force: true });
+});
+
+console.log(`\n  结果: ${passed} 通过, ${failed} 失败\n`);
+if (failed > 0) process.exit(1);

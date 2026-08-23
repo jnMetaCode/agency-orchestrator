@@ -514,7 +514,7 @@ export function groupModelsByVendor(models: string[], vendors?: Record<string, s
 
 // 有正方形图标素材的赞助商/供应商 → website/public/sponsors/logo-<id>-icon.png（served at /sponsors/…）。
 // 只对确有文件的 id 返回路径，避免其它供应商拿到 404 的 <img>。
-const PROVIDER_LOGO_IDS = new Set(["compshare", "cubence", "apinebula", "rootflowai", "ccsub", "volcengine", "duoyuanx", "aicodemirror", "lanox", "shengsuanyun", "apimart"]);
+const PROVIDER_LOGO_IDS = new Set(["compshare", "cubence", "apinebula", "rootflowai", "ccsub", "volcengine", "duoyuanx", "aicodemirror", "lanox", "shengsuanyun", "apimart", "metaso"]);
 /** 少数供应商的 logo 是 svg（AICodeMirror），其余是 png —— 硬编码扩展名会 404 */
 const PROVIDER_LOGO_SVG_IDS = new Set(["aicodemirror"]);
 export function providerLogo(id: string): string | undefined {
@@ -727,6 +727,12 @@ export interface ApiProviderMeta {
   flagship?: boolean;
   /** 进阶赞助商 —— 视觉与旗舰同款金色高亮+星标,仅徽章文案不同(进阶赞助商),用于置顶展示的重点赞助商 */
   advanced?: boolean;
+  /**
+   * 只能跑 `type: video` 步骤的视频供应商（如秘塔的 MiniMax H3）。
+   * 它在「供应商」页出现**只为了让人配 key**——绝不能进顶栏的模型下拉：那个下拉是给
+   * 文本步骤选模型的，选中它每一步都会失败（它没有 chat/images 端点，只有异步视频任务）。
+   */
+  videoOnly?: boolean;
   sponsor?: boolean;
   /**
    * 已下架：默认不在供应商列表里露出（不再向新用户推荐）。但**已经配过 key 的用户
@@ -787,6 +793,11 @@ export const API_PROVIDERS: ApiProviderMeta[] = [
   // `type: image` 步骤与创意库「一键出图」用（同一个 key 也通聊天模型）。
   // 不给 modelSuggestions：零余额账户 GET /v1/models 也回 402，模型编码尚未核实（见引擎侧说明）。
   { id: "apimart", name: "APIMart", hint: "api.apimart.ai · 图片/视频低价 API · 配好 key 点「获取模型列表」", defaultBaseUrl: "https://api.apimart.ai/v1", signupUrl: "https://go.apimart.ai/gh-agency-agents-zh", sponsor: true },
+  // 赞助商 秘塔科技（2026-08-23 接入）—— **视频专用供应商**，给 `type: video` 步骤用：
+  // MiniMax-H3 文生视频，768P 0.09 元/秒、2K 0.15 元/秒。端点是 MiniMax 官方 API 换了 Host，
+  // 建任务/查状态两条路径已用真 key 实探核实（见引擎 VIDEO_PROVIDERS 的说明）。
+  // videoOnly：它没有 chat/images 端点，进了模型下拉就是给用户挖坑。
+  { id: "metaso", name: "秘塔科技", shortName: "秘塔", hint: "metaso.cn · MiniMax-H3 文生视频 · 768P 0.09 元/秒", defaultBaseUrl: "https://metaso.cn/api/minimax", signupUrl: "https://metaso.cn/minimax-h3/?s=gt533367", sponsor: true, videoOnly: true, modelSuggestions: ["MiniMax-H3"] },
   { id: "deepseek", name: "DeepSeek", hint: "platform.deepseek.com", defaultBaseUrl: "https://api.deepseek.com/v1", vendor: true, modelSuggestions: ["deepseek-chat", "deepseek-reasoner"] },
   // 默认端点**不带 /v1**：Anthropic 客户端（SDK / claude CLI）自己会接 /v1/messages，
   // base 里再写一遍就成了 /v1/v1/messages。这里是用户配中转时照抄的形状样板，写错等于

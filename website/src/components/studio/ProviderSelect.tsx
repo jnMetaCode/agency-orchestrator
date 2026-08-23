@@ -101,9 +101,10 @@ export function ProviderSelect({ value, onChange, onOpenProviders }: { value: st
     ) : null;
   const groups: { label: string; ids: string[] }[] = [
     // 聚合平台：内置聚合商(旗舰/赞助商在前) + 远程清单上架的赞助商
-    { label: g.groupAggregators, ids: [...API_PROVIDERS.filter((p) => !p.vendor).map((p) => p.id), ...remoteProviders.map((r) => r.id)] },
+    // videoOnly 的供应商（秘塔等）只跑 type: video 步骤，没有 chat 端点——不进这个下拉
+    { label: g.groupAggregators, ids: [...API_PROVIDERS.filter((p) => !p.vendor && !p.videoOnly).map((p) => p.id), ...remoteProviders.map((r) => r.id)] },
     // 模型公司官方 API
-    { label: g.groupVendors, ids: API_PROVIDERS.filter((p) => p.vendor).map((p) => p.id) },
+    { label: g.groupVendors, ids: API_PROVIDERS.filter((p) => p.vendor && !p.videoOnly).map((p) => p.id) },
     { label: g.groupCli, ids: [...CLI_PROVIDER_IDS] },
     { label: g.groupLocal, ids: ["ollama"] },
     ...(customProviders.length > 0 ? [{ label: g.groupCustom, ids: customProviders.map((c) => c.id) }] : []),

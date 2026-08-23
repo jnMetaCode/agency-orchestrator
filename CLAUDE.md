@@ -158,11 +158,29 @@ steps:
       size: "1024x1024"              # optional; also: quality, background
     output: cover_img                # variable = markdown image ref; PNG saved to <run>/assets/
     depends_on: [some_step]
+
+  - id: promo                        # text-to-video step: task IS the video prompt
+    type: video                      # no role needed; needs a VIDEO provider (own registry)
+    task: "A tabby cat jumps onto the windowsill"
+    video:
+      provider: "metaso"             # optional if llm.provider is already a video provider
+      model: "MiniMax-H3"            # REQUIRED — never guessed
+      resolution: "768P"             # optional; passed through verbatim (vendor-specific tiers)
+      duration: 5                    # seconds — billed per second, never inflated by the engine
+      ratio: "16:9"
+    output: promo_mp4                # variable = markdown link; mp4 saved to <run>/assets/
 ```
 
 Image steps try the OpenAI Images API (`/images/generations`) first and automatically fall
 back to the Responses API + `image_generation` tool (LanoX-style). PNG lands in
 `ao-output/<run>/assets/`, Studio renders it inline via `GET /api/runs/:id/assets/:file`.
+
+Video steps are **async**: create task → poll → download. Providers live in a separate
+`VIDEO_PROVIDERS` table (`src/connectors/api-providers.ts`) because they are neither
+OpenAI-compatible nor Anthropic-protocol — currently MetaSota (MiniMax-H3). Gotcha found by
+probing: its query endpoint ignores `task_id` and returns **all** of the account's tasks, so
+the connector filters by id (`src/connectors/video.ts`). A workflow whose steps are *all*
+image/video needs neither `llm.model` nor a text connector.
 
 ## Role Directory
 

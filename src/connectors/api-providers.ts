@@ -156,3 +156,47 @@ export const ANTHROPIC_PROVIDERS: AnthropicProviderSpec[] = [
 export const ANTHROPIC_PROVIDER_MAP: Record<string, AnthropicProviderSpec> = Object.fromEntries(
   ANTHROPIC_PROVIDERS.map((p) => [p.id, p]),
 );
+
+/**
+ * 文生视频供应商（`type: video` 步骤的端点表）。
+ *
+ * **第三张表，别往前两张里塞**：视频不是 OpenAI 兼容的一次性请求，而是
+ * 「建任务 → 轮询状态 → 下载成品」的异步流程，请求体与响应形状都跟 chat/images 无关。
+ * 混进 API_PROVIDERS 会让 Studio 的模型下拉、省钱模式、图片端点推断全部误判。
+ *
+ * 秘塔科技（赞助商）的 MiniMax H3：端点是把 MiniMax 官方 API 换了个 Host，
+ * 2026-08-23 用真实 key 实探核实：
+ *   建任务  POST {base}/v2/video_generation      → {"task_id":"…"}
+ *   查状态  GET  {base}/v2/query/video_generation → {"items":[…],"total":n}
+ *   成品    items[].content.url（files.metaso.cn 的签名链接，带 expires）
+ * 坑：**查询接口不严格匹配 task_id**——传 task_id=1 也照样 200 并列出账号里所有任务，
+ * 所以必须自己按 id 过滤，拿 items[0] 当结果迟早张冠李戴（见 video.ts）。
+ * v1 路径、/files/retrieve 都是 404，只有 v2 这两条在。
+ */
+export interface VideoProviderSpec {
+  id: string;
+  envKey: string;
+  envBase: string;
+  defaultBaseUrl: string;
+  /** 建任务与查询的相对路径（不同厂商形状不同，写死在这里而不是散在连接器里） */
+  createPath: string;
+  queryPath: string;
+  /** 目前只有 MiniMax 这一种形状；接别家时按其响应结构新增分支，别硬套 */
+  shape: 'minimax';
+}
+
+export const VIDEO_PROVIDERS: VideoProviderSpec[] = [
+  {
+    id: 'metaso',
+    envKey: 'METASO_API_KEY',
+    envBase: 'METASO_BASE_URL',
+    defaultBaseUrl: 'https://metaso.cn/api/minimax',
+    createPath: 'v2/video_generation',
+    queryPath: 'v2/query/video_generation',
+    shape: 'minimax',
+  },
+];
+
+export const VIDEO_PROVIDER_MAP: Record<string, VideoProviderSpec> = Object.fromEntries(
+  VIDEO_PROVIDERS.map((p) => [p.id, p]),
+);

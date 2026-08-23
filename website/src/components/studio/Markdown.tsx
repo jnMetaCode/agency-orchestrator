@@ -19,7 +19,19 @@ export function Markdown({ children, className }: { children: string; className?
           li: ({ node, ...p }) => <li className="leading-relaxed" {...p} />,
           strong: ({ node, ...p }) => <strong className="font-semibold text-foreground" {...p} />,
           em: ({ node, ...p }) => <em className="italic" {...p} />,
-          a: ({ node, ...p }) => <a className="text-primary underline underline-offset-2" target="_blank" rel="noreferrer" {...p} />,
+          // type: video 步骤的产物在 md 里是一条链接（[▶ id.mp4](assets/id.mp4)，服务端已改写成
+          // /api/runs/:id/assets/…）。渲染成播放器而不是一条要另开标签的链接——跑完就能就地看片。
+          a: ({ node, children, ...p }) =>
+            /\.mp4($|\?)/i.test(String(p.href ?? "")) ? (
+              <video
+                className="my-2 max-h-96 max-w-full rounded-lg border border-border/60"
+                src={String(p.href)}
+                controls
+                preload="metadata"
+              />
+            ) : (
+              <a className="text-primary underline underline-offset-2" target="_blank" rel="noreferrer" {...p}>{children}</a>
+            ),
           blockquote: ({ node, ...p }) => (
             <blockquote className="my-2 border-l-2 border-primary/40 pl-3 text-muted-foreground" {...p} />
           ),

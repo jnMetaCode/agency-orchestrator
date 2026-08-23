@@ -159,16 +159,16 @@ test('官网赞助商页：旗舰打头，AICodeMirror 紧随其后；已下架�
 // 「最后一位」这个位置是给最新上架的那家的：LanoX 于 2026-08 上架时占着，同月胜算云上架后
 // 顺位后移，2026-08-23 APIMart 接入后再后移一位。改这条断言时记得两处一起改
 // （Studio 列表 + 官网卡片），它防的是"顺序被无意打乱"，不是阻止正常上架。
-test('Studio 供应商列表：APIMart 排赞助商组最后一位（最新接入者）', () => {
+test('Studio 供应商列表：秘塔排赞助商组最后一位（最新接入者）', () => {
   const order = providerOrder();
-  const i = order.indexOf('apimart');
-  assert(i >= 0, `apimart 不在 Studio 供应商列表里：${order.join(' → ')}`);
-  assert(order.indexOf('shengsuanyun') === i - 1, `胜算云应紧邻末位（接入顺序仅早于 APIMart）：${order.join(' → ')}`);
+  const i = order.indexOf('metaso');
+  assert(i >= 0, `metaso 不在 Studio 供应商列表里：${order.join(' → ')}`);
+  assert(order.indexOf('apimart') === i - 1, `APIMart 应紧邻末位（接入顺序仅早于秘塔）：${order.join(' → ')}`);
   // 后面只允许跟「非赞助商」（自家 API / 已下架的），不能再冒出别的赞助商把它顶到中间
   const block = studioSrc.slice(studioSrc.indexOf('export const API_PROVIDERS: ApiProviderMeta[]'));
   const lines = block.slice(0, block.indexOf('\n];')).split('\n').filter((l) => /\{ id: "/.test(l));
   const after = lines.slice(i + 1).filter((l) => /sponsor: true|flagship: true|advanced: true/.test(l));
-  assert(after.length === 0, `APIMart 之后还排着别的赞助商：\n    ${after.join('\n    ')}`);
+  assert(after.length === 0, `秘塔之后还排着别的赞助商：\n    ${after.join('\n    ')}`);
 });
 
 test('官网赞助商页：最新上架的赞助商排最后一张卡（当前=秘塔科技）', () => {

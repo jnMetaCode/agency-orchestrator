@@ -42,8 +42,8 @@ export const docGroups: DocGroup[] = [
           {
             heading: { zh: "解决什么问题", en: "What problems it solves" },
             body: {
-              zh: "- **让 agency-agents 的专家真正协作起来**：单个专家只解决一个环节，AO 让多位专家按 DAG 分工、并行、交接\n- 单次 prompt 难以覆盖复杂任务，多专家分工 + 收口质量更高\n- 不想写编排代码：用 YAML 声明依赖，引擎自动并行；或一句话 `compose` 自动选专家、生成并运行\n- 267 位专家覆盖营销、工程、设计、产品、财务、法律、销售、学术等领域\n- 28 个 provider（云端 API + 编码 CLI + 本地模型），其中 8 个免 API key",
-              en: "- **Make agency-agents' experts actually collaborate**: one expert handles one step; AO has many experts divide work, run in parallel, and hand off via a DAG\n- A single prompt struggles with complex tasks; multi-expert division + a finalizer yields higher quality\n- No orchestration code: declare dependencies in YAML, or `compose` from one sentence to auto-pick experts, generate and run\n- 267 experts across marketing, engineering, design, product, finance, legal, sales, academic, and more\n- 28 providers (cloud APIs + coding CLIs + local models), 8 of which need no API key",
+              zh: "- **让 agency-agents 的专家真正协作起来**：单个专家只解决一个环节，AO 让多位专家按 DAG 分工、并行、交接\n- 单次 prompt 难以覆盖复杂任务，多专家分工 + 收口质量更高\n- 不想写编排代码：用 YAML 声明依赖，引擎自动并行；或一句话 `compose` 自动选专家、生成并运行\n- 267 位专家覆盖营销、工程、设计、产品、财务、法律、销售、学术等领域\n- 29 个 provider（云端 API + 编码 CLI + 本地模型），其中 8 个免 API key",
+              en: "- **Make agency-agents' experts actually collaborate**: one expert handles one step; AO has many experts divide work, run in parallel, and hand off via a DAG\n- A single prompt struggles with complex tasks; multi-expert division + a finalizer yields higher quality\n- No orchestration code: declare dependencies in YAML, or `compose` from one sentence to auto-pick experts, generate and run\n- 267 experts across marketing, engineering, design, product, finance, legal, sales, academic, and more\n- 29 providers (cloud APIs + coding CLIs + local models), 8 of which need no API key",
             },
           },
           {
@@ -241,6 +241,24 @@ steps:
       size: "1024x1024"        # 可选；另有 quality / background
     output: cover_img
     depends_on: [write_copy]`,
+          },
+          {
+            heading: { zh: "文生视频步骤（type: video）", en: "Video steps (type: video)" },
+            body: {
+              zh: "步骤写 `type: video` 就是文生视频，**`task` 就是视频提示词**，同样不需要 role、`video.model` 必填。与图片最大的不同是**它是异步任务**：引擎建任务拿 task_id → 轮询状态 → 下载成品，一次几十秒到几分钟，且**按秒计费**——`duration` 写多少就是花多少，引擎绝不替你放大。mp4 落在 `ao-output/<run>/assets/`，输出变量是一条 markdown 链接，Studio 运行页与分享报告会渲染成播放器（报告页超过 12MB 的视频不内联，改为保留链接并说明原文件在 assets/ 下）。视频供应商是**独立的一张表**（当前：秘塔科技的 MiniMax-H3），聊天/图片的 provider 没有视频任务端点——用 `video.provider` 单独指定，或把 `llm.provider` 设成它。失败与超时都会带上 task_id，可拿去服务商控制台对账。",
+              en: "A step with `type: video` generates a video: **`task` is the prompt**, no role needed, and `video.model` is required. Unlike images this is an **async task**: the engine creates a task, polls for status, then downloads the result — tens of seconds to minutes, and it is **billed per second**, so `duration` is exactly what you pay for (the engine never inflates it). The mp4 lands in `ao-output/<run>/assets/`; the output variable is a markdown link that the Studio run view and the shareable report render as a player (videos above 12MB are not inlined into the report — the link is kept with a note that the file is under assets/). Video providers live in their **own registry** (currently MetaSota's MiniMax-H3); chat/image providers have no video task endpoint — point at one with `video.provider`, or set `llm.provider` to it. Failures and timeouts always carry the task_id so you can reconcile it in the provider's console.",
+            },
+            code: `steps:
+  - id: promo
+    type: video
+    task: "一只橘猫跳上窗台，阳光洒进来"
+    video:
+      provider: "metaso"       # 视频供应商（缺省取 llm.provider）
+      model: "MiniMax-H3"      # 必填
+      resolution: "768P"       # 可选：768P / 2K …（各家档位名不同，原样透传）
+      duration: 5              # 秒（按秒计费）
+      ratio: "16:9"
+    output: promo_mp4`,
           },
         ],
       },

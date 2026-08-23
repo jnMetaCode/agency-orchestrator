@@ -16,6 +16,7 @@ import { loadAgent } from '../agents/loader.js';
 import { collectSkillNames, injectSkills } from '../skills/loader.js';
 import { createConnector } from '../connectors/factory.js';
 import { generateImage } from '../connectors/image.js';
+import { generateVideo } from '../connectors/video.js';
 import { verifyAcceptance, buildReworkBlock, formatFailedItems } from './verify.js';
 import { checkAssert, buildAssertReworkBlock } from './assert.js';
 import { createInterface } from 'node:readline';
@@ -193,6 +194,7 @@ export async function executeDAG(dag: DAG, options: ExecutorOptions): Promise<Wo
               duration: Date.now() - (node.startTime || Date.now()),
               tokens: node.tokenUsage || { input: 0, output: 0 },
               imageAsset: node.imageAsset,
+              videoAsset: node.videoAsset,
             });
           }
           return value;
@@ -242,6 +244,7 @@ export async function executeDAG(dag: DAG, options: ExecutorOptions): Promise<Wo
           tokens: node.tokenUsage || { input: 0, output: 0 },
           iterations: iterCount > 0 ? iterCount + 1 : undefined,
           imageAsset: node.imageAsset,
+          videoAsset: node.videoAsset,
         });
 
         onStepComplete?.(node);
@@ -452,6 +455,25 @@ async function executeStep(
     const kb = (img.buffer.length / 1024).toFixed(0);
     process.stderr.write(`  🎨 ${node.step.id} 生成图片 ${filename}（${kb}KB，${img.via === 'images-api' ? 'Images API' : 'Responses 工具'}）\n`);
     return `![${node.step.id}](assets/${filename})`;
+  }
+
+  // 文生视频节点：与文生图同构，区别是**异步任务**——建任务、轮询、下载，一次几十秒到几分钟。
+  // 产出 = markdown 链接（assets/<id>.mp4）；Studio 与分享报告按扩展名渲染成播放器。
+  if (node.step.type === 'video') {
+    node.agentName = node.step.name || '文生视频';
+    node.agentEmoji = node.step.emoji || '🎬';
+    const prompt = renderTemplate(node.step.task, opts.context);
+    const stepLlmVid = node.step.llm;
+    const vidConfig = (stepLlmVid ? { ...opts.llmConfig, ...stepLlmVid } : opts.llmConfig) as LLMConfig;
+    const videoOpts = { ...(node.step.video ?? {}) };
+    // model 同样过变量渲染（内置模板不替用户猜视频模型名，交给必填 input）
+    if (typeof videoOpts.model === 'string') videoOpts.model = renderTemplate(videoOpts.model, opts.context);
+    const vid = await generateVideo(vidConfig, prompt, videoOpts, (m: string) => process.stderr.write(`  ${m}\n`));
+    const filename = `${node.step.id}.mp4`;
+    node.videoAsset = { filename, base64: vid.buffer.toString('base64'), ...(vid.seconds ? { seconds: vid.seconds } : {}) };
+    const mb = (vid.buffer.length / 1024 / 1024).toFixed(1);
+    process.stderr.write(`  🎬 ${node.step.id} 生成视频 ${filename}（${mb}MB${vid.seconds ? `，计费 ${vid.seconds}s` : ''}）\n`);
+    return `[▶ ${node.step.id}.mp4](assets/${filename})`;
   }
 
   // 加载角色定义（步骤级 name/emoji 优先）

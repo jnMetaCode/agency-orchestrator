@@ -51,6 +51,15 @@ function mdToHtml(md: string, resolveAsset?: (src: string) => string | null): st
       const inlined = resolveAsset(src);
       return inlined ? `src="${inlined}"` : whole;
     });
+    // type: video 的产物在 md 里是链接（[▶ id.mp4](assets/id.mp4)）。报告页的卖点是"单文件、
+    // 发给谁都能看"，所以能内联就内联成播放器；文件太大时 resolveAsset 会拒绝（返回 null），
+    // 那就保留原链接并在旁边说清楚"视频没内联、在运行目录的 assets/ 里"——不假装它能播。
+    html = html.replace(/<a href="([^"]+\.mp4)"[^>]*>(.*?)<\/a>/gi, (whole, src: string) => {
+      const inlined = resolveAsset(src);
+      return inlined
+        ? `<video src="${inlined}" controls preload="metadata" style="max-width:100%;border-radius:10px;margin:8px 0"></video>`
+        : `${whole} <em style="opacity:.7">（视频体积较大，未内联到本页；原文件在运行目录的 assets/ 下）</em>`;
+    });
   }
   return html;
 }
@@ -85,14 +94,20 @@ export function renderRunDirReport(runDir: string, generatedAt?: string): string
 
   // 相对图片内联成 data URI。注意 md 里的引用是相对 steps/ 目录写的
   // （image 步骤产物是 `../assets/xx.png`），所以先按 steps/ 为基准解析，再退回 runDir。
-  const MIME: Record<string, string> = { '.png': 'image/png', '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.gif': 'image/gif', '.webp': 'image/webp', '.svg': 'image/svg+xml' };
+  const MIME: Record<string, string> = { '.png': 'image/png', '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.gif': 'image/gif', '.webp': 'image/webp', '.svg': 'image/svg+xml', '.mp4': 'video/mp4' };
+  // 视频内联上限：一段 5s/768P 的片子一般 1~3MB，内联没问题；2K 长片可能几十 MB，
+  // base64 还要再涨 1/3 —— 那种体积的单文件 HTML 发不出去也打不开，宁可退回链接并说明。
+  const INLINE_CAP = 12 * 1024 * 1024;
   const resolveAsset = (src: string): string | null => {
     if (/^(https?:|data:)/.test(src)) return null;
-    const ext = (src.match(/\.[a-z]+$/i)?.[0] || '').toLowerCase();
+    const ext = (src.match(/\.[a-z0-9]+$/i)?.[0] || '').toLowerCase();
     if (!MIME[ext]) return null;
     for (const base of [join(runDir, 'steps'), runDir]) {
       const f = join(base, src);
-      if (existsSync(f)) return `data:${MIME[ext]};base64,${readFileSync(f).toString('base64')}`;
+      if (!existsSync(f)) continue;
+      const bytes = readFileSync(f);
+      if (bytes.length > INLINE_CAP) return null;
+      return `data:${MIME[ext]};base64,${bytes.toString('base64')}`;
     }
     return null;
   };

@@ -45,9 +45,23 @@ export interface StepDefinition {
   skill?: string;             // 给本步挂一个方法论 skill（注入 system prompt），如 "test-driven-development"
   skills?: string[];          // 多个 skill（与 skill 合并）
   depends_on?: string[];      // 依赖的步骤 id
-  type?: 'normal' | 'approval' | 'human_input' | 'image'; // 节点类型（image = 文生图：task 即图片提示词）
+  type?: 'normal' | 'approval' | 'human_input' | 'image' | 'video'; // 节点类型（image/video = 文生图/文生视频：task 即提示词）
   /** type: image 专用——图片模型与参数（model 必填：各家图片模型编码互不通用，不猜） */
   image?: { model?: string; size?: string; quality?: string; background?: string };
+  /**
+   * type: video 专用——文生视频参数（model 必填，同图片：各家编码互不通用，不猜）。
+   * 视频是**异步任务**（建任务 → 轮询 → 下载），一次跑几十秒到几分钟，且按秒计费，
+   * 所以 duration 写多少就是花多少钱——默认不替用户放大。
+   */
+  video?: {
+    provider?: string;    // 视频供应商 id（缺省取 llm.provider）
+    model?: string;       // 如 "MiniMax-H3"
+    resolution?: string;  // 如 "768P" / "1080P" / "2K"（原样透传，各家档位名不同）
+    duration?: number;    // 秒
+    ratio?: string;       // 如 "16:9"
+    timeout?: number;     // 整个任务（建 + 轮询 + 下载）的上限毫秒，默认 10 分钟
+    poll_interval?: number; // 轮询间隔毫秒，默认 5 秒
+  };
   prompt?: string;            // approval / human_input 类型的提示文本
   condition?: string;           // 如 "{{category}} contains bug"
   depends_on_mode?: 'all' | 'any_completed';  // 默认 'all'（任一跳过→跳过），'any_completed' = 只要有一个完成就执行
@@ -77,6 +91,8 @@ export interface DAGNode {
   verification?: StepVerification; // acceptance 自动核验结果（executeStep 写入）
   /** type: image 的产物（base64 只在内存里过一道手，saveResults 落成 assets/ 下的文件） */
   imageAsset?: { filename: string; base64: string };
+  /** type: video 的产物（与 imageAsset 同一套落盘机制；mp4 比 png 大，base64 只在落盘前存在） */
+  videoAsset?: { filename: string; base64: string; seconds?: number };
 }
 
 /**
@@ -156,4 +172,6 @@ export interface StepResult {
   verification?: StepVerification; // acceptance 自动核验结果（进 metadata，查看器/summary 展示）
   /** type: image 的产物。base64 仅在 saveResults 落盘前存在，metadata 里只留 filename */
   imageAsset?: { filename: string; base64?: string };
+  /** type: video 的产物。同上：metadata 里只留 filename 与时长 */
+  videoAsset?: { filename: string; base64?: string; seconds?: number };
 }

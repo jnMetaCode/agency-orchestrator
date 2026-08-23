@@ -42,13 +42,20 @@ export function saveResults(result: WorkflowResult, outputDir: string): string {
   // 图片步骤的产物：base64 只在内存里过一道手，这里落成 assets/ 下的真文件。
   // 落完就把 base64 从 StepResult 上摘掉 —— metadata.json 里只留 filename，
   // 免得一张 2MB 的图以 base64 形态把 metadata 撑成巨型 JSON。
-  const withAssets = result.steps.filter((s) => s.imageAsset?.base64);
+  // 视频（type: video）走同一套：mp4 比 png 大得多，更不能让 base64 留在 metadata 里。
+  const withAssets = result.steps.filter((s) => s.imageAsset?.base64 || s.videoAsset?.base64);
   if (withAssets.length) {
     const assetsDir = join(dir, 'assets');
     mkdirSync(assetsDir, { recursive: true });
     for (const s of withAssets) {
-      writeFileSync(join(assetsDir, s.imageAsset!.filename), Buffer.from(s.imageAsset!.base64!, 'base64'));
-      delete s.imageAsset!.base64;
+      if (s.imageAsset?.base64) {
+        writeFileSync(join(assetsDir, s.imageAsset.filename), Buffer.from(s.imageAsset.base64, 'base64'));
+        delete s.imageAsset.base64;
+      }
+      if (s.videoAsset?.base64) {
+        writeFileSync(join(assetsDir, s.videoAsset.filename), Buffer.from(s.videoAsset.base64, 'base64'));
+        delete s.videoAsset.base64;
+      }
     }
   }
 
@@ -163,8 +170,9 @@ export function saveResults(result: WorkflowResult, outputDir: string): string {
       error: s.error,
       duration: `${(s.duration / 1000).toFixed(1)}s`,
       tokens: s.tokens,
-      // 图片步骤只留 filename（base64 在上面落盘时已摘掉）——Studio 据此把图渲染出来
+      // 图片/视频步骤只留 filename（base64 在上面落盘时已摘掉）——Studio 据此渲染图与播放器
       imageAsset: s.imageAsset,
+      videoAsset: s.videoAsset,
     })),
   };
   writeFileSync(join(dir, 'metadata.json'), JSON.stringify(metadata, null, 2), 'utf-8');

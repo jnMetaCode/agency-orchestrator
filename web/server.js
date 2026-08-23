@@ -15,7 +15,7 @@ import { createHash } from 'node:crypto';
 import { tmpdir, homedir } from 'node:os';
 import yaml from 'js-yaml';
 import { detectInstalledCliProviders, detectUsableCliProviders } from '../dist/providers/detect.js';
-import { API_PROVIDERS, API_PROVIDER_MAP, ANTHROPIC_PROVIDERS, ANTHROPIC_PROVIDER_MAP } from '../dist/connectors/api-providers.js';
+import { API_PROVIDERS, API_PROVIDER_MAP, ANTHROPIC_PROVIDERS, ANTHROPIC_PROVIDER_MAP, VIDEO_PROVIDERS, VIDEO_PROVIDER_MAP } from '../dist/connectors/api-providers.js';
 // base_url 规整 / 跳转保持 POST / 少写多写 /v1 兜底 —— 与运行时连接器同一份实现，
 // 保证「测试连接」和真正跑起来的行为一致（不会出现测试过了但一跑就 405）。
 import { normalizeBaseUrl, postChatCompletions, postApiEndpoint, endpointHint, joinEndpoint } from '../dist/connectors/openai-compatible.js';
@@ -203,6 +203,10 @@ const KEY_ENV = {
   // 绝不能复用 ANTHROPIC_BASE_URL，那个变量同时被 claude-code 订阅 CLI 读，
   // 注入后会把用户本机的 CLI 一起改道（见 applyKeys 里的说明）。
   ...Object.fromEntries(ANTHROPIC_PROVIDERS.map((p) => [p.id, { key: p.envKey, base: p.envBase }])),
+  // 文生视频供应商（type: video）：只为了让用户能在 Studio 里存 key、桌面端也能跑视频步骤。
+  // 它们**不是聊天/图片供应商**，下面 /api/config 会把 family 标成 'video'，
+  // 免得混进模型下拉或图片端点推断里（选了它跑文本步骤必然失败）。
+  ...Object.fromEntries(VIDEO_PROVIDERS.map((p) => [p.id, { key: p.envKey, base: p.envBase }])),
   // claude-code / gemini-cli 走本地 CLI 子进程,不经过 factory 的 connector,而是这两个
   // 官方 CLI 自己原生支持的"中转"环境变量 —— 未登录官方账号时,填第三方中转商(如
   // Cubence)的 base_url + token 也能用。子进程 spawn 时 env:{...process.env} 会
@@ -732,8 +736,11 @@ app.get('/api/runs/:id/assets/:file', (req, res) => {
   if (!isInside(filePath, join(runDir, 'assets')) || !existsSync(filePath)) {
     return res.status(404).json({ error: 'asset not found' });
   }
-  // 目前图片步骤只产 png；即便未来有别的扩展名，白名单兜底成通用二进制
-  const mime = /\.png$/i.test(filePath) ? 'image/png' : 'application/octet-stream';
+  // 图片步骤产 png，视频步骤（type: video）产 mp4；其余扩展名兜底成通用二进制。
+  // mp4 必须给对 Content-Type，否则 <video> 标签在部分浏览器里直接不播（当成下载）。
+  const mime = /\.png$/i.test(filePath) ? 'image/png'
+    : /\.mp4$/i.test(filePath) ? 'video/mp4'
+    : 'application/octet-stream';
   res.setHeader('Content-Type', mime);
   res.setHeader('Cache-Control', 'private, max-age=86400');   // 产物不可变，放心缓存
   res.send(readFileSync(filePath));
@@ -1800,6 +1807,9 @@ app.get('/api/config', async (_req, res) => {
           }
         : {}),
     };
+    // 视频供应商单独一族：imageProviders 与顶栏模型下拉都只认 family:'api'，
+    // 标成 video 就天然不会被误选（它没有 chat / images 端点）。
+    if (VIDEO_PROVIDER_MAP[provider]) providers[provider].family = 'video';
   }
   providers.ollama = {
     family: 'local',

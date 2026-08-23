@@ -53,7 +53,12 @@ export function parseWorkflow(
   }
   // CLI providers（claude-code / antigravity-cli / gemini-cli / copilot-cli / codex-cli / openclaw-cli / hermes-cli）和 ollama 不需要 model
   const cliProviders = ['claude-code', 'antigravity-cli', 'gemini-cli', 'copilot-cli', 'codex-cli', 'openclaw-cli', 'hermes-cli', 'ollama'];
-  if (!llm.model && !cliProviders.includes(llm.provider as string)) {
+  // 纯出图/出视频的工作流也不需要顶层 model：那一步的模型写在 image.model / video.model 里，
+  // 顶层 llm.model 只是文本步骤要用的。逼用户随手填一个用不上的文本模型，等于教他写谎话
+  // （与 agents_dir 那条同一个道理：一个角色都不用的工作流不该被"找不到角色库"挡在门外）。
+  const mediaOnly = Array.isArray(doc.steps) && doc.steps.length > 0
+    && (doc.steps as Array<Record<string, unknown>>).every((s) => s?.type === 'image' || s?.type === 'video');
+  if (!llm.model && !cliProviders.includes(llm.provider as string) && !mediaOnly) {
     fail(t('parse.missing_model'));
   }
 
@@ -75,11 +80,20 @@ export function parseWorkflow(
     // image 是文生图节点：task 就是图片提示词，不需要 role
     const isHumanNode = step.type === 'approval' || step.type === 'human_input';
     const isImageNode = step.type === 'image';
-    if (!isHumanNode && !isImageNode && !step.role) {
+    const isVideoNode = step.type === 'video';
+    if (!isHumanNode && !isImageNode && !isVideoNode && !step.role) {
       fail(`step "${step.id}" 缺少 role`);
     }
     if (!step.task && !isHumanNode) {
-      fail(`step "${step.id}" 缺少 task${isImageNode ? '（image 步骤的 task 就是图片提示词）' : ''}`);
+      fail(`step "${step.id}" 缺少 task${isImageNode ? '（image 步骤的 task 就是图片提示词）' : isVideoNode ? '（video 步骤的 task 就是视频提示词）' : ''}`);
+    }
+    if (isVideoNode && (step.acceptance || step.assert)) {
+      // 同 image：核验的是文本产出，视频核验是另一件事，别装作跑了
+      fail(`step "${step.id}" 是 video 步骤，暂不支持 acceptance / assert（它们核验的是文本产出）`);
+    }
+    if (isVideoNode && !step.video?.model) {
+      // 视频比图片更贵、更慢（异步任务、按秒计费），猜错模型 = 等几分钟收到"模型不存在"
+      fail(`step "${step.id}" 是 video 步骤，必须写 video: { model: "<视频模型>" }（如 MiniMax-H3；各家视频模型编码互不通用）`);
     }
     if (isImageNode && (step.acceptance || step.assert)) {
       // 静默忽略 = 用户以为核验生效了。诚实做法：说清目前不支持，别装作跑了
