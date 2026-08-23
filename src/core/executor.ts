@@ -447,8 +447,13 @@ async function executeStep(
     const imgConfig = (stepLlmImg ? { ...opts.llmConfig, ...stepLlmImg } : opts.llmConfig) as LLMConfig;
     // image.model 也过变量渲染：内置模板不能替用户猜图片模型名（各家编码互不通用），
     // 写成 model: "{{image_model}}" + 必填 input，把选择权明示地交给用户
+    // 所有字符串字段都过变量渲染，不只是 model：模板把 size 之类做成输入是合理的，
+    // 漏渲染就会把 "{{image_size}}" 原样发给厂商（video 那边真踩过这个坑，见下）
     const imageOpts = { ...(node.step.image ?? {}) };
-    if (typeof imageOpts.model === 'string') imageOpts.model = renderTemplate(imageOpts.model, opts.context);
+    for (const k of ['model', 'size', 'quality', 'background'] as const) {
+      const v = imageOpts[k];
+      if (typeof v === 'string') imageOpts[k] = renderTemplate(v, opts.context);
+    }
     const img = await generateImage(imgConfig, prompt, imageOpts, (m: string) => process.stderr.write(`  ${m}\n`));
     const filename = `${node.step.id}.png`;
     node.imageAsset = { filename, base64: img.buffer.toString('base64') };
@@ -466,8 +471,14 @@ async function executeStep(
     const stepLlmVid = node.step.llm;
     const vidConfig = (stepLlmVid ? { ...opts.llmConfig, ...stepLlmVid } : opts.llmConfig) as LLMConfig;
     const videoOpts = { ...(node.step.video ?? {}) };
-    // model 同样过变量渲染（内置模板不替用户猜视频模型名，交给必填 input）
-    if (typeof videoOpts.model === 'string') videoOpts.model = renderTemplate(videoOpts.model, opts.context);
+    // **provider 也必须渲染**，不只是 model：内置模板「一句话出短片」把供应商做成必填输入
+    // （video: { provider: "{{video_provider}}" }），此前只渲染 model，于是引擎拿着字面量
+    //  "{{video_provider}}" 去查视频供应商表，报"当前 provider {{video_provider}} 不是视频供应商"
+    //  —— 真机跑模板时当场撞到。resolution / ratio 同理。
+    for (const k of ['provider', 'model', 'resolution', 'ratio'] as const) {
+      const v = videoOpts[k];
+      if (typeof v === 'string') videoOpts[k] = renderTemplate(v, opts.context);
+    }
     const vid = await generateVideo(vidConfig, prompt, videoOpts, (m: string) => process.stderr.write(`  ${m}\n`));
     const filename = `${node.step.id}.mp4`;
     node.videoAsset = { filename, base64: vid.buffer.toString('base64'), ...(vid.seconds ? { seconds: vid.seconds } : {}) };

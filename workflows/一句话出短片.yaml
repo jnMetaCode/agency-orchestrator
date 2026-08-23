@@ -1,0 +1,102 @@
+# 展示 type:video 文生视频步骤的内置模板——一句创意直接出片。
+#
+# 两处刻意的设计（与「图文内容套装」同源）：
+#   1. video.model / video_provider 走**必填输入**：各家视频模型编码互不通用，绝不替用户猜。
+#   2. 默认 768P × 5 秒 = 最便宜的验证档（秘塔约 0.09 元/秒，一条 ≈ 0.45 元）。
+#      视频按秒计费，方向没定之前不该跑 2K 十秒——引擎绝不替用户放大。
+#
+# TODO(发布后): 第一步的角色换成 design/design-video-prompt-engineer（视频提示词工程师，
+# 已写好但要等 agency-agents-zh 1.4.0 发布）。现在暂用图像提示词工程师顶岗——同一位提示词
+# 专家，摄影机/镜头/色调的词汇是通的，5 段式结构由下面的 task 明确给出。
+name: "一句话出短片"
+description: "一句创意 → 提示词工程师按 5 段式写成电影感提示词 → 文生视频直接出片，产出可直接发布的 mp4"
+category: "内容创作"
+
+agents_dir: "agency-agents-zh"
+
+llm:
+  provider: "deepseek"
+  model: "deepseek-chat"
+  max_tokens: 4096
+
+inputs:
+  - name: idea
+    description: "你想拍什么（如：一只橘猫在窗台上看日落，治愈风 / 一双跑鞋在雨夜街头的广告片）"
+    required: true
+  - name: video_provider
+    description: "视频供应商 id（当前内置：metaso = 秘塔科技 MiniMax-H3）"
+    required: true
+    default: "metaso"
+  - name: video_model
+    description: "视频模型编码（各家互不通用，秘塔填 MiniMax-H3；见服务商文档）"
+    required: true
+    default: "MiniMax-H3"
+
+steps:
+  - id: shot_prompt
+    role: "design/design-image-prompt-engineer"
+    name: "提示词工程师"
+    emoji: "🎬"
+    task: |
+      把这个创意写成一条 **5 秒短视频**的提示词：{{idea}}
+
+      按 5 段式结构写，每段一行，段与段之间空一行：
+      1. 【核心主题】3-6 个 tag 用 | 分隔，从"画面类型 → 题材 → 美学风格"递进
+      2. 【人物与设定】面部 / 服装 / 场景三行；服装写**质地**不写品类；至少两处瑕疵（磨损、尘土、汗渍）
+      3. 【氛围与画质】必须写具体**摄影机型号 + 镜头型号** + 色调 + 光源（如：索尼威尼斯电影机 + 佳能 K-35 系列镜头，低饱和灰蓝调，侧逆光）
+      4. 【运镜规则】镜头方式 / 角度 / 呼吸感三行；呼吸感固定写"手持拍摄，全程保持极其轻微的、如呼吸般的镜头浮动"
+      5. 【分镜】按秒切片（0-2s / 2-4s / 4-5s 各发生什么），最后补一行【声音】
+
+      硬要求：
+      - 每段都要有具体名词。"电影感""高级""震撼"这类空泛词单独出现即为不合格
+      - 不出现任何影视 IP 名、角色名、明星姓名——改写成特征描述
+      - 全文控制在 220 字以内：模型注意力有限，写长了反而不听话
+      - 只输出提示词本身，不要解释、不要前言后语
+    output: video_prompt
+
+  - id: negative
+    role: "design/design-image-prompt-engineer"
+    name: "反穿帮清单"
+    emoji: "🚫"
+    task: |
+      为上面这条提示词写一组负面提示词，并说明每组挡什么（表格，4-6 行）：
+
+      {{video_prompt}}
+
+      至少覆盖：手部崩坏、画面内乱码文字/水印、主体变形、动作不连贯、塑料感/游戏 CG 感。
+      输出格式：| 负面词组 | 挡的是 |
+    output: negative_prompt
+    depends_on: [shot_prompt]
+
+  - id: clip
+    type: video
+    name: "出片"
+    emoji: "🎬"
+    task: "{{video_prompt}}"
+    video:
+      provider: "{{video_provider}}"
+      model: "{{video_model}}"
+      resolution: "768P"      # 秘塔实测此字段必填，仅支持 480p / 512p / 768P / 2K
+      duration: 5             # 秒——按秒计费，先用最短档验证方向
+      ratio: "16:9"
+    output: clip_mp4
+    depends_on: [shot_prompt]
+
+  - id: pack
+    role: "design/design-image-prompt-engineer"
+    name: "成片交付"
+    emoji: "📦"
+    task: |
+      把这次的成果整理成一页可存档的交付说明：
+
+      成片：{{clip_mp4}}
+      提示词：{{video_prompt}}
+      负面提示词：{{negative_prompt}}
+
+      需要包含：
+      1. 成片引用（原样保留上面那行链接）
+      2. 这条提示词的三个关键选择及理由（为什么用这台摄影机 / 这个色调 / 这个运镜）
+      3. 如果要重跑，最值得改的两处是什么
+      4. 一句话成本提示：这一条按 768P × 5 秒计费；方向满意再上 2K 或加长
+    output: delivery
+    depends_on: [clip, negative]

@@ -93,7 +93,12 @@ export function parseWorkflow(
     }
     if (isVideoNode && !step.video?.model) {
       // 视频比图片更贵、更慢（异步任务、按秒计费），猜错模型 = 等几分钟收到"模型不存在"
-      fail(`step "${step.id}" 是 video 步骤，必须写 video: { model: "<视频模型>" }（如 MiniMax-H3；各家视频模型编码互不通用）`);
+      fail(
+        `step "${step.id}" 是 video 步骤，必须写 video: { model: "<视频模型>" }\n` +
+        `        当前内置视频供应商：metaso（秘塔科技）→ model 填 MiniMax-H3\n` +
+        `        各家视频模型编码互不通用，引擎不猜——猜错就是等几分钟收到"模型不存在"\n` +
+        `        不知道提示词怎么写？21 个题材模板与在线生成器：https://prompts.aiolaola.com/build.html`
+      );
     }
     if (isImageNode && (step.acceptance || step.assert)) {
       // 静默忽略 = 用户以为核验生效了。诚实做法：说清目前不支持，别装作跑了

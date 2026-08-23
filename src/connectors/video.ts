@@ -108,8 +108,9 @@ export async function generateVideo(
 ): Promise<GeneratedVideo> {
   if (!opts.model) {
     throw new Error(
-      '视频步骤缺少模型：请在该步写 video: { model: "<视频模型>" }（如 MiniMax-H3）。' +
-      '各家视频模型编码互不通用，引擎不猜——猜错就是等几分钟再收到"模型不存在"。'
+      '视频步骤缺少模型：请在该步写 video: { model: "<视频模型>" }（秘塔填 MiniMax-H3）。\n' +
+      '  各家视频模型编码互不通用，引擎不猜——猜错就是等几分钟再收到"模型不存在"。\n' +
+      '  提示词不会写？21 个题材模板与在线生成器：https://prompts.aiolaola.com/build.html'
     );
   }
   const { spec, baseUrl, apiKey } = resolveVideoAccess(config, opts);
