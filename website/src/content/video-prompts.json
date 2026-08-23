@@ -1,5 +1,5 @@
 {
-  "note": "视频提示词模板，来自姊妹项目 ai-shortfilm-prompts（MIT，同作者），由该仓 scripts/gen_index.py 生成的 templates/index.json 同步而来。**别手改这份文件**——上游改了就重新同步，否则两边悄悄漂移。kind=genre 是题材模板（有可复制正文），kind=module 是可复用构件（运镜库/氛围骨架/负面词等，正文太长只给入口）。",
+  "note": "视频提示词模板，来自姊妹项目 ai-shortfilm-prompts（MIT，同作者），由该仓 scripts/gen_index.py 生成的 templates/index.json 同步而来。**别手改这份文件**——上游改了就重新跑 node website/scripts/sync-video-prompts.mjs，否则两边悄悄漂移。kind=genre 是题材模板（有可复制正文），kind=module 是可复用构件（运镜库/氛围骨架/负面词等）。",
   "upstream": "https://github.com/jnMetaCode/ai-shortfilm-prompts",
   "site": "https://prompts.aiolaola.com",
   "license": "MIT",

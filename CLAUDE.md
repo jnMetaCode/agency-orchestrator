@@ -182,6 +182,21 @@ probing: its query endpoint ignores `task_id` and returns **all** of the account
 the connector filters by id (`src/connectors/video.ts`). A workflow whose steps are *all*
 image/video needs neither `llm.model` nor a text connector.
 
+## Media Prompt Libraries (two sources, don't merge them)
+
+- **Image prompts** live here: `website/src/content/creative-prompts.json` (229 items, 12 categories),
+  browsable at `/creative` with one-click generation via `POST /api/image/generate`.
+- **Video prompts** live in the **sister repo** `ai-shortfilm-prompts` (22 genre templates + 6 reusable
+  building blocks, its own site at prompts.aiolaola.com). AO only *consumes* them: run
+  `npm --prefix website run sync:video-prompts` to refresh `website/src/content/video-prompts.json`
+  from that repo's `templates/index.json` (generated there by `scripts/gen_index.py`).
+  **Never hand-edit the synced file**, and never add video prompts to `agency-agents-zh` — that
+  library holds *roles* (a person with a system prompt), not content.
+- The two are different shapes: an image item is one finished prompt; a video item is a template
+  (variable table + 5-part body), so the Creative Library renders them with different cards.
+- No SEO pages for video prompts yet — the same text under two domains dilutes each other, so the
+  canonical decision (ao.aiolaola.com vs prompts.aiolaola.com) has to be made first.
+
 ## Role Directory
 
 Roles are in `agency-agents-zh/` (or `node_modules/agency-agents-zh/`). Each role is a `.md` file with frontmatter + system prompt. Use `ao roles` to list all 267 roles.
