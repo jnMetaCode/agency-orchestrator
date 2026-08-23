@@ -514,7 +514,7 @@ export function groupModelsByVendor(models: string[], vendors?: Record<string, s
 
 // 有正方形图标素材的赞助商/供应商 → website/public/sponsors/logo-<id>-icon.png（served at /sponsors/…）。
 // 只对确有文件的 id 返回路径，避免其它供应商拿到 404 的 <img>。
-const PROVIDER_LOGO_IDS = new Set(["compshare", "cubence", "apinebula", "rootflowai", "ccsub", "volcengine", "duoyuanx", "aicodemirror", "lanox", "shengsuanyun"]);
+const PROVIDER_LOGO_IDS = new Set(["compshare", "cubence", "apinebula", "rootflowai", "ccsub", "volcengine", "duoyuanx", "aicodemirror", "lanox", "shengsuanyun", "apimart"]);
 /** 少数供应商的 logo 是 svg（AICodeMirror），其余是 png —— 硬编码扩展名会 404 */
 const PROVIDER_LOGO_SVG_IDS = new Set(["aicodemirror"]);
 export function providerLogo(id: string): string | undefined {
@@ -782,6 +782,11 @@ export const API_PROVIDERS: ApiProviderMeta[] = [
   // modelSuggestions 全部取自它公开的 GET /api/v1/models 实拉结果（无需 key），不是猜的；
   // 模型名带厂商前缀（anthropic/…、openai/…），少写前缀会 404。
   { id: "shengsuanyun", name: "胜算云", shortName: "胜算云", hint: "router.shengsuanyun.com · 注册送 5 元 Token", defaultBaseUrl: "https://router.shengsuanyun.com/api/v1", signupUrl: "https://www.shengsuanyun.com/?from=CH_QKH696UI", sponsor: true, modelSuggestions: ["anthropic/claude-sonnet-5", "anthropic/claude-opus-5", "openai/gpt-5.2", "google/gemini-3-flash", "deepseek/deepseek-v4-pro"] },
+  // 赞助商 APIMart（2026-08 新增，按约定排赞助商组最后一位）—— OpenAI 兼容网关，
+  // 主打图片/视频生成的低价供给；接它的理由是 /v1/images/generations 能直接供
+  // `type: image` 步骤与创意库「一键出图」用（同一个 key 也通聊天模型）。
+  // 不给 modelSuggestions：零余额账户 GET /v1/models 也回 402，模型编码尚未核实（见引擎侧说明）。
+  { id: "apimart", name: "APIMart", hint: "api.apimart.ai · 图片/视频低价 API · 配好 key 点「获取模型列表」", defaultBaseUrl: "https://api.apimart.ai/v1", signupUrl: "https://go.apimart.ai/gh-agency-agents-zh", sponsor: true },
   { id: "deepseek", name: "DeepSeek", hint: "platform.deepseek.com", defaultBaseUrl: "https://api.deepseek.com/v1", vendor: true, modelSuggestions: ["deepseek-chat", "deepseek-reasoner"] },
   // 默认端点**不带 /v1**：Anthropic 客户端（SDK / claude CLI）自己会接 /v1/messages，
   // base 里再写一遍就成了 /v1/v1/messages。这里是用户配中转时照抄的形状样板，写错等于

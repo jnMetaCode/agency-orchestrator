@@ -74,6 +74,18 @@ export const API_PROVIDERS: ApiProviderSpec[] = [
   // pricing 与 support_apis，所以默认模型不用猜：claude-sonnet-5 在列、已定价、
   // support_apis 含 /v1/chat/completions（2026-08-14 实拉核实）。模型名带厂商前缀。
   { id: 'shengsuanyun', envKey: 'SHENGSUANYUN_API_KEY', envBase: 'SHENGSUANYUN_BASE_URL', defaultBaseUrl: 'https://router.shengsuanyun.com/api/v1', defaultModel: 'anthropic/claude-sonnet-5' },
+  // APIMart（赞助商）—— OpenAI 兼容网关，主打 AI 图片/视频生成的低价供给（GPT-Image-2
+  // 低至 $0.006/张），同一个 key 也通聊天模型。接进来的真正理由是 **/v1/images/generations
+  // 正是引擎 `type: image` 步骤打的第一个端点**，创意库「一键出图」走的也是同一条路。
+  // 端点已探测核实（2026-08-23）：
+  //   无 key   → /v1/models、/v1/chat/completions、/v1/images/generations 三条均回
+  //              401 {"type":"apimart_error","message":"invalid API key"}（路径存在、仅鉴权失败）
+  //   带 key   → 402 insufficient balance（余额为 0 的账户）——鉴权链路通，是余额拦的
+  // 两种口径都不是"对不存在的路径回 200"的网关假壳，路径真实。
+  // **不设 defaultModel / modelSuggestions**：零余额账户连 GET /v1/models 也回 402，
+  // 模型编码一个都没核实过，猜一个写进去就是多元探索踩过的坑（默认模型平台没上架 → 一跑就报错）。
+  // 留空 = 强制用户自选；配了 key 点「获取模型列表」即拉真实全量（同 LanoX 的处理）。
+  { id: 'apimart', envKey: 'APIMART_API_KEY', envBase: 'APIMART_BASE_URL', defaultBaseUrl: 'https://api.apimart.ai/v1' },
 
   // ── 第一方厂商官方 API（非赞助商，2026-08 补齐）────────────────────────────
   // **范围是有意收住的：只收这五家主流**（2026-08-14 决定）。cc-switch 还带着

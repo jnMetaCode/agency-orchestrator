@@ -212,6 +212,7 @@ export function ProvidersPanel({ active, onSetActive, offline = false }: { activ
     : id === "lanox" ? t.studio.providers.lanoxName
     : id === "aicodemirror" ? t.studio.providers.aicodemirrorName
     : id === "shengsuanyun" ? t.studio.providers.shengsuanyunName
+    : id === "apimart" ? t.studio.providers.apimartName
     : fallback;
   const displayHint = (id: string, fallback: string) =>
     id === "compshare" ? t.studio.providers.compshareHint
@@ -223,6 +224,7 @@ export function ProvidersPanel({ active, onSetActive, offline = false }: { activ
     : id === "lanox" ? t.studio.providers.lanoxHint
     : id === "aicodemirror" ? t.studio.providers.aicodemirrorHint
     : id === "shengsuanyun" ? t.studio.providers.shengsuanyunHint
+    : id === "apimart" ? t.studio.providers.apimartHint
     : fallback.replace("{etc}", t.studio.providers.etc);
 
   const keyStatus = (id: string): { line: string; tone: "muted" | "ok" } => {
