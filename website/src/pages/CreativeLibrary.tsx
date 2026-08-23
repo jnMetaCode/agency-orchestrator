@@ -45,6 +45,84 @@ function writeGenPref(patch: GenPref): void {
 // 尺寸原样透传给各家 API；"默认"= 不发这个字段（各家默认档不同，不替用户选）
 const SIZES = ["", "1024x1024", "1536x1024", "1024x1536"];
 
+/**
+ * 视频提示词模板（来自姊妹项目 ai-shortfilm-prompts，MIT 同作者）。
+ * 与图片提示词是**两种数据形态**：图片一条 = 一段成品提示词；视频一条 = 题材模板
+ * （变量表 + 5 段式正文），所以卡片长得不一样，不能复用 PromptCard。
+ */
+interface VideoTemplate {
+  id: string;
+  kind: "genre" | "module";
+  lang: string;
+  title: string;
+  category: string;
+  description: string;
+  variables: { name: string; example: string }[];
+  prompt: string;
+  source: string;
+  license: string;
+  author: string;
+}
+interface VideoData { upstream: string; site: string; count: number; templates: VideoTemplate[] }
+
+function VideoCard({ t }: { t: VideoTemplate }) {
+  const { lang } = useLanguage();
+  const en = lang === "en";
+  const [copied, setCopied] = useState(false);
+  const [open, setOpen] = useState(false);
+  const copy = async () => {
+    try {
+      await navigator.clipboard.writeText(t.prompt);
+      setCopied(true);
+      track("video_prompt_copy", { id: t.id, category: t.category });
+      setTimeout(() => setCopied(false), 1500);
+    } catch { /* noop */ }
+  };
+  return (
+    <div className="flex flex-col rounded-xl border border-border/60 bg-card/50 p-4">
+      <div className="flex items-start justify-between gap-2">
+        <h3 className="text-sm font-semibold leading-snug">{t.title}</h3>
+        <span className={cn("shrink-0 rounded-full px-2 py-0.5 text-[10px] font-medium",
+          t.kind === "module" ? "bg-muted text-muted-foreground" : "bg-primary/10 text-primary")}>
+          {t.kind === "module" ? (en ? "Building block" : "构件") : t.category}
+        </span>
+      </div>
+      <p className="mt-1.5 line-clamp-3 text-xs leading-relaxed text-muted-foreground">{t.description}</p>
+
+      {t.variables.length > 0 && (
+        <div className="mt-2.5 flex flex-wrap gap-1">
+          {t.variables.slice(0, 6).map((v) => (
+            <span key={v.name} title={v.example} className="rounded bg-muted/60 px-1.5 py-0.5 font-mono text-[10px] text-muted-foreground">
+              {v.name}
+            </span>
+          ))}
+        </div>
+      )}
+
+      {open && t.prompt && (
+        <pre className="mt-2.5 max-h-64 overflow-auto whitespace-pre-wrap rounded-lg border border-border/60 bg-muted/40 p-2.5 text-[11px] leading-relaxed">{t.prompt}</pre>
+      )}
+
+      <div className="mt-3 flex flex-wrap items-center gap-2 text-xs">
+        {t.prompt && (
+          <>
+            <button onClick={() => setOpen((o) => !o)} className="rounded-lg border border-border/70 px-2.5 py-1.5 transition-colors hover:border-primary/50">
+              {open ? (en ? "Hide" : "收起") : (en ? "View prompt" : "看提示词")}
+            </button>
+            <button onClick={copy} className="inline-flex items-center gap-1 rounded-lg border border-border/70 px-2.5 py-1.5 transition-colors hover:border-primary/50">
+              {copied ? <Check className="size-3.5" /> : <Copy className="size-3.5" />}
+              {copied ? (en ? "Copied" : "已复制") : (en ? "Copy" : "复制")}
+            </button>
+          </>
+        )}
+        <a href={t.source} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-muted-foreground hover:text-primary">
+          {en ? "Full breakdown" : "原文与拆解"} <ExternalLink className="size-3" />
+        </a>
+      </div>
+    </div>
+  );
+}
+
 function PromptCard({ p, gen, onOpenGen }: { p: CreativePrompt; gen: GenEnv | null; onOpenGen: () => void }) {
   const { lang } = useLanguage();
   const en = lang === "en";
@@ -232,6 +310,42 @@ export default function CreativeLibrary() {
   );
   const [q, setQ] = useState("");
   const [cat, setCat] = useState("all");
+  // 图片 / 视频两个页签。视频那份数据 200KB+，**按需 import**——这是一张公开 SEO 页，
+  // 绝大多数访客只是来复制图片提示词的，不该为他们把首包撑大一倍。
+  const [media, setMedia] = useState<"image" | "video">("image");
+  const [videoData, setVideoData] = useState<VideoData | null>(null);
+  const [videoLoading, setVideoLoading] = useState(false);
+  useEffect(() => {
+    if (media !== "video" || videoData || videoLoading) return;
+    setVideoLoading(true);
+    import("@/content/video-prompts.json")
+      .then((m) => setVideoData((m.default ?? m) as unknown as VideoData))
+      .catch(() => setVideoData({ upstream: "", site: "", count: 0, templates: [] }))
+      .finally(() => setVideoLoading(false));
+  }, [media, videoData, videoLoading]);
+
+  // 语言过滤：两套语言的模板都在同一份数据里；某语言缺条目时退回中文，别给空列表
+  const videoItems = useMemo(() => {
+    const all = videoData?.templates ?? [];
+    const want = lang === "en" ? "en" : "zh";
+    const hit = all.filter((t) => t.lang === want);
+    return hit.length ? hit : all.filter((t) => t.lang === "zh");
+  }, [videoData, lang]);
+  const videoCategories = useMemo(() => {
+    const set = new Map<string, number>();
+    for (const t of videoItems) set.set(t.category, (set.get(t.category) ?? 0) + 1);
+    // 「构件」永远排最后：它不是题材，是零件，别插在题材中间干扰选择
+    return [...set.entries()].sort((a, b) =>
+      (a[0] === "构件" ? 1 : b[0] === "构件" ? -1 : 0) || b[1] - a[1]);
+  }, [videoItems]);
+  const videoFiltered = useMemo(() => {
+    const n = q.trim().toLowerCase();
+    return videoItems.filter(
+      (t) => (cat === "all" || t.category === cat)
+        && (!n || (t.title + t.description + t.prompt).toLowerCase().includes(n)),
+    );
+  }, [videoItems, q, cat]);
+  useEffect(() => { setCat("all"); setPage(1); }, [media]);
 
   // 一键生成的运行环境：本地 Studio 有引擎（可真生成），公开演示站没有（/api/* 落到 SPA
   // 兜底回 HTML，解析必失败 → 走 catch，按钮降级成"怎么在本机跑"的提示）。
@@ -293,10 +407,29 @@ export default function CreativeLibrary() {
           {/* 头部 */}
           <h1 className="text-2xl font-bold">{lang === "en" ? "Creative Library" : "创意库"}</h1>
           <p className="mt-1.5 text-sm text-muted-foreground">
-            {lang === "en"
-              ? `${DATA.count} ready-to-use image generation prompts (${DATA.model}). Copy and paste into your image tool.`
-              : `${DATA.count} 条可直接取用的图像生成提示词（${DATA.model}）。复制后粘进你的图像工具即可。`}
+            {media === "image"
+              ? (lang === "en"
+                ? `${DATA.count} ready-to-use image generation prompts (${DATA.model}). Copy and paste into your image tool.`
+                : `${DATA.count} 条可直接取用的图像生成提示词（${DATA.model}）。复制后粘进你的图像工具即可。`)
+              : (lang === "en"
+                ? "Text-to-video templates: pick a genre, fill a few variables, get a full 5-part cinematic prompt. Run them with a `type: video` step in a workflow."
+                : "文生视频模板：挑题材、填几个变量，拿到完整的 5 段式电影感提示词。工作流里用 `type: video` 步骤可以直接出片。")}
           </p>
+
+          {/* 图片 / 视频：两种数据形态，卡片长得不一样（图片是成品提示词，视频是带变量的题材模板） */}
+          <div className="mt-4 inline-flex rounded-xl border border-border/70 bg-card/50 p-1">
+            {(["image", "video"] as const).map((m) => (
+              <button
+                key={m}
+                onClick={() => setMedia(m)}
+                className={cn("rounded-lg px-3.5 py-1.5 text-sm font-medium transition-colors",
+                  media === m ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground")}
+              >
+                {m === "image" ? (lang === "en" ? "Images" : "图片") : (lang === "en" ? "Video" : "视频")}
+                <span className="ml-1.5 opacity-60">{m === "image" ? DATA.count : (videoData?.count ?? 22)}</span>
+              </button>
+            ))}
+          </div>
 
           {/* 搜索 + 分类 */}
           <div className="mt-5 flex flex-col gap-3 sm:flex-row sm:items-center">
@@ -309,7 +442,7 @@ export default function CreativeLibrary() {
                 className="h-10 w-full rounded-xl border border-border/70 bg-card/60 pl-9 pr-3 text-sm outline-none focus:border-primary/50"
               />
             </div>
-            <span className="text-sm text-muted-foreground">{filtered.length} {lang === "en" ? "prompts" : "条"}</span>
+            <span className="text-sm text-muted-foreground">{(media === "image" ? filtered.length : videoFiltered.length)} {lang === "en" ? "prompts" : "条"}</span>
           </div>
 
           <div className="mt-3 flex flex-wrap gap-1.5">
@@ -319,7 +452,7 @@ export default function CreativeLibrary() {
             >
               {lang === "en" ? "All" : "全部"}
             </button>
-            {categories.map(([c, n]) => (
+            {(media === "image" ? categories : videoCategories).map(([c, n]) => (
               <button
                 key={c}
                 onClick={() => setCat(c)}
@@ -331,13 +464,39 @@ export default function CreativeLibrary() {
           </div>
 
           {/* 卡片 */}
-          <div className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-            {pageItems.map((p) => <PromptCard key={p.id} p={p} gen={gen} onOpenGen={ensureGen} />)}
-          </div>
-          {filtered.length === 0 && <p className="mt-10 text-center text-sm text-muted-foreground">{lang === "en" ? "No matching prompts" : "没有匹配的提示词"}</p>}
+          {media === "image" ? (
+            <>
+              <div className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                {pageItems.map((p) => <PromptCard key={p.id} p={p} gen={gen} onOpenGen={ensureGen} />)}
+              </div>
+              {filtered.length === 0 && <p className="mt-10 text-center text-sm text-muted-foreground">{lang === "en" ? "No matching prompts" : "没有匹配的提示词"}</p>}
+            </>
+          ) : (
+            <>
+              {videoLoading && !videoData && (
+                <p className="mt-10 text-center text-sm text-muted-foreground">{lang === "en" ? "Loading templates…" : "正在加载模板…"}</p>
+              )}
+              <div className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                {videoFiltered.map((t) => <VideoCard key={`${t.lang}-${t.id}`} t={t} />)}
+              </div>
+              {videoData && videoFiltered.length === 0 && (
+                <p className="mt-10 text-center text-sm text-muted-foreground">{lang === "en" ? "No matching templates" : "没有匹配的模板"}</p>
+              )}
+              {videoData && videoFiltered.length > 0 && (
+                <div className="mt-6 rounded-xl border border-primary/30 bg-primary/5 px-4 py-3 text-xs leading-relaxed">
+                  {lang === "en"
+                    ? <>Want it filmed, not just copied? Run the built-in <strong>「一句话出短片」</strong> workflow in the Studio — a role writes the 5-part prompt from one sentence and a <code>type: video</code> step renders the mp4. </>
+                    : <>不想只复制、想直接出片？在工作台跑内置模板 <strong>「一句话出短片」</strong>——角色按 5 段式把你的一句话写成提示词，<code>type: video</code> 步骤直接出 mp4。</>}
+                  <a href="/studio" className="ml-1 inline-flex items-center gap-0.5 font-medium text-primary hover:underline">
+                    {lang === "en" ? "Open Studio" : "打开工作台"} <ExternalLink className="size-3" />
+                  </a>
+                </div>
+              )}
+            </>
+          )}
 
-          {/* 分页 */}
-          {totalPages > 1 && (
+          {/* 分页（只图片需要：视频模板 28 条，一页放得下） */}
+          {media === "image" && totalPages > 1 && (
             <div className="mt-8 flex items-center justify-center gap-3 text-sm">
               <button
                 onClick={() => setPage((p) => Math.max(1, p - 1))}
@@ -357,7 +516,19 @@ export default function CreativeLibrary() {
             </div>
           )}
 
-          {/* 出处署名（CC BY 4.0 要求） */}
+          {/* 出处署名：视频那批来自姊妹项目（MIT），与图片那批的 CC BY 4.0 不是一回事，分开写 */}
+          {media === "video" ? (
+            <div className="mt-10 rounded-xl border border-border/60 bg-muted/30 px-4 py-3 text-xs leading-relaxed text-muted-foreground">
+              {lang === "en" ? "Video templates from the sister project " : "视频模板来自姊妹项目 "}
+              <a href={videoData?.upstream || "https://github.com/jnMetaCode/ai-shortfilm-prompts"} target="_blank" rel="noreferrer" className="inline-flex items-center gap-0.5 text-foreground hover:text-primary">
+                ai-shortfilm-prompts <ExternalLink className="size-3" />
+              </a>
+              {" · MIT · "}
+              <a href={videoData?.site || "https://prompts.aiolaola.com"} target="_blank" rel="noreferrer" className="hover:text-foreground">
+                {lang === "en" ? "full library & online generator" : "完整模板库与在线生成器"}
+              </a>
+            </div>
+          ) : (
           <div className="mt-10 rounded-xl border border-border/60 bg-muted/30 px-4 py-3 text-xs leading-relaxed text-muted-foreground">
             {lang === "en" ? "Prompts & previews from " : "提示词与预览图来自 "}
             {DATA.sources.map((s, i) => (
@@ -372,6 +543,7 @@ export default function CreativeLibrary() {
             <a href={DATA.sources[0].licenseUrl} target="_blank" rel="noreferrer" className="hover:text-foreground">CC BY 4.0</a>
             {lang === "en" ? "。Credit to the original authors." : "，版权归原作者,已按 CC BY 4.0 署名。"}
           </div>
+          )}
         </div>
       </main>
       <SiteFooter />
