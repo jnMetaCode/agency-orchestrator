@@ -174,5 +174,85 @@ console.log('\n─── 端到端：上游文字步的产出流进视频提示�
   }
 }
 
+
+console.log('\n─── 端到端：两个视频步骤并行，各拿各的片 ───');
+{
+  // 这条测的是整个视频实现里最容易出错的一环：秘塔的查询接口**不按 task_id 过滤**，
+  // 一律返回账号下全部任务。默认 concurrency 就是 2，两个视频步骤同时在跑时，
+  // 谁拿谁的片全靠连接器自己按 id 挑——挑错了不会报错，只会悄悄给你别人的视频。
+  const MP4_A = Buffer.from('0000001c6674797041414141', 'hex');
+  const MP4_B = Buffer.from('0000001c6674797042424242', 'hex');
+  let created = 0;
+  const srv = http.createServer((req, res) => {
+    const url = String(req.url || '');
+    let body = '';
+    req.on('data', (d) => { body += d; });
+    req.on('end', () => {
+      if (/v2\/video_generation/.test(url) && req.method === 'POST') {
+        // 按提示词分派 task_id：A 步的提示词里有 "alpha"，B 步有 "beta"
+        const id = /alpha/.test(body) ? '111' : '222';
+        created++;
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        return res.end(JSON.stringify({ task_id: id }));
+      }
+      if (/v2\/query\/video_generation/.test(url)) {
+        const port = (res.socket as any).localPort;
+        // **两条任务都在列表里**，顺序还故意反着放
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        return res.end(JSON.stringify({
+          items: [
+            { id: '222', status: 'succeeded', content: { url: `http://127.0.0.1:${port}/b.mp4` }, usage: { total_seconds: 5 } },
+            { id: '111', status: 'succeeded', content: { url: `http://127.0.0.1:${port}/a.mp4` }, usage: { total_seconds: 5 } },
+          ],
+          total: 2,
+        }));
+      }
+      if (/a\.mp4/.test(url)) { res.writeHead(200, { 'Content-Type': 'video/mp4' }); return res.end(MP4_A); }
+      if (/b\.mp4/.test(url)) { res.writeHead(200, { 'Content-Type': 'video/mp4' }); return res.end(MP4_B); }
+      res.writeHead(404).end('{}');
+    });
+  });
+  const port = await listen(srv);
+  const dir = mkdtempSync(join(tmpdir(), 'ao-e2e-video3-'));
+  const wf = join(dir, 'v.yaml');
+  writeFileSync(wf, [
+    'name: "双片并行"',
+    'concurrency: 2',
+    'llm:',
+    '  provider: "metaso"',
+    `  base_url: "http://127.0.0.1:${port}"`,
+    '  api_key: "mk-test"',
+    'steps:',
+    '  - id: clip_a',
+    '    type: video',
+    '    task: "alpha shot"',
+    '    video: { model: "MiniMax-H3", resolution: "768P" }',
+    '    output: a',
+    '  - id: clip_b',
+    '    type: video',
+    '    task: "beta shot"',
+    '    video: { model: "MiniMax-H3", resolution: "768P" }',
+    '    output: b',
+  ].join('\n'), 'utf-8');
+
+  try {
+    const result = await run(wf, {}, { quiet: true, outputDir: join(dir, 'out') });
+    assert(result.success === true, `两步都该完成（${result.steps.map((s) => `${s.id}:${s.status}`).join(', ')}）`);
+    assert(created === 2, `应建两个任务，实际 ${created}`);
+    const { readdirSync } = await import('node:fs');
+    const rd = join(dir, 'out', readdirSync(join(dir, 'out'))[0]);
+    const a = readFileSync(join(rd, 'assets', 'clip_a.mp4'));
+    const b = readFileSync(join(rd, 'assets', 'clip_b.mp4'));
+    assert(a.equals(MP4_A), 'clip_a 拿到的不是自己那条（按 task_id 过滤失效）');
+    assert(b.equals(MP4_B), 'clip_b 拿到的不是自己那条');
+    assert(!a.equals(b), '两步拿到了同一个文件——正是"张冠李戴"那个 bug');
+  } catch (e) {
+    assert(false, `端到端跑挂了：${e instanceof Error ? e.message : e}`);
+  } finally {
+    srv.close();
+    rmSync(dir, { recursive: true, force: true });
+  }
+}
+
 console.log(`\n  结果: ${passed} 通过, ${failed} 失败\n`);
 if (failed > 0) process.exit(1);

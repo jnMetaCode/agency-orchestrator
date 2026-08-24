@@ -347,7 +347,8 @@ function handleValidate(): void {
     if (asJson) {
       const report = buildValidationReport(
         workflow.name, workflow.steps.length, (workflow.inputs || []).length, errors);
-      console.log(JSON.stringify(report, null, 2));
+      // CI / 编辑器集成据此知道"role 这一维根本没验"，别把 valid:true 当成全绿
+      console.log(JSON.stringify({ ...report, rolesChecked: !!agentsDir }, null, 2));
       if (!report.valid) process.exit(1);
       return;
     }
@@ -355,6 +356,13 @@ function handleValidate(): void {
     if (errors.length === 0) {
       console.log(`  ${t('validate.ok', { name: workflow.name })}`);
       console.log(`  ${t('validate.stats', { steps: workflow.steps.length, inputs: (workflow.inputs || []).length })}`);
+      // **"校验通过"不能包含没校验的东西**。找不到角色库时 parser 会静默跳过 role 检查，
+      // 于是一个角色名写错的工作流也会得到一句干净的"校验通过"，等到 run 才炸——
+      // 真机上就这么被误导过一次。这里把没验的部分说出来。
+      if (!agentsDir && workflow.steps.some((st) => !!st.role)) {
+        console.log(`  ⚠️  未校验 role：找不到角色库「${workflow.agents_dir}」`);
+        console.log(`     跑 ao init 下载，或设 AO_AGENTS_DIR=/你的角色目录 后重新校验`);
+      }
     } else {
       console.error('\n' + formatValidationReport(workflow.name, errors, workflow.steps.map(s => s.id)));
       process.exit(1);
