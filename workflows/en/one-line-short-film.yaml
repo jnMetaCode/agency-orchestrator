@@ -1,0 +1,109 @@
+# English twin of 一句话出短片.yaml — shows the `type: video` step end to end.
+#
+# Two deliberate choices (same as the Chinese one):
+#   1. provider / model are **required inputs**: video model ids differ per vendor, the engine
+#      never guesses one for you.
+#   2. Defaults to the cheapest verification tier (768P × 5s ≈ ¥0.45 with MetaSota). Video is
+#      billed per second — the engine will not quietly scale that up for you.
+#
+# Prompt-writing runs on the Image Prompt Engineer role: the bundled English library has no
+# dedicated video-prompt role yet (the Chinese one does: design/design-video-prompt-engineer).
+# The vocabulary carries over, and the 5-part structure is spelled out in the task below.
+name: "One-Line Short Film"
+description: "One idea → a 5-part cinematic prompt → text-to-video renders the mp4, plus a negative-prompt sheet and a delivery note"
+category: "Content"
+
+agents_dir: "agency-agents"
+
+llm:
+  provider: "deepseek"
+  model: "deepseek-chat"
+  max_tokens: 4096
+
+inputs:
+  - name: idea
+    description: "What you want to film (e.g. a ginger cat watching the sunset from a windowsill, healing vibe)"
+    required: true
+  - name: video_provider
+    description: "Video provider id (built-in: metaso = MetaSota MiniMax-H3)"
+    required: true
+    default: "metaso"
+  - name: video_model
+    description: "Video model id (vendor-specific; MetaSota takes MiniMax-H3)"
+    required: true
+    default: "MiniMax-H3"
+
+steps:
+  - id: shot_prompt
+    role: "design/design-image-prompt-engineer"
+    name: "Prompt Engineer"
+    emoji: "🎬"
+    task: |
+      Turn this idea into a prompt for a **5-second** video: {{idea}}
+
+      Use the 5-part structure, one block per part, blank line between blocks:
+      1. [CORE THEME] 3-6 tags separated by |, going from shot type → genre → aesthetic
+      2. [SUBJECT & SETTING] three lines: face / wardrobe / location. Write **materials**, not
+         categories ("matte black leather", not "black jacket"). Include at least two imperfections
+         (wear, dust, sweat) — flawless skin and spotless gear read as game CG.
+      3. [ATMOSPHERE & IMAGE] name a specific **camera body + lens** (e.g. Sony VENICE + Canon K-35
+         series), plus color grade and light source. This is the model's visual anchor, not showing off.
+      4. [CAMERA] three lines: shot method / angle / breathing. Always end with
+         "handheld, an extremely subtle breathing float throughout".
+      5. [SHOT LIST] sliced by second (0-2s / 2-4s / 4-5s), then one final [SOUND] line.
+
+      Hard requirements:
+      - Every block needs concrete nouns. "Cinematic", "premium", "stunning" on their own = not done
+      - No IP names, no character names, no real people — describe features instead
+      - Keep it under 220 words: models have limited attention, longer prompts obey less
+      - Output the prompt only — no preamble, no explanation
+    output: video_prompt
+
+  - id: negative
+    role: "design/design-image-prompt-engineer"
+    name: "Negative Sheet"
+    emoji: "🚫"
+    task: |
+      Write a negative-prompt set for the prompt below, as a table of 4-6 rows explaining what each
+      group prevents:
+
+      {{video_prompt}}
+
+      Cover at least: hand/paw deformities, on-screen garbled text or watermarks, subject drift,
+      motion discontinuity, plastic / game-CG texture.
+      Format: | negative terms | what it prevents |
+    output: negative_prompt
+    depends_on: [shot_prompt]
+
+  - id: clip
+    type: video
+    name: "Render"
+    emoji: "🎬"
+    task: "{{video_prompt}}"
+    video:
+      provider: "{{video_provider}}"
+      model: "{{video_model}}"
+      resolution: "768P"    # MetaSota requires this field; it accepts 480p / 512p / 768P / 2K
+      duration: 5           # seconds — billed per second, so verify direction at the cheapest tier
+      ratio: "16:9"
+    output: clip_mp4
+    depends_on: [shot_prompt]
+
+  - id: pack
+    role: "design/design-image-prompt-engineer"
+    name: "Delivery Note"
+    emoji: "📦"
+    task: |
+      Turn this run into a one-page delivery note:
+
+      Clip: {{clip_mp4}}
+      Prompt: {{video_prompt}}
+      Negative: {{negative_prompt}}
+
+      Include:
+      1. The clip reference (keep the link line exactly as given)
+      2. Three key choices in the prompt and why (this camera / this grade / this camera move)
+      3. If it gets re-rendered, the two things most worth changing
+      4. One cost line: this run is billed at 768P × 5s; go 2K or longer only once you like the direction
+    output: delivery
+    depends_on: [clip, negative]

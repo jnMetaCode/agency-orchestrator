@@ -8,7 +8,7 @@
       "steps": [
         {
           "id": "ceo_kickoff",
-          "role": "strategy/nexus-strategy",
+          "role": "specialized/business-strategist",
           "name": "老板",
           "emoji": "👔"
         },
@@ -56,7 +56,7 @@
         },
         {
           "id": "ceo_decision",
-          "role": "strategy/nexus-strategy",
+          "role": "specialized/business-strategist",
           "name": "老板",
           "emoji": "👔"
         }
@@ -68,7 +68,7 @@
       "steps": [
         {
           "id": "ceo_vision",
-          "role": "strategy/nexus-strategy"
+          "role": "specialized/business-strategist"
         },
         {
           "id": "product_plan",
@@ -88,7 +88,7 @@
         },
         {
           "id": "launch_decision",
-          "role": "strategy/nexus-strategy"
+          "role": "specialized/business-strategist"
         }
       ]
     },
@@ -234,7 +234,7 @@
       "steps": [
         {
           "id": "ceo_brief",
-          "role": "strategy/nexus-strategy",
+          "role": "specialized/business-strategist",
           "name": "老板",
           "emoji": "👔"
         },
@@ -258,7 +258,7 @@
         },
         {
           "id": "launch_pack",
-          "role": "strategy/nexus-strategy",
+          "role": "specialized/business-strategist",
           "name": "老板",
           "emoji": "👔"
         }
@@ -272,7 +272,7 @@
       "steps": [
         {
           "id": "ceo_position",
-          "role": "strategy/nexus-strategy",
+          "role": "specialized/business-strategist",
           "name": "老板",
           "emoji": "👔"
         },
@@ -735,6 +735,49 @@
       ]
     },
     {
+      "name": "图文内容套装",
+      "description": "小红书运营写种草笔记 → 图像提示词工程师把卖点转成画面描述 → 文生图出封面——一次运行交付「文案 + 封面图」成套内容",
+      "steps": [
+        {
+          "id": "copy",
+          "role": "marketing/marketing-xiaohongshu-operator"
+        },
+        {
+          "id": "cover_prompt",
+          "role": "design/design-image-prompt-engineer"
+        },
+        {
+          "id": "pack",
+          "role": "marketing/marketing-xiaohongshu-operator"
+        }
+      ]
+    },
+    {
+      "name": "一句话出短片",
+      "description": "一句创意 → 提示词工程师按 5 段式写成电影感提示词 → 文生视频直接出片，产出可直接发布的 mp4",
+      "category": "内容创作",
+      "steps": [
+        {
+          "id": "shot_prompt",
+          "role": "design/design-image-prompt-engineer",
+          "name": "提示词工程师",
+          "emoji": "🎬"
+        },
+        {
+          "id": "negative",
+          "role": "design/design-image-prompt-engineer",
+          "name": "反穿帮清单",
+          "emoji": "🚫"
+        },
+        {
+          "id": "pack",
+          "role": "design/design-image-prompt-engineer",
+          "name": "成片交付",
+          "emoji": "📦"
+        }
+      ]
+    },
+    {
       "name": "Codex + Claude Code 协作编程(极简版)",
       "description": "",
       "steps": [
@@ -760,7 +803,7 @@
       "steps": [
         {
           "id": "ceo_kickoff",
-          "role": "strategy/nexus-strategy",
+          "role": "specialized/specialized-chief-of-staff",
           "name": "CEO",
           "emoji": "👔"
         },
@@ -808,7 +851,7 @@
         },
         {
           "id": "ceo_decision",
-          "role": "strategy/nexus-strategy",
+          "role": "specialized/specialized-chief-of-staff",
           "name": "CEO",
           "emoji": "👔"
         }
@@ -997,6 +1040,31 @@
         {
           "id": "q1_plan",
           "role": "project-management/project-management-project-shepherd"
+        }
+      ]
+    },
+    {
+      "name": "One-Line Short Film",
+      "description": "One idea → a 5-part cinematic prompt → text-to-video renders the mp4, plus a negative-prompt sheet and a delivery note",
+      "category": "Content",
+      "steps": [
+        {
+          "id": "shot_prompt",
+          "role": "design/design-image-prompt-engineer",
+          "name": "Prompt Engineer",
+          "emoji": "🎬"
+        },
+        {
+          "id": "negative",
+          "role": "design/design-image-prompt-engineer",
+          "name": "Negative Sheet",
+          "emoji": "🚫"
+        },
+        {
+          "id": "pack",
+          "role": "design/design-image-prompt-engineer",
+          "name": "Delivery Note",
+          "emoji": "📦"
         }
       ]
     }
