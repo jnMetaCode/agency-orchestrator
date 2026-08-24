@@ -17,7 +17,7 @@
     }
   ],
   "perCategoryCap": 35,
-  "count": 1333,
+  "count": 1275,
   "prompts": [
     {
       "id": "tr-2017928823497453789",
@@ -109,19 +109,6 @@
       "source": "nanobanana-trending",
       "sourceUrl": "https://x.com/MrLarus/status/2046231542817497392",
       "titleZh": "竖版科普百科图"
-    },
-    {
-      "id": "tr-2047986905896427670",
-      "title": ":5 vertical social poster, ultra high resolution, 8K",
-      "description": "",
-      "prompt": "4:5 vertical social poster, ultra high resolution, 8K\n\nSCENE / BACKGROUND:\nFlat racing yellow with subtle gradient (light → deep amber)\nGrain texture 2–3%\nSoft rectangular overlays at 3% opacity\n\nPRODUCT:\nPorsche 911 GT3 RS\nGloss yellow with carbon details\nRear 3/4 angle, slightly elevated\nWing dominant\n\nPosition:\nRight of center\n\nTYPOGRAPHY:\n“PORSCHE”\nUltra tall, condensed, stretched\nDeep charcoal\n\nSecondary:\n“PORSCHE 911 GT3 RS”\n\nEDITORIAL:\n“Porsche — Where Precision Meets Passion”\n\nFocus:\nengineering, obsession, track DNA\n\nFADED TEXT:\n“GT3 RS” at 3–5%\n\nSPECS:\n386 kW / 525 PS\n3.2 s\n296 km/h\n\nLIGHTING:\nClean studio, sharp highlights\n\nMOOD:\nPrecision.\nIconic.\nTimeless performance.\n\nFORMAT:\n4:5 vertical social poster, ultra high resolution, 8K, print-quality sharpness\n\nSCENE / BACKGROUND:\nFlat, high-saturation BMW blue background\n\nGradient:\nTop → slightly lighter electric blue\nBottom → deep navy blue\n\nSurface:\n- Subtle grain texture (2–3%)\n- Faint rectangular overlays (2–4% opacity)\n- Clean, graphic — no realism\n\nShadow:\nSoft contact shadow under car\n\nPRODUCT (CAR):\nBMW M4 CSL\n\nColor:\nMatte frozen blue / deep metallic navy\n\nAngle:\nRear 3/4 perspective (IMPORTANT — match Porsche angle for consistency)\nSlightly elevated camera\n\nPosition:\nSlightly right of center\n\nDetails:\n- Carbon roof visible\n- Aggressive diffuser\n- Sharp reflections\n- Subtle brake detail\n\nCOMPOSITION:\nIDENTICAL to Porsche:\nTop → branding\nMiddle → giant type\nCenter → car overlap\nBottom → editorial + specs\n\nTYPOGRAPHY:\n\nPRIMARY:\n“BMW”\n\nStyle:\nUltra condensed bold sans serif\nTall vertical scaling (same as Porsche)\n\nColor:\nDeep navy / near black\n\nBehavior:\nStatic (NO distortion — unlike previous version)\nActs as structural backdrop\n\nSECONDARY HEADER:\n“BMW M4 CSL”\nThin, wide tracking\n\nLOGO AREA:\nBMW roundel centered above\n\nEDITORIAL BLOCK:\n\nHeadline:\n“BMW — Where Driving Becomes Instinct”\n\nBody:\nFocus on:\n- driver connection\n- control\n- performance precision\n\nBoxed layout, same structure as Porsche\n\nFADED TEXT:\n“CSL” large, 3–5% opacity behind box\n\nBOTTOM LEFT:\n“M4 CSL”\n\nBOTTOM RIGHT SPECS:\n\n405 kW / 550 PS\n3.4 s\n307 km/h\n\nLIGHTING:\nClean studio lighting\nSharp but controlled highlights\n\nCOLOR GRADING:\nDeep blues, high contrast, clean blacks\n\nCAMERA:\n50mm, slightly elevated rear 3/4\n\nMOOD:\nPerformance.\nPrecision.\nDriver focus.",
-      "category": "海报 / 广告",
-      "image": "https://images.meigen.ai/tweets/2047986905896427670/0.jpg",
-      "author": "ᴍᴜʀᴘʜʏ",
-      "authorUrl": "https://x.com/Diplomeme",
-      "source": "nanobanana-trending",
-      "sourceUrl": "https://x.com/Diplomeme/status/2047986905896427670",
-      "titleZh": "竖版社交媒体海报"
     },
     {
       "id": "tr-2011634592810438835",
@@ -278,19 +265,6 @@
       "source": "nanobanana-trending",
       "sourceUrl": "https://x.com/Naiknelofar788/status/2026703924888219706",
       "titleZh": "上传照片写实合成"
-    },
-    {
-      "id": "tr-2005541752187273292",
-      "title": "A stylish man wearing a tan suit and sunglasses is…",
-      "description": "",
-      "prompt": "A stylish man wearing a tan suit and sunglasses is featured in a creative split image, framed by two ornate gold frames. In the top frame, he is pouring Coca-Cola from a bottle. The cola streams downward, passing through the gap between the frames. In the bottom frame, the same man, also in a tan suit and sunglasses, is shown with a joyful expression as the stream of cola splashes into a glass mug he is holding, creating a dynamic splash.The background behind the frames is a softly blurred night cityscape with tall buildings and lights, suggesting.",
-      "category": "摄影 / 影视",
-      "image": "https://images.meigen.ai/tweets/2005541752187273292/0.jpg",
-      "author": "Zar⭕on",
-      "authorUrl": "https://x.com/Xaroonx",
-      "source": "nanobanana-trending",
-      "sourceUrl": "https://x.com/Xaroonx/status/2005541752187273292",
-      "titleZh": "戴墨镜身穿驼色西装的时髦男子"
     },
     {
       "id": "tr-2018389139826037141",
@@ -891,19 +865,6 @@
       "titleZh": "物品技术信息图"
     },
     {
-      "id": "tr-2048018776785064328",
-      "title": "A hyperrealistic Nike sneaker advertisement shot in a…",
-      "description": "",
-      "prompt": "A hyperrealistic Nike sneaker advertisement shot in a dark, moody editorial style. A male leg wearing crisp white athletic crew socks with subtle Nike logo detail is suspended mid-air against a near-black charcoal background, angled diagonally toward the camera at a bold 45-degree perspective. The sneaker — a Nike low-top silhouette featuring a clean two-tone colorway of glacier teal suede panels and off-white tumbled leather, with an iridescent chrome Swoosh catching ambient light — dominates the lower two-thirds of the frame.\nThe composition uses shallow depth of field with sharp focus on the shoe and soft blur on the upper leg. The background is layered with subtle urban texture - faint graffiti strokes in electric yellow and muted olive, barely visible through a heavy dark vignette. Multiple rows of ultra-small all-caps typographic text orbit the sneaker at different angles, reading phrases like \"THE ONLY LIMITS ARE THE ONES YOU SET FOR YOURSELF\" - evoking motion, speed, and energy. Some text runs vertically, some at 30-degree angles, giving the composition a chaotic yet intentional graphic design feeling.\nAt the upper right, the bold Nike wordmark and Swoosh logo appear in clean white against the dark background. At the top center, a thin horizontal navigation-style text bar reads: \"PURE COMFORT · ALWAYS AHEAD · THE FUTURE IS NOW\" in spaced all-caps serif font. A large, commanding headline is placed center-right in contrasting weight typography - \"MOVE\" in massive ultra-bold white letters followed by \"BEYOND\" in lighter weight, creating dramatic type hierarchy.\nSmall yellow plus (+) symbols and diagonal arrows (↗) are scattered throughout the composition as accent details, adding a contemporary graphic zine aesthetic. Bottom left features a bold brand slogan lockup: \"DEFINE YOUR STRIDE\" in large bold sans-serif white text with a thin subline: \"An inspiring reminder that speed is a mindset. Every step forward is a statement.\" The overall lighting is dramatic and directional - a single cold key light from the left, causing the Swoosh to shimmer and the white leather to glow against the darkness. Photorealistic. Commercial photography quality. High contrast. 4K resolution, 3:4 vertical format optimized for social media.",
-      "category": "海报 / 广告",
-      "image": "https://images.meigen.ai/tweets/2048018776785064328/0.jpg",
-      "author": "Heisenberg",
-      "authorUrl": "https://x.com/rovvmut_",
-      "source": "nanobanana-trending",
-      "sourceUrl": "https://x.com/rovvmut_/status/2048018776785064328",
-      "titleZh": "耐克球鞋写实广告"
-    },
-    {
       "id": "tr-2047227731839184901",
       "title": "A cinematic digital artwork of a stylish animated girl…",
       "description": "",
@@ -1151,19 +1112,6 @@
       "titleZh": "盘中咬了一口的品牌产品"
     },
     {
-      "id": "tr-2020531946108158457",
-      "title": "Hyper-realistic cinematic product photograph of a Pepsi…",
-      "description": "",
-      "prompt": "Hyper-realistic cinematic product photograph of a Pepsi Black can, front-facing and perfectly legible, ice-cold surface covered in crisp condensation. Dark cola splashes explode around the can in frozen motion, glossy liquid waves and fine droplets catching the light. Moody low-key lighting with cool blue rim light and soft front fill, shallow depth of field, ultra-sharp texture detail, high-end advertising aesthetic.",
-      "category": "电商 / 产品",
-      "image": "https://images.meigen.ai/tweets/2020531946108158457/0.jpg",
-      "author": "simeon-sanai",
-      "authorUrl": "https://x.com/Naiknelofar788",
-      "source": "nanobanana-trending",
-      "sourceUrl": "https://x.com/Naiknelofar788/status/2020531946108158457",
-      "titleZh": "百事可乐电影感产品摄影"
-    },
-    {
       "id": "tr-2047375056125428013",
       "title": "Create a premium brand kit board for [BRAND NAME],…",
       "description": "",
@@ -1242,19 +1190,6 @@
       "titleZh": "写实微缩星球"
     },
     {
-      "id": "tr-2047277688075739605",
-      "title": "A high-resolution, photorealistic 3D action RPG mobile…",
-      "description": "",
-      "prompt": "A high-resolution, photorealistic 3D action RPG mobile game screenshot of an epic battle featuring Doraemon characters. The perspective is from behind the main player character, Nobita. The background is a post-apocalyptic urban scene of rubble, crumbling concrete, rebar, debris, small fires, and intense purple and blue lightning in a dark, cloudy night sky.  Characters:  Foreground Left: Doraemon, holding an elaborate, multi-barrel gatling-style cannon which hums with blue energy in his hand.  Foreground Center: Nobita, in a combat stance with his multi-layered slingshot weapon, wearing his classic yellow shirt, blue shorts, and glasses.  Middle Ground Center: Giant Gian (the boss), massive, muscular, intimidating, holding a spiked mace, with glowing sinister red eyes and surrounded by purple energy effects.  Nameplates: Doraemon (Lv. 30, HP: 2150/2420, MP: 860/1000), Nobita (Lv. 30, HP: 1980/2200, MP: 900/1000), Gian (Lv. ??, HP: 85670/100000, x4).  UI Elements (All in English):  Left Side Panel: The title is \"MISSIONS\" and \"TEAM\". The \"MAIN QUEST\" header is followed by \"Defeat Giant Gian\" and \"Defeat the Corrupted Gian [0/1]\". The \"DAILY TASKS\" header is followed by \"Use skill to hit Gian 3 times (2/3) [Check]\", \"Use item to restore HP 1 time (1/1) [Check]\", and \"Achieve 1 Perfect Dodge (0/1)\".  Right Side Panel: The header \"BOSS MISSION\" is followed by \"Defeat Giant Gian\" and \"Defeat the Corrupted Gian [0/1]\".  Bottom Right Skill Buttons: Labels (clockwise from top): \"Heavy Strike\", \"Basic Attack\" (with Doraemon head), \"Bamboo Copter Flight\", \"Item Bag\", \"Tumble Dodge\". Glowing blue skill icons are present.  Bottom Center Item Bar: Above the items, \"STAMINA VALUE\" followed by \"120/130\". The items are \"Dorayaki (15)\", \"Healing Drink (8)\", \"Bamboo Copter (5)\", \"Time Beam Camera (3)\".  Mini-Map: Top right corner mini-map with skull icon.  D-pad: English text virtual D-pad on the bottom left.  Screen Details: Cinematic lighting and effects. The cool blue of Doraemon's weapon light, warm orange firelight, cold purple lightning, and Gian's sinister red eyes. Detailed textures on clothing and weapons. All English text is clean, legible, and accurate. The low-angle emphasizes the scale difference and battle tension.",
-      "category": "插画 / 绘画",
-      "image": "https://images.meigen.ai/tweets/2047277688075739605/0.jpg",
-      "author": "TechieSA",
-      "authorUrl": "https://x.com/TechieBySA",
-      "source": "nanobanana-trending",
-      "sourceUrl": "https://x.com/TechieBySA/status/2047277688075739605",
-      "titleZh": "写实 3D 动作 RPG 手游画面"
-    },
-    {
       "id": "tr-2048630851051892985",
       "title": "高级概念海报，竖版 3:4，核心文字为[输入文字]",
       "description": "",
@@ -1292,19 +1227,6 @@
       "source": "nanobanana-trending",
       "sourceUrl": "https://x.com/dotey/status/2046671817775960343",
       "titleZh": "45°俯视竖版 9:16 场景"
-    },
-    {
-      "id": "tr-2029064691482542266",
-      "title": "Ultra-realistic, glossy magazine-style portrait of a…",
-      "description": "",
-      "prompt": "Ultra-realistic, glossy magazine-style portrait of a young male model, bald, with a stem, rugged expression and defined facial texture (pores, stubble shadows, subtle scars). Camera at shoe level (very low angle), wide-angle perspective, model tilted toward the lens, leaning forward and holding a Pepsi can extremely close to the camera - can label perfectly facing viewer and crisply legible with realistic metal reflections. Wearing a red Adidas tracksuit with visible Adidas logo and clean white sneakers, one foot stepped forward in the foreground. Urban USSR 1990s street environment: weathered concrete, vintage shop signs, old cars, period graffiti, small puddles. Bright sunny daytime with strong direct sunlight casting sharp cinematic shadows, warm sunlight highlights, slight wet reflections on asphalt and subtle water splashes near shoes for dynamism. Shallow depth of field (pin-sharp on face and can, creamy bokeh), ultra high detail, high contrast, vivid colors, warm sunlight with subtle teal-orange grade. Commercial editorial retouching style but preserving skin texture, enhanced clarity on label and metal, realistic specular highlights, natural micro-contrast. Composition: Pepsi can prominent in right foreground, eye-line slightly above center, negative space for masthead/logo--v 7 --style raw --quality 2 --ar 9:16 --chaos 3 --stylize 499-weird 99--exp 50",
-      "category": "摄影 / 影视",
-      "image": "https://images.meigen.ai/tweets/2029064691482542266/0.jpg",
-      "author": "Harboriis",
-      "authorUrl": "https://x.com/harboriis",
-      "source": "nanobanana-trending",
-      "sourceUrl": "https://x.com/harboriis/status/2029064691482542266",
-      "titleZh": "光泽杂志风人像"
     },
     {
       "id": "tr-2026603084760363062",
@@ -1515,19 +1437,6 @@
       "titleZh": "时尚大片全身写真"
     },
     {
-      "id": "tr-2038433331944292723",
-      "title": "Person from the reference image, with a fade haircut,…",
-      "description": "",
-      "prompt": "Person from the reference image, with a fade haircut, brown eyes, and a well-groomed short beard, wearing a glossy oversized red puffer jacket and loose red pants with white and red nike sneakers, crouching low with one knee up and one leg forward, left arm resting casually over the raised knee and right hand relaxed near the other leg, body angled slightly to the side while head tilts forward looking directly at the camera with a confident expression, ultra wide-angle low perspective shot emphasizing the front sneaker appearing large and dominant in the foreground, set in a fully red environment with smooth floor and backdrop featuring large white nike swoosh logos behind and flowing ribbon-like red shapes around, hyper-realistic photography, extremely sharp details on fabric shine and sneaker texture, dramatic studio lighting with strong highlights and soft shadows, saturated monochromatic red color palette with white accents, modern streetwear campaign style, no blur, no distortion, no extra limbs, no artifacts",
-      "category": "电商 / 产品",
-      "image": "https://images.meigen.ai/tweets/2038433331944292723/0.jpg",
-      "author": "Saul Goodman",
-      "authorUrl": "https://x.com/Goodmanprotocol",
-      "source": "nanobanana-trending",
-      "sourceUrl": "https://x.com/Goodmanprotocol/status/2038433331944292723",
-      "titleZh": "参考图人物渐变短发造型"
-    },
-    {
       "id": "tr-2047683043918311670",
       "title": "Ultra-clean modern editorial infographic on the topic…",
       "description": "",
@@ -1567,19 +1476,6 @@
       "titleZh": "戏剧化风格化人像转绘"
     },
     {
-      "id": "tr-2048615041566449922",
-      "title": "full body female model in confident fashion pose (one…",
-      "description": "",
-      "prompt": "full body female model in confident fashion pose (one leg slightly raised, relaxed luxury stance), wearing oversized black blazer, fitted black crop top, high-waisted baggy blue denim jeans, black heels, slim sunglasses, holding a small black handbag, clean long hair, sharp facial features\nminimal luxury studio background, soft beige gradient wall, smooth shadows, editorial lighting, high-end fashion campaign style\nlarge embossed “PREMIUM” text in background, subtle 3D depth, tone-on-tone color blending with wall, elegant and soft\nkeep “BAGGY” text bold and minimal near bottom, modern premium sans-serif font\nadd “GUCCI” logo top right corner, clean spacing, luxury typography\nultra realistic, sharp focus, premium color grading, soft highlights, depth of field, magazine-quality, clean composition, no clutter",
-      "category": "海报 / 广告",
-      "image": "https://images.meigen.ai/tweets/2048615041566449922/0.jpg",
-      "author": "auqib",
-      "authorUrl": "https://x.com/auqibhabib",
-      "source": "nanobanana-trending",
-      "sourceUrl": "https://x.com/auqibhabib/status/2048615041566449922",
-      "titleZh": "女模特自信姿态全身时装照"
-    },
-    {
       "id": "tr-2023256749310988332",
       "title": "Low-angle close-up portrait of a platinum blonde woman…",
       "description": "",
@@ -1617,19 +1513,6 @@
       "source": "nanobanana-trending",
       "sourceUrl": "https://x.com/Arminn_Ai/status/2004219626897465419",
       "titleZh": "奢侈品牌三件式广告"
-    },
-    {
-      "id": "tr-2040963305901273505",
-      "title": "logo completely wrapped in a single layer of elastic…",
-      "description": "",
-      "prompt": "logo completely wrapped in a single layer of elastic plastic or shrink wrap. The shapes of the logo should be visible only through the relief under the film, the logo surfaces themselves are not visible.\n\nBrand Analysis System:\n\nLogo geometry: Determine the full visual brand identifier [ADIDAS ORIGINAL] according to the official catalog: an icon, a text element, or a combination thereof. Keep the exact spatial relationship between the icon and the text.\nColor system: Use one monochrome tone [ADIDAS ORIGINAL] for all elements of the scene — background, film, wrapped object. Variations are achieved only through light and shadow.\nThe nature of the film: Based on the selected color [ADIDAS ORIGINAL], determine the behavior of the material: bright saturated colors create a dense glossy or latex film with visible tension lines; neutral — matte stretch film; dark - translucent vacuum film; light — matte food film.\n\nStage 1: Stage and Surface\n\nThe whole scene is monochromatic, the [ADIDAS ORIGINAL] color covers every surface without exception.\nThe background is made of the same film material, which is freely assembled and crumpled around the logo. Natural tension lines are created, the folds diverge from the peaks of the relief.\nThere are no floor lines, walls, or horizons — the stage is completely immersed in a solid plastic material.\n\nStage 2: Applying the logo\n\nEach element of the logo is voluminous, rounded, like a balloon, with visual depth.\nThe logo is fixed on the background and is completely covered with a single layer of film, tightly stretched over the tops of the elements, creating visible tension lines.\nFree folds are formed in the hollows between the letters, geometric elements of the icon and around the perimeter of the logo.\nThe logo remains fully readable, the icon is recognizable, but not a single surface of the logo itself is visible.\nThe physics of the film is precise: tight tension at high points, diverging stress lines, small raised areas between elements, shadows in the gaps.\n\nStage 3: Lighting\n\nThe main light source is soft, diffused, from the top left, emphasizing the relief of the film.\nFor glossy films, there are subtle highlights along the stretched areas, for matte films, there is only diffused light.\nGlobal lighting preserves details in deep folds without smoothing out the overall relief.\n\nTechnical specifications\n\nOnly the [ADIDAS ORIGINAL] color, variations through light and shadow.\nThere are no exposed logo surfaces and unnecessary text.\nThe film is realistic: the tension, the folds, the physics of plastic, not fabric.\nThe film grain corresponds to ISO 400.\nMood: the product is packed and ready for opening, the shape is known, but not yet touched.",
-      "category": "电商 / 产品",
-      "image": "https://images.meigen.ai/tweets/2040963305901273505/0.jpg",
-      "author": "simeon-sanai",
-      "authorUrl": "https://x.com/Naiknelofar788",
-      "source": "nanobanana-trending",
-      "sourceUrl": "https://x.com/Naiknelofar788/status/2040963305901273505",
-      "titleZh": "弹性薄膜包裹的Logo"
     },
     {
       "id": "tr-2048748484011204693",
@@ -1957,19 +1840,6 @@
       "titleZh": "高端提案式广告展板"
     },
     {
-      "id": "tr-2048641686994407474",
-      "title": "Create a high-impact 9:16 vertical e-commerce…",
-      "description": "",
-      "prompt": "Create a high-impact 9:16 vertical e-commerce infographic for Bolt True Wireless Earbuds with a premium lifestyle advertising aesthetic.\nComposition & Framing\nFull-body shot of a young woman (match face and identity exactly to the provided reference image — accurate facial features, skin tone, hairstyle)\nCamera angle slightly low and close (fashion campaign perspective) to add depth and presence\nThe subject is sitting casually on the floor, one knee raised, one leg extended forward toward the camera\nForeground (Product Focus)\nThe woman is holding an open Bolt earbud charging case toward the camera\nInside the case: one earbud visible\nThe second earbud is worn in her ear\nCase should be glossy white with subtle branding (“BOLT”)\nAdd slight macro depth-of-field blur on the hand and case for cinematic realism\nSubject Styling\nOutfit: modern sporty streetwear\nlightweight jacket (off-white / neutral tone)\ncrop top or sports bra\nloose joggers (light pink or soft color)\nwhite sneakers with visible texture\nExpression: confident, relaxed, slight smile\nPose: natural, lifestyle-oriented — not stiff or overly posed\nBackground & Atmosphere\nClean studio background with soft gray gradient\nAdd:\nrainbow prism lens flares\nsubtle light leaks\nfloating blurred earbuds and charging case in background\nGround surface slightly textured (studio floor look)\nLighting\nSoft, diffused commercial lighting\nHighlight:\nskin texture\nglossy earbud case\nfabric details\nSubtle rim lighting for separation from background\nTypography Layout (Modern Sans-Serif, White)\nTop Center (Behind Model):\nBOLD HUGE TEXT:\n“BOLT” (partially hidden behind subject)\nTop Right:\nBolt Earbuds\nTrue Wireless\nMid Left:\nPowerful sound.\nEffortless vibes.\nEngineered for every beat of your day.\nMid Right:\nBIG: 30\nsmall: hours of playtime\nBelow that:\nBIG: IPX5\nsmall: water resistant\nBottom Right:\nBIG: 1\nsmall: year warranty\nStyle & Quality\n8K ultra-realistic commercial photography\nSharp focus on face + earbuds\nSlight depth blur for foreground and background elements\nClean Apple/Nike-style premium ad aesthetic\nBalanced composition with strong negative space",
-      "category": "电商 / 产品",
-      "image": "https://images.meigen.ai/tweets/2048641686994407474/0.jpg",
-      "author": "Johnn",
-      "authorUrl": "https://x.com/john_my07",
-      "source": "nanobanana-trending",
-      "sourceUrl": "https://x.com/john_my07/status/2048641686994407474",
-      "titleZh": "9:16竖版电商主图"
-    },
-    {
       "id": "tr-2047541284005453933",
       "title": "A breathtaking luxury fashion magazine cover. Large…",
       "description": "",
@@ -2178,19 +2048,6 @@
       "titleZh": "九宫格分镜样张"
     },
     {
-      "id": "tr-2047721704202617219",
-      "title": "A highly detailed digital artwork in a surreal, dynamic…",
-      "description": "",
-      "prompt": "A highly detailed digital artwork in a surreal, dynamic style inspired by premium athletic advertising for Nike, Inc. A young athletic woman with platinum blonde hair tied in a messy bun, fair skin, and a fiercely focused expression is captured mid-jump or leap, her body leaning slightly forward as if bursting with raw, untamed energy.\nShe wears a loose, off-white Nike crewneck sweatshirt with subtle embossed Nike branding on the chest, paired with flowy, semi-transparent pants featuring a swirling marbled pattern in graphite grey and electric violet, billowing dramatically around her legs. On her feet are sleek, futuristic white Nike sneakers with glowing violet accents, visible Air-inspired sole details, and an aerodynamic design.\nVibrant electric violet energy or ethereal smoke erupts dramatically from behind her, swirling and dissolving into abstract, cloud-like forms that interact with her clothing, creating a powerful sense of motion and release.\nThe background is a deep, moody gradient transitioning from charcoal grey to luminous twilight violet, emphasizing a minimalist yet striking composition.\nOverlay large, bold metallic silver text reading “Just Do It” in a sharp, modern sans-serif font, partially integrated and obscured by the energy smoke and the figure, making it feel like an organic part of the scene.\nInclude the iconic Nike Swoosh logo in the top-left corner in shimmering silver.",
-      "category": "海报 / 广告",
-      "image": "https://images.meigen.ai/tweets/2047721704202617219/0.jpg",
-      "author": "Heisenberg",
-      "authorUrl": "https://x.com/rovvmut_",
-      "source": "nanobanana-trending",
-      "sourceUrl": "https://x.com/rovvmut_/status/2047721704202617219",
-      "titleZh": "超现实动感数字插画"
-    },
-    {
       "id": "tr-2012542946848174323",
       "title": "A vibrant 2000s scrapbook-style collage featuring the…",
       "description": "",
@@ -2241,19 +2098,6 @@
       "source": "nanobanana-trending",
       "sourceUrl": "https://x.com/harboriis/status/2048063332624843046",
       "titleZh": "4:5竖版社交海报"
-    },
-    {
-      "id": "tr-2048765001817805295",
-      "title": ":5 vertical poster, ultra high resolution, 8K,…",
-      "description": "",
-      "prompt": "FORMAT:\n4:5 vertical poster, ultra high resolution, 8K, ultra-premium automotive campaign, minimal cinematic realism\n\nCORE CONCEPT:\n“CONTROLLED UNSEALING”\n\nA precision-engineered object revealed with intent.\nNothing breaks.\nEverything separates perfectly.\n\nENVIRONMENT:\n\nDeep matte black studio\n\nBackground:\n- almost pure black\n- soft, controlled yellow glow diffused behind subject\n- no visible light source\n\nSurface:\n- ultra clean dark floor\n- very soft reflection (5–8%)\n- no scratches, no noise\n\nAir:\n- almost clean (NO visible dust)\n\nHERO STRUCTURE:\n\nA **precision-engineered display case** — not industrial, not damaged.\n\nDesign language:\n- monolithic black form\n- seamless panels\n- razor-sharp edges\n- minimal visible joints\n\nOpening behavior:\n- panels slide apart with mechanical precision\n- no tearing, no debris\n- perfect separation lines\n- slight offset gaps emitting soft yellow light\n\nInterior:\n- Porsche yellow inner chamber\n- smooth, matte-satin finish\n- soft controlled glow (not bright)\n\nPRODUCT:\n[Porsche 911 GT3 RS](chatgpt://generic-entity?number=0)\n\nAngle:\nRear 3/4, slightly low\n\nPosition:\nCentered, emerging forward subtly\n\nStance:\n- perfectly planted\n- minimal steering angle (almost straight)\n- composed, not aggressive\n\nDETAILING:\n\nSurface:\n- ultra refined gloss\n- clean, sharp reflections\n- no exaggerated highlights\n\nCarbon:\n- visible but subtle\n- premium, not loud\n\nTires:\n- clean satin finish\n- realistic, not shiny\n\nIntegration:\n- faint yellow light wrap from interior\n- soft contact shadow\n- barely visible reflection\n\nCOMPOSITION:\n\nTop:\nsmall Porsche crest\n\nCenter:\ncar framed by opening panels\n\nTypography:\nsecondary to structure\n\nBottom:\nclean editorial + specs\n\nNegative space:\ndominant and intentional\n\nTYPOGRAPHY:\n\nPRIMARY:\n“PORSCHE”\n\nStyle:\nUltra condensed\n\nTreatment:\n- subtly embedded into background\n- low contrast (dark graphite on black)\n- almost discovered, not announced\n\nSECONDARY:\n“911 GT3 RS”\nthin, technical\n\nEDITORIAL BLOCK:\n\nHeadline:\n“Porsche — Precisely Unsealed”\n\nBody:\nEngineered precision revealed with absolute control.\n\nMinimal copy. No storytelling overload.\n\nSPECS:\n\n386 kW / 525 PS  \n3.2 s  \n296 km/h  \n\nClean, technical alignment\n\nLIGHTING:\n\n- soft internal yellow glow (primary)\n- controlled top light (soft, even)\n- subtle rim separation\n- NO harsh contrast spikes\n\nFocus:\nsurface quality > drama\n\nCOLOR GRADING:\n\n- deep neutral blacks\n- controlled Porsche yellow\n- low saturation outside focal area\n- ultra clean finish\n\nCAMERA:\n\n50mm  \neye-level to slightly low  \nno distortion  \n\nMOOD:\n\nCalm.\nPrecise.\nObsessive.\n\nPower under control.",
-      "category": "海报 / 广告",
-      "image": "https://images.meigen.ai/tweets/2048765001817805295/0.jpg",
-      "author": "ᴍᴜʀᴘʜʏ",
-      "authorUrl": "https://x.com/Diplomeme",
-      "source": "nanobanana-trending",
-      "sourceUrl": "https://x.com/Diplomeme/status/2048765001817805295",
-      "titleZh": "高清竖版海报"
     },
     {
       "id": "tr-2048746995465203876",
@@ -2529,19 +2373,6 @@
       "titleZh": "中文信息图设计"
     },
     {
-      "id": "tr-2048967861981594095",
-      "title": "Full-body fashion editorial shot of a confident young…",
-      "description": "",
-      "prompt": "Full-body fashion editorial shot of a confident young woman with long wavy dark brown hair, striking sharp facial features, defined cheekbones, deep-set eyes with a calm dominant gaze, sunglasses perched on top of her head, standing in a powerful pose — one hand resting on an open scissor door, body slightly turned, looking straight at camera with a composed, fierce expression.\nWearing a fitted black long-sleeve racing jersey with gold sponsor logos (Alpinestars collar detail), black racing gloves, with a white, black, and red Sparco racing suit draped and hanging off her body, and black racing shoes. Clean editorial styling, natural confident stance, wind slightly moving her dark wavy hair.\nBeside and partially interacting with a stylized cartoon Cat, positioned naturally as if sharing the same space. The Cat is illustrated in bold cartoon style with thick black outlines, vibrant neon color palette (neon green, blue, yellow accents), exaggerated proportions, expressive features, playful yet powerful presence.\nBackground: bright indoor motorsport garage pit lane setting with large industrial windows flooding soft diffused daylight, glossy reflective concrete floor, a neon green Lamborghini Huracán with open scissor door partially visible.\nFusion of hyper-realistic photography and graphic illustration, seamless integration between subject and cartoon. Add graphic overlay elements: doodle Gugu arrows, scribbles, racing-themed abstract shapes, speed lines, comic-style symbols, dynamic motion lines, checkered flag doodles.\nHigh contrast, HDR lighting, sharp focus, fashion editorial motorsport composition, surreal mixed-media aesthetic, ultra-detailed, 8K resolution.",
-      "category": "海报 / 广告",
-      "image": "https://images.meigen.ai/tweets/2048967861981594095/0.jpg",
-      "author": "ShaHid WaNii",
-      "authorUrl": "https://x.com/meng_dagg695",
-      "source": "nanobanana-trending",
-      "sourceUrl": "https://x.com/meng_dagg695/status/2048967861981594095",
-      "titleZh": "自信青年全身时尚大片"
-    },
-    {
       "id": "tr-2048956977250726018",
       "title": "Create a hyper-realistic cinematic luxury perfume…",
       "description": "",
@@ -2568,32 +2399,6 @@
       "titleZh": "Higgsfield 上线 GPT Image 1.5 实测"
     },
     {
-      "id": "tr-2047273916406677721",
-      "title": "Create a clean, high-quality McDonald’s advertisement.",
-      "description": "",
-      "prompt": "Create a clean, high-quality McDonald’s advertisement.\nUse a bold red brand color with yellow brand accents.\nShow a Big Mac, fries, and a drink in a realistic, appetizing style.\nInclude the golden arches in the background.\nAdd bold white headline text: “Better together.”\nInclude smaller text: “Big Mac + Fries — The classic combo.”\nAdd price and minimal product details at the bottom.\nKeep the layout simple, balanced, and premium with strong brand consistency.",
-      "category": "美食 / 饮品",
-      "image": "https://images.meigen.ai/tweets/2047273916406677721/0.jpg",
-      "author": "UxUi Tega (Design & Ai)",
-      "authorUrl": "https://x.com/Tegadesigns",
-      "source": "nanobanana-trending",
-      "sourceUrl": "https://x.com/Tegadesigns/status/2047273916406677721",
-      "titleZh": "麦当劳简洁高质感广告"
-    },
-    {
-      "id": "tr-2048773623297527836",
-      "title": "Create a jaw-dropping premium advertising poster in…",
-      "description": "",
-      "prompt": "Create a jaw-dropping premium advertising poster in 9:16 vertical format for a fictional ultra-limited Adidas sneaker called \"ADIDAS AEROBLADE X - LIMITED DROP\". The design must feel like a world-class campaign by a top creative agency, highly original, futuristic, visually explosive, and impossible to ignore.\n\nMain visual:\nA single hero sneaker floating in the center, shot from a dramatic low angle, as if it is levitating above a black obsidian running track split by glowing energy cracks. The shoe should look ultra-premium, highly engineered, sleek, aerodynamic, and fashion-forward. Its material should combine knit mesh, sculpted foam, translucent panels, reflective stripes, and a carbon-fiber sole plate. Neon light trails swirl around the shoe like captured speed. Small particles and mist add motion and intensity. In the background, use faint silhouettes of elite runners frozen mid-sprint, blurred just enough to keep all attention on the shoe.\n\nColor palette:\nMatte black, electric red, silver, deep charcoal, with subtle neon blue highlights.\n\nTypography and poster copy:\nRender all text cleanly, sharply, and professionally with strong hierarchy.\nMain headline:\n\"OWN THE SPEED\"\nProduct title:\n\"ADIDAS AEROBLADE X\"\nSubheadline:\n\"Built for the ones who never run ordinary.\"\nFeature callouts in elegant boxed layout:\n- \"Featherlight Adaptive Knit Upper\"\n- \"Carbon Energy Return Plate\"\n- \"Precision Grip Traction\"\n- \"Limited Collector Release\"\nPrice line:\n\"$280\"\nCTA:\n\"DROP LIVE NOW\"\nSecondary CTA:\n\"Only at https://t.co/xuQ7Pl8fga\"\nSmall footer text:\n\"Performance innovation meets futuristic street identity.\"\n\nLayout direction:\nThe headline should be bold and oversized, partially integrated into the background. Product name should sit near the shoe in a refined premium layout. Feature callouts should be clean, readable, and arranged vertically along one side. Add a subtle badge reading \"LIMITED SERIES\". The overall composition should feel like a luxury sports campaign mixed with futuristic editorial design.\n\nStyle:\nUltra-detailed, hyper-realistic product photography, cinematic studio lighting, premium advertising aesthetics, sharp focus, rich textures, subtle atmosphere, dynamic motion energy, high-end commercial poster, no clutter, no generic template look.\n\nMake the aspect ratio 9:16",
-      "category": "海报 / 广告",
-      "image": "https://images.meigen.ai/tweets/2048773623297527836/0.jpg",
-      "author": "Ertan Dönmez | Ai Master",
-      "authorUrl": "https://x.com/ertanlabs",
-      "source": "nanobanana-trending",
-      "sourceUrl": "https://x.com/ertanlabs/status/2048773623297527836",
-      "titleZh": "高端广告海报，震撼视觉"
-    },
-    {
       "id": "tr-2047704906904330554",
       "title": "Minimalist luxury watch campaign, oversized wristwatch…",
       "description": "",
@@ -2618,19 +2423,6 @@
       "source": "nanobanana-trending",
       "sourceUrl": "https://x.com/azed_ai/status/2047419255931748377",
       "titleZh": "3×3 九宫格拼图"
-    },
-    {
-      "id": "tr-2047711520059252891",
-      "title": "Hyper-realistic cinematic perfume billboard poster for…",
-      "description": "",
-      "prompt": "Hyper-realistic cinematic perfume billboard poster for Vera Moss Tavernier Blue Eau De Parfum, built around freshness, clarity, and modern sharp identity\n\nScene: minimal architectural environment with smooth stone surfaces and cool-toned textures, soft air-like mist flowing horizontally across frame, creating a sense of movement and freshness\n\nProduct placement:\nperfume bottle placed center on a clean elevated platform, perfectly upright, label facing camera\nsubtle reflective surface beneath with soft diffused reflection\n\nEnvironment styling:\nabstract stone formations + soft gradient sky tones (light blue to grey), inspired by open air and water freshness\nno clutter, strong negative space\n\nComposition:\ncentered hero product\nstrong breathing space around\nbackground depth layers for cinematic feel\n\nTypography system (Nike-style, strict hierarchy):\n\ntop-left — Vera Moss logo\nbeneath — small thin uppercase “MURPHY AI”\n\ncenter massive —\n“STAY SHARP.”\nbold condensed sans-serif, high impact\n\nbackground typography (very faint, oversized):\n“FRESH / CLEAN / MODERN / TIMELESS”\nlayered subtly into environment\n\nmid-lower —\n“Your everyday signature, bottled.”\n\nbottom strip (clean spec line):\n“EAU DE PARFUM · 6–8 HOURS · AQUA FRESH NOTES”\n\nbottom right — website\n\nLighting:\nsoft cool daylight with slight blue tint\ngentle highlights on glass edges\nsubtle rim light for separation\n\nColor palette:\nicy blue, soft grey, white, silver accents\n\nAtmosphere:\nlight mist / air particles to represent freshness\n\nCamera:\n50mm lens, slight low angle for presence\nshallow depth of field, ultra sharp product focus\n\nMood:\ncalm, confident, modern, effortless\n\nOutput:\n4:5 billboard format\nultra high resolution\nluxury commercial finish\n\nHyper-realistic cinematic perfume billboard poster for Vera Moss Tsunami Eau De Parfum, built around energy, motion, and explosive freshness\n\nScene: dynamic water environment where a powerful wave is frozen mid-impact, curling around the perfume bottle, capturing the exact moment of motion and force\n\nProduct placement:\nperfume bottle placed center, emerging from the water surface\npartially surrounded by a rising wave arc\nglass and liquid reflecting blue tones\n\nEnvironment styling:\ndeep aqua-blue gradient background transitioning from dark ocean tones to bright fresh highlights\nwater particles suspended in air\nfine droplets and mist frozen in motion\n\nComposition:\ncentral hero bottle\ndiagonal motion created by wave direction\nstrong depth and perspective\n\nTypography system (Nike-style, high energy):\n\ntop-left — Vera Moss logo\nbeneath — small thin uppercase “MURPHY AI”\n\ncenter massive —\n“FEEL THE RUSH.”\nbold condensed sans-serif, slightly stretched vertically\n\nbackground typography (layered, kinetic):\n“WAVE / POWER / MOTION / ENERGY”\n\nsubtly warped as if affected by water movement\n\nmid-lower —\n“Powerful freshness in motion.”\n\nbottom strip —\n“EAU DE PARFUM · STRONG INTENSITY · AQUATIC CITRUS NOTES”\n\nbottom right — website\n\nLighting:\nhigh contrast lighting\nstrong highlights on water edges\nreflective glow on bottle\nsubtle backlight through water for depth\n\nColor palette:\naqua blue, deep navy, white highlights\n\nAtmosphere:\nwater spray, mist, droplets, motion particles\n\nCamera:\nlow angle + slight tilt for dynamism\n35mm cinematic lens feel\n\nMood:\nenergetic, powerful, refreshing, bold\n\nOutput:\n4:5 billboard format\nultra high resolution\npremium commercial finish",
-      "category": "电商 / 产品",
-      "image": "https://images.meigen.ai/tweets/2047711520059252891/0.jpg",
-      "author": "ᴍᴜʀᴘʜʏ",
-      "authorUrl": "https://x.com/Diplomeme",
-      "source": "nanobanana-trending",
-      "sourceUrl": "https://x.com/Diplomeme/status/2047711520059252891",
-      "titleZh": "写实电影感香水户外广告牌"
     },
     {
       "id": "tr-2047253028462317674",
@@ -3140,19 +2932,6 @@
       "titleZh": "平面设计智能提示词"
     },
     {
-      "id": "tr-2015676042460168488",
-      "title": "A high-fidelity, wide-angle interior shot captures a…",
-      "description": "",
-      "prompt": "- A high-fidelity, wide-angle interior shot captures a surreal, mixed-media composition within a modern living room. It features a man resembling the face in the reference photo—using an uploaded face as a reference—wearing a bright yellow hoodie and black pants, sitting centrally on a plush light gray sofa. The scene seamlessly blends photorealistic 3D environments with cel-shaded 2D anime and cartoon characters interacting directly with the physical space.\n\nOn the right side of the subject on the sofa, Nobita sits casually waving his hand, while on the left side, Doraemon leans casually on a pillow. Behind the sofa, two framed posters hang on the white wall—one featuring Son Goku and Vegeta, and the other featuring Trunks in a dynamic anime style. In the foreground, Shinchan lies relaxed on a textured gray carpet near a plate of dorayaki, while a chibi version of Son Goku stands triumphantly on a cream-colored knit pouf. On the left side of the room, Vegeta stands tall on a grooved wooden side table in a confident pose, while a miniature version of Trunks is near the wooden coffee table in the center, as if observing the scene with a curious expression.\n\nSoft natural light streams in from the left side through sheer curtains, creating subtle volumetric lighting that accentuates the texture of the blanket, the wood grain of the tiered table, and the leaves of the snake plant in the corner of the room. The entire scene is rendered in 8K resolution with sharp focus, vivid colors, and a dreamy, cinematic, and playful aesthetic blending between the real world and the anime world, with no AI visible.",
-      "category": "插画 / 绘画",
-      "image": "https://images.meigen.ai/tweets/2015676042460168488/0.jpg",
-      "author": "𝐌",
-      "authorUrl": "https://x.com/Strength04_X",
-      "source": "nanobanana-trending",
-      "sourceUrl": "https://x.com/Strength04_X/status/2015676042460168488",
-      "titleZh": "广角室内空间实景"
-    },
-    {
       "id": "tr-2028390369902174550",
       "title": "A colossal hand gripping an enormous vintage fountain…",
       "description": "",
@@ -3478,19 +3257,6 @@
       "titleZh": "把上传图片转成64K质感画面"
     },
     {
-      "id": "tr-2029730855908954544",
-      "title": "Ultra-detailed 3D plush cartoon character, inspired by…",
-      "description": "",
-      "prompt": "Ultra-detailed 3D plush cartoon character, inspired by classic animated TV style, standing in center frame, full body visible. Character designed as a soft toy with realistic fluffy fur texture, smooth rounded shapes, vibrant saturated colors, big expressive eyes, cute proportions, Using the image of [Doraemon's] character, [Nobita carries Doraemon on his back].\n\nHigh-resolution Pixar-style 3D rendering, soft studio lighting, subtle rim light, clean gradient background (blue tone), cinematic lighting, depth of field, highly detailed fur strands, soft shadows under feet, glossy nose, toy-like material, ultra sharp 8K render.\n\nCentered composition, minimal background, character facing camera, symmetrical pose, adorable expression.",
-      "category": "插画 / 绘画",
-      "image": "https://images.meigen.ai/tweets/2029730855908954544/0.jpg",
-      "author": "K",
-      "authorUrl": "https://x.com/ChillaiKalan__",
-      "source": "nanobanana-trending",
-      "sourceUrl": "https://x.com/ChillaiKalan__/status/2029730855908954544",
-      "titleZh": "3D毛绒卡通角色"
-    },
-    {
       "id": "tr-2026301375249105195",
       "title": "珐琅彩琉璃艺术风格，金属质感，制作一枚冰箱贴，写着\"西湖·杭州 WEST…",
       "description": "",
@@ -3777,32 +3543,6 @@
       "titleZh": "写实商业产品摄影"
     },
     {
-      "id": "tr-2011378277001363610",
-      "title": "Young beautiful woman with long wavy hair, elegant…",
-      "description": "",
-      "prompt": "Young beautiful woman with long wavy hair, elegant sleeveless polka dot midi dress black and white pattern, sitting thoughtfully at stylish wine bar counter, hand near lips, luxury wine bottles wall background, Prada navy blue mini bag with silk scarf, gold jewelry, sophisticated chic atmosphere, soft warm lighting, cinematic, highly detailed, realistic\n\nUse my uploaded face image as the ONLY facial and identity reference. No other faces, models, datasets, or references are allowed.",
-      "category": "摄影 / 影视",
-      "image": "https://images.meigen.ai/tweets/2011378277001363610/0.jpg",
-      "author": "Abhishek Singh",
-      "authorUrl": "https://x.com/2abhisheknaks",
-      "source": "nanobanana-trending",
-      "sourceUrl": "https://x.com/2abhisheknaks/status/2011378277001363610",
-      "titleZh": "长卷发优雅女子肖像"
-    },
-    {
-      "id": "tr-2028309848429846690",
-      "title": "A hyper-realistic surreal composite scene set on a…",
-      "description": "",
-      "prompt": "A hyper-realistic surreal composite scene set on a wooden tabletop. A large oversized smartphone dominates the frame, creating a strong dimensional-break illusion. On the phone screen, the woman from the reference image appears much larger in a close-up winter environment, smiling happily while holding a clear glass with a visible Pepsi logo on it.\n\nA real human hand pours dark Pepsi cola from a cold bottle covered in condensation droplets directly toward the phone screen. The liquid visually breaks through the display and flows into the glass she is holding inside the screen, creating a powerful surreal effect.\n\nA closed book and a black pen sit on the wooden table beside the oversized phone to emphasize scale distortion. Warm natural lighting, soft cinematic shadows, ultra-sharp liquid splash details, hyper-realistic skin texture, realistic reflections on glass and screen, surreal cinematic advertising look, professional commercial photography quality, 8K realism.",
-      "category": "摄影 / 影视",
-      "image": "https://images.meigen.ai/tweets/2028309848429846690/0.jpg",
-      "author": "Hania Ai",
-      "authorUrl": "https://x.com/HaniaAi12",
-      "source": "nanobanana-trending",
-      "sourceUrl": "https://x.com/HaniaAi12/status/2028309848429846690",
-      "titleZh": "超现实合成场景"
-    },
-    {
       "id": "tr-2013269718572965934",
       "title": "Epic 3D scene: a weathered passport lies open, its visa…",
       "description": "",
@@ -4074,19 +3814,6 @@
       "source": "nanobanana-trending",
       "sourceUrl": "https://x.com/harboriis/status/2029518437496795172",
       "titleZh": "写实第一人称自拍"
-    },
-    {
-      "id": "tr-2012224276900851827",
-      "title": "Create a 2x2 grid image. In each frame include a medium…",
-      "description": "",
-      "prompt": "Create a 2x2 grid image. In each frame include a medium shot, closeup shot, high angle looking down and extreme low angle view looking up from the sneakers. Utilize a fish eye lens perspective in each frame as well as an aesthetic pose with foreshortening. The character is wearing a dark red bomber jacket, blue jeans and white nike high top sneakers and posing with a different wacky facial expression in each frame. Include white doodle hand drawn elements around them in each frame. Studio photography against a dark blue background. Ensure the background encompasses the entire background, no circular framing.",
-      "category": "摄影 / 影视",
-      "image": "https://images.meigen.ai/tweets/2012224276900851827/0.jpg",
-      "author": "Travis Davids",
-      "authorUrl": "https://x.com/MrDavids1",
-      "source": "nanobanana-trending",
-      "sourceUrl": "https://x.com/MrDavids1/status/2012224276900851827",
-      "titleZh": "四宫格中景组图"
     },
     {
       "id": "tr-2027140622252179959",
@@ -4529,19 +4256,6 @@
       "source": "nanobanana-trending",
       "sourceUrl": "https://x.com/azed_ai/status/2032819091485110500",
       "titleZh": "高对比度矢量吉祥物图标"
-    },
-    {
-      "id": "tr-2036806218988315056",
-      "title": "A dynamic fashion advertisement for Nike showing a…",
-      "description": "",
-      "prompt": "A dynamic fashion advertisement for Nike showing a hyper-realistic model mid-twist jump, light trails following her limbs. Background: prism-shifting gradient (hot magenta to sapphire) with refracted lens flares. The model wears iridescent Nike runner tights and a cropped tech hoodie in holographic white. Bold serif \"NIKE\" and motion-glitched \"LUMINA\" in layered text behind. High-energy, futuristic aesthetic with fashion gloss",
-      "category": "海报 / 广告",
-      "image": "https://images.meigen.ai/tweets/2036806218988315056/0.jpg",
-      "author": "K",
-      "authorUrl": "https://x.com/ChillaiKalan__",
-      "source": "nanobanana-trending",
-      "sourceUrl": "https://x.com/ChillaiKalan__/status/2036806218988315056",
-      "titleZh": "耐克动感时尚广告"
     },
     {
       "id": "tr-2046049269078241532",
@@ -5077,19 +4791,6 @@
       "titleZh": "超广角鱼眼视角拍摄"
     },
     {
-      "id": "tr-2044465748714594617",
-      "title": "A hyper-realistic 3D render of a flat logo sculpted as…",
-      "description": "",
-      "prompt": "A hyper-realistic 3D render of a flat logo sculpted as a massive, frosted stone monument standing upright on the jagged peak of a rocky mountain summit.\n\nThe logo retains its exact silhouette and proportions but is fully translated into thick, solid carved rock encased in a layer of translucent frost and ice. Each element and shape of the logo is extruded with significant depth and volume, giving it a bold, chunky sculptural mass.\n\n The surface texture is rough, dark basalt or granite stone, partially obscured by a crystalline frost coating, with deep natural cracks, chipped edges, and fine granular detail across every face. The outer boundary of the logo forms the shell of the sculpture, with negative spaces between design elements carved out as open voids cutting through the rock.\nThe sculpture sits planted into the top of a rugged mountain peak, partially buried at its base, surrounded by cracked grey rock. A thick, textured layer of white snow and rime ice rests on the top flat surfaces of the logo forms and collects in the crevices and carved edges. Small icicles hang from the lower overhanging curves and edges, catching cold light. The entire structure has a subtle, semi-translucent frozen sheen, softening the harshness of the stone beneath.\nThe sky behind is filled with a dramatic, dense sea of clouds rolling over distant mountain peaks, creating a misty, ethereal, and cold atmosphere. Soft, diffused light filters through the cloud layer, creating a stark contrast against the dark, frosted stone sculpture. Lighting is soft natural daylight from slightly above and to the left, casting realistic shadows beneath the logo elements and across the rocky peak below. Ambient occlusion deepens the carved negative spaces between the design forms.\n\nCamera angle is slightly low, looking up at the sculpture from a three-quarter front perspective, emphasizing the scale and monumentality of the logo form, mirroring the heroic composition of a landmark monument.\n\nRendering style: photorealistic, cinematic, ultra-detailed, physically based rendering, no text, no additional elements only the logo as a frosted stone sculpture on a cloud-covered mountain peak.",
-      "category": "电商 / 产品",
-      "image": "https://images.meigen.ai/tweets/2044465748714594617/0.jpg",
-      "author": "Zazzy",
-      "authorUrl": "https://x.com/zazzygfx",
-      "source": "nanobanana-trending",
-      "sourceUrl": "https://x.com/zazzygfx/status/2044465748714594617",
-      "titleZh": "平面 Logo 转 3D 雕塑渲染"
-    },
-    {
       "id": "tr-2008374617979973865",
       "title": "A hyper-realistic 8k medium shot, captured with a…",
       "description": "",
@@ -5153,19 +4854,6 @@
       "source": "nanobanana-trending",
       "sourceUrl": "https://x.com/Strength04_X/status/2019225201242943804",
       "titleZh": "香蕉奶昔爆炸瞬间"
-    },
-    {
-      "id": "tr-2045387100842070500",
-      "title": "Create a digital modern maximalism style sports collage…",
-      "description": "",
-      "prompt": "Create a digital modern maximalism style sports collage of [TEAm Name] [Player name] visuals with grainy textures, abstract geometric shapes, dynamic grid layout, minimal background, contemporary editorial composition, inspired by [BRAND NAME ex Nike...] campaigns and modern sports graphic design, strong visual rhythm, bold and emotional atmosphere. Post-process film grain, and specially cinematic color-graded tones for serious intensity.",
-      "category": "海报 / 广告",
-      "image": "https://images.meigen.ai/tweets/2045387100842070500/0.jpg",
-      "author": "Saul Goodman",
-      "authorUrl": "https://x.com/Goodmanprotocol",
-      "source": "nanobanana-trending",
-      "sourceUrl": "https://x.com/Goodmanprotocol/status/2045387100842070500",
-      "titleZh": "现代极繁风格运动拼贴"
     },
     {
       "id": "tr-2021082486294675765",
@@ -5478,19 +5166,6 @@
       "source": "nanobanana-trending",
       "sourceUrl": "https://x.com/Taaruk_/status/2019254034654195755",
       "titleZh": "电影感美食摄影"
-    },
-    {
-      "id": "tr-2011878056755966363",
-      "title": "A sharp, top-down macro photograph of a single,",
-      "description": "",
-      "prompt": "A sharp, top-down macro photograph of a single, \nheavily crumpled circular vinyl sticker featuring the official [BRAND NAME] logo.\n\nMATERIAL & TEXTURE (VINYL):\nThe sticker is made of durable, slight-gloss vinyl material, not paper. It is severely crinkled with sharp, defined ridges and deep stress folds across its entire surface. Unlike soft paper creases, these vinyl wrinkles show plastic stress and catch the light with subtle specular highlights on the peaks of the folds. The edges are slightly curled from wear.\nCOLOR PALETTE (BRAND DYNAMIC):\nThe background color of the circular sticker itself is the dominant primary color associated with [BRAND NAME]'s official brand palette (e.g., if Ferrari, red; if John Deere, green). The logo is printed clearly in its standard contrasting color (e.g., white or black).\nLIGHTING (STUDIO BRIGHT):\nBright, clean, high-key overhead white studio lighting. This intense lighting creates strong, clean highlights on the vinyl's crumpled ridges and defined, crisp shadows in the valleys, dramatically emphasizing the 3D topography of the damage.\nBACKGROUND & COMPOSITION:\nThe camera is locked in a strict, perfectly parallel top-down flat lay view. The sticker is adhered flat onto a pure white plastic surface which has a subtle, fine granular texture (like bead-blasted plastic) to provide tactile contrast to the smooth vinyl. The entire sticker is in sharp focus.",
-      "category": "电商 / 产品",
-      "image": "https://images.meigen.ai/tweets/2011878056755966363/0.jpg",
-      "author": "AmirMušić",
-      "authorUrl": "https://x.com/AmirMushich",
-      "source": "nanobanana-trending",
-      "sourceUrl": "https://x.com/AmirMushich/status/2011878056755966363",
-      "titleZh": "单件物品的俯拍微距照"
     },
     {
       "id": "tr-2021859477130293356",
@@ -6026,19 +5701,6 @@
       "titleZh": "写实风格宣传海报"
     },
     {
-      "id": "tr-2034967465487163740",
-      "title": "Ultra-detailed stylized 3D portrait using the provided…",
-      "description": "",
-      "prompt": "Ultra-detailed stylized 3D portrait using the provided reference photo lebron james as the exact facial base.\nPreserve the person perfectly — identical face shape, bone structure, jawline, eyes, nose, lips, skin tone, marks, freckles, expression and proportions.\nDO NOT modify facial identity in any way.\nConvert ONLY into high-end stylized 3D realism.\nHead & elements:\nFloating head only (no neck, no shoulders, no body)\nKeep EXACTLY whatever the person has on their head in the reference image — same hairstyle, same hair length and texture, same hat, cap, sunglasses, glasses, headphones or any accessory. Do not remove or add anything.\nSkin refinement:\nNatural smooth skin (not plastic).Visible realistic micro-texture and pores. Subtle subsurface scattering for natural light diffusion. Soft highlights on cheekbones, nose bridge and tip.Balanced realistic shadows for depth\nHair & accessories (if present in reference):\nUltra-realistic volumetric strands.Natural shine and soft rim reflections. Perfectly preserved shape and position\nLighting:\nStrong cinematic purple ambient background. Soft frontal key light evenly illuminating the face. Subtle rim light separating head from background. Gentle under-chin shadow for depth. Smooth light gradients, no harsh contrast\nRendering style:\nPremium Pixar-quality stylized realism. Clean smooth shading. Global illumination. Soft bloom on highlights. Ultra sharp edgesNoise-free professional CGI\nCamera & quality:\nCentered portrait composition. Shallow depth of field illusion. Ultra high resolution. Cinematic look\nRules:\nRespect reference face 100%.Respect all head accessories and hair exactly. Only convert to stylized 3D. No exaggeration. No cartoon distortion. No facial changes",
-      "category": "插画 / 绘画",
-      "image": "https://images.meigen.ai/tweets/2034967465487163740/0.jpg",
-      "author": "TechieSA",
-      "authorUrl": "https://x.com/TechieBySA",
-      "source": "nanobanana-trending",
-      "sourceUrl": "https://x.com/TechieBySA/status/2034967465487163740",
-      "titleZh": "风格化 3D 人像（参考图生成）"
-    },
-    {
       "id": "tr-2009425516638687431",
       "title": "一张高分辨率的3x3网格照片拼贴，包含九个不同的动态姿势，以上传的女性面部照片为参考，背景是充满活力的蔚蓝天空，…",
       "description": "",
@@ -6455,19 +6117,6 @@
       "titleZh": "造型化文字排版插画"
     },
     {
-      "id": "tr-2038543008556015633",
-      "title": "High-quality professional product photography of a…",
-      "description": "",
-      "prompt": "High-quality professional product photography of a chilled Pepsi can with condensation water droplets and a refreshing, icy look. The aluminum can appears crisp and glossy with realistic highlights, subtle reflections, and visible cold texture. Shot in a minimalist commercial beverage advertising style against a pure white background with soft natural shadows. Sharp focus, ultra-clean composition, modern aesthetic.",
-      "category": "美食 / 饮品",
-      "image": "https://images.meigen.ai/tweets/2038543008556015633/0.jpg",
-      "author": "Zara",
-      "authorUrl": "https://x.com/ZaraIrahh",
-      "source": "nanobanana-trending",
-      "sourceUrl": "https://x.com/ZaraIrahh/status/2038543008556015633",
-      "titleZh": "专业级商业产品摄影"
-    },
-    {
       "id": "tr-2017166130746675620",
       "title": "Cute, innocent young adult blonde woman sitting…",
       "description": "",
@@ -6728,19 +6377,6 @@
       "titleZh": "超精细大头 Q 版 3D 角色"
     },
     {
-      "id": "tr-2026654389398896958",
-      "title": "A man smiling and posing with his arms crossed, wearing…",
-      "description": "",
-      "prompt": "A man smiling and posing with his arms crossed, wearing a maroon knitted high-collar sweater, with a high-end Rolex watch visible on his wrist. The background is a clean white wall with harsh sunlight creating a sharp shadow diagonal on the wall, studio portrait.",
-      "category": "摄影 / 影视",
-      "image": "https://images.meigen.ai/tweets/2026654389398896958/0.jpg",
-      "author": "K",
-      "authorUrl": "https://x.com/ChillaiKalan__",
-      "source": "nanobanana-trending",
-      "sourceUrl": "https://x.com/ChillaiKalan__/status/2026654389398896958",
-      "titleZh": "抱臂微笑摆拍的男士"
-    },
-    {
       "id": "tr-2017930809899192642",
       "title": "​A high-resolution conceptual portrait of a woman’s…",
       "description": "",
@@ -6845,19 +6481,6 @@
       "titleZh": "四格竖版电影感杂志图"
     },
     {
-      "id": "tr-2041451587403399395",
-      "title": "A high-fashion, cinematic brand concept poster for \"The…",
-      "description": "",
-      "prompt": "A high-fashion, cinematic brand concept poster for \"The North Face.\" The scene features a woman in the uploaded image, standing in a stylized studio. They are dressed in edgy, oversized urban streetwear: a dark olive-green quilted puffer bomber jacket, layered black and tan distressed techwear shorts below knees, and black sneakers with white soles. The person holds a classic orange basketball at their hip. In the background, a massive, bold red \"THE NORTH FACE\" logo and its iconic half-dome symbol are stacked and centered, dominating the upper half of the frame. To the right of the subject, there's a small white stylized graffiti-style signature. The lighting is moody and dramatic, featuring a teal-tinted atmosphere with a warm rim light hitting the subject’s right side. The floor is a dark, smooth studio surface with a soft shadow cast forward. The overall aesthetic is gritty, futuristic, and high-contrast, with a heavy film grain texture.",
-      "category": "电商 / 产品",
-      "image": "https://images.meigen.ai/tweets/2041451587403399395/0.jpg",
-      "author": "Heisenberg",
-      "authorUrl": "https://x.com/rovvmut_",
-      "source": "nanobanana-trending",
-      "sourceUrl": "https://x.com/rovvmut_/status/2041451587403399395",
-      "titleZh": "高级时装电影感品牌概念海报"
-    },
-    {
       "id": "tr-2027843262497591580",
       "title": "Ultra-realistic top-down geographic map with precise…",
       "description": "",
@@ -6921,19 +6544,6 @@
       "source": "nanobanana-trending",
       "sourceUrl": "https://x.com/AIwithSynthia/status/2030062558372319415",
       "titleZh": "坠落中的年轻女子超现实场景"
-    },
-    {
-      "id": "tr-2017678718882476378",
-      "title": "Create an infographic image of Nike Air Jordan 1 High…",
-      "description": "",
-      "prompt": "Create an infographic image of Nike Air Jordan 1 High OG sneaker, combining a realistic photograph or photoreal render of the object with technical annotation overlays placed directly on top. Use black ink–style line drawings and text (technical pen / engineering diagram aesthetic) for all annotations. Include precise arrows pointing to specific parts, detailed labels naming each component (toe box, swoosh logo, wings logo, collar, tongue, lace holes, midsole, outsole, heel counter, perforations, stitching patterns), materials used (premium leather, rubber outsole, foam cushioning), and historical notes (designed by Peter Moore, 1985, banned by NBA). Show both side profile and slight 3/4 angle. Background should be clean white or very light neutral. Overall style: a hybrid of product photography and vintage technical manual illustration. High resolution, ultra-detailed, 4K quality.",
-      "category": "电商 / 产品",
-      "image": "https://images.meigen.ai/tweets/2017678718882476378/0.jpg",
-      "author": "Kaan",
-      "authorUrl": "https://x.com/kaanakz",
-      "source": "nanobanana-trending",
-      "sourceUrl": "https://x.com/kaanakz/status/2017678718882476378",
-      "titleZh": "耐克 Air Jordan 1 High 信息图"
     },
     {
       "id": "tr-2010663134743368058",
@@ -7170,19 +6780,6 @@
       "titleZh": "悬浮于空中的剥皮瞬间物体"
     },
     {
-      "id": "tr-2016146144590541290",
-      "title": "×2 grid luxury perfume advertisement for Chanel…",
-      "description": "",
-      "prompt": "2×2 grid luxury perfume advertisement for Chanel perfume, four distinct yet cohesive high-end commercial images, elegant Parisian aesthetic, timeless fashion branding.\n\nPanel 1 – Hero Product Elegance\n\nMinimalist studio shot of a Chanel perfume bottle centered on a reflective surface. Soft, diffused lighting highlights the glass clarity, sharp edges, and iconic label. Neutral background in beige, ivory, or soft black. Luxurious, calm, iconic composition.\n\nPanel 2 – Parisian Lifestyle Mood\n\nElegant adult woman in a classic Parisian interior vintage molding. She gently applies Chanel perfume to her neck or wrist. Natural light, effortless beauty, refined posture. Editorial fashion photography style, understated luxury.\n\nPanel 3 – Sensory Detail Close-Up\n\nMacro close-up of the Chanel perfume bottle with fine mist dispersing into the air. Light catches the spray particles. Soft shadows, shallow depth of field. Emphasis on texture, fragrance atmosphere, and sensory refinement.\n\nPanel 4 – Cinematic Night Glamour\n\nMoody, cinematic scene with the Chanel perfume bottle placed on a dark surface beside silk fabric or pearls. Low-key lighting, warm highlights, deep shadows. Evokes mystery, confidence, and timeless femininity.\n\nAll four images are visually unified through refined color grading, restrained contrast, and classic Chanel luxury cues.\n\nVisual Style\n\nLuxury fashion advertising\nEditorial, timeless, refined\nSoft contrast\nMuted neutral palette\nHigh realism\nClean composition\nParisian elegance\n\nCamera & Lighting\n\nProfessional studio and editorial photography\n50–85mm lens look\nShallow depth of field\nSoft diffused lighting\nControlled highlights and shadows\nPerfect label clarity\n\nMood Keywords\n\nElegant\nIconic\nSophisticated\nTimeless\nFeminine\nConfident\nLuxury\n\nNegative Prompt\n\nCheap packaging, distorted logo, misspelled branding, harsh lighting, oversaturation, cluttered background, CGI look, cartoon style, watermark, text overlays, knockoff perfume bottles\n\nAspect Ratio\n\nOverall canvas: 1:1\nGrid: 2×2 equal squares\nOptimized for luxury brand advertising and social campaigns",
-      "category": "电商 / 产品",
-      "image": "https://images.meigen.ai/tweets/2016146144590541290/0.jpg",
-      "author": "Keskin",
-      "authorUrl": "https://x.com/craftian_keskin",
-      "source": "nanobanana-trending",
-      "sourceUrl": "https://x.com/craftian_keskin/status/2016146144590541290",
-      "titleZh": "香奈儿香水四宫格广告"
-    },
-    {
       "id": "tr-2025580480175710454",
       "title": "Create an image in 4:5 ratio, with hyper-realistic…",
       "description": "",
@@ -7207,19 +6804,6 @@
       "source": "nanobanana-trending",
       "sourceUrl": "https://x.com/Strength04_X/status/2025073987521507338",
       "titleZh": "结着一颗果的小辣椒盆栽"
-    },
-    {
-      "id": "tr-2015428737005912073",
-      "title": "A gritty, handheld iPhone photo taken at night on an…",
-      "description": "",
-      "prompt": "A gritty, handheld iPhone photo taken at night on an airport tarmac with harsh direct on-camera flash. Imperfect, slightly crooked framing, like a spon-taneous snap. In the foreground, the woman stands beside a pink Porsche 911 on a flatbed trailer, mid-coy gesture, body angled three-quarters, one hand near her face. She wears wide Carhartt-style jeans and a fitted top, straight bangs framing her face flirty, casual, unplanned. In the background, a huge Emirates Airbus A380 looms in darkness, barely visible beyond flash falloff, cargo door open. Blown highlights on her, hard shadows on concrete, the plane mostly swallowed by night.",
-      "category": "摄影 / 影视",
-      "image": "https://images.meigen.ai/tweets/2015428737005912073/0.jpg",
-      "author": "𝐌",
-      "authorUrl": "https://x.com/Strength04_X",
-      "source": "nanobanana-trending",
-      "sourceUrl": "https://x.com/Strength04_X/status/2015428737005912073",
-      "titleZh": "夜晚街头手持 iPhone 抓拍"
     },
     {
       "id": "tr-2010202953123295307",
@@ -7272,19 +6856,6 @@
       "source": "nanobanana-trending",
       "sourceUrl": "https://x.com/azed_ai/status/2038616252785303612",
       "titleZh": "产品广告摄影"
-    },
-    {
-      "id": "tr-2011387267282276607",
-      "title": "A high-definition, realistic 3D social media profile…",
-      "description": "",
-      "prompt": "A high-definition, realistic 3D social media profile picture style. The image features the young English girl with sleek, straight white hair and a clear, detailed face. She is wearing a coordinated Nike brand outfit consisting of a premium black and red Nike tracksuit with a visible swoosh logo. On her feet are classic red, white, and black Nike Air Jordan sneakers. She is sitting on the edge of a white Instagram-style frame, with her legs and one sneaker 'popping out' of the bottom of the frame for a 3D effect. The background inside the frame shows her sitting on a long, perspective-heavy escalator in a dark, gritty subway tunnel filled with colorful graffiti. She is looking down at a smartphone in her hands. The lighting is cinematic, highlighting her white hair and the textures of the Nike fabric.\"",
-      "category": "插画 / 绘画",
-      "image": "https://images.meigen.ai/tweets/2011387267282276607/0.jpg",
-      "author": "Aijaz",
-      "authorUrl": "https://x.com/iamsofiaijaz",
-      "source": "nanobanana-trending",
-      "sourceUrl": "https://x.com/iamsofiaijaz/status/2011387267282276607",
-      "titleZh": "3D 写实社交头像"
     },
     {
       "id": "tr-2015437854206529710",
@@ -7389,19 +6960,6 @@
       "source": "nanobanana-trending",
       "sourceUrl": "https://x.com/underwoodxie96/status/2029149670061064470",
       "titleZh": "动漫角色转真人写实肖像"
-    },
-    {
-      "id": "tr-2011028969332805684",
-      "title": "Create a hyper-realistic mirror selfie of me (use my…",
-      "description": "",
-      "prompt": "Create a hyper-realistic mirror selfie of me (use my face from the uploaded selfie) wearing the same black Ferrari racing jacket with red and yellow patches, black t-shirt underneath, silver rings, and chain.\nI'm holding a phone with a beige\nMagSafe case, posing in a dimly lit\nmodern bathroom with dark marble\nwalls. The lighting is soft and moody\ncapturing the same hairstyle, pose,\nand reflection angle as in the\nreference image - stylish, confident\ncinematic vibe. Add a moody filter.",
-      "category": "摄影 / 影视",
-      "image": "https://images.meigen.ai/tweets/2011028969332805684/0.jpg",
-      "author": "Harboriis",
-      "authorUrl": "https://x.com/harboriis",
-      "source": "nanobanana-trending",
-      "sourceUrl": "https://x.com/harboriis/status/2011028969332805684",
-      "titleZh": "写实镜子自拍"
     },
     {
       "id": "tr-2008777683455656087",
@@ -7519,19 +7077,6 @@
       "source": "nanobanana-trending",
       "sourceUrl": "https://x.com/rovvmut_/status/2039904241050173853",
       "titleZh": "依上传图片生成男子形象"
-    },
-    {
-      "id": "tr-2033403443269030215",
-      "title": "A high-quality, split-screen fashion editorial…",
-      "description": "",
-      "prompt": "A high-quality, split-screen fashion editorial advertisement featuring multiple panels of different colors (yellow, green, deep red, blue). The image shows models wearing Adidas-style tracksuits and casual sportswear in corresponding colors that match their background panel. One male model in yellow is walking, one female model in green is sitting on a speaker, one male model in red is jumping, one female model in blue is sitting by a blue typewriter, one female model in red is posing in a red panel, and one female model in yellow is standing. Clean studio lighting, vibrant solid-color backgrounds, professional fashion photography, minimalist aesthetic, sharp focus",
-      "category": "海报 / 广告",
-      "image": "https://images.meigen.ai/tweets/2033403443269030215/0.jpg",
-      "author": "Cherry 2.O",
-      "authorUrl": "https://x.com/Mind_Boticni",
-      "source": "nanobanana-trending",
-      "sourceUrl": "https://x.com/Mind_Boticni/status/2033403443269030215",
-      "titleZh": "分屏式时尚大片"
     },
     {
       "id": "tr-2022635065910464957",
@@ -7675,19 +7220,6 @@
       "source": "nanobanana-trending",
       "sourceUrl": "https://x.com/rovvmut_/status/2033793020940980720",
       "titleZh": "夜景电影感竖版三联画"
-    },
-    {
-      "id": "tr-2008912370551357865",
-      "title": "A cute, cinematic brand fantasy scene featuring a…",
-      "description": "",
-      "prompt": "A cute, cinematic brand fantasy scene featuring a fluffy white teddy bear mascot emerging from a chilled soda Coca-Cola can, holding a colorful striped straw.\n\nThe can is placed inside a glowing refrigerator filled with neatly stacked glass soda bottles. Soft neon lighting, pastel reflections, condensation droplets on metal, playful yet premium advertising style. Shallow depth of field, ultra-detailed fur texture, glossy highlights, vibrant red-and-white color pal-ette, whimsical mood, Pixar-level realism, stu-dio-quality lighting, high contrast, square composi-tion, 1080×1080, ultra-HD, commercial brand photog-raphy.",
-      "category": "插画 / 绘画",
-      "image": "https://images.meigen.ai/tweets/2008912370551357865/0.jpg",
-      "author": "𝐌",
-      "authorUrl": "https://x.com/Strength04_X",
-      "source": "nanobanana-trending",
-      "sourceUrl": "https://x.com/Strength04_X/status/2008912370551357865",
-      "titleZh": "可爱电影感品牌幻想场景"
     },
     {
       "id": "tr-2019094555501686847",
@@ -7961,19 +7493,6 @@
       "source": "nanobanana-trending",
       "sourceUrl": "https://x.com/harboriis/status/2022288144545259558",
       "titleZh": "哈苏 907X 50C + XCD 90mm f/2.5 拍摄"
-    },
-    {
-      "id": "tr-2034898321639121310",
-      "title": "A MAN WITH LIGHT-MEDIUM SKIN, SHORT DARK CURLY HAIR…",
-      "description": "",
-      "prompt": "A MAN WITH LIGHT-MEDIUM SKIN, SHORT DARK CURLY HAIR WITH A FADE HAIRCUT,BROWN EYES,\nAND A WELL-GROOMED SHORT BEARD, WEARING A GLOSSY OVERSIZED RED PUFFER JACKET AND\nLOOSE RED PANTS WITH WHITE AND RED NIKE SNEAKERS, CROUCHING LOW WITH ONE KNEE UP AND\nONE LEG FORWARD, LEFT ARM RESTING CASUALLY OVER THE RAISED KNEE AND RIGHT HAND\nRELAXED NEAR THE OTHER LEG, BODY ANGLED SLIGHTLY TO THE SIDE WHILE HEAD TILTS\nFORWARD LOOKING DIRECTLY AT THE CAMERA WITH A CONFIDENT EXPRESSION, ULTRA WIDE-ANGLE\nLOW PERSPECTIVE SHOT EMPHASIZING THE FRONT SNEAKER APPEARING LARGE AND DOMINANT IN\nTHE FOREGROUND, SET IN A FULLY RED ENVIRONMENT WITH SMOOTH FLOOR AND BACKDROP\nFEATURING LARGE WHITE NIKE SWOOSH LOGOS BEHIND AND FLOWING RIBBON-LIKE RED SHAPES\nAROUND, HYPER-REALISTIC PHOTOGRAPHY, EXTREMELY SHARP DETAILS ON FABRIC SHINE AND\nSNEAKER TEXTURE, DRAMATIC STUDIO LIGHTING WITH STRONG HIGHLIGHTS AND SOFT SHADOWS\nSATURATED MONOCHROMATIC RED COLOR PALETTE WITH WHITE ACCENTS, MODERN STREETWEAR\nCAMPAIGN STYLE, NO BLUR, NO DISTORTION, NO EXTRA LIMBS, NO ARTIFACTS",
-      "category": "海报 / 广告",
-      "image": "https://images.meigen.ai/tweets/2034898321639121310/0.jpg",
-      "author": "K",
-      "authorUrl": "https://x.com/ChillaiKalan__",
-      "source": "nanobanana-trending",
-      "sourceUrl": "https://x.com/ChillaiKalan__/status/2034898321639121310",
-      "titleZh": "中浅肤色深色短卷发男子"
     },
     {
       "id": "tr-2040303034115477755",
@@ -8925,19 +8444,6 @@
       "titleZh": "原片级高清写实人像"
     },
     {
-      "id": "tr-2028261430064185366",
-      "title": "Hyper-realistic 8k cinematic photograph, low-angle wide…",
-      "description": "",
-      "prompt": "Hyper-realistic 8k cinematic photograph, low-angle wide lens. A giant Coca-Cola can standing like a monument, partially encased in thick blue glacial ice and snow in an arctic landscape. Frost covering the aluminum surface, long icicles hanging from the rim, snow filling the top opening. Snowcat vehicle and scientists in red parkas for scale. Cold diffused lighting, HDR, ultra-real frozen textures, cinematic atmosphere --ar 2:3",
-      "category": "电商 / 产品",
-      "image": "https://images.meigen.ai/tweets/2028261430064185366/0.jpg",
-      "author": "Duet | AI",
-      "authorUrl": "https://x.com/Sheldon056",
-      "source": "nanobanana-trending",
-      "sourceUrl": "https://x.com/Sheldon056/status/2028261430064185366",
-      "titleZh": "电影感低角度广角实景大场面"
-    },
-    {
       "id": "tr-2036909125347553519",
       "title": "A stunning Trompe L’oeil 3D composition, where the…",
       "description": "",
@@ -9300,19 +8806,6 @@
       "source": "nanobanana-trending",
       "sourceUrl": "https://x.com/Kashberg_0/status/2019985216308429143",
       "titleZh": "高端产品电影感广告摄影"
-    },
-    {
-      "id": "tr-2020728313006936161",
-      "title": "A young man with a slight smile see the uploaded…",
-      "description": "",
-      "prompt": "A young man with a slight smile see the uploaded picture as reference for the face wearing outfit: oversized white sweatshirt, lemon green oversized combat jean, styled with footwear: lemon green neutral Nike sneakers and white ribbed socks. Environment: futuristic lemon green-tone studio background. Lighting: soft cinematic glow highlighting skin and fabric textures. Style: fashion editorial x futuristic. Model seats on lemon green bench elegantly with a relaxed posture.",
-      "category": "摄影 / 影视",
-      "image": "https://images.meigen.ai/tweets/2020728313006936161/0.jpg",
-      "author": "Taaruk",
-      "authorUrl": "https://x.com/Taaruk_",
-      "source": "nanobanana-trending",
-      "sourceUrl": "https://x.com/Taaruk_/status/2020728313006936161",
-      "titleZh": "微笑青年参照上传图生成"
     },
     {
       "id": "tr-2045337223638515794",
@@ -9861,19 +9354,6 @@
       "titleZh": "把照片中的人物转换风格"
     },
     {
-      "id": "tr-2041359077423419632",
-      "title": "Use uploaded selfie as ONLY face reference; preserve…",
-      "description": "",
-      "prompt": "Use uploaded selfie as ONLY face reference; preserve exact likeness/age/hair and natural skin texture; no beautification, no face mixing. Ultra-realistic CCTV/security camera still frame in a building hallway: ceiling corner mount view (high angle 60-70° top-down), wide 2.8-3.6mm fisheye barrel distortion, edge warping. Subject centered under the camera, looking up directly into lens with a cool unbothered expression, one hand adjusting the waistband, the other holding a bag strap or hanging relaxed. Outfit (strict, unisex): oversized graphic print T-shirt (generic print, no readable text/logos), wide baggy jeans, Adidas Campus sneakers (recognizable silhouette), chunky chain necklace. CCTV look: low-light greenish/blue tint, interlaced scanlines, H.264 block compression, mild noise, slight motion smear on background only, timestamp/HUD present but blurred/unreadable (no readable text), vignetting, ceiling light glare. Face is the sharpest point. 3:4",
-      "category": "摄影 / 影视",
-      "image": "https://images.meigen.ai/tweets/2041359077423419632/0.jpg",
-      "author": "Harboris",
-      "authorUrl": "https://x.com/harboriis",
-      "source": "nanobanana-trending",
-      "sourceUrl": "https://x.com/harboriis/status/2041359077423419632",
-      "titleZh": "仅以自拍作面部参考并保留特征"
-    },
-    {
       "id": "tr-2040498492347420883",
       "title": "A flat-lay collection of exactly 9 hyper-realistic 3D…",
       "description": "",
@@ -10132,19 +9612,6 @@
       "source": "nanobanana-trending",
       "sourceUrl": "https://x.com/oggii_0/status/2035582838649827509",
       "titleZh": "环保护肤品极简产品图"
-    },
-    {
-      "id": "tr-2029815700160971067",
-      "title": "Adidas sneakers in the box, minimalist product…",
-      "description": "",
-      "prompt": "Adidas sneakers in the box, minimalist product photography, clean warm studio scene, textured beige wall in the background, soft directional\nsunlight creating long shadows, simple table surface, the product placed in a playful conceptual composition,overlaid with a hand-drawn white outline doodle\n[character] interacting with the product, mixed media\nstyle combining real photography and sketch illustration, premium branding feel, shallow depth of field, ultra-realistic, no extra text, no watermarks, 8K,\n1:1.",
-      "category": "电商 / 产品",
-      "image": "https://images.meigen.ai/tweets/2029815700160971067/0.jpg",
-      "author": "K",
-      "authorUrl": "https://x.com/ChillaiKalan__",
-      "source": "nanobanana-trending",
-      "sourceUrl": "https://x.com/ChillaiKalan__/status/2029815700160971067",
-      "titleZh": "盒中阿迪达斯球鞋极简产品图"
     },
     {
       "id": "tr-2032694954758193192",
@@ -10667,19 +10134,6 @@
       "titleZh": "同一人物的 3×3 电影剧照九宫格"
     },
     {
-      "id": "tr-2038224276835471420",
-      "title": "A rugged, matte-black chronograph watch with bold…",
-      "description": "",
-      "prompt": "A rugged, matte-black chronograph watch with bold orange accents is tightly framed between two textured rock formations, creating a natural vignette that directs all focus toward the dial; the scene opens with an ultra-close macro perspective, the camera slowly sliding laterally through the narrow rocky gap, maintaining an intimate, compressed field of view with no zoom-out, as if discovering the watch hidden within a harsh alpine environment. Cold mountain air subtly moves fine dust particles and faint mist across the frame, catching soft, diffused daylight that spills in from above, while a warm, low-angle sunlight grazes the rocks and reflects gently onto the watch face, creating a striking contrast between cool shadows and warm highlights. The camera continues a controlled micro-orbit around the watch at close range, allowing specular highlights to travel across the brushed metal bezel, engraved screws, and slightly textured rubber strap, emphasizing durability and premium craftsmanship. The orange indices and hands glow subtly as light shifts across the sapphire crystal, revealing crisp reflections and slight curvature distortions. In the blurred background, towering mountain peaks remain softly out of focus, adding depth without distraction, while tiny vibrations in the environment cause minuscule pebble shifts near the base, reinforcing realism. As the shot progresses, a faint breeze brushes across the strap, introducing barely perceptible movement, while light intensity fluctuates naturally as if clouds are passing overhead. The sequence ends in a locked, ultra-tight hero composition, perfectly centered within the rock frame, with high contrast, razor-sharp detail on the dial, and a cinematic interplay of shadow, texture, and controlled highlights that reinforce a premium, adventure-driven identity.",
-      "category": "电商 / 产品",
-      "image": "https://images.meigen.ai/tweets/2038224276835471420/0.jpg",
-      "author": "𝐌",
-      "authorUrl": "https://x.com/Strength04_X",
-      "source": "nanobanana-trending",
-      "sourceUrl": "https://x.com/Strength04_X/status/2038224276835471420",
-      "titleZh": "哑光黑粗犷计时腕表"
-    },
-    {
       "id": "tr-2043336493419123094",
       "title": "A high-fashion editorial portrait of a young woman…",
       "description": "",
@@ -10927,19 +10381,6 @@
       "titleZh": "电影感定格画面"
     },
     {
-      "id": "tr-2011273105541644683",
-      "title": "Hyper-realistic low-angle closeup front shot of a young…",
-      "description": "",
-      "prompt": "Hyper-realistic low-angle closeup front shot of a young man use image uploaded leaning against a Land Rover Defender in a dim basement garage.\n\nWearing oversized Nike wind cheater, baggy basketball pants, Adidas chunky sneakers, basketball cap. Hands crossed, attitude gaze. Luxury SUVs softly blurred with cinematic bokeh, shallow depth of field, strong subject separation, and 8K cinematic color grading.",
-      "category": "摄影 / 影视",
-      "image": "https://images.meigen.ai/tweets/2011273105541644683/0.jpg",
-      "author": "Harboriis",
-      "authorUrl": "https://x.com/harboriis",
-      "source": "nanobanana-trending",
-      "sourceUrl": "https://x.com/harboriis/status/2011273105541644683",
-      "titleZh": "年轻人低角度正面特写"
-    },
-    {
       "id": "tr-2041020925706117267",
       "title": "A hyper-realistic, cinematic extreme close-up portrait…",
       "description": "",
@@ -11029,19 +10470,6 @@
       "source": "nanobanana-trending",
       "sourceUrl": "https://x.com/Mind_Boticni/status/2040029384518901953",
       "titleZh": "主体与姿势"
-    },
-    {
-      "id": "tr-2017516657623875632",
-      "title": "Ultra-realistic creative advertising scene showing a…",
-      "description": "",
-      "prompt": "Ultra-realistic creative advertising scene showing a giant smartphone displaying a McDonald’s food-ordering app interface inside a modern restaurant kitchen. The phone screen features neatly arranged food compartments like a vending machine: a Big Mac burger, McDonald’s fries, a Coca-Cola cup, and chicken McNuggets with star ratings and reviews visible. Miniature restaurant workers in aprons interact with the phone—one climbing a rope to place fries, one on a ladder adjusting the burger, one kneeling to inspect the interface, and another lifting a delivery box. Playful scale contrast, hyper-detailed textures, glossy food realism, cinematic lighting, shallow depth of field. Premium commercial photography style, sharp focus, warm tones, high realism, imaginative brand storytelling, surreal yet believable composition.",
-      "category": "插画 / 绘画",
-      "image": "https://images.meigen.ai/tweets/2017516657623875632/0.jpg",
-      "author": "Kashberg",
-      "authorUrl": "https://x.com/Kashberg_0",
-      "source": "nanobanana-trending",
-      "sourceUrl": "https://x.com/Kashberg_0/status/2017516657623875632",
-      "titleZh": "创意广告场景"
     },
     {
       "id": "tr-2017953338881692117",
@@ -11278,19 +10706,6 @@
       "titleZh": "青年侧身倚靠全身镜头"
     },
     {
-      "id": "tr-2011081163109236916",
-      "title": "USE UPLOADED PHOTO AS REFERENCE. HOGWARTS-STYLE…",
-      "description": "",
-      "prompt": "USE UPLOADED PHOTO AS REFERENCE. HOGWARTS-STYLE PHOTOSHOOT. THE GIRL IS POSING, IN A BLACK ROBE, THE UNDERSIDE OF THE ROBE IS RED, A WHITE COLLAR AND A TIED TIE OF GRYFFINDOR COLOR ARE VISIBLE. HER HAIR IS LOOSE, A DILAPIDATED, OLD BOOK IS PRESSED TO HER BODY IN HER HANDS. HE HOLDS A MAGIC WAND IN ONE HAND. A WHITE OWL SITS ON THE SHOULDER, THE BACKGROUND IS AN OLD STONE WALL, THE BACKGROUND IS SLAY. THEMATIC PHOTO SESSION. DETAILING, HIGH QUALITY. PORTRAIT.",
-      "category": "摄影 / 影视",
-      "image": "https://images.meigen.ai/tweets/2011081163109236916/0.jpg",
-      "author": "Anissa",
-      "authorUrl": "https://x.com/SimplyAnnisa",
-      "source": "nanobanana-trending",
-      "sourceUrl": "https://x.com/SimplyAnnisa/status/2011081163109236916",
-      "titleZh": "用上传照片生成霍格沃茨风肖像"
-    },
-    {
       "id": "tr-2008495362529493218",
       "title": "A high-detail, cinematic shot of an astronaut floating…",
       "description": "",
@@ -11367,19 +10782,6 @@
       "source": "nanobanana-trending",
       "sourceUrl": "https://x.com/Naiknelofar788/status/2016161656712396957",
       "titleZh": "头巾少女怀旧电影肖像"
-    },
-    {
-      "id": "tr-2012349152684896291",
-      "title": "A moody cinematic mirror selfie of a stylish young man…",
-      "description": "",
-      "prompt": "A moody cinematic mirror selfie of a stylish young man use image for face reference with tousled dark hair and light stubble, wearing a black Ferrari racing jacket with red and yellow stripes and motorsport patches. He has a silver chain necklace and multiple rings, holding a modern smartphone in one hand. Low-key dramatic lighting, dark elevator interior with soft reflections, shallow depth of field, sharp focus on the subject’s face. Fashion editorial style, masculine aesthetic, realistic skin texture, ultra-detailed, 35mm photography, cinematic color grading, high contrast, photorealistic, 4K.",
-      "category": "摄影 / 影视",
-      "image": "https://images.meigen.ai/tweets/2012349152684896291/0.jpg",
-      "author": "Aijaz",
-      "authorUrl": "https://x.com/iamsofiaijaz",
-      "source": "nanobanana-trending",
-      "sourceUrl": "https://x.com/iamsofiaijaz/status/2012349152684896291",
-      "titleZh": "时髦青年的氛围感镜面自拍"
     },
     {
       "id": "tr-2008388128961389047",
@@ -12370,19 +11772,6 @@
       "titleZh": "电影感微缩景观师设定"
     },
     {
-      "id": "tr-2041196287077597676",
-      "title": "Murphy magazine fashion editorial photograph.…",
-      "description": "",
-      "prompt": "Murphy magazine fashion editorial photograph. Androgynous model early 30s, sharp bone structure, flawless skin, hair slicked back, neutral composed expression, standing perfectly straight full body centered against a massive polished black marble architectural facade — reflective stone, towering vertical panels, subtle veining, high-gloss luxury surface. Wearing an immaculate oversized black double-breasted long coat single button fastened, black wide-leg trousers with razor sharp centre crease, black leather pointed toe mule, one sculptural black leather architectural bag on left shoulder, designer Louis Vuitton. Left hand on hip, right arm hanging, chin slightly raised, looking directly into lens with complete calm authority. High-gloss cinematic lighting with controlled studio key light from left, cool monochrome highlights carving sharp reflections across coat and marble surface, face precisely sculpted with high contrast shadow and highlight. Background: deep black marble fills entire frame zero sky visible — tonal black on black ultra luxury.\n\nTypography overlaid exactly as Murphy magazine cover: top center — “MURPHY” in massive modern serif 90px white, letter-spaced 20px. Below masthead left — “PARIS” in 8px Josefin Sans tracked white caps. Top right — “Fall / Winter 2026” in 9px italic Cormorant Garamond white. Bottom left — editorial headline in stacked Playfair Display italic: “Monochrome” line 1, “Motion,” line 2, “Modern Power.” line 3 — 52px white, “Power.” in metallic silver. Bottom right — “Issue No. 01 · €12.00” in 8px tracked Josefin Sans white. Left edge vertical — “Photography · Styling · Creative Direction” in 7px white caps rotated 90 degrees.\n\nShot on Hasselblad H6D-400C, 85mm, shallow DOF, glossy marble bokeh, HDR, Murphy high-gloss fashion editorial cover, 4:5 portrait",
-      "category": "海报 / 广告",
-      "image": "https://images.meigen.ai/tweets/2041196287077597676/0.jpg",
-      "author": "ᴍᴜʀᴘʜʏ",
-      "authorUrl": "https://x.com/Diplomeme",
-      "source": "nanobanana-trending",
-      "sourceUrl": "https://x.com/Diplomeme/status/2041196287077597676",
-      "titleZh": "Murphy 杂志时尚大片"
-    },
-    {
       "id": "ymx-profile-avatar-32324",
       "title": "Indonesian Scout Uniform Realistic Selfie",
       "description": "A realistic selfie prompt of a young Southeast Asian girl in a traditional Indonesian Scout (Pramuka) uniform, featuring detailed clothing and natural bedroom lighting.",
@@ -12465,20 +11854,6 @@
       "needRef": true,
       "titleZh": "夜间户外餐厅·保持人脸一致",
       "descZh": "在户外餐厅生成时髦夜景，同时保留上传参考图人脸特征的提示词。"
-    },
-    {
-      "id": "ymx-profile-avatar-32197",
-      "title": "Athletic Jersey Portrait",
-      "description": "A close-up portrait prompt for a young woman in athletic wear, utilizing indoor lighting and shallow depth of field.",
-      "prompt": "ar 9:16 4K\n\nA photorealistic close-up portrait of a {argument name=\"subject\" default=\"young East Asian woman\"} with fair, smooth skin and a soft natural glow. She has long, straight, silky black hair parted in the middle, cascading over both shoulders with a few loose strands falling across her chest and framing her face. The hair has natural volume at the crown and a slight sheen under the light.\n\nShe faces the camera directly with a gentle, closed-mouth smile, soft pink glossy lips, large expressive brown eyes with double eyelids, long natural-looking eyelashes, subtle eyeliner, and a light dusting of pink blush on her cheeks. Her expression is warm, friendly, and slightly playful. She has a rounded oval face, soft jawline, and a small, neat nose.\n\nShe is wearing a {argument name=\"clothing\" default=\"red short-sleeved athletic jersey\"} with a white V-neck collar and white Adidas-style triple stripes running down the sleeves. Across the chest is bold yellow text reading “PAM” in large capital letters, with smaller yellow text “AMOS ESP” underneath.\n\nThe background is an indoor room: on the left, a floral curtain with pink roses and green leaves on a light beige fabric; on the right, a plain, slightly textured dark gray wall. Soft, diffused indoor lighting illuminates her face evenly with gentle highlights on the forehead, nose, and cheeks. Shallow depth of field keeps the subject sharp while the background is softly blurred. Natural skin texture, realistic hair strands, and high detail throughout. Vertical portrait orientation, casual and intimate snapshot style.",
-      "category": "人像 / 写真",
-      "image": "https://cms-assets.youmind.com/media/1787379857716_1mfytv_HQD1C9-bwAA7ycQ.jpg",
-      "author": "",
-      "authorUrl": "",
-      "source": "ai-image-prompts-skill",
-      "needRef": false,
-      "titleZh": "运动球衣特写肖像",
-      "descZh": "年轻女性运动装特写肖像提示词，使用室内光线与浅景深。"
     },
     {
       "id": "ymx-profile-avatar-32187",
@@ -13923,34 +13298,6 @@
       "descZh": "精巧的多画格提示词，在巨大满月下的城市天台构建富有情绪与电影感的人物拼贴。"
     },
     {
-      "id": "ymx-youtube-thumbnail-19977",
-      "title": "Street Glamour Cake Knife Portrait",
-      "description": "A cinematic high-angle portrait of a woman in Balenciaga-style clothing sitting on a carpet with a cake, licking a blade for a relaxed street glamour vibe.",
-      "prompt": "Do not change the facial features. A cinematic close-up portrait of a young woman. The photo is taken from a slightly high angle. She is sitting on the floor, which is covered with a gray carpet. She is facing the camera; one leg is bent, the other is straight and extended. Between her legs, there is a flat glass plate with a partially eaten cake on it. One hand is next to the cake and is smeared with it; with the other hand, she is holding a knife and licking the cake off the blade. Her gaze is slightly turned to the side. The photo is taken with flash. Film grain is added. The overall vibe of the frame is relaxed, with a street glamour feel. She is wearing {argument name=\"clothing style\" default=\"Balenciaga-style clothing\"}. A realistic, detailed photograph.",
-      "category": "海报 / 广告",
-      "image": "https://cms-assets.youmind.com/media/1778743482684_foflzr_HIM-T2abYAAtTX0.jpg",
-      "author": "",
-      "authorUrl": "",
-      "source": "ai-image-prompts-skill",
-      "needRef": false,
-      "titleZh": "街头魅惑蛋糕刀人像",
-      "descZh": "电影感俯拍人像：身着 Balenciaga 风格服装的女子坐在地毯上，身旁有蛋糕，舔舐刀刃，慵懒的街头魅惑感。"
-    },
-    {
-      "id": "ymx-youtube-thumbnail-19783",
-      "title": "Cinematic Vigilante Graphic Poster",
-      "description": "A high-contrast cinematic poster prompt featuring a masked vigilante in a tactical suit with bold typography and a gritty noir aesthetic.",
-      "prompt": "A cinematic, vertical graphic poster of a masked vigilante in a tactical carbon-fiber suit. The character is positioned in the foreground with a gritty, matte black texture. The background features massive, bold stencil-style typography in a deep crimson red with heavy metallic scratching and weathered textures. The lighting is low-key and dramatic, with subtle rim lighting on the suit to define its armor plates. High-contrast noir aesthetic, moody atmosphere, sharp details, 8k resolution, Extreme macro close-up of a monstrous green-skinned face, focused on the nose, furrowed brow, and intense glowing green eyes. The skin is hyper-detailed with deep wrinkles, sweat, and a rough, leathery texture. Overlaid vertically across the center is the word \"HULK\" in large, bold, weathered white sans-serif typography with a metallic, scratched finish. The color palette is dominated by deep emerald greens and shadows, featuring explosive green energy particles and debris flying across the frame. Cinematic lighting, gritty atmosphere, 8k resolution, hyper-realistic, aggressive and powerful mood.",
-      "category": "海报 / 广告",
-      "image": "https://cms-assets.youmind.com/media/1778657221748_h4cc7u_HIG59DebMAAIM25.jpg",
-      "author": "",
-      "authorUrl": "",
-      "source": "ai-image-prompts-skill",
-      "needRef": false,
-      "titleZh": "义警题材电影感平面海报",
-      "descZh": "高对比电影海报提示词：战术服蒙面义警，粗犷字体排版与粗粝黑色电影质感。"
-    },
-    {
       "id": "ymx-youtube-thumbnail-19624",
       "title": "Basketball Arena Broadcast Portrait",
       "description": "A complex structured prompt in JSON format to generate a broadcast-style image of a woman at a basketball game, complete with UI overlays and arena lighting.",
@@ -14103,20 +13450,6 @@
       "needRef": false,
       "titleZh": "夜间出租车青橙调人像",
       "descZh": "从车窗外拍摄的夜间电影感人像提示词，主体坐在后排直视镜头。"
-    },
-    {
-      "id": "ymx-youtube-thumbnail-12564",
-      "title": "Drake with Orbiting Glass Music Interfaces",
-      "description": "A prompt for generating an image of Drake surrounded by numerous 3D Spotify and Apple Music interface cards. It specifies the material (translucent frosted glass), movement (orbiting, motion blur), lighting (soft glow from cards), and aesthetic (futuristic AR concept, high-end editorial photography).",
-      "prompt": "Numerous 3D Spotify and Apple Music interface cards orbiting Drake at varying depths.\nMaterial: Translucent frosted glass (glassmorphism) with soft rounded edges and subtle glowing borders.\n Movement: Some cards are in the extreme foreground, partially obscuring Drake, while others drift into the distance behind him.\nVisual Accents: Dynamic motion blur on the edges of the cards to suggest a swirling, orbiting movement.\nLIGHTING & COMPOSITION\nLighting: Natural tones with enhanced professional photo quality. The soft glow from the interface cards subtly illuminates Drake’s face.\nFocus: Strong depth of field. The background and extreme foreground cards are artistically blurred, keeping the focus sharp on Drake and the closest player interfaces.\nComposition: A cinematic wide or medium shot that emphasizes the scale of the floating AR elements.\nAESTHETIC\nHigh-end editorial music photography, futuristic AR concept, clean and airy vibe. 8k resolution, sophisticated lighting, and realistic textures on the glass cards.",
-      "category": "海报 / 广告",
-      "image": "https://cms-assets.youmind.com/media/1774074523220_tvlp28_HD33QM4boAAv5bd.jpg",
-      "author": "",
-      "authorUrl": "",
-      "source": "ai-image-prompts-skill",
-      "needRef": false,
-      "titleZh": "环绕玻璃音乐界面的 Drake",
-      "descZh": "生成 Drake 被众多 3D Spotify 与 Apple Music 界面卡片环绕的画面，指定了半透明磨砂玻璃等材质。"
     },
     {
       "id": "ymx-youtube-thumbnail-12596",
@@ -14551,20 +13884,6 @@
       "needRef": false,
       "titleZh": "静谧文艺花园",
       "descZh": "诗意的复古风人像提示词：女子在阳光洒落、爬满常春藤的花园废墟中阅读"
-    },
-    {
-      "id": "ymx-comic-storyboard-30346",
-      "title": "Doraemon Movie Style Scene Render",
-      "description": "A transformation prompt that turns a reference blockout image into a cinematic scene matching the visual style and atmosphere of a Doraemon film.",
-      "prompt": "Render the reference blockout as a scene from a {argument name=\"movie style\" default=\"Doraemon\"} movie. Ensure that all environmental elements closely match the worldbuilding, setting, atmosphere, and visual style of the films.",
-      "category": "动漫 / 漫画",
-      "image": "https://cms-assets.youmind.com/media/1785482598393_t93fad_HOes4-KbgAAe23j.jpg",
-      "author": "",
-      "authorUrl": "",
-      "source": "ai-image-prompts-skill",
-      "needRef": true,
-      "titleZh": "哆啦A梦电影风格场景渲染",
-      "descZh": "转换类提示词，把参考白模图渲染成契合哆啦A梦电影视觉风格与氛围的场景"
     },
     {
       "id": "ymx-comic-storyboard-30341",
@@ -15475,20 +14794,6 @@
       "needRef": true,
       "titleZh": "海滨生活方式产品摄影",
       "descZh": "活力生活方式产品摄影提示词，阳光沙滩上的开心女性与自然的碧蓝海浪。"
-    },
-    {
-      "id": "ymx-ecommerce-main-image-27620",
-      "title": "Minimalist Studio Portrait of a Young Man",
-      "description": "A highly detailed studio portrait prompt for a young man sitting on a minimalist chair, featuring specific textures for knitwear, denim, and leather sneakers against a neutral gray background.",
-      "prompt": "A full-length studio portrait of a {argument name=\"subject\" default=\"young man with dark, messy hair\"}, sitting in a casual, relaxed pose on a modern minimalist chair. The entire scene is set against a seamless, solid neutral gray backdrop (both floor and wall). The lighting is soft and diffused, characteristic of a professional studio setup, creating gentle gradations and soft shadows on the floor around the chair and the man's feet. The man has light skin, a defined jawline, and dark messy hair and well groomed beard. He is wearing pair of glossy black-rimmed round eyeglasses with smoky, semi-translucent lenses that slightly obscure his eyes while looking directly forward with a confident expression. He is seated dynamically, leaning back slightly with his torso angled to the left. His right arm rests comfortably on the backrest of the chair, while his left hand rests in his lap. His right leg is bent at a normal angle with the foot planted, while his left leg is fully extended forward and outward to the right. An {argument name=\"outfit\" default=\"oversized, heavy-knit long-sleeve crewneck sweater in solid black\"}. It features distinct ribbed texture on the cuffs, hem, and collar, with natural folds creasing around the elbows and underarms. Loose-fitting, relaxed light-wash denim jeans. The fabric shows heavy creasing, bunching, and gathering around the lap, thighs, and particularly where they pool slightly over the ankles. Black and white leather low-top sneakers (Nike Dunk style) with distinct color-blocking. The sneakers feature white midsoles, white side panels, a black Nike swoosh, and black overlays on the toe box and heel. The toe boxes show minor wear and light creasing. A minimalist contemporary chair featuring a molded matte black plastic shell for the seat and backrest, supported by thin, tubular metal legs painted solid white. It is positioned at an angle, facing towards the right side of the frame. An eye-level, full-shot studio framing that captures the entire body of the subject from head to toe, leaving ample negative gray space above and around him. The lighting source comes softly from the front-left, casting subtle highlights on the left side of his face, shoulder, and the top of his extended thigh. It creates soft, muted shadows extending towards the right on the gray floor surface. The color palette is highly restricted and monochromatic, dominated by shades of gray, solid black, denim blue, and crisp white highlights.",
-      "category": "电商 / 产品",
-      "image": "https://cms-assets.youmind.com/media/1783236276276_7o9mqb_HMZmmczaYAAl6Or.jpg",
-      "author": "",
-      "authorUrl": "",
-      "source": "ai-image-prompts-skill",
-      "needRef": false,
-      "titleZh": "年轻男子极简影棚人像",
-      "descZh": "细节丰富的影棚人像提示词，年轻男子坐在极简座椅上，针织衫、牛仔与皮质球鞋质感均有明确刻画。"
     },
     {
       "id": "ymx-ecommerce-main-image-27398",
@@ -16709,20 +16014,6 @@
       "descZh": "高细节电影感提示词，男子手捧发光容器中的微缩自己，采用明暗对比布光。"
     },
     {
-      "id": "ymx-poster-flyer-28784",
-      "title": "Premium Sports Editorial Poster",
-      "description": "A high-end sports editorial prompt for creating a multi-panel basketball athlete poster with bold typography and cinematic lighting.",
-      "prompt": "Ultra-premium sports editorial poster collage of a powerful {argument name=\"athlete\" default=\"female basketball athlete\"} in a {argument name=\"uniform color\" default=\"red and white\"} uniform, cinematic Nike-style campaign aesthetic, glossy indoor basketball court reflections, dramatic studio lighting, bold oversized typography in background saying “{argument name=\"main slogan\" default=\"THINK BETTER\"}”, clean luxury sports branding, intense confident poses.\n\nTop panel: athlete sitting on polished court floor with one knee raised, basketball beside her, looking sideways with dominant confident expression, deep red seamless background, giant cream-colored typography behind subject, cinematic shadows, hyper realistic skin texture, sweat glow, high-fashion sports photography.\n\nBottom left panel: close-up beauty portrait of the athlete with eyes closed, glowing skin, slick hair, athletic elegance, minimal typography saying “FOCUS” and “PASSION”.\n\nBottom right panel: dynamic low stance dribbling pose, action energy, motivational text saying “TRAIN HARD STAY HUNGRY”, luxury sports ad composition, reflective floor details.\n\nColor palette: deep crimson red, white accents, cream typography, glossy hardwood reflections. Style: modern sports magazine cover, luxury athletic campaign, ultra detailed, photorealistic, sharp focus, symmetrical grid layout, cinematic contrast, commercial photography, 4:3 aspect ratio, premium typography design, editorial poster aesthetic.",
-      "category": "海报 / 广告",
-      "image": "https://cms-assets.youmind.com/media/1784185547642_mgwbwd_HNRfurkakAAdwMv.jpg",
-      "author": "",
-      "authorUrl": "",
-      "source": "ai-image-prompts-skill",
-      "needRef": false,
-      "titleZh": "高端体育编辑海报",
-      "descZh": "高端体育编辑风提示词，多分格篮球运动员海报，粗体字排与电影感光影。"
-    },
-    {
       "id": "ymx-poster-flyer-28449",
       "title": "Summer AI Tool Launch Poster",
       "description": "A clean and modern poster design for an AI tool launch featuring a glossy citrus palette and bold typography.",
@@ -16749,20 +16040,6 @@
       "needRef": false,
       "titleZh": "体育杂志封面设计",
       "descZh": "多分格提示词，生成高端体育杂志封面，戏剧光影与粗体字排，专为篮球题材设计。"
-    },
-    {
-      "id": "ymx-poster-flyer-28350",
-      "title": "Graphite Pencil Entrepreneur Sketch",
-      "description": "An ultra-realistic graphite pencil sketch prompt for creating a detailed portrait of an entrepreneur with a luxury car, emphasizing identity preservation and cinematic lighting.",
-      "prompt": "Use the uploaded image as the exact identity reference. Preserve the person's identity with extremely high accuracy. Keep the face 100% recognizable. Do not change the hairstyle, beard, facial structure, eyes, eyebrows, nose, lips, jawline, skin tone, age, or facial proportions. Create a premium ultra-realistic graphite pencil sketch in 9:16 vertical format. A successful {argument name=\"subject\" default=\"young South Asian AI entrepreneur\"} standing proudly beside a brand-new {argument name=\"vehicle\" default=\"matte black Lamborghini\"} outside an ultra-luxury supercar dealership during golden hour. A dealership representative is handing him the luxury car key while he accepts it with a confident smile. The showroom behind him features exotic supercars, floor-to-ceiling glass walls, and elegant architecture. Warm sunlight reflects beautifully across the car, creating a cinematic luxury atmosphere. He wears a {argument name=\"outfit\" default=\"tailored charcoal double-breasted suit\"} over a fitted black turtleneck, polished leather Chelsea boots, a luxury stainless-steel wristwatch, and a minimalist bracelet. Museum-quality graphite pencil rendering with ultra-fine cross-hatching, realistic reflections, cream textured sketchbook paper, visible construction lines, unfinished artistic sketch edges, editorial luxury portrait, masterpiece, hyper realistic, ultra detailed, 16K. low quality, blurry, cartoon, anime, CGI, watercolor, oil painting, distorted face, extra limbs, watermark, logo, text.",
-      "category": "海报 / 广告",
-      "image": "https://cms-assets.youmind.com/media/1783927798571_m4nfzf_HM9KQXEbcAEtACg.jpg",
-      "author": "",
-      "authorUrl": "",
-      "source": "ai-image-prompts-skill",
-      "needRef": true,
-      "titleZh": "铅笔素描创业者肖像",
-      "descZh": "超写实石墨铅笔素描提示词，创业者与豪车的精细肖像，强调面部一致性与电影感。"
     },
     {
       "id": "ymx-poster-flyer-28200",
@@ -17269,20 +16546,6 @@
       "descZh": "一套完整系统提示词，让模型扮演专业插画师与提示词工程师，产出扁平设计风格的美观插画。"
     },
     {
-      "id": "ymx-others-151",
-      "title": "Wide quote card with portrait and Chinese/English customization",
-      "description": "A prompt for generating a wide quote card featuring a famous person’s portrait, with a brown background, light-gold serif quote text, and layout where text occupies two-thirds and the person one-third. The quote text and author are parameterized for reuse.",
-      "prompt": "A wide quote card featuring a famous person, with a brown background and a light-gold serif font for the quote: “{argument name=\"famous_quote\" default=\"Stay Hungry, Stay Foolish\"}” and smaller text: “—{argument name=\"author\" default=\"Steve Jobs\"}.” There is a large, subtle quotation mark before the text. The portrait of the person is on the left, the text on the right. The text occupies two-thirds of the image and the portrait one-third, with a slight gradient transition effect on the portrait.",
-      "category": "其他",
-      "image": "https://cms-assets.youmind.com/media/1763886933714_5zqn1e_G6QBjQHbgAE3Yt_.jpg",
-      "author": "",
-      "authorUrl": "",
-      "source": "ai-image-prompts-skill",
-      "needRef": true,
-      "titleZh": "宽幅名人语录卡",
-      "descZh": "生成含名人肖像的宽幅语录卡：棕色背景、浅金衬线引文，并可自定义中英文排版。"
-    },
-    {
       "id": "ymx-others-32101",
       "title": "Blackglass Ascendant System Prompt",
       "description": "A comprehensive system prompt designed for large language models to generate highly specific and structured image generation prompts for Nano Banana Pro.",
@@ -17507,20 +16770,6 @@
       "descZh": "女子伫立山巅观景台的水彩画，色调柔和、山景静谧。"
     },
     {
-      "id": "ymx-others-22059",
-      "title": "Rock Climbing Woman Sea Cliff",
-      "description": "An epic, high-angle shot of a woman rock climbing on a cliff above a turquoise sea. Features harsh side lighting to emphasize muscle definition and rock texture.",
-      "prompt": "Photorealistic shot taken from below. A beautiful {argument name=\"age\" default=\"25\"}-year-old woman with intense concentration on her face is rock climbing on a sheer cliff above a {argument name=\"water color\" default=\"turquoise\"} sea. Her strong, toned hands covered in chalk are firmly gripping the holds. She is wearing a {argument name=\"outfit\" default=\"sports tank top and climbing shorts\"}. Harsh side lighting perfectly highlights the definition of her muscles and the texture of the rock. 8K resolution, perfectly contrasted lighting, slightly lowered exposure, atmosphere of overcoming challenges, epic angle emphasizing height and danger.",
-      "category": "其他",
-      "image": "https://cms-assets.youmind.com/media/1779607879707_voc3rn_HI_gyUgboAATmMH.jpg",
-      "author": "",
-      "authorUrl": "",
-      "source": "ai-image-prompts-skill",
-      "needRef": false,
-      "titleZh": "海崖攀岩女子",
-      "descZh": "高机位俯拍：女子在碧海之上的崖壁攀岩，强侧光凸显肌肉线条与岩石质感。"
-    },
-    {
       "id": "ymx-others-21268",
       "title": "Double Exposure Pencil Sketch",
       "description": "A unique prompt for a double exposure pencil sketch merging male profiles with a serene nature landscape.",
@@ -17631,20 +16880,6 @@
       "needRef": false,
       "titleZh": "双重曝光铅笔素描肖像",
       "descZh": "用双重曝光手法的精细铅笔素描提示词，将宁静的女性肖像与日落湖景融合，运用细密交叉排线。"
-    },
-    {
-      "id": "ymx-others-18276",
-      "title": "Candid Sneaker Shopping Moment",
-      "description": "A realistic iPhone-style photo prompt capturing someone trying on sneakers in a retail environment.",
-      "prompt": "candid iPhone 15 Pro photo of a person sitting inside a {argument name=\"store\" default=\"Nike store\"} in a Brazilian mall trying on new sneakers, wearing {argument name=\"clothing style\" default=\"sporty casual clothing\"} matching the brand style, shoe wall in the background slightly out of focus, {argument name=\"camera angle\" default=\"low angle close shot focused on the feet\"}, natural store lighting with reflections on the floor, slight blur from hand movement, unfiltered realistic tones and subtle noise, authentic shopping moment",
-      "category": "其他",
-      "image": "https://cms-assets.youmind.com/media/1777965780945_j0uwnc_HHdoXfAbkAAsmJT.jpg",
-      "author": "",
-      "authorUrl": "",
-      "source": "ai-image-prompts-skill",
-      "needRef": false,
-      "titleZh": "抓拍试穿球鞋的瞬间",
-      "descZh": "iPhone 随手拍风格的写实照片提示词，记录在店里试穿球鞋的场景。"
     },
     {
       "id": "ymx-others-18288",

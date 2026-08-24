@@ -27,9 +27,48 @@ const FILE = process.argv[2]
   ? resolve(process.argv[2])
   : join(resolve(__dirname, '..'), 'website', 'src', 'content', 'creative-prompts-extra.json');
 
+// 名单永远不可能穷尽——这里收的是**全球或国内高辨识度**的那批，即"一眼就知道是谁"。
+// 边界名（只有姓、或与普通词同形的）故意不收：误伤一条正常提示词没人会来报 bug，
+// 用户只会觉得这库怎么这么少。宁可放过边缘，也不误杀大片。
+const PEOPLE_EN = [
+  'tom cruise', 'elon musk', 'donald trump', 'joe biden', 'barack obama', 'taylor swift',
+  'lionel messi', 'cristiano ronaldo', 'lebron james', 'kim kardashian', 'kylie jenner',
+  'jackie chan', 'keanu reeves', 'brad pitt', 'angelina jolie', 'scarlett johansson',
+  'leonardo dicaprio', 'robert downey', 'dwayne johnson', 'the rock\\b', 'johnny depp',
+  'emma watson', 'margot robbie', 'zendaya', 'billie eilish', 'ariana grande', 'beyonc[eé]',
+  'rihanna', 'drake\\b', 'kanye west', 'justin bieber', 'selena gomez', 'mark zuckerberg',
+  'jeff bezos', 'bill gates', 'steve jobs', 'sam altman', 'putin', 'zelensky', 'modi\\b',
+  'ronaldinho', 'neymar', 'kobe bryant', 'michael jordan', 'jensen huang',
+];
+const PEOPLE_ZH = [
+  '成龙', '周星驰', '刘德华', '周杰伦', '易烊千玺', '杨幂', '迪丽热巴', '赵丽颖', '范冰冰',
+  '马云', '马化腾', '雷军', '马斯克', '特朗普', '拜登', '普京', '张艺谋', '李佳琦', '董宇辉',
+];
+// IP：只挡**角色/作品作为主体**，不挡 "Pixar-style / Ghibli-style" 这类画风词——
+// 画风词是 AI 绘画社区的通用词汇（见 test/creative-prune.ts 钉的反例）。
+const IP_CHARS = [
+  'batman', 'spider-?man', 'iron man', 'captain america', 'thor\\b', 'hulk\\b', 'wonder woman',
+  'superman', 'joker\\b', 'darth vader', 'yoda\\b', 'baby yoda', 'stormtrooper',
+  'naruto', 'sasuke', 'goku\\b', 'luffy\\b', 'one piece', 'demon slayer', 'tanjiro',
+  'pokemon', 'pok[eé]ball', 'pikachu', 'charizard', 'mario and luigi', 'super mario',
+  'luigi\\b', 'sonic the hedgehog', 'kirby\\b', 'zelda\\b', 'harry potter', 'hogwarts',
+  'hermione', 'dumbledore', 'elsa from frozen', 'mickey mouse', 'donald duck', 'winnie the pooh',
+  'hello kitty', 'doraemon', 'totoro', 'minions?\\b', 'shrek\\b', 'barbie\\b',
+  '孙悟空大闹天宫', '喜羊羊', '熊出没', '哪吒之', '王者荣耀', '原神',
+];
+// 品牌：把别家商标当主体做"产品大片"，商用风险不在我们这边也不该由我们分发
+const BRANDS = [
+  'the north face', 'louis vuitton', 'gucci\\b', 'chanel\\b', 'herm[eè]s', 'rolex\\b',
+  'supreme\\b', 'balenciaga', 'prada\\b', 'dior\\b', 'starbucks', 'coca-?cola', 'pepsi\\b',
+  'mcdonald', 'nike\\b', 'adidas', 'apple watch', 'iphone \\d', 'tesla\\b', 'lamborghini',
+  'ferrari\\b', 'porsche', 'rolls-?royce',
+];
+const alt = (xs) => xs.join('|');
+
 export const RULES = [
-  ['指名真人', /\b(tom cruise|elon musk|donald trump|taylor swift|lionel messi|cristiano ronaldo|jackie chan|keanu reeves|brad pitt|scarlett johansson)\b|成龙|马云|马斯克|特朗普/i],
-  ['IP 角色作主体', /\b(batman|spider-?man|iron man|naruto|one piece|pokemon|pok[eé]ball|pikachu|mario and luigi|super mario|harry potter|superman|elsa from frozen)\b/i],
+  ['指名真人', new RegExp(`\\b(${alt(PEOPLE_EN)})\\b|${alt(PEOPLE_ZH)}`, 'i')],
+  ['IP 角色作主体', new RegExp(`\\b(${alt(IP_CHARS)})\\b|${alt(IP_CHARS.filter((x) => /[\u4e00-\u9fa5]/.test(x)))}`, 'i')],
+  ['品牌商标作主体', new RegExp(`\\b(${alt(BRANDS)})\\b`, 'i')],
   ['性化描述', /\b(nsfw|porn|erotic|topless)\b|\bnaked\s+(body|woman|man|girl|boy)\b|nude\s+(body|figure|woman|man|model|photo)|innocent-?sexy/i],
 ];
 

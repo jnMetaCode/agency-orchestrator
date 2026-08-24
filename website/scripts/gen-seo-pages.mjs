@@ -183,8 +183,32 @@ ao web   # 图形界面，模板一键运行</code></pre>
 {
   const creative = JSON.parse(readFileSync(join(siteRoot, "src/content/creative-prompts.json"), "utf-8"));
   const cPrompts = creative.prompts ?? [];
+
+  // 扩充池（1275 条，CC BY 4.0 + MIT）**只出精选**，不是全量出页。
+  // 为什么不全出：那批提示词正文在 youmind.com / x.com / 上游仓库都公开，我们出的是副本；
+  // 一次性放出上千个"标题是机翻中文、正文是别处原文"的页面，正是搜索引擎判定
+  // programmatic thin content 的典型形态——而这个域名上还挂着 267 个真正原创的专家页，
+  // 被连累不值得。每类取前 N 条（trending 源本身按互动量排过序，靠前的即热门），
+  // 这些页有中文标题+中文描述+预览图+一键出图入口，是能独立回答一个搜索意图的。
+  const EXTRA_PER_CAT_SEO = 15;
+  let extraPrompts = [];
+  try {
+    const extra = JSON.parse(readFileSync(join(siteRoot, "src/content/creative-prompts-extra.json"), "utf-8"));
+    const perCat = new Map();
+    for (const p of extra.prompts ?? []) {
+      const c = p.category || "其他";
+      const arr = perCat.get(c) ?? [];
+      if (arr.length >= EXTRA_PER_CAT_SEO) continue;
+      // 出页要求：有中文标题（机翻已补）+ 有预览图。缺任一条就不是一个像样的落地页。
+      if (!p.titleZh || !p.image) continue;
+      arr.push({ ...p, title: p.titleZh, description: p.descZh || p.description || "", _extra: true });
+      perCat.set(c, arr);
+    }
+    extraPrompts = [...perCat.values()].flat();
+  } catch { /* 扩充池不存在就只出策展那批 */ }
+
   const catMap = new Map();
-  for (const cp of cPrompts) {
+  for (const cp of [...cPrompts, ...extraPrompts]) {
     const c = cp.category || "其他";
     if (!catMap.has(c)) catMap.set(c, []);
     catMap.get(c).push(cp);
@@ -194,7 +218,7 @@ ao web   # 图形界面，模板一键运行</code></pre>
     .map((sc) => `<a href="${esc(sc.url)}">${esc(sc.name)}</a>（<a href="${esc(sc.licenseUrl)}">${esc(sc.license)}</a>）`)
     .join(" · ");
 
-  for (const cp of cPrompts) {
+  for (const cp of [...cPrompts, ...extraPrompts]) {
     const cat = cp.category || "其他";
     const related = (catMap.get(cat) || []).filter((x) => x.id !== cp.id).slice(0, 8);
     const body = `
@@ -207,7 +231,11 @@ ao web   # 图形界面，模板一键运行</code></pre>
     <pre><code>${esc(cp.prompt ?? "")}</code></pre>
     <p class="desc">在 <a href="/creative">AO 创意库</a> 可以直接选服务商一键出图；或在工作流里用 <code>type: image</code> 步骤把它接进内容流水线。</p>
     <h2>署名与来源</h2>
-    <p class="desc">${cp.author ? `作者：${cp.authorUrl ? `<a href="${esc(cp.authorUrl)}">${esc(cp.author)}</a>` : esc(cp.author)} · ` : ""}收录自 ${licenseLine}</p>
+    <p class="desc">${cp.author ? `作者：${cp.authorUrl ? `<a href="${esc(cp.authorUrl)}">${esc(cp.author)}</a>` : esc(cp.author)} · ` : ""}${
+      cp._extra
+        ? `收录自 <a href="https://github.com/jau123/nanobanana-trending-prompts">nanobanana-trending-prompts</a>（<a href="https://creativecommons.org/licenses/by/4.0/">CC BY 4.0</a>）与 <a href="https://github.com/YouMind-OpenLab/ai-image-prompts-skill">ai-image-prompts-skill</a>（MIT）。提示词正文为原文，中文标题与描述由本站翻译。`
+        : `收录自 ${licenseLine}`
+    }</p>
 ${related.length ? `
     <h2>同类提示词</h2>
     <ul class="plain">${related.map((r) => `<li><a href="/creative/p/${esc(r.id)}/">${esc(r.title)}</a></li>`).join("")}</ul>` : ""}
@@ -234,7 +262,7 @@ ${related.length ? `
       body,
     }));
   }
-  console.log(`✅ 创意库：${cPrompts.length} 个提示词页 + ${catMap.size} 个分类页 → dist/creative/`);
+  console.log(`✅ 创意库：${cPrompts.length} 策展 + ${extraPrompts.length} 扩充池精选（每类 ≤${EXTRA_PER_CAT_SEO}）= ${cPrompts.length + extraPrompts.length} 个提示词页 + ${catMap.size} 个分类页 → dist/creative/`);
 }
 
 // ── 评测基准页：EVAL_FINDINGS.md 原文上网（诚实评测是差异化资产——
