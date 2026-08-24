@@ -133,15 +133,15 @@ export const sponsors: Sponsor[] = [
     since: "2026-07",
     featured: false,
     tagline: {
-      zh: "豆包大模型限时 5 折起 · 编程模型套餐 2.5 折订阅",
+      zh: "火山方舟 Agent/Coding Plan 国模套餐首购 9.9 · 注册免费领 2500 万 Token",
       en: "Dola Seed 2.0 — ByteDance's full-modal general large model, on the ModelArk platform",
     },
     description: {
-      zh: "感谢火山引擎赞助了本项目！火山引擎AI巅峰盛惠来袭！豆包大模型限时5折起，19元即可入手约440万Tokens文本模型，新客首单再享AI统一节省计划。从文本生成、图像创作到视频合成、语音复刻，全模态AI能力一站式配齐。开发者专属编程模型套餐2.5折订阅，支持Kimi-K2.7、GLM-5.2等主流模型。",
+      zh: "感谢字节火山引擎赞助本项目！火山方舟 Agent/Coding Plan 国模套餐首购 9.9，支持 GLM-5.3、Kimi-K3、DeepSeek、MiniMax、Doubao 等，注册免费领 2500w Token，统一 API，适配编码与智能体开发。",
       en: "Thanks to Dola Seed for sponsoring this project! Dola Seed 2.0 is a full-modal general large model independently developed by ByteDance for the global market. Built on a unified multimodal architecture, it supports joint understanding and generation of text, images, audio and video. It natively enables agent collaboration, with strong reasoning, long-task execution, tool integration and coding capabilities — widely applicable to smart cockpits, personal assistants, education, customer support, marketing, retail and more. It excels in multimodal perception, end-to-end complex task delivery, stable interaction and data security, and is readily accessible and deployable via the ModelArk platform.",
     },
     perk: {
-      zh: "注册即领2500万Tokens，立即访问火山引擎活动页面抢购。",
+      zh: "注册免费领 2500w Token，Agent/Coding Plan 国模套餐首购 9.9 元",
       en: "Register via the link to get 500,000 tokens of free inference quota per model",
     },
   },
