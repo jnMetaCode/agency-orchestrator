@@ -182,6 +182,9 @@ export function WorkflowsPanel({ provider, onRun, demo, onInstallPrompt }: { pro
   // 用户自选「常用」：点星收藏（localStorage）。首次无记录时用编辑推荐(featured)做种子。
   const [favs, setFavs] = useState<Set<string>>(() => getFavWorkflows() ?? new Set());
   const seededRef = useRef(false);
+  // ?wf=<文件名> 深链：从创意库等入口直接带着模板进来，列表加载完就把运行对话框打开。
+  // 只认一次（deepLinkRef），否则用户关掉对话框后每次列表刷新都会被强行弹回来。
+  const deepLinkRef = useRef(false);
   const toggleFav = (w: Workflow) =>
     setFavs((prev) => {
       const n = new Set(prev);
@@ -207,6 +210,17 @@ export function WorkflowsPanel({ provider, onRun, demo, onInstallPrompt }: { pro
       .catch((e) => setErr(e.message))
       .finally(() => setLoading(false));
   }, [lang, demo]);
+
+  // ?wf=<文件名> 深链：列表到位后把那条模板的运行对话框直接打开。
+  // 找不到就退而求其次填进搜索框——总比把人扔在 30 个模板里自己翻强。
+  useEffect(() => {
+    if (deepLinkRef.current || wfs.length === 0) return;
+    const want = new URLSearchParams(window.location.search).get("wf");
+    if (!want) { deepLinkRef.current = true; return; }
+    deepLinkRef.current = true;
+    const hit = wfs.find((w) => w.filename === want || w.filename === `${want}.yaml` || w.name === want);
+    if (hit) setInputsFor(hit); else setQ(want.replace(/\.yaml$/, ""));
+  }, [wfs]);
 
   // 首次（localStorage 无收藏记录）用编辑推荐做种子，让新用户也有「常用」默认值。
   useEffect(() => {

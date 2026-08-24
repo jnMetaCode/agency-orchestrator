@@ -5,7 +5,7 @@
     "url": "https://github.com/zhangchenchen/awesome_sora2_prompt",
     "license": "MIT"
   },
-  "count": 48,
+  "count": 47,
   "templates": [
     {
       "id": "sora2-hyperrealism-landscapes-1",
@@ -278,22 +278,6 @@
       "license": "MIT",
       "author": "awesome_sora2_prompt",
       "titleZh": "狼人变身"
-    },
-    {
-      "id": "sora2-sora2-viral-prompts-18",
-      "kind": "community",
-      "lang": "any",
-      "title": "Love Island Reality Parody",
-      "category": "社区热门",
-      "description": "",
-      "variables": [],
-      "prompt": "Love Island reveal scene. A young woman sits on a plush villa sofa during a tense \"Movie Night\" scene. She watches a large TV screen showing grainy CCTV-style footage: Real-life Ronald McDonald, dashing into a room with real-life Wendy. The audience and woman are shocked",
-      "preview": "https://video.twimg.com/amplify_video/1973217763171749888/vid/avc1/320x580/EkeXUgH776vGhCY6.mp4",
-      "origin": "community",
-      "source": "https://github.com/zhangchenchen/awesome_sora2_prompt",
-      "license": "MIT",
-      "author": "awesome_sora2_prompt",
-      "titleZh": "恋爱真人秀恶搞"
     },
     {
       "id": "sora2-sora2-viral-prompts-19",

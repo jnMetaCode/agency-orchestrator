@@ -565,8 +565,11 @@ export default function CreativeLibrary() {
                   {lang === "en"
                     ? <>Want it filmed, not just copied? Run the built-in <strong>「一句话出短片」</strong> workflow in the Studio — a role writes the 5-part prompt from one sentence and a <code>type: video</code> step renders the mp4. </>
                     : <>不想只复制、想直接出片？在工作台跑内置模板 <strong>「一句话出短片」</strong>——角色按 5 段式把你的一句话写成提示词，<code>type: video</code> 步骤直接出 mp4。</>}
-                  <a href="/studio" className="ml-1 inline-flex items-center gap-0.5 font-medium text-primary hover:underline">
-                    {lang === "en" ? "Open Studio" : "打开工作台"} <ExternalLink className="size-3" />
+                  <a
+                    href="/studio?tab=workflows&wf=%E4%B8%80%E5%8F%A5%E8%AF%9D%E5%87%BA%E7%9F%AD%E7%89%87.yaml"
+                    className="ml-1 inline-flex items-center gap-0.5 font-medium text-primary hover:underline"
+                  >
+                    {lang === "en" ? "Open it in the Studio" : "直接打开这个模板"} <ExternalLink className="size-3" />
                   </a>
                 </div>
               )}

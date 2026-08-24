@@ -49,7 +49,13 @@ function StudioInner() {
     hint: t.studio.shell.tabs[tb.id]?.hint ?? "",
   }));
   const { start, open } = useRunManager();
-  const [tab, setTabState] = useState<Tab>("roles");
+  // ?tab=workflows 深链：创意库的视频卡要能一步跳到「一句话出短片」，
+  // 落在默认的"角色组队"页再让用户自己找，等于把闭环断在最后一米。
+  const [tab, setTabState] = useState<Tab>(() => {
+    if (typeof window === "undefined") return "roles";
+    const qp = new URLSearchParams(window.location.search).get("tab");
+    return (TAB_META.some((tb) => tb.id === qp) ? qp : "roles") as Tab;
+  });
   const [provider, setProviderState] = useState(getActiveProvider);
   const [keyedHas, setKeyedHas] = useState<Record<string, boolean>>({});
   const [installOpen, setInstallOpen] = useState(false);
