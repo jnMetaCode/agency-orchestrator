@@ -197,6 +197,15 @@ image/video needs neither `llm.model` nor a text connector.
   library holds *roles* (a person with a system prompt), not content.
 - The two are different shapes: an image item is one finished prompt; a video item is a template
   (variable table + 5-part body), so the Creative Library renders them with different cards.
+- Re-import recipe (order matters): `import-creative-extra.mjs` → `prune-extra-prompts.mjs`
+  (drops prompts naming real people, using an IP character as the subject, or explicit content —
+  **and deliberately keeps** negative-prompt mentions like "no gore", makeup terms like "nude lips",
+  and style words like "Pixar-style"; `test/creative-prune.ts` pins exactly those non-hits) →
+  `translate-extra-titles.mjs` (re-import wipes `titleZh`, so translation always comes last).
+- **Titles/descriptions in the extra pools are English** (the sources are English). `scripts/translate-extra-titles.mjs`
+  fills `titleZh`/`descZh` via the local `claude` CLI in resumable batches — run it after any re-import,
+  otherwise Chinese users cannot search those items (the prompt body itself always stays in the source
+  language: that is what the model consumes).
 - A third pool exists: `video-prompts-community.json` (49 finished English singles from
   `awesome_sora2_prompt`, MIT, via `scripts/import-video-community.mjs`). Imports **drop prompts
   naming real people or IP** — same rule the 视频提示词工程师 role follows — and the UI says the

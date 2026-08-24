@@ -19,6 +19,8 @@
 //   git clone --depth 1 https://github.com/YouMind-OpenLab/ai-image-prompts-skill /tmp/ymskill
 //   node scripts/import-creative-extra.mjs /tmp/ymskill
 import { readFileSync, writeFileSync, existsSync, readdirSync } from 'node:fs';
+// 内容体检规则与 prune 脚本共用一份，避免"两处规则改一处"（见 prune-extra-prompts.mjs 文件头）
+import { violation } from './prune-extra-prompts.mjs';
 import { createHash } from 'node:crypto';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -92,7 +94,7 @@ if (existsSync(EXISTING)) {
 const before = seen.size;
 
 const out = [];
-let skippedLen = 0, skippedDup = 0, skippedJson = 0;
+let skippedLen = 0, skippedDup = 0, skippedJson = 0, skippedRisky = 0;
 
 // ── 源 A：trending（CC BY 4.0，逐条署名）——全量收，并且**先收**：
 // 后面源 B 里若有同一条提示词，会因指纹去重被跳过，从而保住这边的作者署名。
@@ -112,6 +114,8 @@ if (trendSrc && existsSync(join(trendSrc, 'prompts', 'prompts.json'))) {
     // 有一批条目整条是 JSON 参数块（{"generation_request": …}）——卡片里既读不懂、
     // 标题也只能截出一段花括号，复制走对多数模型也不通用。跳过。
     if (/^[[{]/.test(text) || /"generation_request"|"prompt"\s*:/.test(text.slice(0, 200))) { skippedJson++; continue; }
+    // 指名真人 / IP 角色 / 露骨描述：不适合挂在公开产品页上（规则见 prune-extra-prompts.mjs）
+    if (violation({ title: it.title, prompt: text })) { skippedRisky++; continue; }
     const fp = fingerprint(text);
     if (seen.has(fp)) { skippedDup++; continue; }
     seen.add(fp);
@@ -142,6 +146,7 @@ for (const cat of manifest.categories ?? []) {
       const len = (it.content || '').length;
       if (len < MIN_LEN || len > MAX_LEN) { skippedLen++; return false; }
       if (/^[[{]/.test(String(it.content || '').trim())) { skippedJson++; return false; }   // 同源 A：整条 JSON 参数块不收
+      if (violation({ title: it.title, prompt: it.content })) { skippedRisky++; return false; }
       return it.title && Array.isArray(it.sourceMedia) && it.sourceMedia[0];
     })
     .sort((a, b) => (b.description ? 1 : 0) - (a.description ? 1 : 0));
@@ -187,4 +192,4 @@ console.log(`   按源：${Object.entries(bySrc).map(([k, v]) => `${k} ${v}`).jo
 console.log(`✅ ${OUT}`);
 console.log(`   收 ${out.length} 条（每类上限 ${PER_CAT}）；与已有 ${before} 条去重后新增`);
 console.log(`   分类分布：${Object.entries(byCat).map(([k, v]) => `${k} ${v}`).join('、')}`);
-console.log(`   跳过：长度不合适 ${skippedLen}、与已有重复 ${skippedDup}、整条是 JSON 参数块 ${skippedJson}`);
+console.log(`   跳过：长度不合适 ${skippedLen}、与已有重复 ${skippedDup}、整条是 JSON 参数块 ${skippedJson}、指名真人/IP/露骨 ${skippedRisky}`);

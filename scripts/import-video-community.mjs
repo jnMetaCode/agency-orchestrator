@@ -18,6 +18,8 @@
 //   node scripts/import-video-community.mjs /tmp/sora2
 import { readFileSync, writeFileSync, existsSync, readdirSync } from 'node:fs';
 import { dirname, join, resolve, basename } from 'node:path';
+// 内容体检规则与图片扩充池共用一份（见 prune-extra-prompts.mjs 文件头）
+import { violation } from './prune-extra-prompts.mjs';
 import { fileURLToPath } from 'node:url';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -54,7 +56,9 @@ for (const [file, meta] of Object.entries(FILES)) {
     const pm = m[2].match(/\*\*(?:Full )?Prompt:\*\*\s*\n+```[^\n]*\n([\s\S]*?)\n```/);
     if (!pm) continue;
     const prompt = pm[1].trim();
-    if (RISKY.test(prompt) || RISKY.test(title)) { skippedRisky++; continue; }
+    // 本地 RISKY 挡的是"拿真人编段子"这类推文（@某人、明星名）；violation() 是与图片池
+    // 共用的那套（指名真人 / IP 角色作主体 / 露骨），两层都过才收
+    if (RISKY.test(prompt) || RISKY.test(title) || violation({ title, prompt })) { skippedRisky++; continue; }
     const video = m[2].match(/\*\*Video Link:\*\*\s*\[[^\]]*\]\(([^)]+)\)/);
     items.push({
       id: `sora2-${basename(file, '.md')}-${items.length + 1}`,

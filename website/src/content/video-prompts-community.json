@@ -5,7 +5,7 @@
     "url": "https://github.com/zhangchenchen/awesome_sora2_prompt",
     "license": "MIT"
   },
-  "count": 49,
+  "count": 48,
   "templates": [
     {
       "id": "sora2-hyperrealism-landscapes-1",
@@ -20,7 +20,8 @@
       "origin": "community",
       "source": "https://github.com/zhangchenchen/awesome_sora2_prompt",
       "license": "MIT",
-      "author": "awesome_sora2_prompt"
+      "author": "awesome_sora2_prompt",
+      "titleZh": "大苏尔海岸线"
     },
     {
       "id": "sora2-hyperrealism-landscapes-2",
@@ -35,7 +36,8 @@
       "origin": "community",
       "source": "https://github.com/zhangchenchen/awesome_sora2_prompt",
       "license": "MIT",
-      "author": "awesome_sora2_prompt"
+      "author": "awesome_sora2_prompt",
+      "titleZh": "海上风暴"
     },
     {
       "id": "sora2-hyperrealism-landscapes-3",
@@ -50,7 +52,8 @@
       "origin": "community",
       "source": "https://github.com/zhangchenchen/awesome_sora2_prompt",
       "license": "MIT",
-      "author": "awesome_sora2_prompt"
+      "author": "awesome_sora2_prompt",
+      "titleZh": "雪山山脉"
     },
     {
       "id": "sora2-hyperrealism-landscapes-4",
@@ -65,7 +68,8 @@
       "origin": "community",
       "source": "https://github.com/zhangchenchen/awesome_sora2_prompt",
       "license": "MIT",
-      "author": "awesome_sora2_prompt"
+      "author": "awesome_sora2_prompt",
+      "titleZh": "秋日林间小径"
     },
     {
       "id": "sora2-hyperrealism-landscapes-5",
@@ -80,7 +84,8 @@
       "origin": "community",
       "source": "https://github.com/zhangchenchen/awesome_sora2_prompt",
       "license": "MIT",
-      "author": "awesome_sora2_prompt"
+      "author": "awesome_sora2_prompt",
+      "titleZh": "东京夜街"
     },
     {
       "id": "sora2-hyperrealism-landscapes-6",
@@ -95,7 +100,8 @@
       "origin": "community",
       "source": "https://github.com/zhangchenchen/awesome_sora2_prompt",
       "license": "MIT",
-      "author": "awesome_sora2_prompt"
+      "author": "awesome_sora2_prompt",
+      "titleZh": "纽约早高峰"
     },
     {
       "id": "sora2-hyperrealism-landscapes-7",
@@ -110,7 +116,8 @@
       "origin": "community",
       "source": "https://github.com/zhangchenchen/awesome_sora2_prompt",
       "license": "MIT",
-      "author": "awesome_sora2_prompt"
+      "author": "awesome_sora2_prompt",
+      "titleZh": "葡萄园风光"
     },
     {
       "id": "sora2-hyperrealism-landscapes-8",
@@ -125,7 +132,8 @@
       "origin": "community",
       "source": "https://github.com/zhangchenchen/awesome_sora2_prompt",
       "license": "MIT",
-      "author": "awesome_sora2_prompt"
+      "author": "awesome_sora2_prompt",
+      "titleZh": "峡谷飞行"
     },
     {
       "id": "sora2-hyperrealism-landscapes-9",
@@ -140,7 +148,8 @@
       "origin": "community",
       "source": "https://github.com/zhangchenchen/awesome_sora2_prompt",
       "license": "MIT",
-      "author": "awesome_sora2_prompt"
+      "author": "awesome_sora2_prompt",
+      "titleZh": "雷暴逼近"
     },
     {
       "id": "sora2-hyperrealism-landscapes-10",
@@ -155,7 +164,8 @@
       "origin": "community",
       "source": "https://github.com/zhangchenchen/awesome_sora2_prompt",
       "license": "MIT",
-      "author": "awesome_sora2_prompt"
+      "author": "awesome_sora2_prompt",
+      "titleZh": "晨雾山谷"
     },
     {
       "id": "sora2-sora2-viral-prompts-11",
@@ -170,7 +180,8 @@
       "origin": "community",
       "source": "https://github.com/zhangchenchen/awesome_sora2_prompt",
       "license": "MIT",
-      "author": "awesome_sora2_prompt"
+      "author": "awesome_sora2_prompt",
+      "titleZh": "沙滩排球团体活动"
     },
     {
       "id": "sora2-sora2-viral-prompts-12",
@@ -185,7 +196,8 @@
       "origin": "community",
       "source": "https://github.com/zhangchenchen/awesome_sora2_prompt",
       "license": "MIT",
-      "author": "awesome_sora2_prompt"
+      "author": "awesome_sora2_prompt",
+      "titleZh": "奔驰豪车广告"
     },
     {
       "id": "sora2-sora2-viral-prompts-13",
@@ -200,7 +212,8 @@
       "origin": "community",
       "source": "https://github.com/zhangchenchen/awesome_sora2_prompt",
       "license": "MIT",
-      "author": "awesome_sora2_prompt"
+      "author": "awesome_sora2_prompt",
+      "titleZh": "Soraception 界面模拟"
     },
     {
       "id": "sora2-sora2-viral-prompts-14",
@@ -215,7 +228,8 @@
       "origin": "community",
       "source": "https://github.com/zhangchenchen/awesome_sora2_prompt",
       "license": "MIT",
-      "author": "awesome_sora2_prompt"
+      "author": "awesome_sora2_prompt",
+      "titleZh": "直播画面浮层模拟"
     },
     {
       "id": "sora2-sora2-viral-prompts-15",
@@ -230,7 +244,8 @@
       "origin": "community",
       "source": "https://github.com/zhangchenchen/awesome_sora2_prompt",
       "license": "MIT",
-      "author": "awesome_sora2_prompt"
+      "author": "awesome_sora2_prompt",
+      "titleZh": "含 Cameo 形象的完整视频"
     },
     {
       "id": "sora2-sora2-viral-prompts-16",
@@ -245,7 +260,8 @@
       "origin": "community",
       "source": "https://github.com/zhangchenchen/awesome_sora2_prompt",
       "license": "MIT",
-      "author": "awesome_sora2_prompt"
+      "author": "awesome_sora2_prompt",
+      "titleZh": "历史人物说唱音乐剧"
     },
     {
       "id": "sora2-sora2-viral-prompts-17",
@@ -260,7 +276,8 @@
       "origin": "community",
       "source": "https://github.com/zhangchenchen/awesome_sora2_prompt",
       "license": "MIT",
-      "author": "awesome_sora2_prompt"
+      "author": "awesome_sora2_prompt",
+      "titleZh": "狼人变身"
     },
     {
       "id": "sora2-sora2-viral-prompts-18",
@@ -275,7 +292,8 @@
       "origin": "community",
       "source": "https://github.com/zhangchenchen/awesome_sora2_prompt",
       "license": "MIT",
-      "author": "awesome_sora2_prompt"
+      "author": "awesome_sora2_prompt",
+      "titleZh": "恋爱真人秀恶搞"
     },
     {
       "id": "sora2-sora2-viral-prompts-19",
@@ -290,7 +308,8 @@
       "origin": "community",
       "source": "https://github.com/zhangchenchen/awesome_sora2_prompt",
       "license": "MIT",
-      "author": "awesome_sora2_prompt"
+      "author": "awesome_sora2_prompt",
+      "titleZh": "外星海滩恋曲"
     },
     {
       "id": "sora2-sora2-viral-prompts-20",
@@ -305,7 +324,8 @@
       "origin": "community",
       "source": "https://github.com/zhangchenchen/awesome_sora2_prompt",
       "license": "MIT",
-      "author": "awesome_sora2_prompt"
+      "author": "awesome_sora2_prompt",
+      "titleZh": "画家的素描世界"
     },
     {
       "id": "sora2-sora2-viral-prompts-21",
@@ -320,7 +340,8 @@
       "origin": "community",
       "source": "https://github.com/zhangchenchen/awesome_sora2_prompt",
       "license": "MIT",
-      "author": "awesome_sora2_prompt"
+      "author": "awesome_sora2_prompt",
+      "titleZh": "《南方公园》剧集"
     },
     {
       "id": "sora2-sora2-viral-prompts-22",
@@ -335,7 +356,8 @@
       "origin": "community",
       "source": "https://github.com/zhangchenchen/awesome_sora2_prompt",
       "license": "MIT",
-      "author": "awesome_sora2_prompt"
+      "author": "awesome_sora2_prompt",
+      "titleZh": "复古 Windows 软件"
     },
     {
       "id": "sora2-sora2-viral-prompts-23",
@@ -350,7 +372,8 @@
       "origin": "community",
       "source": "https://github.com/zhangchenchen/awesome_sora2_prompt",
       "license": "MIT",
-      "author": "awesome_sora2_prompt"
+      "author": "awesome_sora2_prompt",
+      "titleZh": "黑色电影侦探猫"
     },
     {
       "id": "sora2-sora2-viral-prompts-24",
@@ -365,22 +388,8 @@
       "origin": "community",
       "source": "https://github.com/zhangchenchen/awesome_sora2_prompt",
       "license": "MIT",
-      "author": "awesome_sora2_prompt"
-    },
-    {
-      "id": "sora2-sora2-viral-prompts-25",
-      "kind": "community",
-      "lang": "any",
-      "title": "Pikachu Traffic Stop",
-      "category": "社区热门",
-      "description": "",
-      "variables": [],
-      "prompt": "Realistic body cam footage of a police officer pulling over a red Ferrari with Pikachu driving... (Pikachu speeds away).",
-      "preview": "",
-      "origin": "community",
-      "source": "https://github.com/zhangchenchen/awesome_sora2_prompt",
-      "license": "MIT",
-      "author": "awesome_sora2_prompt"
+      "author": "awesome_sora2_prompt",
+      "titleZh": "火腿司机的警匪追车"
     },
     {
       "id": "sora2-sora2-viral-prompts-26",
@@ -395,7 +404,8 @@
       "origin": "community",
       "source": "https://github.com/zhangchenchen/awesome_sora2_prompt",
       "license": "MIT",
-      "author": "awesome_sora2_prompt"
+      "author": "awesome_sora2_prompt",
+      "titleZh": "逮捕通心粉"
     },
     {
       "id": "sora2-sora2-viral-prompts-27",
@@ -410,7 +420,8 @@
       "origin": "community",
       "source": "https://github.com/zhangchenchen/awesome_sora2_prompt",
       "license": "MIT",
-      "author": "awesome_sora2_prompt"
+      "author": "awesome_sora2_prompt",
+      "titleZh": "狗狗版 TED 演讲"
     },
     {
       "id": "sora2-sora2-viral-prompts-28",
@@ -425,7 +436,8 @@
       "origin": "community",
       "source": "https://github.com/zhangchenchen/awesome_sora2_prompt",
       "license": "MIT",
-      "author": "awesome_sora2_prompt"
+      "author": "awesome_sora2_prompt",
+      "titleZh": "浣熊婚礼"
     },
     {
       "id": "sora2-sora2-viral-prompts-29",
@@ -440,7 +452,8 @@
       "origin": "community",
       "source": "https://github.com/zhangchenchen/awesome_sora2_prompt",
       "license": "MIT",
-      "author": "awesome_sora2_prompt"
+      "author": "awesome_sora2_prompt",
+      "titleZh": "名人幼儿园"
     },
     {
       "id": "sora2-sora2-viral-prompts-30",
@@ -455,7 +468,8 @@
       "origin": "community",
       "source": "https://github.com/zhangchenchen/awesome_sora2_prompt",
       "license": "MIT",
-      "author": "awesome_sora2_prompt"
+      "author": "awesome_sora2_prompt",
+      "titleZh": "悬浮门铃监控画面"
     },
     {
       "id": "sora2-sora2-viral-prompts-31",
@@ -470,7 +484,8 @@
       "origin": "community",
       "source": "https://github.com/zhangchenchen/awesome_sora2_prompt",
       "license": "MIT",
-      "author": "awesome_sora2_prompt"
+      "author": "awesome_sora2_prompt",
+      "titleZh": "名人偷窃现场"
     },
     {
       "id": "sora2-sora2-viral-prompts-32",
@@ -485,7 +500,8 @@
       "origin": "community",
       "source": "https://github.com/zhangchenchen/awesome_sora2_prompt",
       "license": "MIT",
-      "author": "awesome_sora2_prompt"
+      "author": "awesome_sora2_prompt",
+      "titleZh": "历史事件被打断"
     },
     {
       "id": "sora2-sora2-viral-prompts-33",
@@ -500,7 +516,8 @@
       "origin": "community",
       "source": "https://github.com/zhangchenchen/awesome_sora2_prompt",
       "license": "MIT",
-      "author": "awesome_sora2_prompt"
+      "author": "awesome_sora2_prompt",
+      "titleZh": "定制球形显示屏"
     },
     {
       "id": "sora2-sora2-viral-prompts-34",
@@ -515,7 +532,8 @@
       "origin": "community",
       "source": "https://github.com/zhangchenchen/awesome_sora2_prompt",
       "license": "MIT",
-      "author": "awesome_sora2_prompt"
+      "author": "awesome_sora2_prompt",
+      "titleZh": "加油站变异"
     },
     {
       "id": "sora2-sora2-viral-prompts-35",
@@ -530,7 +548,8 @@
       "origin": "community",
       "source": "https://github.com/zhangchenchen/awesome_sora2_prompt",
       "license": "MIT",
-      "author": "awesome_sora2_prompt"
+      "author": "awesome_sora2_prompt",
+      "titleZh": "刺客惊悚片预告"
     },
     {
       "id": "sora2-sora2-viral-prompts-36",
@@ -545,7 +564,8 @@
       "origin": "community",
       "source": "https://github.com/zhangchenchen/awesome_sora2_prompt",
       "license": "MIT",
-      "author": "awesome_sora2_prompt"
+      "author": "awesome_sora2_prompt",
+      "titleZh": "性别转换动画"
     },
     {
       "id": "sora2-sora2-viral-prompts-37",
@@ -560,7 +580,8 @@
       "origin": "community",
       "source": "https://github.com/zhangchenchen/awesome_sora2_prompt",
       "license": "MIT",
-      "author": "awesome_sora2_prompt"
+      "author": "awesome_sora2_prompt",
+      "titleZh": "机甲对战预告"
     },
     {
       "id": "sora2-sora2-viral-prompts-38",
@@ -575,7 +596,8 @@
       "origin": "community",
       "source": "https://github.com/zhangchenchen/awesome_sora2_prompt",
       "license": "MIT",
-      "author": "awesome_sora2_prompt"
+      "author": "awesome_sora2_prompt",
+      "titleZh": "信长穿越预告片"
     },
     {
       "id": "sora2-sora2-viral-prompts-39",
@@ -590,7 +612,8 @@
       "origin": "community",
       "source": "https://github.com/zhangchenchen/awesome_sora2_prompt",
       "license": "MIT",
-      "author": "awesome_sora2_prompt"
+      "author": "awesome_sora2_prompt",
+      "titleZh": "蛋白棒用户证言"
     },
     {
       "id": "sora2-sora2-viral-prompts-40",
@@ -605,7 +628,8 @@
       "origin": "community",
       "source": "https://github.com/zhangchenchen/awesome_sora2_prompt",
       "license": "MIT",
-      "author": "awesome_sora2_prompt"
+      "author": "awesome_sora2_prompt",
+      "titleZh": "带剪辑的叙事短片"
     },
     {
       "id": "sora2-sora2-viral-prompts-41",
@@ -620,7 +644,8 @@
       "origin": "community",
       "source": "https://github.com/zhangchenchen/awesome_sora2_prompt",
       "license": "MIT",
-      "author": "awesome_sora2_prompt"
+      "author": "awesome_sora2_prompt",
+      "titleZh": "配音录制技巧"
     },
     {
       "id": "sora2-official-prompts-42",
@@ -635,7 +660,8 @@
       "origin": "openai-showcase",
       "source": "https://github.com/zhangchenchen/awesome_sora2_prompt",
       "license": "MIT",
-      "author": "OpenAI Sora showcase"
+      "author": "OpenAI Sora showcase",
+      "titleZh": "东京漫步"
     },
     {
       "id": "sora2-official-prompts-43",
@@ -650,7 +676,8 @@
       "origin": "openai-showcase",
       "source": "https://github.com/zhangchenchen/awesome_sora2_prompt",
       "license": "MIT",
-      "author": "OpenAI Sora showcase"
+      "author": "OpenAI Sora showcase",
+      "titleZh": "长毛猛犸象"
     },
     {
       "id": "sora2-official-prompts-44",
@@ -665,7 +692,8 @@
       "origin": "openai-showcase",
       "source": "https://github.com/zhangchenchen/awesome_sora2_prompt",
       "license": "MIT",
-      "author": "OpenAI Sora showcase"
+      "author": "OpenAI Sora showcase",
+      "titleZh": "毛线针织宇航员"
     },
     {
       "id": "sora2-official-prompts-45",
@@ -680,7 +708,8 @@
       "origin": "openai-showcase",
       "source": "https://github.com/zhangchenchen/awesome_sora2_prompt",
       "license": "MIT",
-      "author": "OpenAI Sora showcase"
+      "author": "OpenAI Sora showcase",
+      "titleZh": "纸艺珊瑚礁"
     },
     {
       "id": "sora2-official-prompts-46",
@@ -695,7 +724,8 @@
       "origin": "openai-showcase",
       "source": "https://github.com/zhangchenchen/awesome_sora2_prompt",
       "license": "MIT",
-      "author": "OpenAI Sora showcase"
+      "author": "OpenAI Sora showcase",
+      "titleZh": "大苏尔海岸线"
     },
     {
       "id": "sora2-official-prompts-47",
@@ -710,7 +740,8 @@
       "origin": "openai-showcase",
       "source": "https://github.com/zhangchenchen/awesome_sora2_prompt",
       "license": "MIT",
-      "author": "OpenAI Sora showcase"
+      "author": "OpenAI Sora showcase",
+      "titleZh": "怪物与融化的蜡烛"
     },
     {
       "id": "sora2-official-prompts-48",
@@ -725,7 +756,8 @@
       "origin": "openai-showcase",
       "source": "https://github.com/zhangchenchen/awesome_sora2_prompt",
       "license": "MIT",
-      "author": "OpenAI Sora showcase"
+      "author": "OpenAI Sora showcase",
+      "titleZh": "冰川上空的巨龙"
     },
     {
       "id": "sora2-official-prompts-49",
@@ -740,7 +772,8 @@
       "origin": "openai-showcase",
       "source": "https://github.com/zhangchenchen/awesome_sora2_prompt",
       "license": "MIT",
-      "author": "OpenAI Sora showcase"
+      "author": "OpenAI Sora showcase",
+      "titleZh": "呼喊的登山者"
     }
   ]
 }

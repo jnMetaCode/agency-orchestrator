@@ -14,6 +14,10 @@ interface CreativePrompt {
   id: string;
   title: string;
   description: string;
+  /** 扩充池那批来自英文源，标题/描述由 scripts/translate-extra-titles.mjs 补的中文；
+   *  正文永远保持原文（模型吃的是它）。中文界面优先显示这两个字段。 */
+  titleZh?: string;
+  descZh?: string;
   prompt: string;
   category: string;
   author: string;
@@ -55,6 +59,9 @@ interface VideoTemplate {
   kind: "genre" | "module" | "community";
   lang: string;
   title: string;
+  /** 社区池那批是英文成品单条，标题由 translate-extra-titles.mjs 补的中文 */
+  titleZh?: string;
+  descZh?: string;
   category: string;
   description: string;
   variables: { name: string; example: string }[];
@@ -81,7 +88,7 @@ function VideoCard({ t }: { t: VideoTemplate }) {
   return (
     <div className="flex flex-col rounded-xl border border-border/60 bg-card/50 p-4">
       <div className="flex items-start justify-between gap-2">
-        <h3 className="text-sm font-semibold leading-snug">{t.title}</h3>
+        <h3 className="text-sm font-semibold leading-snug">{(!en && t.titleZh) || t.title}</h3>
         <span className={cn("shrink-0 rounded-full px-2 py-0.5 text-[10px] font-medium",
           t.kind === "module" ? "bg-muted text-muted-foreground"
           : t.kind === "community" ? "bg-amber-500/10 text-amber-600 dark:text-amber-400"
@@ -89,7 +96,7 @@ function VideoCard({ t }: { t: VideoTemplate }) {
           {t.kind === "module" ? (en ? "Building block" : "构件") : t.category}
         </span>
       </div>
-      <p className="mt-1.5 line-clamp-3 text-xs leading-relaxed text-muted-foreground">{t.description}</p>
+      <p className="mt-1.5 line-clamp-3 text-xs leading-relaxed text-muted-foreground">{(!en && t.descZh) || t.description}</p>
 
       {t.variables.length > 0 && (
         <div className="mt-2.5 flex flex-wrap gap-1">
@@ -184,8 +191,10 @@ function PromptCard({ p, gen, onOpenGen }: { p: CreativePrompt; gen: GenEnv | nu
         <span className="rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-medium text-primary">{p.category}</span>
         <span className="text-[10px] text-muted-foreground/60">{p.source}</span>
       </div>
-      <h3 className="font-semibold leading-snug">{p.title}</h3>
-      {p.description && <p className="mt-1 line-clamp-2 text-xs text-muted-foreground">{p.description}</p>}
+      <h3 className="font-semibold leading-snug">{(!en && p.titleZh) || p.title}</h3>
+      {((!en && p.descZh) || p.description) && (
+        <p className="mt-1 line-clamp-2 text-xs text-muted-foreground">{(!en && p.descZh) || p.description}</p>
+      )}
       <pre className="mt-3 max-h-32 overflow-y-auto whitespace-pre-wrap rounded-lg bg-muted/50 p-2.5 text-[11px] leading-relaxed text-foreground/90">{p.prompt}</pre>
       <div className="mt-3 flex items-center justify-between gap-2">
         {p.author ? (
@@ -372,7 +381,7 @@ export default function CreativeLibrary() {
     const n = q.trim().toLowerCase();
     return videoItems.filter(
       (t) => (cat === "all" || t.category === cat)
-        && (!n || (t.title + t.description + t.prompt).toLowerCase().includes(n)),
+        && (!n || (t.title + t.description + t.prompt + (t.titleZh ?? "") + (t.descZh ?? "")).toLowerCase().includes(n)),
     );
   }, [videoItems, q, cat]);
   useEffect(() => { setCat("all"); setPage(1); }, [media]);
@@ -418,7 +427,8 @@ export default function CreativeLibrary() {
   const filtered = useMemo(() => {
     const n = q.trim().toLowerCase();
     return imagePrompts.filter(
-      (p) => (cat === "all" || p.category === cat) && (!n || (p.title + p.description + p.prompt).toLowerCase().includes(n)),
+      (p) => (cat === "all" || p.category === cat)
+        && (!n || (p.title + p.description + p.prompt + (p.titleZh ?? "") + (p.descZh ?? "")).toLowerCase().includes(n)),
     );
   }, [q, cat, imagePrompts]);
 
