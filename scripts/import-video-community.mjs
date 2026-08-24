@@ -70,7 +70,9 @@ for (const [file, meta] of Object.entries(FILES)) {
       description: '',
       variables: [],
       prompt,
-      preview: video ? video[1] : '',
+      // 只收直接指向视频文件的链接：源里混着指向文章页的（openai.com/index/sora-2/），
+      // 那种塞进 <video> 就是一个永远转圈的黑框。失效链接由 prune 时的探活清掉。
+      preview: video && /\.mp4($|\?)/i.test(video[1]) ? video[1] : '',
       origin: meta.origin,
       source: 'https://github.com/zhangchenchen/awesome_sora2_prompt',
       license: 'MIT',

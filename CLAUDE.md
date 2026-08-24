@@ -206,6 +206,12 @@ image/video needs neither `llm.model` nor a text connector.
   fills `titleZh`/`descZh` via the local `claude` CLI in resumable batches — run it after any re-import,
   otherwise Chinese users cannot search those items (the prompt body itself always stays in the source
   language: that is what the model consumes).
+- **Video previews**: 18 community items carry an external sample clip (OpenAI's Sora showcase CDN and
+  Twitter CDN); the card loads them **only on click** (some are 17–48MB). The 22 genre templates have
+  **no sample yet** — no open-source library ships licensed, self-hosted example videos, so the clean
+  path is generating our own: `scripts/gen-video-previews.mjs` fills each template's variable table into
+  its 5-part body, renders via `type: video`, ffmpeg-shrinks it, and writes the local path back.
+  It is a **dry run by default** (it spends real money: ~¥9.9 for all 22 at 768P×5s) — pass `--yes`.
 - A third pool exists: `video-prompts-community.json` (49 finished English singles from
   `awesome_sora2_prompt`, MIT, via `scripts/import-video-community.mjs`). Imports **drop prompts
   naming real people or IP** — same rule the 视频提示词工程师 role follows — and the UI says the

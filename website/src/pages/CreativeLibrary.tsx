@@ -66,6 +66,8 @@ interface VideoTemplate {
   description: string;
   variables: { name: string; example: string }[];
   prompt: string;
+  /** 示例成片（外链）。社区池里 18 条有，题材模板暂时没有——见 scripts/gen-video-previews.mjs */
+  preview?: string;
   source: string;
   license: string;
   author: string;
@@ -77,6 +79,9 @@ function VideoCard({ t }: { t: VideoTemplate }) {
   const en = lang === "en";
   const [copied, setCopied] = useState(false);
   const [open, setOpen] = useState(false);
+  // 示例成片**点了才加载**：OpenAI 官方那几条单个 17~48MB，一页 24 张卡自动预载会把
+  // 流量打爆；preload="none" 也只能省下载、省不掉 24 个黑框，所以干脆按需换入。
+  const [showVideo, setShowVideo] = useState(false);
   const copy = async () => {
     try {
       await navigator.clipboard.writeText(t.prompt);
@@ -108,11 +113,31 @@ function VideoCard({ t }: { t: VideoTemplate }) {
         </div>
       )}
 
+      {showVideo && t.preview && (
+        <video
+          className="mt-2.5 max-h-64 w-full rounded-lg border border-border/60 bg-black"
+          src={t.preview}
+          controls
+          autoPlay
+          playsInline
+          preload="metadata"
+          onError={(e) => { (e.currentTarget as HTMLVideoElement).style.display = "none"; }}
+        />
+      )}
+
       {open && t.prompt && (
         <pre className="mt-2.5 max-h-64 overflow-auto whitespace-pre-wrap rounded-lg border border-border/60 bg-muted/40 p-2.5 text-[11px] leading-relaxed">{t.prompt}</pre>
       )}
 
       <div className="mt-3 flex flex-wrap items-center gap-2 text-xs">
+        {t.preview && !showVideo && (
+          <button
+            onClick={() => { setShowVideo(true); track("video_preview_play", { id: t.id }); }}
+            className="inline-flex items-center gap-1 rounded-lg border border-primary/40 bg-primary/5 px-2.5 py-1.5 font-medium text-primary transition-colors hover:bg-primary/10"
+          >
+            ▶ {en ? "Play sample" : "看示例成片"}
+          </button>
+        )}
         {t.prompt && (
           <>
             <button onClick={() => setOpen((o) => !o)} className="rounded-lg border border-border/70 px-2.5 py-1.5 transition-colors hover:border-primary/50">
