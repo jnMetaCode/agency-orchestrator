@@ -242,6 +242,37 @@ await test('缺 model 时连请求都不发', async () => {
   assert(/video: \{ model/.test(msg), `实际：${msg}`);
 });
 
+console.log('\n─── 中断时要能说清钱花在哪 ───');
+
+await test('任务在飞时能报出 task_id（进程退出不会停掉服务商那边的活）', async () => {
+  const fake = fakeMetaso({ pendingRounds: 999 });
+  const port = await listen(fake.srv);
+  fake.setPort(port);
+  const { describePendingVideoTasks } = await import('../src/connectors/video.js');
+  assert(describePendingVideoTasks() === null, '没有在飞任务时不该有提示');
+  const p = generateVideo(cfg({ base_url: `http://127.0.0.1:${port}` }), 'x',
+    { model: 'MiniMax-H3', poll_interval: 10, timeout: 400 }).catch(() => {});
+  // 等它把任务建出来（建任务是同步一发一收，10ms 足够）
+  await new Promise((r) => setTimeout(r, 120));
+  const msg = describePendingVideoTasks();
+  assert(!!msg && /2091363060444401664/.test(msg!), `中断提示应带 task_id，实际：${msg}`);
+  assert(/按秒计费|不会停止/.test(msg!), '要说清中断不会停掉任务、费用不退');
+  await p;
+  fake.srv.close();
+});
+
+await test('任务失败后不再挂在"在飞"名单里', async () => {
+  const fake = fakeMetaso({ status: 'failed', error: { code: '1', message: 'boom' } });
+  const port = await listen(fake.srv);
+  fake.setPort(port);
+  const { describePendingVideoTasks } = await import('../src/connectors/video.js');
+  try {
+    await generateVideo(cfg({ base_url: `http://127.0.0.1:${port}` }), 'x', { model: 'MiniMax-H3', poll_interval: 10 });
+  } catch { /* 预期失败 */ } finally { fake.srv.close(); }
+  const msg = describePendingVideoTasks();
+  assert(msg === null || !/2091363060444401664/.test(msg), `失败的任务不该还挂着：${msg}`);
+});
+
 console.log('\n─── 产物落盘 ───');
 
 await test('mp4 落到 assets/，base64 绝不进 metadata.json', () => {

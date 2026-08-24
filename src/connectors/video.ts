@@ -97,6 +97,24 @@ function pickTask(json: unknown, taskId: string): MiniMaxTask | undefined {
   return items.find((it) => String(it?.id ?? '') === taskId);
 }
 
+/**
+ * 正在跑的视频任务（task_id → 供应商）。
+ *
+ * 视频是唯一一种「进程没了、活还在别人服务器上跑、钱照花」的步骤：一次几十秒到几分钟，
+ * 用户 Ctrl-C 之后终端上什么都不留，想去控制台查都不知道查哪一条。所以把在飞的任务
+ * 登记下来，中断时把 task_id 打出去（见 pendingVideoTasks / describePendingVideoTasks）。
+ */
+const inFlight = new Map<string, string>();
+
+/** 中断/退出时用：有在飞的视频任务就给出一句能照着去对账的提示，没有则返回 null。 */
+export function describePendingVideoTasks(): string | null {
+  if (inFlight.size === 0) return null;
+  const lines = [...inFlight].map(([id, provider]) => `     ${provider}  task_id=${id}`);
+  return `⚠️  还有 ${inFlight.size} 个视频任务在服务商那边跑（按秒计费，中断进程不会停止它们）：\n`
+    + lines.join('\n')
+    + `\n     拿 task_id 去服务商控制台查成品或取消；已产生的费用不会因为这里中断而退回。`;
+}
+
 const DONE_OK = new Set(['succeeded', 'success', 'finished', 'completed']);
 const DONE_FAIL = new Set(['failed', 'fail', 'error', 'canceled', 'cancelled']);
 
@@ -140,6 +158,7 @@ export async function generateVideo(
   if (!taskId) {
     throw new Error(`视频任务创建失败：响应里没有 task_id（${createText.slice(0, 200)}）`);
   }
+  inFlight.set(taskId, spec.id);
   onNotice?.(`🎬 视频任务已创建（task_id=${taskId}），开始轮询…（按秒计费，中途中断也可能已产生费用）`);
 
   // ── 2. 轮询 ───────────────────────────────────────────────────────────────
@@ -166,6 +185,7 @@ export async function generateVideo(
     }
     if (DONE_FAIL.has(status)) {
       const e = task.error;
+      inFlight.delete(taskId);
       throw new Error(
         `视频生成失败（task_id=${taskId}）：${e?.message || status}${e?.code ? `（code ${e.code}）` : ''}。` +
         `拿这个 task_id 可以去服务商控制台对账。`
@@ -182,9 +202,14 @@ export async function generateVideo(
         throw new Error(`下载生成的视频失败：HTTP ${dl.status}（${url.slice(0, 80)}…，签名链接可能已过期）`);
       }
       const buffer = Buffer.from(await dl.arrayBuffer());
+      inFlight.delete(taskId);
       return { buffer, mime: 'video/mp4', taskId, seconds: task.usage?.total_seconds, sourceUrl: url };
     }
   }
+  // 超时也摘掉登记：inFlight 的语义是"此刻正在轮询的任务"，只有这样中断提示才准。
+  // 留着的话，长跑的 Studio 进程会越积越多、还会把早已放弃的任务当成在飞的报出来——
+  // 而超时这条错误本身已经带了 task_id 与费用提示，信息并没有丢。
+  inFlight.delete(taskId);
   throw new Error(
     `视频生成超时（task_id=${taskId}，等了 ${Math.round(totalMs / 1000)}s，最后状态：${last || '未知'}）。` +
     `任务多半还在服务商那边跑、费用可能已产生——去控制台按 task_id 查成品，` +

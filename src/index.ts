@@ -74,6 +74,7 @@ import { installEnvProxy } from './utils/env-proxy.js';
 import { buildDAG, formatDAG } from './core/dag.js';
 import { executeDAG, type ExecutorOptions } from './core/executor.js';
 import { createConnector } from './connectors/factory.js';
+import { describePendingVideoTasks } from './connectors/video.js';
 import { loadAgent } from './agents/loader.js';
 import { saveResults, printStepResult, printStepRunning, clearRunningLine, printSummary, loadPreviousContext, getCompletedStepIds, findLatestOutput, computeResumeSkipIds, loadStepOutput } from './output/reporter.js';
 import { existsSync, readFileSync } from 'node:fs';
@@ -338,6 +339,9 @@ export async function run(
         if (!options?.quiet) {
           const done = partialSteps.filter(s => s.status === 'completed').length;
           console.log(`\n⚠️  运行被中断 (${signal})，已完成 ${done} 步已存档: ${dir}`);
+          // 视频任务不会因为这里退出而停止——不说清楚，用户根本不知道钱花在哪一条上
+          const pending = describePendingVideoTasks();
+          if (pending) console.log(pending);
         }
       } catch { /* 落盘失败也必须退出 */ }
       process.exit(signal === 'SIGINT' ? 130 : 143);

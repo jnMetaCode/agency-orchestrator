@@ -18,7 +18,7 @@ import { buildDAG, formatDAG } from './core/dag.js';
 import { listAgents, filterAgentsByKeyword } from './agents/loader.js';
 import { run, findAgentsDir, compareWorkflowVsBaseline } from './index.js';
 import { detectInstalledCliProviders, detectUsableCliProviders, DEPRECATED_CLI_PROVIDERS } from './providers/detect.js';
-import { API_PROVIDERS, API_PROVIDER_MAP } from './connectors/api-providers.js';
+import { API_PROVIDERS, VIDEO_PROVIDERS, API_PROVIDER_MAP } from './connectors/api-providers.js';
 import { postChatCompletions, postApiEndpoint, endpointHint, normalizeBaseUrl, envProxyHint } from './connectors/openai-compatible.js';
 import { installEnvProxy, envProxyStatus } from './utils/env-proxy.js';
 // claude 走原生 SDK，端点体检要按 Anthropic 协议单独来（见 doctor 的 3.6 段）
@@ -736,6 +736,19 @@ async function handleDoctor(): Promise<void> {
       console.log(`     ↳ 命令行要用就 export ${envName}=... ，或跑的时候带 --api-key / --provider`);
     }
   }
+
+  // 2.8) 媒体能力：图片 / 视频与文本走的是不同的表，doctor 只报文本 key 的话，
+  //      用户配好了秘塔却要等跑到第三步才发现"没配对地方"。这里各报一行。
+  const imageCapable = API_PROVIDERS.filter((p) => process.env[p.envKey] || studioKeys[p.id]?.apiKey).map((p) => p.id);
+  // 措辞谨慎：**配了 key ≠ 这家真上架了图片模型**。引擎只能确认"协议对得上"，
+  // 具体有没有图片端点、图片模型编码叫什么，只有服务商知道——不替它打包票。
+  console.log(imageCapable.length
+    ? `  🎨 可用于文生图的供应商（已配 key、协议对得上）：${imageCapable.join(', ')}\n     ↳ 是否真上架图片模型看服务商；image.model 必填且不通用，配了 key 可在 Studio 点「获取模型列表」`
+    : `  ·  文生图暂不可用：需要一个 OpenAI 兼容的 API provider 并配 key（本地 CLI 与 Anthropic 协议都没有图片端点）`);
+  const videoKeyed = VIDEO_PROVIDERS.filter((p) => process.env[p.envKey] || studioKeys[p.id]?.apiKey).map((p) => p.id);
+  console.log(videoKeyed.length
+    ? `  🎬 文生视频可用（type: video）：${videoKeyed.join(', ')}（余额与计费需在服务商控制台自查，doctor 不探）`
+    : `  ·  文生视频暂不可用：内置视频供应商 ${VIDEO_PROVIDERS.map((p) => p.id).join(' / ')} 都没配 key（env ${VIDEO_PROVIDERS.map((p) => p.envKey).join(' / ')}）`);
 
   // 3) 默认将使用的 provider 是否就绪（跑任务前最关键）
   const def = autoProvider(process.env.AO_PROVIDER, 'deepseek');
