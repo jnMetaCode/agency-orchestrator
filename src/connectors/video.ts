@@ -64,16 +64,49 @@ export function resolveVideoAccess(
   return { spec, baseUrl, apiKey };
 }
 
-/** MiniMax 形状的建任务请求体。别的形状以后按 spec.shape 分支，不要在这里硬塞。 */
-function createBody(opts: VideoStepOptions, prompt: string): string {
-  return JSON.stringify({
-    model: opts.model,
-    content: [{ type: 'text', text: prompt }],
-    ...(opts.resolution ? { resolution: opts.resolution } : {}),
-    ...(opts.duration ? { duration: opts.duration } : {}),
-    ...(opts.ratio ? { ratio: opts.ratio } : {}),
-  });
+/** 一次轮询看到的任务状态，已归一到与厂商无关的形状。 */
+export interface VideoTaskState {
+  /** 已归一：pending | done | failed。厂商各自的状态词由 shape 负责翻译 */
+  phase: 'pending' | 'done' | 'failed';
+  /** phase=done 时的成品下载地址 */
+  url?: string;
+  /** phase=failed 时的厂商原文（原样带出，不翻译） */
+  error?: string;
+  /** 厂商回执里的计费秒数（拿得到才有） */
+  seconds?: number;
+  /** 进度百分比（拿得到才有，用于提示） */
+  progress?: number;
 }
+
+/**
+ * 各家视频 API 的形状适配器。
+ *
+ * 两家实测下来差得很远——**这层抽象存在的理由就是别让第二家把第一家的代码搅烂**：
+ *                      秘塔（MiniMax 协议）            APIMart（自家网关）
+ *   建任务路径          v2/video_generation           v1/videos/generations
+ *   提示词字段          content:[{type,text}]          prompt
+ *   宽高比字段          ratio                          aspect_ratio
+ *   建任务回执          {task_id}                      {code,data:[{task_id}]}
+ *   查询                列表接口 + 自己按 id 过滤       GET v1/tasks/{id}
+ *   完成状态词          succeeded                      completed
+ *   成品地址            items[].content.url            data.result.videos[].url
+ * 加一家只该新增一个 adapter，不该改到 generateVideo 的主流程。
+ */
+interface VideoShapeAdapter {
+  createPath: string;
+  createBody(opts: VideoStepOptions, prompt: string): string;
+  /** 从建任务回执里取 task_id；取不到返回空串（调用方会连同原文一起报错） */
+  parseCreate(json: unknown): string;
+  /** 查询用的完整 URL（有的家把 id 放路径、有的放 query） */
+  queryUrl(baseUrl: string, taskId: string): string;
+  /** 解析查询响应；返回 undefined = 这一轮没看到我们那条任务，继续等 */
+  parseQuery(json: unknown, taskId: string): VideoTaskState | undefined;
+}
+
+const DONE_OK = new Set(['succeeded', 'success', 'finished', 'completed']);
+const DONE_FAIL = new Set(['failed', 'fail', 'error', 'canceled', 'cancelled']);
+const phaseOf = (status: string): VideoTaskState['phase'] =>
+  DONE_OK.has(status) ? 'done' : DONE_FAIL.has(status) ? 'failed' : 'pending';
 
 interface MiniMaxTask {
   id?: string;
@@ -83,19 +116,83 @@ interface MiniMaxTask {
   usage?: { total_seconds?: number };
 }
 
-/**
- * 从查询响应里挑出**我们这一条**任务。
- *
- * 秘塔的 GET /v2/query/video_generation 实测**不严格匹配 task_id**：传 task_id=1 也回
- * HTTP 200，并把账号里所有任务都列出来。拿 items[0] 当结果 = 迟早把别人的（或上一条的）
- * 视频当成本次产出——并发跑两个视频步骤时必然张冠李戴。所以按 id 精确过滤，找不到就
- * 当作"还没出现在列表里"继续轮询。
- */
-function pickTask(json: unknown, taskId: string): MiniMaxTask | undefined {
-  const items = (json as { items?: MiniMaxTask[] })?.items;
-  if (!Array.isArray(items)) return undefined;
-  return items.find((it) => String(it?.id ?? '') === taskId);
-}
+const SHAPES: Record<string, VideoShapeAdapter> = {
+  // ── 秘塔科技：MiniMax 官方协议换了个 Host ─────────────────────────────────
+  minimax: {
+    createPath: 'v2/video_generation',
+    createBody: (opts, prompt) => JSON.stringify({
+      model: opts.model,
+      content: [{ type: 'text', text: prompt }],
+      ...(opts.resolution ? { resolution: opts.resolution } : {}),
+      ...(opts.duration ? { duration: opts.duration } : {}),
+      ...(opts.ratio ? { ratio: opts.ratio } : {}),
+    }),
+    parseCreate: (j) => String((j as { task_id?: string | number })?.task_id ?? ''),
+    queryUrl: (base, id) => `${base}/v2/query/video_generation?task_id=${encodeURIComponent(id)}`,
+    /**
+     * 实测**不严格匹配 task_id**：传 task_id=1 也回 200 并列出账号里所有任务。
+     * 拿 items[0] 当结果 = 迟早把别人的（或上一条的）视频当成本次产出——并发跑两个
+     * 视频步骤时必然张冠李戴。所以按 id 精确过滤，找不到就当"还没出现在列表里"继续等。
+     */
+    parseQuery: (json, taskId) => {
+      const items = (json as { items?: MiniMaxTask[] })?.items;
+      if (!Array.isArray(items)) return undefined;
+      const t = items.find((it) => String(it?.id ?? '') === taskId);
+      if (!t) return undefined;
+      const status = String(t.status ?? '').toLowerCase();
+      return {
+        phase: phaseOf(status),
+        url: t.content?.url,
+        error: t.error ? `${t.error.message || status}${t.error.code ? `（code ${t.error.code}）` : ''}` : undefined,
+        seconds: t.usage?.total_seconds,
+      };
+    },
+  },
+
+  // ── APIMart：自家网关，任务查询是标准的 GET /v1/tasks/{id} ─────────────────
+  // 端点已探测核实（2026-08-25，带真 key）：
+  //   POST /v1/videos/generations  → 402 insufficient balance（路径在、鉴权通）
+  //   GET  /v1/tasks/<假 id>       → 400 Invalid task ID format（路径在，还校验 id 格式）
+  //   乱写路径                      → 404 Invalid URL（对照组：说明上面两条不是兜底响应）
+  apimart: {
+    createPath: 'videos/generations',
+    createBody: (opts, prompt) => JSON.stringify({
+      model: opts.model,
+      prompt,
+      ...(opts.duration ? { duration: opts.duration } : {}),
+      // 这家叫 aspect_ratio 不叫 ratio；分辨率档位也不同（720p/1080p/4k，不是 768P/2K）——
+      // 原样透传，不替用户换算：档位名是厂商的事，猜错就是一次白花的生成
+      ...(opts.ratio ? { aspect_ratio: opts.ratio } : {}),
+      ...(opts.resolution ? { resolution: opts.resolution } : {}),
+    }),
+    // {"code":200,"data":[{"status":"submitted","task_id":"task_01K8…"}]}
+    parseCreate: (j) => {
+      const d = (j as { data?: Array<{ task_id?: string }> | { task_id?: string } })?.data;
+      const first = Array.isArray(d) ? d[0] : d;
+      return String(first?.task_id ?? '');
+    },
+    queryUrl: (base, id) => `${base}/tasks/${encodeURIComponent(id)}`,
+    parseQuery: (json) => {
+      const d = (json as {
+        data?: {
+          status?: string; progress?: number; actual_time?: number;
+          result?: { videos?: Array<{ url?: string } | string> };
+          error?: { code?: number; message?: string };
+        };
+      })?.data;
+      if (!d) return undefined;
+      const status = String(d.status ?? '').toLowerCase();
+      const v = d.result?.videos?.[0];
+      return {
+        phase: phaseOf(status),
+        url: typeof v === 'string' ? v : v?.url,
+        error: d.error ? `${d.error.message || status}${d.error.code ? `（code ${d.error.code}）` : ''}` : undefined,
+        seconds: d.actual_time,
+        progress: d.progress,
+      };
+    },
+  },
+};
 
 /**
  * 正在跑的视频任务（task_id → 供应商）。
@@ -115,9 +212,6 @@ export function describePendingVideoTasks(): string | null {
     + `\n     拿 task_id 去服务商控制台查成品或取消；已产生的费用不会因为这里中断而退回。`;
 }
 
-const DONE_OK = new Set(['succeeded', 'success', 'finished', 'completed']);
-const DONE_FAIL = new Set(['failed', 'fail', 'error', 'canceled', 'cancelled']);
-
 export async function generateVideo(
   config: LLMConfig,
   prompt: string,
@@ -132,16 +226,18 @@ export async function generateVideo(
     );
   }
   const { spec, baseUrl, apiKey } = resolveVideoAccess(config, opts);
+  const shape = SHAPES[spec.shape];
+  if (!shape) throw new Error(`视频供应商 ${spec.id} 的协议形状 "${spec.shape}" 没有对应的适配器（见 video.ts 的 SHAPES）`);
   const headers = { 'Content-Type': 'application/json', Authorization: `Bearer ${apiKey}` };
   const totalMs = opts.timeout && opts.timeout > 0 ? opts.timeout : 10 * 60_000;
   const pollMs = opts.poll_interval && opts.poll_interval > 0 ? opts.poll_interval : 5_000;
   const deadline = Date.now() + totalMs;
 
   // ── 1. 建任务 ─────────────────────────────────────────────────────────────
-  const createRes = await fetch(`${baseUrl}/${spec.createPath}`, {
+  const createRes = await fetch(`${baseUrl}/${shape.createPath}`, {
     method: 'POST',
     headers,
-    body: createBody(opts, prompt),
+    body: shape.createBody(opts, prompt),
     signal: AbortSignal.timeout(Math.min(60_000, totalMs)),
   });
   const createText = await createRes.text();
@@ -151,7 +247,7 @@ export async function generateVideo(
   }
   let taskId = '';
   try {
-    taskId = String((JSON.parse(createText) as { task_id?: string | number }).task_id ?? '');
+    taskId = shape.parseCreate(JSON.parse(createText));
   } catch {
     throw new Error(`视频任务创建失败：响应不是 JSON（${createText.slice(0, 200)}）`);
   }
@@ -165,7 +261,7 @@ export async function generateVideo(
   let last = '';
   while (Date.now() < deadline) {
     await new Promise((r) => setTimeout(r, pollMs));
-    const q = await fetch(`${baseUrl}/${spec.queryPath}?task_id=${encodeURIComponent(taskId)}`, {
+    const q = await fetch(shape.queryUrl(baseUrl, taskId), {
       headers: { Authorization: `Bearer ${apiKey}` },
       signal: AbortSignal.timeout(30_000),
     });
@@ -175,24 +271,23 @@ export async function generateVideo(
       onNotice?.(`⚠️ 查询任务状态失败：HTTP ${q.status}（继续等待）`);
       continue;
     }
-    let task: MiniMaxTask | undefined;
-    try { task = pickTask(JSON.parse(qText), taskId); } catch { /* 非 JSON：当作瞬时异常继续等 */ }
-    if (!task) continue;                       // 任务还没出现在列表里
-    const status = String(task.status ?? '').toLowerCase();
-    if (status && status !== last) {
-      onNotice?.(`   任务状态：${status}`);
-      last = status;
+    let task: VideoTaskState | undefined;
+    try { task = shape.parseQuery(JSON.parse(qText), taskId); } catch { /* 非 JSON：当作瞬时异常继续等 */ }
+    if (!task) continue;                       // 这一轮没看到我们那条，继续等
+    const label = task.progress != null ? `${task.phase} ${task.progress}%` : task.phase;
+    if (label !== last) {
+      onNotice?.(`   任务状态：${label}`);
+      last = label;
     }
-    if (DONE_FAIL.has(status)) {
-      const e = task.error;
+    if (task.phase === 'failed') {
       inFlight.delete(taskId);
       throw new Error(
-        `视频生成失败（task_id=${taskId}）：${e?.message || status}${e?.code ? `（code ${e.code}）` : ''}。` +
+        `视频生成失败（task_id=${taskId}）：${task.error || '厂商未给出原因'}。` +
         `拿这个 task_id 可以去服务商控制台对账。`
       );
     }
-    if (DONE_OK.has(status)) {
-      const url = task.content?.url;
+    if (task.phase === 'done') {
+      const url = task.url;
       if (!url) {
         throw new Error(`视频任务已完成但没有下载地址（task_id=${taskId}）：${qText.slice(0, 200)}`);
       }
@@ -203,7 +298,7 @@ export async function generateVideo(
       }
       const buffer = Buffer.from(await dl.arrayBuffer());
       inFlight.delete(taskId);
-      return { buffer, mime: 'video/mp4', taskId, seconds: task.usage?.total_seconds, sourceUrl: url };
+      return { buffer, mime: 'video/mp4', taskId, seconds: task.seconds, sourceUrl: url };
     }
   }
   // 超时也摘掉登记：inFlight 的语义是"此刻正在轮询的任务"，只有这样中断提示才准。

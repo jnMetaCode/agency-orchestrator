@@ -177,9 +177,14 @@ back to the Responses API + `image_generation` tool (LanoX-style). PNG lands in
 
 Video steps are **async**: create task → poll → download. Providers live in a separate
 `VIDEO_PROVIDERS` table (`src/connectors/api-providers.ts`) because they are neither
-OpenAI-compatible nor Anthropic-protocol — currently MetaSota (MiniMax-H3). Gotcha found by
-probing: its query endpoint ignores `task_id` and returns **all** of the account's tasks, so
-the connector filters by id (`src/connectors/video.ts`). A workflow whose steps are *all*
+OpenAI-compatible nor Anthropic-protocol — currently **MetaSota** (MiniMax-H3) and **APIMart**
+(Sora2 / VEO3 / Kling / Hailuo …). Each vendor's paths, body fields and status words are wildly
+different, so `video.ts` keeps one adapter per `shape` and the main flow stays vendor-agnostic:
+MetaSota posts `content:[{type,text}]` to `v2/video_generation` and polls a **list** endpoint that
+ignores `task_id` (so the connector filters by id — otherwise concurrent steps swap videos);
+APIMart posts `prompt` + `aspect_ratio` to `v1/videos/generations` and polls `v1/tasks/{id}`.
+APIMart is deliberately in **both** tables — one `APIMART_API_KEY` covers chat, `type: image` and
+`type: video` — so `/api/config` only marks *video-only* providers as `family: 'video'`. A workflow whose steps are *all*
 image/video needs neither `llm.model` nor a text connector.
 
 ## Media Prompt Libraries (two sources, don't merge them)

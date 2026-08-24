@@ -242,6 +242,103 @@ await test('缺 model 时连请求都不发', async () => {
   assert(/video: \{ model/.test(msg), `实际：${msg}`);
 });
 
+console.log('\n─── 第二家（APIMart）：形状完全不同，主流程不该为它改一行 ───');
+
+/**
+ * APIMart 形状的假服务。与秘塔那家没有一处相同：
+ *   建任务 POST v1/videos/generations，提示词字段是 prompt、宽高比字段是 aspect_ratio
+ *   回执    {"code":200,"data":[{"status":"submitted","task_id":"task_01K8…"}]}
+ *   查询    GET v1/tasks/{id}（id 在路径里，不是 query）
+ *   完成词  completed（不是 succeeded），成品在 data.result.videos[].url
+ */
+function fakeApimart(opts: { failWith?: string; pendingRounds?: number } = {}) {
+  const seen: { createBody?: any; queries: string[] } = { queries: [] };
+  const MP4X = Buffer.from('0000001c66747970415049', 'hex');
+  const srv = http.createServer((req, res) => {
+    const url = new URL(req.url || '/', 'http://x');
+    if (req.method === 'POST' && url.pathname.endsWith('/videos/generations')) {
+      let body = '';
+      req.on('data', (c) => { body += c; });
+      req.on('end', () => {
+        seen.createBody = JSON.parse(body || '{}');
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ code: 200, data: [{ status: 'submitted', task_id: 'task_01K8SGYNNNVBQTXNR4MM964S7K' }] }));
+      });
+      return;
+    }
+    if (url.pathname.includes('/tasks/')) {
+      seen.queries.push(url.pathname);
+      const pending = (opts.pendingRounds ?? 0) >= seen.queries.length;
+      const body = opts.failWith
+        ? { code: 200, data: { id: 'task_01K8SGYNNNVBQTXNR4MM964S7K', status: 'failed', error: { code: 5001, message: opts.failWith } } }
+        : pending
+          ? { code: 200, data: { id: 'task_01K8SGYNNNVBQTXNR4MM964S7K', status: 'processing', progress: 42 } }
+          : { code: 200, data: { id: 'task_01K8SGYNNNVBQTXNR4MM964S7K', status: 'completed', progress: 100, actual_time: 37, result: { videos: [{ url: `http://127.0.0.1:${port}/out.mp4` }] } } };
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      return res.end(JSON.stringify(body));
+    }
+    if (url.pathname === '/out.mp4') { res.writeHead(200, { 'Content-Type': 'video/mp4' }); return res.end(MP4X); }
+    res.writeHead(404).end('{}');
+  });
+  let port = 0;
+  return { srv, seen, MP4X, setPort: (p: number) => { port = p; } };
+}
+
+await test('APIMart 全链路：建任务 → 轮询 → 下载', async () => {
+  const fake = fakeApimart({ pendingRounds: 1 });
+  const port = await listen(fake.srv);
+  fake.setPort(port);
+  try {
+    const v = await generateVideo(
+      { provider: 'apimart', api_key: 'sk-t', base_url: `http://127.0.0.1:${port}` } as unknown as LLMConfig,
+      '一只橘猫跳上窗台',
+      { model: 'veo3.1-fast', duration: 8, ratio: '16:9', resolution: '720p', poll_interval: 10 },
+    );
+    assert(v.buffer.equals(fake.MP4X), '应拿到 APIMart 那条 mp4');
+    assert(v.taskId === 'task_01K8SGYNNNVBQTXNR4MM964S7K', `task_id 要从 data[0] 里取出来，实际 ${v.taskId}`);
+    assert(v.seconds === 37, `计费秒数应取 actual_time，实际 ${v.seconds}`);
+  } finally { fake.srv.close(); }
+});
+
+await test('APIMart 的字段名与秘塔不同，必须按它的来（prompt / aspect_ratio）', async () => {
+  const fake = fakeApimart();
+  const port = await listen(fake.srv);
+  fake.setPort(port);
+  try {
+    await generateVideo(
+      { provider: 'apimart', api_key: 'sk-t', base_url: `http://127.0.0.1:${port}` } as unknown as LLMConfig,
+      '橘猫',
+      { model: 'veo3.1-fast', duration: 8, ratio: '9:16', resolution: '1080p', poll_interval: 10 },
+    );
+    const b = fake.seen.createBody;
+    assert(b.prompt === '橘猫', `提示词该放 prompt（秘塔那家是 content[]），实际 ${JSON.stringify(b).slice(0, 120)}`);
+    assert(b.aspect_ratio === '9:16' && b.ratio === undefined, `宽高比字段该叫 aspect_ratio，实际 ${JSON.stringify(b)}`);
+    assert(b.resolution === '1080p' && b.duration === 8, '分辨率与时长原样透传');
+    assert(fake.seen.queries.every((q) => q.includes('task_01K8')), `查询该把 id 放路径里，实际 ${fake.seen.queries[0]}`);
+  } finally { fake.srv.close(); }
+});
+
+await test('APIMart 失败时原样带出它的 code/message', async () => {
+  const fake = fakeApimart({ failWith: 'content policy violation' });
+  const port = await listen(fake.srv);
+  fake.setPort(port);
+  let msg = '';
+  try {
+    await generateVideo(
+      { provider: 'apimart', api_key: 'sk-t', base_url: `http://127.0.0.1:${port}` } as unknown as LLMConfig,
+      'x', { model: 'veo3.1-fast', poll_interval: 10 },
+    );
+  } catch (e) { msg = e instanceof Error ? e.message : String(e); } finally { fake.srv.close(); }
+  assert(/content policy violation/.test(msg) && /5001/.test(msg) && /task_01K8/.test(msg), `实际：${msg}`);
+});
+
+await test('两家共存：同一份步骤配置换个 provider 就跑另一家', () => {
+  const a = resolveVideoAccess({ provider: 'metaso', api_key: 'k' } as LLMConfig, {});
+  const b = resolveVideoAccess({ provider: 'apimart', api_key: 'k' } as LLMConfig, {});
+  assert(a.spec.shape === 'minimax' && b.spec.shape === 'apimart', '两家该解析到不同的协议形状');
+  assert(a.baseUrl !== b.baseUrl, '端点不同');
+});
+
 console.log('\n─── 中断时要能说清钱花在哪 ───');
 
 await test('任务在飞时能报出 task_id（进程退出不会停掉服务商那边的活）', async () => {

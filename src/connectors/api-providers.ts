@@ -178,11 +178,12 @@ export interface VideoProviderSpec {
   envKey: string;
   envBase: string;
   defaultBaseUrl: string;
-  /** 建任务与查询的相对路径（不同厂商形状不同，写死在这里而不是散在连接器里） */
-  createPath: string;
-  queryPath: string;
-  /** 目前只有 MiniMax 这一种形状；接别家时按其响应结构新增分支，别硬套 */
-  shape: 'minimax';
+  /**
+   * 协议形状。路径、请求体、回执解析全在 video.ts 的 SHAPES 里按这个键分派——
+   * **接第二家时才知道这层抽象立不立得住**：秘塔与 APIMart 从路径到字段名到状态词
+   * 没有一处相同，加 APIMart 只新增了一个 adapter，主流程一行没动。
+   */
+  shape: 'minimax' | 'apimart';
 }
 
 export const VIDEO_PROVIDERS: VideoProviderSpec[] = [
@@ -191,9 +192,23 @@ export const VIDEO_PROVIDERS: VideoProviderSpec[] = [
     envKey: 'METASO_API_KEY',
     envBase: 'METASO_BASE_URL',
     defaultBaseUrl: 'https://metaso.cn/api/minimax',
-    createPath: 'v2/video_generation',
-    queryPath: 'v2/query/video_generation',
     shape: 'minimax',
+  },
+  // APIMart（赞助商）—— 同一个 key 既是 OpenAI 兼容网关（见上面 API_PROVIDERS），
+  // 也提供视频：Sora2 / VEO3 / 可灵 / 海螺 / MiniMax-H3 等一堆模型，走自家任务接口。
+  // **它同时出现在两张表里是有意的**：聊天/图片走 API_PROVIDERS，视频走这里，
+  // 共用 APIMART_API_KEY 一把钥匙（Studio 里也只用配一次）。
+  // 端点已探测核实（2026-08-25，带真 key、零余额）：
+  //   POST /v1/videos/generations → 402 insufficient balance（路径在、鉴权通）
+  //   GET  /v1/tasks/<假 id>      → 400 Invalid task ID format（路径在，还校验 id 格式）
+  //   乱写路径                     → 404 Invalid URL —— 对照组证明上面两条不是兜底响应
+  // 注意档位名与秘塔不通用（720p/1080p/4k vs 768P/2K），我们原样透传、不替用户换算。
+  {
+    id: 'apimart',
+    envKey: 'APIMART_API_KEY',
+    envBase: 'APIMART_BASE_URL',
+    defaultBaseUrl: 'https://api.apimart.ai/v1',
+    shape: 'apimart',
   },
 ];
 

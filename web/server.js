@@ -1809,7 +1809,9 @@ app.get('/api/config', async (_req, res) => {
     };
     // 视频供应商单独一族：imageProviders 与顶栏模型下拉都只认 family:'api'，
     // 标成 video 就天然不会被误选（它没有 chat / images 端点）。
-    if (VIDEO_PROVIDER_MAP[provider]) providers[provider].family = 'video';
+    // **只标"纯视频"的**：APIMart 同时在两张表里（一把 key 通聊天/图片/视频），
+    // 一刀切会把它从图片供应商列表里踢出去——创意库一键出图立刻少一家。
+    if (VIDEO_PROVIDER_MAP[provider] && !API_PROVIDER_MAP[provider]) providers[provider].family = 'video';
   }
   providers.ollama = {
     family: 'local',
