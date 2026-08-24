@@ -52,7 +52,7 @@ const SIZES = ["", "1024x1024", "1536x1024", "1024x1536"];
  */
 interface VideoTemplate {
   id: string;
-  kind: "genre" | "module";
+  kind: "genre" | "module" | "community";
   lang: string;
   title: string;
   category: string;
@@ -83,7 +83,9 @@ function VideoCard({ t }: { t: VideoTemplate }) {
       <div className="flex items-start justify-between gap-2">
         <h3 className="text-sm font-semibold leading-snug">{t.title}</h3>
         <span className={cn("shrink-0 rounded-full px-2 py-0.5 text-[10px] font-medium",
-          t.kind === "module" ? "bg-muted text-muted-foreground" : "bg-primary/10 text-primary")}>
+          t.kind === "module" ? "bg-muted text-muted-foreground"
+          : t.kind === "community" ? "bg-amber-500/10 text-amber-600 dark:text-amber-400"
+          : "bg-primary/10 text-primary")}>
           {t.kind === "module" ? (en ? "Building block" : "构件") : t.category}
         </span>
       </div>
@@ -336,8 +338,17 @@ export default function CreativeLibrary() {
   useEffect(() => {
     if (media !== "video" || videoData || videoLoading) return;
     setVideoLoading(true);
-    import("@/content/video-prompts.json")
-      .then((m) => setVideoData((m.default ?? m) as unknown as VideoData))
+    // 两份数据：姊妹项目的 5 段式题材模板（有变量表）+ 社区成品单条（英文、无变量）。
+    // 社区那份只有 35KB，跟主数据一起拉，不值得再让用户多点一次。
+    Promise.all([
+      import("@/content/video-prompts.json"),
+      import("@/content/video-prompts-community.json").catch(() => null),
+    ])
+      .then(([a, b]) => {
+        const base = ((a as any).default ?? a) as VideoData;
+        const extraT = b ? (((b as any).default ?? b).templates ?? []) as VideoTemplate[] : [];
+        setVideoData({ ...base, templates: [...base.templates, ...extraT] });
+      })
       .catch(() => setVideoData({ upstream: "", site: "", count: 0, templates: [] }))
       .finally(() => setVideoLoading(false));
   }, [media, videoData, videoLoading]);
@@ -346,8 +357,9 @@ export default function CreativeLibrary() {
   const videoItems = useMemo(() => {
     const all = videoData?.templates ?? [];
     const want = lang === "en" ? "en" : "zh";
-    const hit = all.filter((t) => t.lang === want);
-    return hit.length ? hit : all.filter((t) => t.lang === "zh");
+    // lang: "any" = 社区池那批英文成品单条，中英界面都该看得到（它没有中英两版）
+    const hit = all.filter((t) => t.lang === want || t.lang === "any");
+    return hit.length ? hit : all.filter((t) => t.lang === "zh" || t.lang === "any");
   }, [videoData, lang]);
   const videoCategories = useMemo(() => {
     const set = new Map<string, number>();
@@ -444,7 +456,7 @@ export default function CreativeLibrary() {
                   media === m ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground")}
               >
                 {m === "image" ? (lang === "en" ? "Images" : "图片") : (lang === "en" ? "Video" : "视频")}
-                <span className="ml-1.5 opacity-60">{m === "image" ? imagePrompts.length : (videoData?.count ?? 22)}</span>
+                <span className="ml-1.5 opacity-60">{m === "image" ? imagePrompts.length : (videoData ? videoItems.length : 71)}</span>
               </button>
             ))}
           </div>
@@ -558,6 +570,14 @@ export default function CreativeLibrary() {
               <a href={videoData?.site || "https://prompts.aiolaola.com"} target="_blank" rel="noreferrer" className="hover:text-foreground">
                 {lang === "en" ? "full library & online generator" : "完整模板库与在线生成器"}
               </a>
+              <br />
+              {lang === "en" ? "Community singles from " : "「社区热门 / 写实风光 / 官方样例」来自 "}
+              <a href="https://github.com/zhangchenchen/awesome_sora2_prompt" target="_blank" rel="noreferrer" className="inline-flex items-center gap-0.5 text-foreground hover:text-primary">
+                awesome_sora2_prompt <ExternalLink className="size-3" />
+              </a>
+              {lang === "en"
+                ? " (MIT; the “Official” ones are OpenAI’s published Sora showcase prompts). Prompts naming real people or IP were dropped, but the filter is best-effort — check compliance yourself."
+                : "（MIT；其中「官方样例」原文是 OpenAI 公开的 Sora showcase）。指名真人与影视 IP 的已剔除，但过滤不可能穷尽，商用前请自行判断合规。"}
             </div>
           ) : (
           <div className="mt-10 rounded-xl border border-border/60 bg-muted/30 px-4 py-3 text-xs leading-relaxed text-muted-foreground">
