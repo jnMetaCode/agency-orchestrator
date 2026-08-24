@@ -313,6 +313,24 @@ export default function CreativeLibrary() {
   // 图片 / 视频两个页签。视频那份数据 200KB+，**按需 import**——这是一张公开 SEO 页，
   // 绝大多数访客只是来复制图片提示词的，不该为他们把首包撑大一倍。
   const [media, setMedia] = useState<"image" | "video">("image");
+  // 图片扩充池（MIT 源，1100 条）：**不默认加载**。/creative 是公开 SEO 页，
+  // 默认那 229 条是带中文标题与作者署名的策展集、也是有静态页的那批；扩充池 1.9MB，
+  // 让每个只是来复制一条提示词的访客都下载它不合理——点了才拉。
+  const [extra, setExtra] = useState<CreativePrompt[] | null>(null);
+  const [extraLoading, setExtraLoading] = useState(false);
+  const loadExtra = useCallback(() => {
+    if (extra || extraLoading) return;
+    setExtraLoading(true);
+    import("@/content/creative-prompts-extra.json")
+      .then((m) => {
+        const d = (m.default ?? m) as unknown as { prompts: CreativePrompt[] };
+        setExtra(d.prompts ?? []);
+        track("creative_extra_load", { count: (d.prompts ?? []).length });
+      })
+      .catch(() => setExtra([]))
+      .finally(() => setExtraLoading(false));
+  }, [extra, extraLoading]);
+  const imagePrompts = useMemo(() => (extra ? [...DATA.prompts, ...extra] : DATA.prompts), [extra]);
   const [videoData, setVideoData] = useState<VideoData | null>(null);
   const [videoLoading, setVideoLoading] = useState(false);
   useEffect(() => {
@@ -381,16 +399,16 @@ export default function CreativeLibrary() {
 
   const categories = useMemo(() => {
     const set = new Map<string, number>();
-    for (const p of DATA.prompts) set.set(p.category, (set.get(p.category) ?? 0) + 1);
+    for (const p of imagePrompts) set.set(p.category, (set.get(p.category) ?? 0) + 1);
     return [...set.entries()].sort((a, b) => b[1] - a[1]);
-  }, []);
+  }, [imagePrompts]);
 
   const filtered = useMemo(() => {
     const n = q.trim().toLowerCase();
-    return DATA.prompts.filter(
+    return imagePrompts.filter(
       (p) => (cat === "all" || p.category === cat) && (!n || (p.title + p.description + p.prompt).toLowerCase().includes(n)),
     );
-  }, [q, cat]);
+  }, [q, cat, imagePrompts]);
 
   // 分页：每页 24 条（带图卡片多了渲染重）。筛选/搜索/分类变化时回到第 1 页。
   const PAGE_SIZE = 24;
@@ -426,7 +444,7 @@ export default function CreativeLibrary() {
                   media === m ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground")}
               >
                 {m === "image" ? (lang === "en" ? "Images" : "图片") : (lang === "en" ? "Video" : "视频")}
-                <span className="ml-1.5 opacity-60">{m === "image" ? DATA.count : (videoData?.count ?? 22)}</span>
+                <span className="ml-1.5 opacity-60">{m === "image" ? imagePrompts.length : (videoData?.count ?? 22)}</span>
               </button>
             ))}
           </div>
@@ -462,6 +480,19 @@ export default function CreativeLibrary() {
               </button>
             ))}
           </div>
+
+          {/* 扩充池入口：默认不加载，点了才拉（见上面的说明） */}
+          {media === "image" && !extra && (
+            <button
+              onClick={loadExtra}
+              disabled={extraLoading}
+              className="mt-3 inline-flex items-center gap-1.5 rounded-lg border border-primary/40 bg-primary/5 px-3 py-1.5 text-xs font-medium text-primary transition-colors hover:bg-primary/10 disabled:opacity-60"
+            >
+              {extraLoading
+                ? <><Loader2 className="size-3.5 animate-spin" />{lang === "en" ? "Loading…" : "加载中…"}</>
+                : <><Sparkles className="size-3.5" />{lang === "en" ? "Load 1,349 more prompts (~2MB)" : "再加载 1349 条提示词（约 2MB）"}</>}
+            </button>
+          )}
 
           {/* 卡片 */}
           {media === "image" ? (
@@ -542,6 +573,23 @@ export default function CreativeLibrary() {
             {" · "}
             <a href={DATA.sources[0].licenseUrl} target="_blank" rel="noreferrer" className="hover:text-foreground">CC BY 4.0</a>
             {lang === "en" ? "。Credit to the original authors." : "，版权归原作者,已按 CC BY 4.0 署名。"}
+            {extra && extra.length > 0 && (
+              <>
+                {lang === "en" ? " Extra pool from " : " 扩充池来自 "}
+                <a href="https://github.com/jau123/nanobanana-trending-prompts" target="_blank" rel="noreferrer" className="inline-flex items-center gap-0.5 text-foreground hover:text-primary">
+                  nanobanana-trending-prompts <ExternalLink className="size-3" />
+                </a>
+                {lang === "en" ? " (CC BY 4.0, per-prompt author credit) and " : "（CC BY 4.0，逐条署名到作者）与 "}
+                <a href="https://github.com/YouMind-OpenLab/ai-image-prompts-skill" target="_blank" rel="noreferrer" className="inline-flex items-center gap-0.5 text-foreground hover:text-primary">
+                  ai-image-prompts-skill <ExternalLink className="size-3" />
+                </a>
+                {lang === "en" ? " (MIT)." : "（MIT）。"}
+                <br />
+                {lang === "en"
+                  ? "Extra-pool prompts are community-sourced (mostly from X) — some name real people or IP. Check compliance yourself before commercial use."
+                  : "扩充池取自社区（多来自 X），其中部分提示词会指名真人或影视 IP —— 商用前请自行判断合规，我们不代为过滤。"}
+              </>
+            )}
           </div>
           )}
         </div>
