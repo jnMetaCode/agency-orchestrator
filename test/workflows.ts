@@ -5,10 +5,17 @@
  * 本地 npm test 与 CI 都会执行，不再依赖人工记得手动跑。
  *
  * 角色库存在时顺带校验 role 真实性；不存在则降级为只校验结构（仍有价值）。
+ *
+ * **每个模板用它自己声明的 agents_dir 解析**（走引擎同一个 findAgentsDir）。此前这里写死
+ * 一个中文库拿去校验全部模板——英文模板（agents_dir: agency-agents）也被按中文库校验，
+ * 之所以一直没红，只是因为两个库路径大量同名。等英文库有了中文库没有的角色（company/
+ * 高管层、视频提示词工程师），门禁就会把**正确的模板**判成坏的。测试和引擎的解析口径
+ * 必须是同一套，否则它守的是另一个世界。
  */
 import { readdirSync, existsSync } from 'node:fs';
 import { resolve, join } from 'node:path';
 import { parseWorkflow, validateWorkflow } from '../src/core/parser.js';
+import { findAgentsDir } from '../src/index.js';
 
 let passed = 0, failed = 0;
 function assert(c: boolean, msg: string): void { if (!c) throw new Error(msg); }
@@ -35,7 +42,10 @@ for (const file of files) {
   const rel = file.replace(wfDir + '/', '');
   try {
     const wf = parseWorkflow(file);
-    const errors = validateWorkflow(wf, agentsDir);
+    // 模板自己写了 agents_dir 就按它解析（英文模板指 agency-agents，中文模板指 agency-agents-zh）；
+    // 解析不到再退回下面那个探测到的中文库，保住"没装角色库也能只验结构"的降级行为。
+    const own = wf.agents_dir ? findAgentsDir(wf.agents_dir, file) : null;
+    const errors = validateWorkflow(wf, own ?? agentsDir);
     if (errors.length === 0) {
       passed++;
     } else {

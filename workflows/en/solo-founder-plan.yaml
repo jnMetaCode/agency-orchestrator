@@ -1,10 +1,7 @@
-# The two "CEO" steps use Chief of Staff, not a CEO role: the bundled English library
-# (agency-agents) has no CEO/strategist role at all. They previously pointed at
-# strategy/nexus-strategy — a 55KB multi-agent orchestration handbook with no frontmatter,
-# which the engine injects wholesale as the system prompt (~17k wasted tokens per call,
-# and the wrong persona entirely). Chief of Staff is at least a real role about serving
-# the boss and driving decisions. TODO: swap to a real CEO role once the English library
-# gains one (the Chinese library already has company/chief-executive-officer).
+# The two "CEO" steps run on company/chief-executive-officer — a real CEO role, matching the
+# Chinese library. They used to point at strategy/nexus-strategy: a 55KB multi-agent
+# orchestration handbook with no frontmatter, which the engine injects wholesale as the system
+# prompt (~17k wasted tokens per call, and the wrong persona entirely).
 name: "Solo Founder All-Hands"
 description: "One sentence in, 8 AI 'departments' collaborate, full launch plan out in 2 minutes — your one-person company"
 
@@ -24,7 +21,7 @@ inputs:
 steps:
   # ── Layer 1: CEO sets direction ──
   - id: ceo_kickoff
-    role: "specialized/specialized-chief-of-staff"
+    role: "company/chief-executive-officer"
     name: "CEO"
     emoji: "👔"
     task: |
@@ -162,7 +159,7 @@ steps:
 
   # ── Layer 4: CEO decides ──
   - id: ceo_decision
-    role: "specialized/specialized-chief-of-staff"
+    role: "company/chief-executive-officer"
     name: "CEO"
     emoji: "👔"
     task: |

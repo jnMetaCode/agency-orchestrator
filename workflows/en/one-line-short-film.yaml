@@ -6,9 +6,9 @@
 #   2. Defaults to the cheapest verification tier (768P × 5s ≈ ¥0.45 with MetaSota). Video is
 #      billed per second — the engine will not quietly scale that up for you.
 #
-# Prompt-writing runs on the Image Prompt Engineer role: the bundled English library has no
-# dedicated video-prompt role yet (the Chinese one does: design/design-video-prompt-engineer).
-# The vocabulary carries over, and the 5-part structure is spelled out in the task below.
+# Prompt-writing runs on design/design-video-prompt-engineer — the role knows the 5-part
+# structure, the camera/lens anchor, the "breathing" line and the cost discipline, so the task
+# below only has to state the brief.
 name: "One-Line Short Film"
 description: "One idea → a 5-part cinematic prompt → text-to-video renders the mp4, plus a negative-prompt sheet and a delivery note"
 category: "Content"
@@ -35,8 +35,8 @@ inputs:
 
 steps:
   - id: shot_prompt
-    role: "design/design-image-prompt-engineer"
-    name: "Prompt Engineer"
+    role: "design/design-video-prompt-engineer"
+    name: "Video Prompt Engineer"
     emoji: "🎬"
     task: |
       Turn this idea into a prompt for a **5-second** video: {{idea}}
@@ -60,7 +60,7 @@ steps:
     output: video_prompt
 
   - id: negative
-    role: "design/design-image-prompt-engineer"
+    role: "design/design-video-prompt-engineer"
     name: "Negative Sheet"
     emoji: "🚫"
     task: |
@@ -90,7 +90,7 @@ steps:
     depends_on: [shot_prompt]
 
   - id: pack
-    role: "design/design-image-prompt-engineer"
+    role: "design/design-video-prompt-engineer"
     name: "Delivery Note"
     emoji: "📦"
     task: |

@@ -803,7 +803,7 @@
       "steps": [
         {
           "id": "ceo_kickoff",
-          "role": "specialized/specialized-chief-of-staff",
+          "role": "company/chief-executive-officer",
           "name": "CEO",
           "emoji": "👔"
         },
@@ -851,7 +851,7 @@
         },
         {
           "id": "ceo_decision",
-          "role": "specialized/specialized-chief-of-staff",
+          "role": "company/chief-executive-officer",
           "name": "CEO",
           "emoji": "👔"
         }
@@ -1050,19 +1050,19 @@
       "steps": [
         {
           "id": "shot_prompt",
-          "role": "design/design-image-prompt-engineer",
-          "name": "Prompt Engineer",
+          "role": "design/design-video-prompt-engineer",
+          "name": "Video Prompt Engineer",
           "emoji": "🎬"
         },
         {
           "id": "negative",
-          "role": "design/design-image-prompt-engineer",
+          "role": "design/design-video-prompt-engineer",
           "name": "Negative Sheet",
           "emoji": "🚫"
         },
         {
           "id": "pack",
-          "role": "design/design-image-prompt-engineer",
+          "role": "design/design-video-prompt-engineer",
           "name": "Delivery Note",
           "emoji": "📦"
         }

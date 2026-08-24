@@ -346,7 +346,7 @@ OPENAI_API_KEY=你的key
 ```bash
 ao demo                              # 零配置体验多智能体协作
 ao init                              # （可选）复制 267 个中文角色到本地以便编辑
-ao init --lang en                    # （可选）复制 184 个英文角色到本地以便编辑
+ao init --lang en                    # （可选）复制 191 个英文角色到本地以便编辑
 ao init --workflow                    # 交互式创建工作流
 ao compose "一句话描述"                # AI 智能编排工作流
 ao compose "一句话描述" --run          # 编排并立即执行
@@ -674,7 +674,7 @@ ao-output/产品需求评审-2026-03-22/
 
 ```
 你的 AI 会员 ──→ agency-orchestrator ──→ 400+ 个 AI 角色协作 ──→ 高质量输出
-                     │                  (267 中文 + 184 英文 + 5 语种)
+                     │                  (267 中文 + 191 英文 + 5 语种)
     ┌────────────────┼────────────────┐
     ▼                ▼                ▼
   14 个 AI 编程工具    CLI 模式         MCP Server
@@ -686,7 +686,7 @@ ao-output/产品需求评审-2026-03-22/
 |------|------|-------|
 | **本项目**（agency-orchestrator） | 🚀 编排引擎 | 一句话 → 267 专家协作，**几分钟出方案**（11 家 LLM / 7 免费） |
 | [agency-agents-zh](https://github.com/jnMetaCode/agency-agents-zh) ![](https://img.shields.io/github/stars/jnMetaCode/agency-agents-zh?style=flat&label=⭐) | 🎭 中文角色库 | 267 个**即插即用** AI 专家，含 52 中国原创（小红书 / 抖音 / 飞书 / 钉钉） |
-| [agency-agents](https://github.com/msitarzewski/agency-agents) | 🎭 英文角色库 | 184 个英文 AI 角色（by [@msitarzewski](https://github.com/msitarzewski)，MIT）——**已随 npm 包内置**，英文任务 `ao compose` 自动启用，无需单独安装 |
+| [agency-agents](https://github.com/msitarzewski/agency-agents) | 🎭 英文角色库 | 191 个英文 AI 角色（184 个来自 [@msitarzewski](https://github.com/msitarzewski)，MIT；另 7 个是本项目补的高管层与视频提示词工程师，见 `agency-agents/company/NOTICE.md`）——**已随 npm 包内置**，英文任务 `ao compose` 自动启用，无需单独安装 |
 | [ko](https://github.com/jnMetaCode/agency-agents-ko) · [ru](https://github.com/jnMetaCode/agency-agents-ru) · [pt-BR](https://github.com/jnMetaCode/agency-agents-pt-BR) · [id](https://github.com/jnMetaCode/agency-agents-id) · [ar](https://github.com/jnMetaCode/agency-agents-ar) | 🌍 多语言角色库 | 各 187 个（184 上游翻译 + 3 本地市场原创），`npm i agency-agents-<lang>` 后 Studio「角色库」下拉切换 |
 | [superpowers-zh](https://github.com/jnMetaCode/superpowers-zh) ![](https://img.shields.io/github/stars/jnMetaCode/superpowers-zh?style=flat&label=⭐) | 🧠 工作方法论 | 20 个 skills 教 AI 怎么干活（TDD / 调试 / 代码审查等） |
 | [ai-coding-guide](https://github.com/jnMetaCode/ai-coding-guide) | 📖 实战教程 | 66 个 Claude Code 技巧 + 9 款工具最佳实践 + 配置模板 |
