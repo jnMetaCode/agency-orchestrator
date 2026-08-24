@@ -184,8 +184,11 @@ image/video needs neither `llm.model` nor a text connector.
 
 ## Media Prompt Libraries (two sources, don't merge them)
 
-- **Image prompts** live here: `website/src/content/creative-prompts.json` (229 items, 12 categories),
-  browsable at `/creative` with one-click generation via `POST /api/image/generate`.
+- **Image prompts**: `website/src/content/creative-prompts.json` — 229 curated items (CC BY 4.0,
+  per-item author, **the only ones with SEO static pages**) plus `creative-prompts-extra.json` —
+  1,349 more (CC BY 4.0 + MIT, regenerate with `scripts/import-creative-extra.mjs`). The extra pool
+  is **lazy-loaded on an explicit click** (2MB) and is deliberately kept out of the sitemap.
+  Browsable at `/creative` with one-click generation via `POST /api/image/generate`.
 - **Video prompts** live in the **sister repo** `ai-shortfilm-prompts` (22 genre templates + 6 reusable
   building blocks, its own site at prompts.aiolaola.com). AO only *consumes* them: run
   `npm --prefix website run sync:video-prompts` to refresh `website/src/content/video-prompts.json`
@@ -194,6 +197,10 @@ image/video needs neither `llm.model` nor a text connector.
   library holds *roles* (a person with a system prompt), not content.
 - The two are different shapes: an image item is one finished prompt; a video item is a template
   (variable table + 5-part body), so the Creative Library renders them with different cards.
+- A third pool exists: `video-prompts-community.json` (49 finished English singles from
+  `awesome_sora2_prompt`, MIT, via `scripts/import-video-community.mjs`). Imports **drop prompts
+  naming real people or IP** — same rule the 视频提示词工程师 role follows — and the UI says the
+  filter is best-effort rather than pretending it is exhaustive.
 - No SEO pages for video prompts yet — the same text under two domains dilutes each other, so the
   canonical decision (ao.aiolaola.com vs prompts.aiolaola.com) has to be made first.
 
