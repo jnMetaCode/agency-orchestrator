@@ -243,6 +243,13 @@ steps:
     depends_on: [write_copy]`,
           },
           {
+            heading: { zh: "现成提示词：创意库", en: "Ready-made prompts: the Creative Library" },
+            body: {
+              zh: "不想从零写提示词？[创意库](/creative) 里图片 **1500+** 条、视频 **76** 条，都能搜索/按分类筛/一键复制。**图片**分两批：229 条策展（逐条带作者与预览图，CC BY 4.0）+ 1275 条扩充池（点了才加载，约 2MB，中文标题与描述由本站翻译，正文保持原文）；配好 OpenAI 兼容供应商的 key 可以直接在卡片上出图。**视频**分三类：22 个 5 段式题材模板（带变量表，来自姊妹项目 ai-shortfilm-prompts）、6 个可复用构件（运镜技法库 50 式、氛围骨架、负面提示词等）、48 条社区成品单条。指名真人、以 IP 角色为主体、露骨描述的条目已剔除（尽力而为，不代为兜底：社区来源商用前请自行判断合规）。",
+              en: "Don't want to write prompts from scratch? The [Creative Library](/creative) ships **1,500+ image prompts** and **76 video prompts** — searchable, filterable, one-click copy. **Images** come in two pools: 229 curated (per-item author and preview image, CC BY 4.0) plus a 1,275-strong extra pool that loads only on request (~2MB; Chinese titles/descriptions are ours, prompt bodies stay in the original language). With an OpenAI-compatible provider key you can generate straight from a card. **Video** comes in three kinds: 22 five-part genre templates with variable tables (from the sister project ai-shortfilm-prompts), 6 reusable building blocks (a 50-move camera library, atmosphere skeletons, negative prompts…), and 48 community singles. Prompts naming real people, using an IP character as the subject, or containing explicit content are dropped — best-effort, not a guarantee: community-sourced material is your call before commercial use.",
+            },
+          },
+          {
             heading: { zh: "文生视频步骤（type: video）", en: "Video steps (type: video)" },
             body: {
               zh: "步骤写 `type: video` 就是文生视频，**`task` 就是视频提示词**，同样不需要 role、`video.model` 必填。与图片最大的不同是**它是异步任务**：引擎建任务拿 task_id → 轮询状态 → 下载成品，一次几十秒到几分钟，且**按秒计费**——`duration` 写多少就是花多少，引擎绝不替你放大。mp4 落在 `ao-output/<run>/assets/`，输出变量是一条 markdown 链接，Studio 运行页与分享报告会渲染成播放器（报告页超过 12MB 的视频不内联，改为保留链接并说明原文件在 assets/ 下）。视频供应商是**独立的一张表**（当前：秘塔科技的 MiniMax-H3），聊天/图片的 provider 没有视频任务端点——用 `video.provider` 单独指定，或把 `llm.provider` 设成它。失败与超时都会带上 task_id，可拿去服务商控制台对账。**提示词不会写**？姊妹项目 [ai-shortfilm-prompts](https://prompts.aiolaola.com) 有 21 个题材模板与在线生成器（5 段式结构、运镜库、负面提示词），选题材填几个空就能拿到完整提示词，直接贴进 `task` 即可；或者用内置模板「一句话出短片」让角色替你写。",

@@ -40,6 +40,7 @@ Prefer not to use the command line? Run `ao web` locally and pick experts, run w
 
 - **Visual canvas** — drag nodes / wire edges (cycle-safe) / edit tasks & roles / save; nodes light up live while running
 - **Multilingual role libraries** — `npm i agency-agents-ko` (ko / ru / pt-br / id / ar), then switch libraries from the "Role library" dropdown; workflows just put the package name in `agents_dir`
+- **Creative Library** — **1,500+ image prompts** (229 curated + a 1,275-strong extra pool; search, filter, copy, or generate right there with a key) and **76 video prompts** (22 five-part genre templates with variable tables, 6 reusable building blocks, 48 community singles). The extra pool loads only when you ask for it, so the page stays fast.
 
 **Ship what you made**
 
