@@ -289,6 +289,10 @@ export function validateWorkflow(workflow: WorkflowDefinition, agentsDir?: strin
     if (step.loop?.exit_condition) refTexts.push(step.loop.exit_condition);
     if (step.prompt) refTexts.push(step.prompt);
     if (typeof step.acceptance === 'string') refTexts.push(step.acceptance);
+    // 媒体字段也会过变量渲染：写错变量名要在 validate 就拦住，别等到图生视频/合成时报"找不到图片"
+    for (const v of Object.values(step.image ?? {})) if (typeof v === 'string') refTexts.push(v);
+    for (const v of Object.values(step.video ?? {})) if (typeof v === 'string') refTexts.push(v);
+    for (const v of step.concat?.inputs ?? []) if (typeof v === 'string') refTexts.push(v);
 
     const varRefs: string[] = [];
     for (const text of refTexts) {

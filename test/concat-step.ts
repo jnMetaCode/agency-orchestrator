@@ -9,13 +9,13 @@ import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'no
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { concatVideos, FfmpegMissingError } from '../src/media/concat.js';
-import { parseWorkflow } from '../src/core/parser.js';
+import { parseWorkflow, validateWorkflow } from '../src/core/parser.js';
 import { run } from '../src/index.js';
 
 let passed = 0;
 let failed = 0;
 function test(name: string, fn: () => void | Promise<void>): Promise<void> {
-  return Promise.resolve(fn()).then(
+  return new Promise<void>((r) => r(fn())).then(
     () => { console.log(`  ✅ ${name}`); passed++; },
     (err) => { console.log(`  ❌ ${name}: ${err instanceof Error ? err.message : err}`); failed++; },
   );
@@ -50,6 +50,11 @@ await test('concat 步骤不需要 role/task，但必须有 concat.inputs', () =
   let msg = '';
   try { parseWorkflow(f); } catch (e) { msg = e instanceof Error ? e.message : String(e); }
   assert(/concat.*inputs/.test(msg), `缺 inputs 应在解析期报清楚，实际：${msg.slice(0, 100)}`);
+  // 写错变量名：解析期就拦，别等到合成时报"找不到视频"
+  writeFileSync(f, 'name: "x"\nllm:\n  provider: "metaso"\nsteps:\n  - id: a\n    type: video\n    task: "猫"\n    video:\n      model: "MiniMax-H3"\n    output: a_mp4\n  - id: film\n    type: concat\n    concat:\n      inputs: ["{{a_mp4_typo}}"]\n    output: film\n    depends_on: [a]\n', 'utf-8');
+  // 变量引用检查在 validateWorkflow（ao validate / run 前都会跑）
+  const errs = validateWorkflow(parseWorkflow(f));
+  assert(errs.some((e) => /a_mp4_typo/.test(e)), `concat.inputs 里的未知变量应被 validate 报出，实际：${errs.join(' | ').slice(0, 120)}`);
   rmSync(dir, { recursive: true, force: true });
 });
 

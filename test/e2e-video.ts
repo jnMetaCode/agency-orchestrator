@@ -394,5 +394,51 @@ console.log('\n─── 端到端：图生视频——上游图片步骤的产�
   } finally { srv.close(); rmSync(dir, { recursive: true, force: true }); }
 }
 
+console.log('\n─── 端到端：--resume 从视频步骤重跑，定妆图来自上一轮的 assets/，且被复制进新目录 ───');
+{
+  const PNG_B64 = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==';
+  const seen: { uploads: number; images: number } = { uploads: 0, images: 0 };
+  const srv = http.createServer((req, res) => {
+    const url = String(req.url || '');
+    req.on('data', () => {});
+    req.on('end', () => {
+      const port = (res.socket as any).localPort;
+      if (/images\/generations/.test(url)) { seen.images++; res.writeHead(200, { 'Content-Type': 'application/json' }); return res.end(JSON.stringify({ data: [{ b64_json: PNG_B64 }] })); }
+      if (/uploads\/images/.test(url)) { seen.uploads++; res.writeHead(200, { 'Content-Type': 'application/json' }); return res.end(JSON.stringify({ url: `http://127.0.0.1:${port}/f/image/x.png` })); }
+      if (/videos\/generations/.test(url)) { res.writeHead(200, { 'Content-Type': 'application/json' }); return res.end(JSON.stringify({ code: 200, data: [{ status: 'submitted', task_id: 'task_RESUME' }] })); }
+      if (/\/tasks\//.test(url)) { res.writeHead(200, { 'Content-Type': 'application/json' }); return res.end(JSON.stringify({ code: 200, data: { status: 'completed', actual_time: 5, result: { videos: [{ url: `http://127.0.0.1:${port}/out.mp4` }] } } })); }
+      if (/out\.mp4/.test(url)) { res.writeHead(200, { 'Content-Type': 'video/mp4' }); return res.end(MP4); }
+      res.writeHead(404).end('{}');
+    });
+  });
+  const port = await listen(srv);
+  const dir = mkdtempSync(join(tmpdir(), 'ao-e2e-resume-i2v-'));
+  const wf = join(dir, 'v.yaml');
+  writeFileSync(wf, [
+    'name: "resume 定妆图"', 'llm:', '  provider: "apimart"', '  model: "x"', `  base_url: "http://127.0.0.1:${port}"`, '  api_key: "sk-test"',
+    'steps:',
+    '  - id: cover', '    type: image', '    task: "定妆"', '    image:', '      model: "img-test"', '    output: cover_img',
+    '  - id: clip', '    type: video', '    task: "走路"', '    video:', '      provider: "apimart"', '      model: "veo3.1-fast"', '      duration: 8', '      image: "{{cover_img}}"', '      poll_interval: 10', '    output: clip_mp4', '    depends_on: [cover]',
+  ].join('\n'), 'utf-8');
+  try {
+    const { readdirSync } = await import('node:fs');
+    const first = await run(wf, {}, { quiet: true, outputDir: join(dir, 'out') });
+    assert(first.success && seen.images === 1 && seen.uploads === 1, '第一轮：出图 1 次、上传 1 次');
+    const firstDir = join(dir, 'out', readdirSync(join(dir, 'out'))[0]);
+    // 第二轮：从 clip 重跑——cover 被跳过（不再出图），但首帧图仍应从上一轮 assets/ 拿到并上传
+    await new Promise((r) => setTimeout(r, 1100)); // 目录名按秒
+    const second = await run(wf, {}, { quiet: true, outputDir: join(dir, 'out'), resumeDir: firstDir, fromStep: 'clip' });
+    assert(second.success === true, `第二轮应成功（${second.steps.map((s) => `${s.id}:${s.status} ${s.error ?? ''}`).join(', ')}）`);
+    assert(seen.images === 1, '第二轮不该再出图（cover 被复用）');
+    assert(seen.uploads === 2, `第二轮应用上一轮的 cover.png 再上传一次，实际 uploads=${seen.uploads}`);
+    const dirs = readdirSync(join(dir, 'out')).sort();
+    const secondDir = join(dir, 'out', dirs[dirs.length - 1]);
+    assert(secondDir !== firstDir && existsSync(join(secondDir, 'assets', 'cover.png')), '复用的定妆图应复制进新一轮的 assets/（否则 markdown 断链）');
+    assert(existsSync(join(secondDir, 'assets', 'clip.mp4')), '新一轮的成片也在');
+  } catch (e) {
+    assert(false, `resume 图生视频跑挂了：${e instanceof Error ? e.message : e}`);
+  } finally { srv.close(); rmSync(dir, { recursive: true, force: true }); }
+}
+
 console.log(`\n  结果: ${passed} 通过, ${failed} 失败\n`);
 if (failed > 0) process.exit(1);

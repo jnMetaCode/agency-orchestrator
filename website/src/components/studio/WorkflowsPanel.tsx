@@ -43,6 +43,22 @@ function InputsDialog({ wf, provider, onClose, onRun, onCompare }: { wf: Workflo
   const [cfg, setCfg] = useState<ConfigResponse | null>(null);
   const [modelLists, setModelLists] = useState<Record<string, string[] | "loading" | "error">>({});
   useEffect(() => { if (hasDynamic) api.config().then(setCfg).catch(() => setCfg(null)); }, [hasDynamic]);
+  // 需要实拉模型列表的供应商（按当前选择算出来），在 effect 里拉——渲染期不发请求、不 setState
+  const neededModelProviders = inputs
+    .filter((i) => i.source === "models")
+    .map((i) => (i.source_from ? vals[i.source_from] : "") || provider)
+    .filter((pid) => pid && !cfg?.videoProviders?.some((v) => v.id === pid));
+  const neededKey = neededModelProviders.join("|");
+  useEffect(() => {
+    if (!cfg) return;
+    for (const pid of neededKey.split("|").filter(Boolean)) {
+      if (modelLists[pid] !== undefined) continue;
+      setModelLists((p) => ({ ...p, [pid]: "loading" }));
+      api.providerModels({ provider: pid })
+        .then((r) => setModelLists((p) => ({ ...p, [pid]: r.ok && r.models?.length ? r.models : "error" })))
+        .catch(() => setModelLists((p) => ({ ...p, [pid]: "error" })));
+    }
+  }, [cfg, neededKey]); // eslint-disable-line react-hooks/exhaustive-deps
   // 选了候选之外的值 → 该输入切到手填模式
   const [custom, setCustom] = useState<Record<string, boolean>>({});
   const providerLabel = (id: string) => {
@@ -72,12 +88,7 @@ function InputsDialog({ wf, provider, onClose, onRun, onCompare }: { wf: Workflo
       if (vp) return vp.models.map((m) => ({ value: m, label: m }));
       if (!pid) return [];
       const cached = modelLists[pid];
-      if (cached === undefined) {
-        setModelLists((p) => ({ ...p, [pid]: "loading" }));
-        api.providerModels({ provider: pid }).then((r) => setModelLists((p) => ({ ...p, [pid]: r.ok && r.models?.length ? r.models : "error" }))).catch(() => setModelLists((p) => ({ ...p, [pid]: "error" })));
-        return "loading";
-      }
-      if (cached === "loading") return "loading";
+      if (cached === undefined || cached === "loading") return "loading";
       if (cached === "error") return [];
       return cached.map((m) => ({ value: m, label: m }));
     }

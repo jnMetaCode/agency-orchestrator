@@ -10,7 +10,7 @@ import { run } from '../src/index.js';
 
 let passed = 0, failed = 0;
 function test(name: string, fn: () => void | Promise<void>): Promise<void> {
-  return Promise.resolve(fn()).then(() => { console.log(`  ✅ ${name}`); passed++; }, (e) => { console.log(`  ❌ ${name}: ${e instanceof Error ? e.message : e}`); failed++; });
+  return new Promise<void>((r) => r(fn())).then(() => { console.log(`  ✅ ${name}`); passed++; }, (e) => { console.log(`  ❌ ${name}: ${e instanceof Error ? e.message : e}`); failed++; });
 }
 const assert = (c: boolean, m: string) => { if (!c) throw new Error(m); };
 

@@ -34,6 +34,7 @@ export type {
 } from './types.js';
 import type { InputDefinition } from './types.js';
 import { expandStyle } from './media/styles.js';
+import { resetProducedMedia, preloadProducedMedia } from './core/executor.js';
 
 /**
  * 计算真正缺失的必填输入：required 且未提供且**无默认值**。
@@ -78,7 +79,7 @@ import { createConnector } from './connectors/factory.js';
 import { describePendingVideoTasks } from './connectors/video.js';
 import { loadAgent } from './agents/loader.js';
 import { saveResults, printStepResult, printStepRunning, clearRunningLine, printSummary, loadPreviousContext, getCompletedStepIds, findLatestOutput, computeResumeSkipIds, loadStepOutput } from './output/reporter.js';
-import { existsSync, readFileSync } from 'node:fs';
+import { existsSync, readFileSync, copyFileSync, mkdirSync } from 'node:fs';
 import { resolve, dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { defaultOutputDir } from './utils/paths.js';
@@ -168,6 +169,7 @@ export async function run(
     : (undefined as unknown as ReturnType<typeof createConnector>);
 
   // 构建输入
+  resetProducedMedia();
   const inputMap = new Map(Object.entries(inputs));
 
   // Resume: 先把上一次运行的原始输入 + 步骤输出恢复到 inputMap，
@@ -233,13 +235,16 @@ export async function run(
     }
 
     skipStepIds = computeResumeSkipIds(dag, getCompletedStepIds(resumeDir), fromStep);
+    // 被跳过的图片/视频步骤的产物在上一轮的 assets/ 里：读进登记表，下游图生视频 / concat 才拿得到字节
+    preloadProducedMedia(join(resumeDir, 'assets'));
 
     // 被复用步骤的展示字段（角色名/验收标准/核验结果）从旧档案带回新档案，
     // 否则续跑产生的 metadata 里这些步骤全是裸 id、验收记录凭空消失
     restoredStepMeta = new Map(
       (metadata.steps as import('./types.js').StepResult[])
         .filter(s => s.status === 'completed')
-        .map(s => [s.id, { agentName: s.agentName, agentEmoji: s.agentEmoji, acceptance: s.acceptance, verification: s.verification }])
+        // imageAsset / videoAsset 只带文件名（旧档案里本来就没 base64）——落盘后据此把上一轮的产物复制进新目录
+        .map(s => [s.id, { agentName: s.agentName, agentEmoji: s.agentEmoji, acceptance: s.acceptance, verification: s.verification, imageAsset: s.imageAsset, videoAsset: s.videoAsset }])
     );
 
     if (!options?.quiet) {
@@ -410,6 +415,21 @@ export async function run(
   // 保存结果（默认目录支持 AO_HOME / AO_OUTPUT_DIR，见 utils/paths）
   const outputDir = options?.outputDir || defaultOutputDir();
   const outputPath = saveResults(result, outputDir);
+  // --resume 复用的媒体步骤没有 base64（它们没重跑），reporter 写不出文件——从上一轮目录复制过来，
+  // 否则新目录里 `![cover](assets/cover.png)` 是断链，分享报告和 Studio 都显示不出来
+  if (resumeDir) {
+    for (const s of result.steps) {
+      for (const name of [s.imageAsset?.filename, s.videoAsset?.filename]) {
+        if (!name) continue;
+        const dst = join(outputPath, 'assets', name);
+        const src = join(resumeDir, 'assets', name);
+        if (!existsSync(dst) && existsSync(src)) {
+          mkdirSync(join(outputPath, 'assets'), { recursive: true });
+          copyFileSync(src, dst);
+        }
+      }
+    }
+  }
 
   if (!quiet) {
     printSummary(result, outputPath, workflowPath);

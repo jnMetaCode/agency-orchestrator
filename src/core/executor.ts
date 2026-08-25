@@ -1,7 +1,8 @@
 /**
  * DAG 执行引擎 — 核心调度器
  */
-import { existsSync, readFileSync } from 'node:fs';
+import { existsSync, readFileSync, readdirSync } from 'node:fs';
+import { join } from 'node:path';
 import type {
   WorkflowDefinition,
   DAGNode,
@@ -66,6 +67,23 @@ export interface ExecutorOptions {
 const producedAssets = new Map<string, Buffer>();
 /** 本次运行里视频步骤 / concat 步骤的产物（文件名 → 字节）。concat 在运行中引用上游视频时从这里取。 */
 const producedVideos = new Map<string, Buffer>();
+
+/** 每次 run() 开始前清空登记表：同进程连跑两条工作流时，别把上一条的 cover.png 当成这一条的 */
+export function resetProducedMedia(): void {
+  producedAssets.clear();
+  producedVideos.clear();
+}
+/** --resume：上一轮的产物已经在磁盘上（assets/），被跳过的图片/视频步骤不会再产出，先把它们读进登记表 */
+export function preloadProducedMedia(assetsDir: string): number {
+  if (!existsSync(assetsDir)) return 0;
+  let n = 0;
+  for (const f of readdirSync(assetsDir)) {
+    const p = join(assetsDir, f);
+    if (/\.(png|jpe?g|webp|gif)$/i.test(f)) { producedAssets.set(f, readFileSync(p)); n++; }
+    else if (/\.(mp4|mov|webm)$/i.test(f)) { producedVideos.set(f, readFileSync(p)); n++; }
+  }
+  return n;
+}
 
 export async function executeDAG(dag: DAG, options: ExecutorOptions): Promise<WorkflowResult> {
   const {
@@ -136,6 +154,9 @@ export async function executeDAG(dag: DAG, options: ExecutorOptions): Promise<Wo
           agentEmoji: prev?.agentEmoji,
           acceptance: prev?.acceptance,
           verification: prev?.verification,
+          // 媒体产物只带文件名：run() 落盘后据此把上一轮的 png/mp4 复制进新目录，markdown 链接才不断
+          imageAsset: prev?.imageAsset,
+          videoAsset: prev?.videoAsset,
           status: 'completed',
           output: node.result,
           output_var: node.step.output,
