@@ -242,6 +242,9 @@ try {
       const withRoles = runsList.find((r) => Array.isArray(r.roles) && r.roles.length > 0);
       assert(!!withRoles, '/api/runs 列表项应带 roles（步骤 role 去重）');
       assert(runsList.every((r) => Array.isArray(r.roles)), '/api/runs 每项 roles 都是数组');
+      // 运行卡片缩略图：有 assets/ 图片的运行带 thumb，走既有资产路由
+      const imgEntry = (runsList as Array<{ id: string; thumb?: string }>).find((r) => r.id === imgRun);
+      assert(imgEntry?.thumb === `/api/runs/${encodeURIComponent(imgRun)}/assets/poster.png`, '/api/runs 图片运行应带 thumb 指向首图: ' + imgEntry?.thumb);
     }
     const legacy = runsList.find((r) => r.id === legacyRun);
     const fresh = runsList.find((r) => r.id === newRun);

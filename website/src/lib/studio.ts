@@ -74,6 +74,8 @@ export interface RunSummary {
   /** 本次运行用到的角色 key（category/id）——「最近用过」按此聚合 */
   roles?: string[];
   mtime?: number;
+  /** 产物首图 URL（assets/ 里第一张图片），无则不带 */
+  thumb?: string;
   steps?: RunStepSummary[];
   /** 完成时刻（UTC ISO）。目录名里的时间戳是 UTC，显示一律用这个字段按本地时区渲染。 */
   startedAt?: string;

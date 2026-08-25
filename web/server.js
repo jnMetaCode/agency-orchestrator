@@ -672,6 +672,14 @@ app.get('/api/runs', (_req, res) => {
           // 使用频率数据本地就有，不埋点不上传。
           file: typeof meta.file === 'string' ? meta.file : undefined,
           roles: [...new Set((meta.steps || []).map(s => s.role).filter(r => typeof r === 'string'))],
+          // 首图：assets/ 里第一张图片（图片/视频工作流的产物）——运行卡片显示缩略图，
+          // "我做过什么"靠画面比靠名字好认。URL 走既有的 /api/runs/:id/assets/:file。
+          thumb: (() => {
+            const assetsDir = join(OUTPUT_DIR, d, 'assets');
+            if (!existsSync(assetsDir)) return undefined;
+            const img = readdirSync(assetsDir).filter(f => /\.(png|jpe?g|webp|gif)$/i.test(f)).sort()[0];
+            return img ? `/api/runs/${encodeURIComponent(d)}/assets/${encodeURIComponent(img)}` : undefined;
+          })(),
           // 绝对时刻（UTC ISO）——前端用 toLocaleString 按系统时区显示（#101）
           startedAt: runTimestampISO(d, meta, stat.mtimeMs),
           mtime: stat.mtimeMs,

@@ -26,12 +26,15 @@ export function ProviderSelect({ value, onChange, onOpenProviders }: { value: st
   const [customProviders, setCustomProviders] = useState<CustomProviderMeta[]>([]);
   const [remoteProviders, setRemoteProviders] = useState<RemoteProviderMeta[]>([]);
   const [relayPresets, setRelayPresets] = useState<CliRelayPreset[]>(CLI_RELAY_PRESETS);
+  // 已配 key 的供应商——组内排前（用户真能用的先看见；旗舰/赞助商标记不受影响，只是次序）
+  const [keyed, setKeyed] = useState<Set<string>>(new Set());
   const ref = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     api.config().then((c) => {
       setCustomProviders(c.customProviders ?? []);
       setRemoteProviders(c.remoteProviders ?? []);
+      setKeyed(new Set(Object.entries(c.providers).filter(([, v]) => !!v.hasKey).map(([k]) => k)));
       // 远程清单可能补充新中转商；内置的（Cubence）优先，同名去重
       setRelayPresets([...CLI_RELAY_PRESETS, ...(c.relayPresets ?? []).filter((r) => !CLI_RELAY_PRESETS.some((b) => b.name === r.name))]);
     }).catch(() => {});
@@ -99,12 +102,14 @@ export function ProviderSelect({ value, onChange, onOpenProviders }: { value: st
         ))}
       </>
     ) : null;
+  // 组内稳定排序：有 key 的在前，其余保持注册表顺序（旗舰/赞助商在前的既定次序不打乱）
+  const keyedFirst = (ids: string[]) => [...ids.filter((p) => keyed.has(p)), ...ids.filter((p) => !keyed.has(p))];
   const groups: { label: string; ids: string[] }[] = [
     // 聚合平台：内置聚合商(旗舰/赞助商在前) + 远程清单上架的赞助商
     // videoOnly 的供应商（秘塔等）只跑 type: video 步骤，没有 chat 端点——不进这个下拉
-    { label: g.groupAggregators, ids: [...API_PROVIDERS.filter((p) => !p.vendor && !p.videoOnly).map((p) => p.id), ...remoteProviders.map((r) => r.id)] },
+    { label: g.groupAggregators, ids: keyedFirst([...API_PROVIDERS.filter((p) => !p.vendor && !p.videoOnly).map((p) => p.id), ...remoteProviders.map((r) => r.id)]) },
     // 模型公司官方 API
-    { label: g.groupVendors, ids: API_PROVIDERS.filter((p) => p.vendor && !p.videoOnly).map((p) => p.id) },
+    { label: g.groupVendors, ids: keyedFirst(API_PROVIDERS.filter((p) => p.vendor && !p.videoOnly).map((p) => p.id)) },
     { label: g.groupCli, ids: [...CLI_PROVIDER_IDS] },
     { label: g.groupLocal, ids: ["ollama"] },
     ...(customProviders.length > 0 ? [{ label: g.groupCustom, ids: customProviders.map((c) => c.id) }] : []),
