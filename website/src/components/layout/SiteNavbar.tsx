@@ -15,18 +15,20 @@ export function SiteNavbar() {
   const [open, setOpen] = useState(false);
   const { pathname } = useLocation();
 
-  // 顶层 7 项(≤8):文档/教程/更新日志/学习 收进「帮助」下拉,腾位给「影视提示词」外链。
+  // 顶层 7 项(≤8):文档/教程/更新日志/影视提示词 收进「帮助」下拉。顶层唯一的外链留给
+  // 「AO 学院」(aiolaola.com,课程与变现路径);影视提示词已同步进创意库视频 tab(底部也挂了姊妹站链接),
+  // 顶层再放一个是重复入口——2026-08-25 与用户拍板对调。
   const links: NavItem[] = [
     { to: prefix("/studio"), label: t.nav.studio },
     { to: prefix("/experts"), label: t.nav.experts },
     { to: prefix("/creative"), label: t.nav.creative },
-    { to: "https://prompts.aiolaola.com/", label: t.nav.filmPrompts, external: true },
     { to: prefix("/prompt"), label: t.nav.prompt },
+    { to: "https://aiolaola.com/", label: t.nav.learn, external: true },
     { id: "help", label: t.nav.help, children: [
       { to: prefix("/docs"), label: t.nav.docs },
       { to: prefix("/tutorials"), label: t.nav.tutorials },
       { to: prefix("/changelog"), label: t.nav.changelog },
-      { to: "https://aiolaola.com/", label: t.nav.learn, external: true },
+      { to: "https://prompts.aiolaola.com/", label: t.nav.filmPrompts, external: true },
     ] },
     { to: prefix("/sponsors"), label: t.nav.sponsors },
   ];
