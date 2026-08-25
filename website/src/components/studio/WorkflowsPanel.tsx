@@ -8,6 +8,7 @@ import { api, type WorkflowInput, type ConfigResponse, API_PROVIDERS, recentUsag
 import { track } from "@/lib/track";
 import { cn } from "@/lib/utils";
 import { RoleAvatar } from "./RoleAvatar";
+import { MediaSelect } from "./MediaSelect";
 import type { RunRequest } from "./RunManager";
 import { CompareOverlay } from "./CompareOverlay";
 import { BaselineCompareOverlay } from "./BaselineCompareOverlay";
@@ -86,8 +87,21 @@ function InputsDialog({ wf, provider, onClose, onRun, onCompare }: { wf: Workflo
     inputs.forEach((i) => (init[i.name] = mediaDefaultFor(i, media) || i.default || ""));
     return init;
   });
-  // 媒体输入放右栏面板（紧凑行）；运行时记为默认，下次自动预填
+  // 媒体输入不再自己做下拉：右栏内嵌右上角同一个「出图 / 出片」面板（同一份默认值），改一处两边都变
   const mediaInputs = inputs.filter(isMediaInput);
+  useEffect(() => {
+    const sync = () => {
+      const d = getMediaDefaults();
+      setVals((p) => {
+        const n = { ...p };
+        for (const i of mediaInputs) { const v = mediaDefaultFor(i, d); if (v !== undefined) n[i.name] = v; }
+        return n;
+      });
+    };
+    window.addEventListener("ao-media-defaults", sync);
+    return () => window.removeEventListener("ao-media-defaults", sync);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  const missingMedia = mediaInputs.filter((i) => i.required && !(vals[i.name] ?? "").trim());
   // 需要实拉模型列表的供应商（按当前选择算出来），在 effect 里拉——渲染期不发请求、不 setState
   const neededModelProviders = inputs
     .filter((i) => i.source === "models")
@@ -256,17 +270,14 @@ function InputsDialog({ wf, provider, onClose, onRun, onCompare }: { wf: Workflo
             )}
           </div>
           {isMedia && (
-            <aside className="h-fit space-y-2 rounded-2xl border border-border/60 bg-card/40 p-3">
-              <p className="text-xs font-semibold">🎨🎬 {m.title}</p>
-              <p className="text-[11px] leading-relaxed text-muted-foreground">{m.panelHint}</p>
-              {mediaInputs.some((i) => i.source === "image_providers" || (i.source === "models" && i.source_from?.startsWith("image"))) && (
-                <p className="pt-1 text-[10px] font-bold uppercase tracking-wider text-muted-foreground/70">🎨 {m.image}</p>
+            <aside className="h-fit space-y-2">
+              <MediaSelect embedded />
+              <p className="px-1 text-[11px] leading-relaxed text-muted-foreground">{m.sameAsTopbar}</p>
+              {/* 非供应商/模型/档位类的媒体输入（如风格）仍在这里选 */}
+              {mediaInputs.filter((i) => i.source === "styles").map((i) => field(i, true))}
+              {missingMedia.length > 0 && (
+                <p className="rounded-lg bg-amber-500/10 px-2 py-1.5 text-[11px] text-amber-600 dark:text-amber-400">{m.missingRequired}{missingMedia.map((i) => i.label || i.name).join("、")}</p>
               )}
-              {mediaInputs.filter((i) => i.source === "image_providers" || (i.source === "models" && i.source_from?.startsWith("image"))).map((i) => field(i, true))}
-              {mediaInputs.some((i) => i.source?.startsWith("video") || (i.source === "models" && i.source_from?.startsWith("video"))) && (
-                <p className="pt-1 text-[10px] font-bold uppercase tracking-wider text-muted-foreground/70">🎬 {m.video}</p>
-              )}
-              {mediaInputs.filter((i) => i.source?.startsWith("video") || (i.source === "models" && i.source_from?.startsWith("video"))).map((i) => field(i, true))}
             </aside>
           )}
         </div>
@@ -276,7 +287,7 @@ function InputsDialog({ wf, provider, onClose, onRun, onCompare }: { wf: Workflo
             <Scale className="size-4" />
             {lang === "en" ? "vs Single-shot" : "对比单次"}
           </Button>
-          <Button onClick={submit}>
+          <Button onClick={submit} disabled={missingMedia.length > 0}>
             <Play className="size-4" />
             {t.studio.workflows.run}
           </Button>

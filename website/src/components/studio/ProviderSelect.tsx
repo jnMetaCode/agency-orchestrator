@@ -115,6 +115,29 @@ export function ProviderSelect({ value, onChange, onOpenProviders }: { value: st
       .map((p, i) => ({ p, i }))
       .sort((a, b) => tier(a.p) - tier(b.p) || Number(keyed.has(b.p)) - Number(keyed.has(a.p)) || a.i - b.i)
       .map((x) => x.p);
+  // 只做图/视频的供应商（秘塔等）没有对话端点，不能当文本供应商选——但它们是赞助商，必须在这里看得见：
+  // 单独一组，带标，点了去它的配置页；真正选用是在「出图 / 出片」胶囊里。
+  const mediaOnly = API_PROVIDERS.filter((p) => p.videoOnly && (!isDelisted(p.id) || keyed.has(p.id)));
+  const mediaBlock = mediaOnly.length > 0 && onOpenProviders ? (
+    <>
+      <div className="px-2.5 pb-0.5 pt-1.5 text-[10px] font-bold uppercase tracking-wider text-muted-foreground/70">{g.groupMedia}</div>
+      {mediaOnly.map((p) => (
+        <button
+          key={p.id}
+          type="button"
+          title={g.mediaOnlyHint}
+          onClick={() => { onOpenProviders(); setOpen(false); }}
+          className="flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-left text-sm text-foreground transition-colors hover:bg-muted"
+        >
+          <span className="size-4 shrink-0 text-center text-xs">🎬</span>
+          <span className="min-w-0 flex-1 truncate">{labelFor(p.id)}</span>
+          {p.sponsor && <span className="shrink-0 rounded-full bg-gold/15 px-1.5 py-0.5 text-[10px] font-semibold text-gold">{g.sponsorTag}</span>}
+          {keyed.has(p.id) && <Check className="size-4 shrink-0 text-gold" />}
+          <span className="inline-flex shrink-0 items-center gap-0.5 text-[11px] text-muted-foreground"><Settings2 className="size-3" />{g.mediaGoConfigure}</span>
+        </button>
+      ))}
+    </>
+  ) : null;
   const groups: { label: string; ids: string[] }[] = [
     // 聚合平台：内置聚合商(旗舰/赞助商在前) + 远程清单上架的赞助商
     // videoOnly 的供应商（秘塔等）只跑 type: video 步骤，没有 chat 端点——不进这个下拉
@@ -203,6 +226,7 @@ export function ProviderSelect({ value, onChange, onOpenProviders }: { value: st
                     </button>
                   );
                 })}
+                {group.label === g.groupAggregators && mediaBlock}
                 {group.label === g.groupCli && relayBlock}
               </div>
             ),
