@@ -33,6 +33,7 @@ export type {
   DAGNode,
 } from './types.js';
 import type { InputDefinition } from './types.js';
+import { expandStyle } from './media/styles.js';
 
 /**
  * 计算真正缺失的必填输入：required 且未提供且**无默认值**。
@@ -205,6 +206,10 @@ export async function run(
     // 可选输入无默认值且未提供 → 设为空字符串（避免模板引擎崩溃）
     if (!inputMap.has(def.name)) {
       inputMap.set(def.name, '');
+    }
+    // 风格库输入：id / 中文名 → 「中文名：英文提示词后缀」；用户自己写的描述原样透传
+    if (def.source === 'styles') {
+      inputMap.set(def.name, expandStyle(inputMap.get(def.name) || ''));
     }
   }
 

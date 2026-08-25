@@ -16,6 +16,7 @@ import { tmpdir, homedir } from 'node:os';
 import yaml from 'js-yaml';
 import { detectInstalledCliProviders, detectUsableCliProviders } from '../dist/providers/detect.js';
 import { API_PROVIDERS, API_PROVIDER_MAP, ANTHROPIC_PROVIDERS, ANTHROPIC_PROVIDER_MAP, VIDEO_PROVIDERS, VIDEO_PROVIDER_MAP } from '../dist/connectors/api-providers.js';
+import { STYLE_PRESETS } from '../dist/media/styles.js';
 // base_url 规整 / 跳转保持 POST / 少写多写 /v1 兜底 —— 与运行时连接器同一份实现，
 // 保证「测试连接」和真正跑起来的行为一致（不会出现测试过了但一跑就 405）。
 import { normalizeBaseUrl, postChatCompletions, postApiEndpoint, endpointHint, joinEndpoint } from '../dist/connectors/openai-compatible.js';
@@ -1915,6 +1916,8 @@ app.get('/api/config', async (_req, res) => {
         durations: uniq(models.flatMap((m) => m.durations || [])),
       };
     }),
+    // 风格库：输入 source: styles 的候选（引擎内置，运行前由引擎展开成提示词后缀）
+    styles: STYLE_PRESETS.map(({ id, name, nameEn, category, prompt, sample }) => ({ id, name, nameEn, category, prompt, ...(sample ? { sample } : {}) })),
     // 角色库下拉的可选项:zh/en + 已安装的官方语言包(agency-agents-ko 等)
     roleLibs: installedRoleLibs(),
   });

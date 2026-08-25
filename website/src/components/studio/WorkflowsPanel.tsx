@@ -55,6 +55,10 @@ function InputsDialog({ wf, provider, onClose, onRun, onCompare }: { wf: Workflo
     if (!inp.source) return null;
     if (!cfg) return "loading";
     const keyedFirst = (ids: string[]) => [...ids.filter((id) => cfg.providers[id]?.hasKey), ...ids.filter((id) => !cfg.providers[id]?.hasKey)];
+    if (inp.source === "styles") {
+      const cat = { live: lang === "en" ? "Live action" : "真人", "3d": "3D", "2d": "2D" } as const;
+      return (cfg.styles ?? []).map((s) => ({ value: s.name, label: `${cat[s.category]} · ${lang === "en" ? s.nameEn : s.name}` }));
+    }
     if (inp.source === "image_providers") return keyedFirst(cfg.imageProviders ?? []).map((id) => ({ value: id, label: providerLabel(id) }));
     if (inp.source === "video_providers") return (cfg.videoProviders ?? []).slice().sort((a, b) => Number(b.hasKey) - Number(a.hasKey)).map((v) => ({ value: v.id, label: v.hasKey ? v.id : `${v.id} · ${t.studio.workflows.inputNoKey}` }));
     const pid = (inp.source_from ? vals[inp.source_from] : "") || provider;

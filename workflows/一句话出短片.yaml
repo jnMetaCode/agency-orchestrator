@@ -26,6 +26,12 @@ inputs:
     label: "创意"
     description: "你想拍什么（如：一只橘猫在窗台上看日落，治愈风 / 一双跑鞋在雨夜街头的广告片）"
     required: true
+  - name: style
+    label: "视觉风格"
+    description: "从风格库选（可留空，让提示词工程师按创意自行决定）；也可自己写一段描述"
+    required: false
+    default: ""
+    source: styles
   - name: video_provider
     label: "视频供应商"
     description: "视频供应商（Studio 里下拉可选；已配 key 的排前）"
@@ -66,6 +72,7 @@ steps:
     emoji: "🎬"
     task: |
       把这个创意写成一条 **5 秒短视频**的提示词：{{idea}}
+      视觉风格（若非空，第 3 段【氛围与画质】必须落实这里的摄影机/胶片/色调/光源）：{{style}}
 
       按 5 段式结构写，每段一行，段与段之间空一行：
       1. 【核心主题】3-6 个 tag 用 | 分隔，从"画面类型 → 题材 → 美学风格"递进

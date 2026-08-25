@@ -26,10 +26,10 @@ inputs:
     required: true
   - name: style
     label: "视觉风格"
-    description: "视觉风格（如：美式复古好莱坞 / 霓虹赛博 / 日式青春胶片 / 国产都市写实）"
+    description: "视觉风格：从风格库选（引擎会把它展开成摄影机/胶片/色调/光源的英文提示词后缀，逐镜一致），也可自己写一段描述"
     required: true
     default: "美式复古好莱坞"
-    options: ["美式复古好莱坞", "霓虹赛博电影", "日式青春胶片", "国产都市写实", "武侠江湖写实摄影", "韩剧都市柔光", "复古科幻原子朋克", "老式工业影视", "荒野电影", "宫斗权谋冷峻"]
+    source: styles
   - name: image_provider
     label: "图片供应商"
     description: "定妆图用哪家图片供应商（留空 = 跟随文本供应商；需 OpenAI 兼容的 API 服务商）"

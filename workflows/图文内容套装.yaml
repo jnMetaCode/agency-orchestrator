@@ -18,6 +18,12 @@ inputs:
     label: "产品或主题"
     description: "产品或主题（如：便携手冲咖啡杯 / AI 编程入门课）"
     required: true
+  - name: style
+    label: "视觉风格"
+    description: "封面风格：从风格库选，或留空由图像提示词工程师自行决定"
+    required: false
+    default: ""
+    source: styles
   - name: image_provider
     label: "图片供应商"
     description: "图片供应商（留空 = 跟随文本供应商）。文生图只有 OpenAI 兼容的 API 服务商能跑，CLI 订阅类与 Claude 原生协议不出图；文本走 DeepSeek、图片走 LanoX 这类搭配在这里选"
@@ -42,6 +48,7 @@ steps:
   - id: cover_prompt
     role: "design/design-image-prompt-engineer"
     task: |
+      视觉风格（若非空，画面描述必须落实其中的摄影机/胶片/色调/光源）：{{style}}
       基于这篇种草笔记，写一段文生图提示词（中文，200 字以内），用于生成它的封面图：
       突出产品主体、符合小红书审美（明亮、干净、有生活感）、竖版 3:4 构图。
       只输出提示词本身，不要解释。

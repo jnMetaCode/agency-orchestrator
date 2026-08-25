@@ -31,7 +31,7 @@ export interface WorkflowInput {
   /** 静态候选（渲染成下拉，可手填） */
   options?: string[];
   /** 动态候选源（见引擎 InputDefinition.source） */
-  source?: "image_providers" | "video_providers" | "models" | "video_resolutions" | "video_durations";
+  source?: "image_providers" | "video_providers" | "models" | "video_resolutions" | "video_durations" | "styles";
   source_from?: string;
 }
 
@@ -322,6 +322,8 @@ export interface ConfigResponse {
    * 前端别拿 family:"api" 自己筛，那一族里混着 claude-code / gemini-cli。
    */
   imageProviders?: string[];
+  /** 风格库（引擎内置）：中文名 + 提示词后缀；输入 `source: styles` 的下拉候选 */
+  styles?: { id: string; name: string; nameEn: string; category: "live" | "2d" | "3d"; prompt: string; sample?: string }[];
   /** 视频供应商（独立表）：是否已配 key + 各家档位表 */
   videoProviders?: { id: string; hasKey: boolean; models: string[]; tiers?: Record<string, { resolutions: string[]; durations: number[] }>; resolutions: string[]; durations: number[] }[];
   /** 用户自己加的自定义供应商（任意 OpenAI 兼容 endpoint）。 */

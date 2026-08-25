@@ -197,6 +197,15 @@ APIMart is deliberately in **both** tables — one `APIMART_API_KEY` covers chat
 `type: video` — so `/api/config` only marks *video-only* providers as `family: 'video'`. A workflow whose steps are *all*
 image/video needs neither `llm.model` nor a text connector.
 
+## Style Library
+
+`src/media/styles.ts` — 15 presets (真人 13 / 3D / 2D), each = Chinese name + an English prompt suffix (camera,
+lens, film stock, grade, light — same register as the 5-part video methodology). A workflow input with
+`source: styles` renders as a grouped dropdown in Studio; **the engine expands the chosen id/name into
+"名（EN）: suffix" before the run** (`expandStyle` in `src/index.ts`), so CLI `-i style=霓虹赛博电影` and
+Studio behave the same and a free-text description passes through untouched. `sample` (example image)
+stays empty until generated — never ship a placeholder pretending to be a sample.
+
 ## Media Prompt Libraries (two sources, don't merge them)
 
 - **Image prompts**: `website/src/content/creative-prompts.json` — 229 curated items (CC BY 4.0,
