@@ -378,6 +378,29 @@ export function setFavRoles(keys: Set<string>) {
   window.localStorage.setItem(FAV_ROLES_KEY, JSON.stringify([...keys]));
 }
 
+// ── 用户自选「常用」模型（顶栏快切置顶；按供应商分开存，存 localStorage，按机器） ──
+// 推荐集是我们替用户挑的，常用是用户替自己挑的：两者并存，常用在前。
+const FAV_MODELS_KEY = "ao-fav-models";
+function readFavModels(): Record<string, string[]> {
+  if (typeof window === "undefined") return {};
+  try {
+    const v = JSON.parse(window.localStorage.getItem(FAV_MODELS_KEY) || "{}");
+    return v && typeof v === "object" ? v : {};
+  } catch { return {}; }
+}
+export function getFavModels(provider: string): string[] {
+  const v = readFavModels()[provider];
+  return Array.isArray(v) ? v.filter((m) => typeof m === "string") : [];
+}
+export function toggleFavModel(provider: string, model: string): string[] {
+  const all = readFavModels();
+  const cur = getFavModels(provider);
+  const next = cur.includes(model) ? cur.filter((m) => m !== model) : [...cur, model];
+  all[provider] = next;
+  if (typeof window !== "undefined") window.localStorage.setItem(FAV_MODELS_KEY, JSON.stringify(all));
+  return next;
+}
+
 export interface UsageDay {
   date: string;
   input: number;

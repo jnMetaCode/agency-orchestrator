@@ -1,7 +1,7 @@
-import { Check, ChevronDown, Cpu, ListPlus, Loader2 } from "lucide-react";
+import { Check, ChevronDown, Cpu, ListPlus, Loader2, Star } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { useLanguage } from "@/i18n/LanguageProvider";
-import { api, API_PROVIDER_MAP, CLI_PROVIDER_IDS, DEFAULT_PROVIDER, groupModelsByVendor } from "@/lib/studio";
+import { api, API_PROVIDER_MAP, CLI_PROVIDER_IDS, DEFAULT_PROVIDER, getFavModels, groupModelsByVendor, toggleFavModel } from "@/lib/studio";
 import { cn } from "@/lib/utils";
 
 /**
@@ -15,6 +15,8 @@ import { cn } from "@/lib/utils";
  *     之前只有第 1 层:自定义供应商永远只显示「当前这一个」,赞助商反馈"下拉框只有一个
  *     模型、换不了别家模型"就是这条兜底造成的。
  * 全量目录按厂商分组(聚合商 /models 常上百个、混各家),否则没法扫。
+ * 用户可把任意模型「钉到常用」(星号,按供应商存 localStorage):快切列表里常用排在推荐集前,
+ * 全量目录里单独成组置顶——推荐集是我们替用户挑的,常用是用户替自己挑的,两者并存。
  * CLI provider(claude-code 等)用各自工具的登录态选模型,这里不显示。
  */
 export function ModelSelect({ provider }: { provider: string }) {
@@ -29,6 +31,7 @@ export function ModelSelect({ provider }: { provider: string }) {
   const [fetching, setFetching] = useState(false);
   const [fetchError, setFetchError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const [favs, setFavs] = useState<string[]>([]);
   // 远程清单下发的换代模型建议（providerOverrides）——比打包进前端的静态建议新
   const [remoteSuggestions, setRemoteSuggestions] = useState<string[] | null>(null);
   const ref = useRef<HTMLDivElement>(null);
@@ -39,6 +42,7 @@ export function ModelSelect({ provider }: { provider: string }) {
     setFetched(null);
     setFetchError(null);
     setRemoteSuggestions(null);
+    setFavs(getFavModels(eff));
     // model 为空 = 用引擎默认(按钮显示"默认模型"),不在前端猜具体默认值
     api
       .config()
@@ -87,8 +91,9 @@ export function ModelSelect({ provider }: { provider: string }) {
       // 顶栏快切默认只给「精简推荐集 + 当前模型」——不倒整个目录:聚合商 /models 常有上百个,
       // 还混着图像/视频/向量/TTS 等非对话模型(如 doubao-seedance、flux、bge),快切里没意义。
       const suggestions = remoteSuggestions ?? API_PROVIDER_MAP[eff]?.modelSuggestions ?? [];
-      // 当前已选但不在推荐集里的模型也带上,避免下拉里看不到自己正在用的那个。
-      setModels(current && !suggestions.includes(current) ? [current, ...suggestions] : suggestions);
+      // 顺序:当前 → 常用 → 推荐集(去重)。当前已选但不在前两者里的也带上,别让用户看不到正在用的那个。
+      const merged = [...(current ? [current] : []), ...favs, ...suggestions].filter((m, i, arr) => arr.indexOf(m) === i);
+      setModels(merged);
       // 没有推荐集(自定义/远程/前端不认识的供应商)→ 直接实拉,别让用户只看到一个。
       if (suggestions.length === 0 && fetched === null) void fetchAll();
     }
@@ -105,20 +110,38 @@ export function ModelSelect({ provider }: { provider: string }) {
     }
   };
 
-  const item = (m: string) => (
-    <button
-      key={m}
-      type="button"
-      onClick={() => pick(m)}
-      className={cn(
-        "flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-left font-mono text-xs transition-colors hover:bg-muted",
-        m === current ? "bg-muted text-foreground" : "text-foreground",
-      )}
-    >
-      <span className="min-w-0 flex-1 truncate">{m}</span>
-      {m === current && <Check className="size-3.5 shrink-0 text-gold" />}
-    </button>
-  );
+  const togglePin = (m: string) => {
+    const next = toggleFavModel(eff, m);
+    setFavs(next);
+    // 快切列表已展开时同步刷新顺序(常用在推荐集前),否则要关了再开才看得到
+    setModels((prev) => (prev === null ? prev : [...(current ? [current] : []), ...next, ...prev].filter((x, i, arr) => arr.indexOf(x) === i)));
+  };
+
+  const item = (m: string) => {
+    const pinned = favs.includes(m);
+    return (
+      <div
+        key={m}
+        className={cn(
+          "group flex w-full items-center gap-1 rounded-lg pr-1 transition-colors hover:bg-muted",
+          m === current ? "bg-muted text-foreground" : "text-foreground",
+        )}
+      >
+        <button type="button" onClick={() => pick(m)} className="flex min-w-0 flex-1 items-center gap-2 px-2.5 py-1.5 text-left font-mono text-xs">
+          <span className="min-w-0 flex-1 truncate">{m}</span>
+          {m === current && <Check className="size-3.5 shrink-0 text-gold" />}
+        </button>
+        <button
+          type="button"
+          title={pinned ? p.modelUnpin : p.modelPin}
+          onClick={(e) => { e.stopPropagation(); togglePin(m); }}
+          className={cn("shrink-0 rounded p-1 transition-opacity", pinned ? "text-gold" : "text-muted-foreground opacity-0 hover:opacity-100 group-hover:opacity-60")}
+        >
+          <Star className={cn("size-3.5", pinned && "fill-gold")} />
+        </button>
+      </div>
+    );
+  };
 
   const list = models ?? [];
   // 实拉到全量后以它为准(推荐集里的已包含在内;当前模型若不在目录里仍置顶保留)
@@ -141,7 +164,13 @@ export function ModelSelect({ provider }: { provider: string }) {
         <div className="absolute right-0 z-50 mt-1.5 max-h-[60vh] w-72 overflow-auto rounded-xl border border-border/70 bg-card p-1 shadow-xl">
           {showFetched ? (
             <>
-              {current && !fetched.models.includes(current) && item(current)}
+              {current && !fetched.models.includes(current) && !favs.includes(current) && item(current)}
+              {favs.length > 0 && (
+                <div>
+                  <div className="px-2.5 pb-0.5 pt-1.5 text-[10px] font-bold uppercase tracking-wider text-gold/80">★ {p.modelFavGroup}</div>
+                  {favs.map(item)}
+                </div>
+              )}
               {groupModelsByVendor(fetched.models, fetched.vendors).map(([vendor, ms]) => (
                 <div key={vendor}>
                   <div className="px-2.5 pb-0.5 pt-1.5 text-[10px] font-bold uppercase tracking-wider text-muted-foreground/70">{vendor}</div>
