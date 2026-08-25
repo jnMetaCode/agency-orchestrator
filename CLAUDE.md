@@ -168,6 +168,7 @@ steps:
       model: "MiniMax-H3"            # REQUIRED — never guessed
       resolution: "768P"             # optional; passed through verbatim (vendor-specific tiers)
       duration: 5                    # seconds — billed per second, never inflated by the engine
+      image: "{{cover_img}}"          # optional image-to-video first frame: public URL, an upstream image step's output, or a local path. Vendors accept public URLs only — APIMart uploads local files automatically (POST /v1/uploads/images, 72h); MetaSota has no upload, local files fail with a clear error
       ratio: "16:9"
     output: promo_mp4                # variable = markdown link; mp4 saved to <run>/assets/
 ```

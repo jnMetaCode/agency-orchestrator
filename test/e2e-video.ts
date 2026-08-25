@@ -334,5 +334,65 @@ console.log('\n─── 端到端：两个视频步骤并行，各拿各的片 
   }
 }
 
+console.log('\n─── 端到端：图生视频——上游图片步骤的产物直接当首帧（运行中还没落盘，走产物登记） ───');
+{
+  const PNG_B64 = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==';
+  const seen: { create?: any; upload?: number } = {};
+  const srv = http.createServer((req, res) => {
+    const url = String(req.url || '');
+    let n = 0; let body = '';
+    req.on('data', (d) => { n += d.length; body += d; });
+    req.on('end', () => {
+      const port = (res.socket as any).localPort;
+      if (/images\/generations/.test(url)) { res.writeHead(200, { 'Content-Type': 'application/json' }); return res.end(JSON.stringify({ data: [{ b64_json: PNG_B64 }] })); }
+      if (/uploads\/images/.test(url)) { seen.upload = n; res.writeHead(200, { 'Content-Type': 'application/json' }); return res.end(JSON.stringify({ url: `http://127.0.0.1:${port}/f/image/x.png` })); }
+      if (/videos\/generations/.test(url)) { seen.create = JSON.parse(body || '{}'); res.writeHead(200, { 'Content-Type': 'application/json' }); return res.end(JSON.stringify({ code: 200, data: [{ status: 'submitted', task_id: 'task_01E2E' }] })); }
+      if (/\/tasks\//.test(url)) { res.writeHead(200, { 'Content-Type': 'application/json' }); return res.end(JSON.stringify({ code: 200, data: { status: 'completed', actual_time: 5, result: { videos: [{ url: `http://127.0.0.1:${port}/out.mp4` }] } } })); }
+      if (/out\.mp4/.test(url)) { res.writeHead(200, { 'Content-Type': 'video/mp4' }); return res.end(MP4); }
+      res.writeHead(404).end('{}');
+    });
+  });
+  const port = await listen(srv);
+  const dir = mkdtempSync(join(tmpdir(), 'ao-e2e-i2v-'));
+  const wf = join(dir, 'v.yaml');
+  writeFileSync(wf, [
+    'name: "定妆图→出片"',
+    'llm:',
+    '  provider: "apimart"',
+    '  model: "x"',
+    `  base_url: "http://127.0.0.1:${port}"`,
+    '  api_key: "sk-test"',
+    'steps:',
+    '  - id: cover',
+    '    type: image',
+    '    task: "机器人清道夫三视图"',
+    '    image:',
+    '      model: "img-test"',
+    '    output: cover_img',
+    '  - id: clip',
+    '    type: video',
+    '    task: "机器人走过废弃街道"',
+    '    video:',
+    '      provider: "apimart"',
+    '      model: "veo3.1-fast"',
+    '      duration: 8',
+    '      image: "{{cover_img}}"',
+    '      poll_interval: 10',
+    '    output: clip_mp4',
+    '    depends_on: [cover]',
+  ].join('\n'), 'utf-8');
+  try {
+    const result = await run(wf, {}, { quiet: true, outputDir: join(dir, 'out') });
+    assert(result.success === true, `运行应成功（${result.steps.map((s) => `${s.id}:${s.status} ${s.error ?? ''}`).join(', ')}）`);
+    assert((seen.upload ?? 0) > 0, '上游图片的字节应在运行中被上传（此时磁盘上还没有 assets/cover.png）');
+    assert(Array.isArray(seen.create?.image_urls) && /\/f\/image\/x\.png/.test(seen.create.image_urls[0]), `建任务应带上传得到的 URL（实际 ${JSON.stringify(seen.create)}）`);
+    const { readdirSync } = await import('node:fs');
+    const outDir = join(dir, 'out', readdirSync(join(dir, 'out'))[0]);
+    assert(existsSync(join(outDir, 'assets', 'cover.png')) && existsSync(join(outDir, 'assets', 'clip.mp4')), '图与片都应落到 assets/');
+  } catch (e) {
+    assert(false, `端到端跑挂了：${e instanceof Error ? e.message : e}`);
+  } finally { srv.close(); rmSync(dir, { recursive: true, force: true }); }
+}
+
 console.log(`\n  结果: ${passed} 通过, ${failed} 失败\n`);
 if (failed > 0) process.exit(1);

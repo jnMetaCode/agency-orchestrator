@@ -1,6 +1,7 @@
 /**
  * DAG 执行引擎 — 核心调度器
  */
+import { existsSync, readFileSync } from 'node:fs';
 import type {
   WorkflowDefinition,
   DAGNode,
@@ -16,7 +17,7 @@ import { loadAgent } from '../agents/loader.js';
 import { collectSkillNames, injectSkills } from '../skills/loader.js';
 import { createConnector } from '../connectors/factory.js';
 import { generateImage } from '../connectors/image.js';
-import { generateVideo } from '../connectors/video.js';
+import { generateVideo , type VideoStepOptions } from '../connectors/video.js';
 import { verifyAcceptance, buildReworkBlock, formatFailedItems } from './verify.js';
 import { checkAssert, buildAssertReworkBlock } from './assert.js';
 import { createInterface } from 'node:readline';
@@ -59,6 +60,9 @@ export interface ExecutorOptions {
    */
   restoredStepMeta?: Map<string, Partial<StepResult>>;
 }
+
+/** 本次运行里图片步骤的产物（文件名 → 字节）。图生视频步骤在运行中引用上游图片时从这里取。 */
+const producedAssets = new Map<string, Buffer>();
 
 export async function executeDAG(dag: DAG, options: ExecutorOptions): Promise<WorkflowResult> {
   const {
@@ -457,6 +461,9 @@ async function executeStep(
     const img = await generateImage(imgConfig, prompt, imageOpts, (m: string) => process.stderr.write(`  ${m}\n`));
     const filename = `${node.step.id}.png`;
     node.imageAsset = { filename, base64: img.buffer.toString('base64') };
+    // 登记本次运行产出的图片：图生视频步骤用 {{cover_img}}（markdown 引用 assets/<id>.png）时从这里拿字节——
+    // 产物要到运行结束才落盘，运行中磁盘上还没有
+    producedAssets.set(filename, img.buffer);
     const kb = (img.buffer.length / 1024).toFixed(0);
     process.stderr.write(`  🎨 ${node.step.id} 生成图片 ${filename}（${kb}KB，${img.via === 'images-api' ? 'Images API' : 'Responses 工具'}）\n`);
     return `![${node.step.id}](assets/${filename})`;
@@ -470,14 +477,29 @@ async function executeStep(
     const prompt = renderTemplate(node.step.task, opts.context);
     const stepLlmVid = node.step.llm;
     const vidConfig = (stepLlmVid ? { ...opts.llmConfig, ...stepLlmVid } : opts.llmConfig) as LLMConfig;
-    const videoOpts = { ...(node.step.video ?? {}) };
+    const videoOpts = { ...(node.step.video ?? {}) } as VideoStepOptions;
     // **provider 也必须渲染**，不只是 model：内置模板「一句话出短片」把供应商做成必填输入
     // （video: { provider: "{{video_provider}}" }），此前只渲染 model，于是引擎拿着字面量
     //  "{{video_provider}}" 去查视频供应商表，报"当前 provider {{video_provider}} 不是视频供应商"
     //  —— 真机跑模板时当场撞到。resolution / ratio 同理。
-    for (const k of ['provider', 'model', 'resolution', 'ratio'] as const) {
+    for (const k of ['provider', 'model', 'resolution', 'ratio', 'image'] as const) {
       const v = videoOpts[k];
       if (typeof v === 'string') videoOpts[k] = renderTemplate(v, opts.context);
+    }
+    // 首帧图：上游图片步骤的输出（markdown `![id](assets/id.png)`）→ 本次运行的产物登记；本地路径 → 读文件；
+    // 公网 URL 原样交给连接器；空串（可选输入没填）= 纯文生视频
+    if (typeof videoOpts.image === 'string') {
+      const ref = videoOpts.image.trim();
+      if (!ref) delete videoOpts.image;
+      else if (!/^https?:\/\//.test(ref)) {
+        const m = ref.match(/!\[[^\]]*\]\(([^)]+)\)/);
+        const target = (m ? m[1] : ref).trim();
+        const name = target.split('/').pop() || target;
+        const bytes = producedAssets.get(name) ?? (existsSync(target) ? readFileSync(target) : undefined);
+        if (!bytes) throw new Error(`video.image 找不到图片：${ref.slice(0, 120)}（上游图片步骤没产出？或本地路径不存在）`);
+        videoOpts.image_bytes = bytes;
+        videoOpts.image_name = name;
+      }
     }
     // duration 是数字字段，但模板把它做成输入后 YAML 里就是字符串 "{{video_duration}}"。
     // 不在这儿渲染+转数，就会把那串花括号原样发给厂商——参数非法、一次调用白费。

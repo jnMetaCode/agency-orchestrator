@@ -42,6 +42,10 @@ inputs:
     default: "768P"
     source: video_resolutions
     source_from: video_provider
+  - name: reference_image
+    description: "首帧参考图（可选，图生视频）：公网图片 URL。留空 = 纯文生视频。本地图片只有 APIMart 能用（引擎自动上传），秘塔只收公网 URL"
+    required: false
+    default: ""
   - name: video_duration
     description: "秒数（按秒计费）。秘塔可 4~10 秒；APIMart 的 VEO3 固定 8 秒——填错会被服务商直接拒"
     required: true
@@ -94,7 +98,8 @@ steps:
       provider: "{{video_provider}}"
       model: "{{video_model}}"
       resolution: "{{video_resolution}}"   # 必填；档位名各家不通用，所以做成输入而不是写死
-      duration: "{{video_duration}}"       # 按秒计费，默认用最短档验证方向
+      duration: "{{video_duration}}"
+      image: "{{reference_image}}"       # 按秒计费，默认用最短档验证方向
       ratio: "16:9"
     output: clip_mp4
     depends_on: [shot_prompt]

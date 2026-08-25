@@ -27,6 +27,11 @@ export interface VideoStepOptions {
   timeout?: number;
   /** 轮询间隔毫秒，默认 5 秒 */
   poll_interval?: number;
+  /** 首帧参考图：公网 URL（直接用）。本地图片由执行器解析成 image_bytes 传进来 */
+  image?: string;
+  /** 本地首帧图字节（执行器从上游图片步骤/文件解析）；有上传接口的厂商先传再用 */
+  image_bytes?: Buffer;
+  image_name?: string;
 }
 
 export interface GeneratedVideo {
@@ -96,7 +101,10 @@ export interface VideoTaskState {
  */
 interface VideoShapeAdapter {
   createPath: string;
-  createBody(opts: VideoStepOptions, prompt: string): string;
+  /** imageUrl = 已是公网地址的首帧图（本地图由 uploadImage 先换成 URL） */
+  createBody(opts: VideoStepOptions, prompt: string, imageUrl?: string): string;
+  /** 把本地图片换成该厂商能读的公网 URL；没有这个能力的厂商不实现（本地图就明确报错） */
+  uploadImage?(baseUrl: string, headers: Record<string, string>, bytes: Buffer, name: string): Promise<string>;
   /** 从建任务回执里取 task_id；取不到返回空串（调用方会连同原文一起报错） */
   parseCreate(json: unknown): string;
   /** 查询用的完整 URL（有的家把 id 放路径、有的放 query） */
@@ -122,9 +130,13 @@ const SHAPES: Record<string, VideoShapeAdapter> = {
   // ── 秘塔科技：MiniMax 官方协议换了个 Host ─────────────────────────────────
   minimax: {
     createPath: 'v2/video_generation',
-    createBody: (opts, prompt) => JSON.stringify({
+    // 图生视频：官方 H3 文档的 content 项形状 {type:"image_url", image_url:{url}, role:"first_frame"}，只收 URL
+    createBody: (opts, prompt, imageUrl) => JSON.stringify({
       model: opts.model,
-      content: [{ type: 'text', text: prompt }],
+      content: [
+        { type: 'text', text: prompt },
+        ...(imageUrl ? [{ type: 'image_url', image_url: { url: imageUrl }, role: 'first_frame' }] : []),
+      ],
       ...(opts.resolution ? { resolution: opts.resolution } : {}),
       ...(opts.duration ? { duration: opts.duration } : {}),
       ...(opts.ratio ? { ratio: opts.ratio } : {}),
@@ -158,15 +170,30 @@ const SHAPES: Record<string, VideoShapeAdapter> = {
   //   乱写路径                      → 404 Invalid URL（对照组：说明上面两条不是兜底响应）
   apimart: {
     createPath: 'videos/generations',
-    createBody: (opts, prompt) => JSON.stringify({
+    // 图生视频字段按模型：MiniMax-H3 用 first_frame_image，sora/veo 用 image_urls[]（docs.apimart.ai）
+    createBody: (opts, prompt, imageUrl) => JSON.stringify({
       model: opts.model,
       prompt,
+      ...(imageUrl ? (/^minimax-h3/i.test(opts.model || '') ? { first_frame_image: imageUrl } : { image_urls: [imageUrl] }) : {}),
       ...(opts.duration ? { duration: opts.duration } : {}),
       // 这家叫 aspect_ratio 不叫 ratio；分辨率档位也不同（720p/1080p/4k，不是 768P/2K）——
       // 原样透传，不替用户换算：档位名是厂商的事，猜错就是一次白花的生成
       ...(opts.ratio ? { aspect_ratio: opts.ratio } : {}),
       ...(opts.resolution ? { resolution: opts.resolution } : {}),
     }),
+    // POST /v1/uploads/images，multipart 字段 file，回 {url}；URL 72 小时有效（够本次任务用）
+    uploadImage: async (baseUrl, headers, bytes, name) => {
+      const form = new FormData();
+      form.append('file', new Blob([new Uint8Array(bytes)], { type: name.endsWith('.jpg') || name.endsWith('.jpeg') ? 'image/jpeg' : 'image/png' }), name);
+      const { 'Content-Type': _ct, ...h } = headers;
+      const r = await fetch(`${baseUrl}/uploads/images`, { method: 'POST', headers: h, body: form, signal: AbortSignal.timeout(60_000) });
+      const text = await r.text();
+      if (!r.ok) throw new Error(`首帧图上传失败：HTTP ${r.status} ${text.slice(0, 200)}`);
+      let url = '';
+      try { url = String(JSON.parse(text)?.url ?? ''); } catch { /* 下面统一报 */ }
+      if (!/^https?:\/\//.test(url)) throw new Error(`首帧图上传响应里没有 url（${text.slice(0, 200)}）`);
+      return url;
+    },
     // {"code":200,"data":[{"status":"submitted","task_id":"task_01K8…"}]}
     parseCreate: (j) => {
       const d = (j as { data?: Array<{ task_id?: string }> | { task_id?: string } })?.data;
@@ -235,11 +262,28 @@ export async function generateVideo(
   const pollMs = opts.poll_interval && opts.poll_interval > 0 ? opts.poll_interval : 5_000;
   const deadline = Date.now() + totalMs;
 
+  // ── 0. 首帧图：公网 URL 直接用；本地字节先上传（只有有上传接口的厂商能做，否则明确拒绝） ──
+  let imageUrl: string | undefined;
+  if (opts.image_bytes) {
+    if (!shape.uploadImage) {
+      throw new Error(
+        `视频供应商 ${spec.id} 的图生视频只接受**公网 URL**，没有上传接口，本地图片（${opts.image_name || 'image'}）送不过去。\n` +
+        `  出路：① 换 APIMart（自带上传，引擎自动处理）；② 先把图传到图床，把 URL 填进 video.image。`
+      );
+    }
+    onNotice?.(`🖼 上传首帧图 ${opts.image_name || ''}（${(opts.image_bytes.length / 1024).toFixed(0)}KB）→ ${spec.id}`);
+    imageUrl = await shape.uploadImage(baseUrl, headers, opts.image_bytes, opts.image_name || 'first_frame.png');
+  } else if (opts.image && /^https?:\/\//.test(opts.image)) {
+    imageUrl = opts.image;
+  } else if (opts.image) {
+    throw new Error(`video.image 既不是公网 URL 也没解析成本地图片：${opts.image.slice(0, 120)}`);
+  }
+
   // ── 1. 建任务 ─────────────────────────────────────────────────────────────
   const createRes = await fetch(`${baseUrl}/${shape.createPath}`, {
     method: 'POST',
     headers,
-    body: shape.createBody(opts, prompt),
+    body: shape.createBody(opts, prompt, imageUrl),
     signal: AbortSignal.timeout(Math.min(60_000, totalMs)),
   });
   const createText = await createRes.text();

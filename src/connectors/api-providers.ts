@@ -184,12 +184,11 @@ export interface VideoProviderSpec {
    * 没有一处相同，加 APIMart 只新增了一个 adapter，主流程一行没动。
    */
   shape: 'minimax' | 'apimart';
-  /** 已核实可用的视频模型编码（Studio 下拉候选；仍可手填） */
-  models?: string[];
-  /** 分辨率档位名——各家不通用，原样透传 */
-  resolutions?: string[];
-  /** 可选秒数（按秒计费） */
-  durations?: number[];
+  /**
+   * 已核实的视频模型（Studio 下拉候选；仍可手填）。档位**按模型**给——同一家网关上
+   * sora-2 只有 720p、veo3 固定 8 秒、MiniMax-H3 是 2K/768P，按供应商一刀切必错。
+   */
+  models?: Array<{ id: string; resolutions?: string[]; durations?: number[] }>;
 }
 
 export const VIDEO_PROVIDERS: VideoProviderSpec[] = [
@@ -199,9 +198,8 @@ export const VIDEO_PROVIDERS: VideoProviderSpec[] = [
     envBase: 'METASO_BASE_URL',
     defaultBaseUrl: 'https://metaso.cn/api/minimax',
     shape: 'minimax',
-    models: ['MiniMax-H3'],
-    resolutions: ['480p', '512p', '768P', '2K'],
-    durations: [4, 5, 6, 7, 8, 9, 10],
+    // 档位来自内置模板真机跑过的取值
+    models: [{ id: 'MiniMax-H3', resolutions: ['480p', '512p', '768P', '2K'], durations: [4, 5, 6, 7, 8, 9, 10] }],
   },
   // APIMart（赞助商）—— 同一个 key 既是 OpenAI 兼容网关（见上面 API_PROVIDERS），
   // 也提供视频：Sora2 / VEO3 / 可灵 / 海螺 / MiniMax-H3 等一堆模型，走自家任务接口。
@@ -218,10 +216,18 @@ export const VIDEO_PROVIDERS: VideoProviderSpec[] = [
     envBase: 'APIMART_BASE_URL',
     defaultBaseUrl: 'https://api.apimart.ai/v1',
     shape: 'apimart',
-    // 只列内置模板里已用过的两个编码（sora-2 / veo3.1-fast）；其余模型名未真机核实，不写——
-    // 下拉里有「自定义…」可手填。秒数各模型不同（VEO3 固定 8 秒），不给候选，留手填。
-    models: ['sora-2', 'veo3.1-fast'],
-    resolutions: ['720p', '1080p', '4k'],
+    // 模型编码与档位取自 docs.apimart.ai 各模型页（2026-08-25 抓取）：
+    //   sora-2 720p / 4·8·12·16·20s；sora-2-pro 720p·1024p·1080p；veo3.1-* 720p·1080p·4k / 固定 8s；
+    //   MiniMax-H3 2K·768P / 4–15s。图生视频：sora/veo 用 image_urls[]，H3 用 first_frame_image，都只收公网 URL，
+    //   本地图先走 POST /v1/uploads/images（72 小时有效）。
+    models: [
+      { id: 'sora-2', resolutions: ['720p'], durations: [4, 8, 12, 16, 20] },
+      { id: 'sora-2-pro', resolutions: ['720p', '1024p', '1080p'], durations: [4, 8, 12, 16, 20] },
+      { id: 'veo3.1-fast', resolutions: ['720p', '1080p', '4k'], durations: [8] },
+      { id: 'veo3.1-quality', resolutions: ['720p', '1080p', '4k'], durations: [8] },
+      { id: 'veo3.1-lite', resolutions: ['720p', '1080p', '4k'], durations: [8] },
+      { id: 'MiniMax-H3', resolutions: ['2K', '768P'], durations: [4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15] },
+    ],
   },
 ];
 

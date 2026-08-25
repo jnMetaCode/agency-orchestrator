@@ -95,24 +95,30 @@ export function MediaSelect() {
             {row(m.provider, (
               <select className={selCls} value={d.video.provider} onChange={(e) => {
                 const v = videoProviders.find((x) => x.id === e.target.value);
-                save({ ...d, video: { provider: e.target.value, model: v?.models[0] ?? "", resolution: v?.resolutions[0] ?? "", duration: v?.durations[0] != null ? String(v.durations[0]) : "" } });
+                const m0 = v?.models[0] ?? "";
+                const t0 = v?.tiers?.[m0];
+                save({ ...d, video: { provider: e.target.value, model: m0, resolution: t0?.resolutions[0] ?? v?.resolutions[0] ?? "", duration: t0?.durations[0] != null ? String(t0.durations[0]) : "" } });
               }}>
                 <option value="">—</option>
                 {videoProviders.slice().sort((a, b) => Number(b.hasKey) - Number(a.hasKey)).map((v) => <option key={v.id} value={v.id}>{v.id}{v.hasKey ? "" : ` · ${m.noKey}`}</option>)}
               </select>
             ))}
             {row(m.model, (
-              <input list="ao-media-vid-models" className={selCls} value={d.video.model} onChange={(e) => save({ ...d, video: { ...d.video, model: e.target.value } })} />
+              <input list="ao-media-vid-models" className={selCls} value={d.video.model} onChange={(e) => {
+                // 换模型 → 档位跟着换（sora 720p / veo 固定 8s / H3 2K）
+                const tm = vp?.tiers?.[e.target.value];
+                save({ ...d, video: { ...d.video, model: e.target.value, ...(tm ? { resolution: tm.resolutions[0] ?? d.video.resolution, duration: tm.durations[0] != null ? String(tm.durations[0]) : d.video.duration } : {}) } });
+              }} />
             ))}
             <datalist id="ao-media-vid-models">{vp?.models.map((x) => <option key={x} value={x} />)}</datalist>
             {row(m.resolution, (
               <input list="ao-media-vid-res" className={selCls} value={d.video.resolution} onChange={(e) => save({ ...d, video: { ...d.video, resolution: e.target.value } })} />
             ))}
-            <datalist id="ao-media-vid-res">{vp?.resolutions.map((x) => <option key={x} value={x} />)}</datalist>
+            <datalist id="ao-media-vid-res">{(vp?.tiers?.[d.video.model]?.resolutions ?? vp?.resolutions ?? []).map((x) => <option key={x} value={x} />)}</datalist>
             {row(m.duration, (
               <input list="ao-media-vid-dur" className={cn(selCls)} value={d.video.duration} onChange={(e) => save({ ...d, video: { ...d.video, duration: e.target.value } })} />
             ))}
-            <datalist id="ao-media-vid-dur">{vp?.durations.map((x) => <option key={x} value={String(x)} />)}</datalist>
+            <datalist id="ao-media-vid-dur">{(vp?.tiers?.[d.video.model]?.durations ?? vp?.durations ?? []).map((x) => <option key={x} value={String(x)} />)}</datalist>
           </div>
         </div>
       )}

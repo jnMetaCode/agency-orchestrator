@@ -1901,13 +1901,19 @@ app.get('/api/config', async (_req, res) => {
       .map(([id]) => id),
     // 视频供应商（独立一张表）：id + 是否已配 key + 各家档位表，Studio 输入弹窗的下拉据此渲染——
     // 档位名各家不通用（768P vs 1080p），换供应商时候选跟着换，从根上消灭"填错被服务商拒"。
-    videoProviders: VIDEO_PROVIDERS.map((v) => ({
-      id: v.id,
-      hasKey: !!providers[v.id]?.hasKey,
-      models: v.models || [],
-      resolutions: v.resolutions || [],
-      durations: v.durations || [],
-    })),
+    videoProviders: VIDEO_PROVIDERS.map((v) => {
+      const models = v.models || [];
+      const uniq = (xs) => [...new Set(xs)];
+      return {
+        id: v.id,
+        hasKey: !!providers[v.id]?.hasKey,
+        models: models.map((m) => m.id),
+        // 档位按模型（同一网关上 sora 只有 720p、veo 固定 8 秒）；provider 级是并集，给没选模型时兜底
+        tiers: Object.fromEntries(models.map((m) => [m.id, { resolutions: m.resolutions || [], durations: m.durations || [] }])),
+        resolutions: uniq(models.flatMap((m) => m.resolutions || [])),
+        durations: uniq(models.flatMap((m) => m.durations || [])),
+      };
+    }),
     // 角色库下拉的可选项:zh/en + 已安装的官方语言包(agency-agents-ko 等)
     roleLibs: installedRoleLibs(),
   });

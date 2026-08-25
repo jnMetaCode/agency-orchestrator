@@ -265,10 +265,21 @@ console.log('\n─── 第二家（APIMart）：形状完全不同，主流程
  *   完成词  completed（不是 succeeded），成品在 data.result.videos[].url
  */
 function fakeApimart(opts: { failWith?: string; pendingRounds?: number } = {}) {
-  const seen: { createBody?: any; queries: string[] } = { queries: [] };
+  const seen: { createBody?: any; queries: string[]; uploadBytes?: number; uploadContentType?: string } = { queries: [] };
   const MP4X = Buffer.from('0000001c66747970415049', 'hex');
   const srv = http.createServer((req, res) => {
     const url = new URL(req.url || '/', 'http://x');
+    if (req.method === 'POST' && url.pathname.endsWith('/uploads/images')) {
+      let n = 0;
+      req.on('data', (c) => { n += c.length; });
+      req.on('end', () => {
+        seen.uploadBytes = n;
+        seen.uploadContentType = String(req.headers['content-type'] || '');
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ url: `http://127.0.0.1:${port}/f/image/abc.png`, filename: 'first.png', bytes: n }));
+      });
+      return;
+    }
     if (req.method === 'POST' && url.pathname.endsWith('/videos/generations')) {
       let body = '';
       req.on('data', (c) => { body += c; });
@@ -296,6 +307,57 @@ function fakeApimart(opts: { failWith?: string; pendingRounds?: number } = {}) {
   let port = 0;
   return { srv, seen, MP4X, setPort: (p: number) => { port = p; } };
 }
+
+console.log('\n─── 图生视频（首帧图） ───');
+
+await test('APIMart 本地首帧图：先走 /uploads/images 拿 URL，sora/veo 放 image_urls[]', async () => {
+  const fake = fakeApimart();
+  const port = await listen(fake.srv);
+  fake.setPort(port);
+  try {
+    const png = Buffer.from('89504e470d0a1a0a', 'hex');
+    await generateVideo(
+      { provider: 'apimart', api_key: 'sk-t', base_url: `http://127.0.0.1:${port}` } as unknown as LLMConfig,
+      '橘猫',
+      { model: 'veo3.1-fast', duration: 8, poll_interval: 10, image_bytes: png, image_name: 'cover.png' },
+    );
+    assert((fake.seen.uploadBytes ?? 0) > png.length && /multipart\/form-data/.test(fake.seen.uploadContentType || ''), `应以 multipart 上传，实际 ${fake.seen.uploadContentType} ${fake.seen.uploadBytes}`);
+    const b = fake.seen.createBody;
+    assert(Array.isArray(b.image_urls) && b.image_urls[0].includes('/f/image/abc.png'), `veo 应把上传得到的 URL 放 image_urls[]，实际 ${JSON.stringify(b)}`);
+    assert(b.first_frame_image === undefined, 'veo 不该用 first_frame_image');
+  } finally { fake.srv.close(); }
+});
+
+await test('APIMart 上的 MiniMax-H3 用 first_frame_image；公网 URL 不上传直接用', async () => {
+  const fake = fakeApimart();
+  const port = await listen(fake.srv);
+  fake.setPort(port);
+  try {
+    await generateVideo(
+      { provider: 'apimart', api_key: 'sk-t', base_url: `http://127.0.0.1:${port}` } as unknown as LLMConfig,
+      '橘猫',
+      { model: 'MiniMax-H3', duration: 5, poll_interval: 10, image: 'https://cdn.example.com/first.png' },
+    );
+    assert(fake.seen.uploadBytes === undefined, '公网 URL 不该触发上传');
+    assert(fake.seen.createBody.first_frame_image === 'https://cdn.example.com/first.png', `H3 应用 first_frame_image，实际 ${JSON.stringify(fake.seen.createBody)}`);
+  } finally { fake.srv.close(); }
+});
+
+await test('秘塔：公网 URL 进 content[] 的 image_url 项（role=first_frame）；本地图明确报错而不是白花一次', async () => {
+  const fake = fakeMetaso();
+  const port = await listen(fake.srv);
+  fake.setPort(port);
+  try {
+    await generateVideo(cfg({ base_url: `http://127.0.0.1:${port}` }), '橘猫', { model: 'MiniMax-H3', poll_interval: 10, image: 'https://cdn.example.com/first.png' });
+    const c = fake.seen.createBody.content;
+    assert(Array.isArray(c) && c.some((x: any) => x.type === 'image_url' && x.image_url?.url === 'https://cdn.example.com/first.png' && x.role === 'first_frame'), `content 里应有 image_url 项，实际 ${JSON.stringify(c)}`);
+    let msg = '';
+    try {
+      await generateVideo(cfg({ base_url: `http://127.0.0.1:${port}` }), '橘猫', { model: 'MiniMax-H3', poll_interval: 10, image_bytes: Buffer.from('x'), image_name: 'a.png' });
+    } catch (e) { msg = e instanceof Error ? e.message : String(e); }
+    assert(/公网 URL/.test(msg) && /APIMart/.test(msg), `本地图应报"只收公网 URL"并给出路，实际：${msg.slice(0, 120)}`);
+  } finally { fake.srv.close(); }
+});
 
 await test('APIMart 全链路：建任务 → 轮询 → 下载', async () => {
   const fake = fakeApimart({ pendingRounds: 1 });

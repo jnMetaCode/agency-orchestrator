@@ -59,8 +59,11 @@ function InputsDialog({ wf, provider, onClose, onRun, onCompare }: { wf: Workflo
     if (inp.source === "video_providers") return (cfg.videoProviders ?? []).slice().sort((a, b) => Number(b.hasKey) - Number(a.hasKey)).map((v) => ({ value: v.id, label: v.hasKey ? v.id : `${v.id} · ${t.studio.workflows.inputNoKey}` }));
     const pid = (inp.source_from ? vals[inp.source_from] : "") || provider;
     const vp = cfg.videoProviders?.find((v) => v.id === pid);
-    if (inp.source === "video_resolutions") return (vp?.resolutions ?? []).map((r) => ({ value: r, label: r }));
-    if (inp.source === "video_durations") return (vp?.durations ?? []).map((d) => ({ value: String(d), label: `${d}s` }));
+    // 档位按已选模型（找同一 source_from 下 source=models 的那个输入的值）；没选模型用 provider 级并集
+    const modelInput = inputs.find((i) => i.source === "models" && i.source_from === inp.source_from);
+    const tier = modelInput ? vp?.tiers?.[vals[modelInput.name] ?? ""] : undefined;
+    if (inp.source === "video_resolutions") return (tier?.resolutions ?? vp?.resolutions ?? []).map((r) => ({ value: r, label: r }));
+    if (inp.source === "video_durations") return (tier?.durations ?? vp?.durations ?? []).map((d) => ({ value: String(d), label: `${d}s` }));
     if (inp.source === "models") {
       if (vp) return vp.models.map((m) => ({ value: m, label: m }));
       if (!pid) return [];

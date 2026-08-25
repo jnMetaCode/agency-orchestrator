@@ -66,6 +66,12 @@ export interface StepDefinition {
    */
   video?: {
     provider?: string;    // 视频供应商 id（缺省取 llm.provider）
+    /**
+     * 图生视频：首帧参考图。可以是公网 URL、上游图片步骤的输出变量（markdown 图片引用）、
+     * 或本地文件路径。两家厂商都只收公网 URL：APIMart 有上传接口（引擎自动上传，72 小时有效）；
+     * 秘塔没有——本地图片走秘塔会明确报错，不会偷偷把 base64 塞进去白花一次。
+     */
+    image?: string;
     model?: string;       // 如 "MiniMax-H3"
     resolution?: string;  // 如 "768P" / "1080P" / "2K"（原样透传，各家档位名不同）
     duration?: number;    // 秒

@@ -321,7 +321,7 @@ export interface ConfigResponse {
    */
   imageProviders?: string[];
   /** 视频供应商（独立表）：是否已配 key + 各家档位表 */
-  videoProviders?: { id: string; hasKey: boolean; models: string[]; resolutions: string[]; durations: number[] }[];
+  videoProviders?: { id: string; hasKey: boolean; models: string[]; tiers?: Record<string, { resolutions: string[]; durations: number[] }>; resolutions: string[]; durations: number[] }[];
   /** 用户自己加的自定义供应商（任意 OpenAI 兼容 endpoint）。 */
   customProviders?: CustomProviderMeta[];
   /** 远程清单：增量上架的赞助商 / CLI 中转商 / 下架的内置 id。 */
