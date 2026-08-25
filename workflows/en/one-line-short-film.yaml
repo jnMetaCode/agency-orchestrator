@@ -5,6 +5,9 @@
 #      never guesses one for you.
 #   2. Defaults to the cheapest verification tier (768P × 5s ≈ ¥0.45 with MetaSota). Video is
 #      billed per second — the engine will not quietly scale that up for you.
+#   3. Resolution and duration are inputs too: **tier names are not interchangeable**
+#      (MetaSota 480p/512p/768P/2K vs APIMart 720p/1080p/4k, and VEO3 is fixed at 8s).
+#      Hard-coding one vendor's tier means the other vendor rejects the request outright.
 #
 # Prompt-writing runs on design/design-video-prompt-engineer — the role knows the 5-part
 # structure, the camera/lens anchor, the "breathing" line and the cost discipline, so the task
@@ -29,9 +32,17 @@ inputs:
     required: true
     default: "metaso"
   - name: video_model
-    description: "Video model id (vendor-specific; MetaSota takes MiniMax-H3)"
+    description: "Video model id (vendor-specific; MetaSota takes MiniMax-H3, APIMart takes veo3.1-fast / sora-2 …)"
     required: true
     default: "MiniMax-H3"
+  - name: video_resolution
+    description: "Resolution tier. **Not interchangeable**: MetaSota 480p/512p/768P/2K, APIMart 720p/1080p/4k — switch provider, switch this too"
+    required: true
+    default: "768P"
+  - name: video_duration
+    description: "Seconds (billed per second). MetaSota takes 4-10s; APIMart's VEO3 is fixed at 8 — a wrong value is rejected by the vendor"
+    required: true
+    default: "5"
 
 steps:
   - id: shot_prompt
@@ -83,8 +94,8 @@ steps:
     video:
       provider: "{{video_provider}}"
       model: "{{video_model}}"
-      resolution: "768P"    # MetaSota requires this field; it accepts 480p / 512p / 768P / 2K
-      duration: 5           # seconds — billed per second, so verify direction at the cheapest tier
+      resolution: "{{video_resolution}}"   # required; tier names differ per vendor, hence an input
+      duration: "{{video_duration}}"       # billed per second — the default is the cheapest check
       ratio: "16:9"
     output: clip_mp4
     depends_on: [shot_prompt]
@@ -104,6 +115,6 @@ steps:
       1. The clip reference (keep the link line exactly as given)
       2. Three key choices in the prompt and why (this camera / this grade / this camera move)
       3. If it gets re-rendered, the two things most worth changing
-      4. One cost line: this run is billed at 768P × 5s; go 2K or longer only once you like the direction
+      4. One cost line: this run is billed at {{video_resolution}} × {{video_duration}}s; go higher or longer only once you like the direction
     output: delivery
     depends_on: [clip, negative]

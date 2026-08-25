@@ -257,57 +257,94 @@ export async function generateVideo(
   inFlight.set(taskId, spec.id);
   onNotice?.(`🎬 视频任务已创建（task_id=${taskId}），开始轮询…（按秒计费，中途中断也可能已产生费用）`);
 
-  // ── 2. 轮询 ───────────────────────────────────────────────────────────────
-  let last = '';
-  while (Date.now() < deadline) {
-    await new Promise((r) => setTimeout(r, pollMs));
-    const q = await fetch(shape.queryUrl(baseUrl, taskId), {
-      headers: { Authorization: `Bearer ${apiKey}` },
-      signal: AbortSignal.timeout(30_000),
-    });
-    const qText = await q.text();
-    if (!q.ok) {
-      // 查询挂了不代表任务挂了（限流/瞬时 5xx 都可能）——记下来继续等，别把用户的钱扔了
-      onNotice?.(`⚠️ 查询任务状态失败：HTTP ${q.status}（继续等待）`);
-      continue;
-    }
-    let task: VideoTaskState | undefined;
-    try { task = shape.parseQuery(JSON.parse(qText), taskId); } catch { /* 非 JSON：当作瞬时异常继续等 */ }
-    if (!task) continue;                       // 这一轮没看到我们那条，继续等
-    const label = task.progress != null ? `${task.phase} ${task.progress}%` : task.phase;
-    if (label !== last) {
-      onNotice?.(`   任务状态：${label}`);
-      last = label;
-    }
-    if (task.phase === 'failed') {
-      inFlight.delete(taskId);
-      throw new Error(
-        `视频生成失败（task_id=${taskId}）：${task.error || '厂商未给出原因'}。` +
-        `拿这个 task_id 可以去服务商控制台对账。`
-      );
-    }
-    if (task.phase === 'done') {
-      const url = task.url;
-      if (!url) {
-        throw new Error(`视频任务已完成但没有下载地址（task_id=${taskId}）：${qText.slice(0, 200)}`);
+  // 建任务之后的每一条出口都必须摘掉登记，包括意料之外的抛错。
+  // inFlight 的语义是"此刻正在轮询的任务"——漏摘一处，长跑的 Studio 进程就会越积越多，
+  // 中断提示还会把早已结束的任务报成在飞的。用 finally 收口，比逐个出口记得删可靠。
+  try {
+    // ── 2. 轮询 ─────────────────────────────────────────────────────────────
+    let last = '';
+    while (Date.now() < deadline) {
+      await new Promise((r) => setTimeout(r, pollMs));
+
+      // **查询失败绝不能连累任务**：任务已经在跑、钱已经花了，这里一次网络抖动就抛错
+      // 等于把成品扔了。HTTP 5xx 与网络异常/超时是同一类瞬时故障，处理方式必须一致——
+      // 都记一行、继续等，直到整体 deadline 才认输。
+      let qText = '';
+      try {
+        const q = await fetch(shape.queryUrl(baseUrl, taskId), {
+          headers: { Authorization: `Bearer ${apiKey}` },
+          signal: AbortSignal.timeout(30_000),
+        });
+        qText = await q.text();
+        if (!q.ok) {
+          onNotice?.(`⚠️ 查询任务状态失败：HTTP ${q.status}（任务仍在跑，继续等待）`);
+          continue;
+        }
+      } catch (e) {
+        onNotice?.(`⚠️ 查询任务状态出错：${e instanceof Error ? e.message.slice(0, 80) : e}（任务仍在跑，继续等待）`);
+        continue;
       }
-      // ── 3. 下载成品（签名链接，有效期短，拿到就下） ──────────────────────
-      const dl = await fetch(url, { signal: AbortSignal.timeout(Math.max(60_000, deadline - Date.now())) });
-      if (!dl.ok) {
-        throw new Error(`下载生成的视频失败：HTTP ${dl.status}（${url.slice(0, 80)}…，签名链接可能已过期）`);
+
+      let task: VideoTaskState | undefined;
+      try { task = shape.parseQuery(JSON.parse(qText), taskId); } catch { /* 非 JSON：当作瞬时异常继续等 */ }
+      if (!task) continue;                       // 这一轮没看到我们那条，继续等
+      const label = task.progress != null ? `${task.phase} ${task.progress}%` : task.phase;
+      if (label !== last) {
+        onNotice?.(`   任务状态：${label}`);
+        last = label;
       }
-      const buffer = Buffer.from(await dl.arrayBuffer());
-      inFlight.delete(taskId);
-      return { buffer, mime: 'video/mp4', taskId, seconds: task.seconds, sourceUrl: url };
+      if (task.phase === 'failed') {
+        throw new Error(
+          `视频生成失败（task_id=${taskId}）：${task.error || '厂商未给出原因'}。` +
+          `拿这个 task_id 可以去服务商控制台对账。`
+        );
+      }
+      if (task.phase === 'done') {
+        const url = task.url;
+        if (!url) {
+          throw new Error(`视频任务已完成但没有下载地址（task_id=${taskId}）：${qText.slice(0, 200)}`);
+        }
+        // ── 3. 下载成品 ───────────────────────────────────────────────────
+        // 片子已经生成、钱已经花了，**一次抖动不该判死**：失败重试一次再放弃。
+        // 签名链接有效期短，所以只补一次、不做长退避——真过期了重试也没用，
+        // 那时错误里带着 task_id，用户还能去控制台自己下。
+        const buffer = await downloadWithRetry(url, Math.max(60_000, deadline - Date.now()), taskId, onNotice);
+        return { buffer, mime: 'video/mp4', taskId, seconds: task.seconds, sourceUrl: url };
+      }
+    }
+    throw new Error(
+      `视频生成超时（task_id=${taskId}，等了 ${Math.round(totalMs / 1000)}s，最后状态：${last || '未知'}）。` +
+      `任务多半还在服务商那边跑、费用可能已产生——去控制台按 task_id 查成品，` +
+      `或给这一步调大 video: { timeout: <毫秒> }。`
+    );
+  } finally {
+    inFlight.delete(taskId);
+  }
+}
+
+/** 下载成品，失败重试一次。理由见调用处：钱已经花了，别让一次抖动白花。 */
+async function downloadWithRetry(
+  url: string,
+  timeoutMs: number,
+  taskId: string,
+  onNotice?: (msg: string) => void,
+): Promise<Buffer> {
+  let lastErr = '';
+  for (let attempt = 1; attempt <= 2; attempt++) {
+    try {
+      const dl = await fetch(url, { signal: AbortSignal.timeout(timeoutMs) });
+      if (dl.ok) return Buffer.from(await dl.arrayBuffer());
+      lastErr = `HTTP ${dl.status}`;
+    } catch (e) {
+      lastErr = e instanceof Error ? e.message.slice(0, 80) : String(e);
+    }
+    if (attempt === 1) {
+      onNotice?.(`⚠️ 下载成品失败（${lastErr}），2 秒后重试一次…`);
+      await new Promise((r) => setTimeout(r, 2000));
     }
   }
-  // 超时也摘掉登记：inFlight 的语义是"此刻正在轮询的任务"，只有这样中断提示才准。
-  // 留着的话，长跑的 Studio 进程会越积越多、还会把早已放弃的任务当成在飞的报出来——
-  // 而超时这条错误本身已经带了 task_id 与费用提示，信息并没有丢。
-  inFlight.delete(taskId);
   throw new Error(
-    `视频生成超时（task_id=${taskId}，等了 ${Math.round(totalMs / 1000)}s，最后状态：${last || '未知'}）。` +
-    `任务多半还在服务商那边跑、费用可能已产生——去控制台按 task_id 查成品，` +
-    `或给这一步调大 video: { timeout: <毫秒> }。`
+    `下载生成的视频失败（${lastErr}）：${url.slice(0, 80)}…\n` +
+    `  片子多半已经生成、费用也已产生——拿 task_id=${taskId} 去服务商控制台下载。`
   );
 }

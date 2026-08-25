@@ -54,6 +54,31 @@ test('"nude lips" 是裸色唇妆，不是色情', () => {
   assert(hit('ivory blazer dress with gold accessories and nude heels') === null, '裸色高跟鞋不该剔');
 });
 
+test('风格豁免不适用于真人——"inspired by 某明星"照剔', () => {
+  // 致敬不改变"用了这个人的脸"这件事；品牌/画风可以豁免，肖像不行
+  assert(hit('3D collectible figurine inspired by Cristiano Ronaldo')?.name === '指名真人', 'inspired by 真人仍应剔');
+  assert(hit('a portrait in the style of Tom Cruise')?.name === '指名真人', 'in the style of 真人仍应剔');
+});
+
+test('品牌当风格词或颜色名用，不算"拿商标当主体"', () => {
+  // 抽查真被剔掉的条目时发现的误伤：这三种写法都不是在拿别人的商标做产品图
+  assert(hit('Clean Apple/Nike-style premium ad aesthetic') === null, 'Nike-style 是风格词');
+  assert(hit('Porsche yellow inner chamber, matte-satin finish') === null, 'Porsche yellow 是颜色名');
+  assert(hit('a fashion portrait inspired by Gucci campaigns') === null, 'inspired by 是致敬不是冒用');
+});
+
+test('品牌确实当主体时照剔', () => {
+  assert(hit('PRODUCT: Porsche 911 GT3 RS, gloss yellow with carbon details')?.name === '品牌商标作主体', '产品图应剔');
+  assert(hit('A hyperrealistic Nike sneaker advertisement, dark moody studio')?.name === '品牌商标作主体', '广告图应剔');
+  assert(hit('add “GUCCI” logo top right corner, luxury typography')?.name === '品牌商标作主体', '加 logo 应剔');
+});
+
+test('同一条里前面是风格词、后面才是主体——不能只看第一处', () => {
+  // violation() 改成全局扫就是为了这种：只看第一处会把它整条放行
+  assert(hit('Nike-style clean layout. PRODUCT: Nike Air Max on a pedestal')?.name === '品牌商标作主体',
+    '后面那处才是主体，应剔');
+});
+
 test('"Pixar-style / Disney-style" 是画风词，不是 IP 角色', () => {
   assert(hit('A 3D Pixar-style young man smiling in golden hour light') === null, '画风词不该剔');
   assert(hit('Disney-style watercolor illustration of a fox') === null, '画风词不该剔');

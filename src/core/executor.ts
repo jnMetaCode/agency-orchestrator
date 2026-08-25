@@ -479,6 +479,17 @@ async function executeStep(
       const v = videoOpts[k];
       if (typeof v === 'string') videoOpts[k] = renderTemplate(v, opts.context);
     }
+    // duration 是数字字段，但模板把它做成输入后 YAML 里就是字符串 "{{video_duration}}"。
+    // 不在这儿渲染+转数，就会把那串花括号原样发给厂商——参数非法、一次调用白费。
+    // 转不出正数就当场报错：视频按秒计费，"0 秒"或"NaN 秒"发出去只会拿回一个看不懂的厂商错误。
+    if (typeof (videoOpts as { duration?: unknown }).duration === 'string') {
+      const raw = renderTemplate(String(videoOpts.duration), opts.context);
+      const n = Number(raw);
+      if (!Number.isFinite(n) || n <= 0) {
+        throw new Error(`video.duration 需要一个正数秒数，渲染后得到 "${raw}"（检查输入是否填了、或写成了非数字）`);
+      }
+      videoOpts.duration = n;
+    }
     const vid = await generateVideo(vidConfig, prompt, videoOpts, (m: string) => process.stderr.write(`  ${m}\n`));
     const filename = `${node.step.id}.mp4`;
     node.videoAsset = { filename, base64: vid.buffer.toString('base64'), ...(vid.seconds ? { seconds: vid.seconds } : {}) };

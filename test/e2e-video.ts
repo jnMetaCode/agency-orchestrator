@@ -175,6 +175,86 @@ console.log('\n─── 端到端：上游文字步的产出流进视频提示�
 }
 
 
+console.log('\n─── 端到端：duration 走输入时必须转成数字 ───');
+{
+  // 模板把 resolution/duration 做成输入后，YAML 里它们就是字符串 "{{video_duration}}"。
+  // 渲染白名单里漏了 duration 的话，发给厂商的就是那串花括号本身——参数非法、白花一次调用。
+  const seen: { create?: any; prompts: string[] } = { prompts: [] };
+  const srv = fakeServer(seen);
+  const port = await listen(srv);
+  const dir = mkdtempSync(join(tmpdir(), 'ao-e2e-video4-'));
+  const wf = join(dir, 'v.yaml');
+  writeFileSync(wf, [
+    'name: "参数走输入"',
+    'llm:',
+    '  provider: "metaso"',
+    `  base_url: "http://127.0.0.1:${port}"`,
+    '  api_key: "mk-test"',
+    'inputs:',
+    '  - name: res',
+    '    required: true',
+    '  - name: secs',
+    '    required: true',
+    'steps:',
+    '  - id: clip',
+    '    type: video',
+    '    task: "猫"',
+    '    video:',
+    '      model: "MiniMax-H3"',
+    '      resolution: "{{res}}"',
+    '      duration: "{{secs}}"',
+    '    output: c',
+  ].join('\n'), 'utf-8');
+
+  try {
+    const result = await run(wf, { res: '2K', secs: '7' }, { quiet: true, outputDir: join(dir, 'out') });
+    assert(result.success === true, `应完成（${result.steps.map((s) => `${s.id}:${s.status}`).join(', ')} ${result.steps[0]?.error ?? ''}）`);
+    assert(seen.create?.resolution === '2K', `resolution 应渲染成 2K，实际 ${seen.create?.resolution}`);
+    assert(seen.create?.duration === 7, `duration 要是**数字** 7，实际 ${JSON.stringify(seen.create?.duration)}（字符串或花括号都算失败）`);
+  } catch (e) {
+    assert(false, `端到端跑挂了：${e instanceof Error ? e.message : e}`);
+  } finally {
+    srv.close();
+    rmSync(dir, { recursive: true, force: true });
+  }
+}
+
+{
+  // 输入没填/填了非数字时，要在发请求前就报错——按秒计费的东西不该拿 NaN 去试
+  const seen: { create?: any; prompts: string[] } = { prompts: [] };
+  const srv = fakeServer(seen);
+  const port = await listen(srv);
+  const dir = mkdtempSync(join(tmpdir(), 'ao-e2e-video5-'));
+  const wf = join(dir, 'v.yaml');
+  writeFileSync(wf, [
+    'name: "秒数填错"',
+    'llm:',
+    '  provider: "metaso"',
+    `  base_url: "http://127.0.0.1:${port}"`,
+    '  api_key: "mk-test"',
+    'inputs:',
+    '  - name: secs',
+    '    required: true',
+    'steps:',
+    '  - id: clip',
+    '    type: video',
+    '    task: "猫"',
+    '    video: { model: "MiniMax-H3", duration: "{{secs}}" }',
+    '    output: c',
+  ].join('\n'), 'utf-8');
+  try {
+    const result = await run(wf, { secs: '很快' }, { quiet: true, outputDir: join(dir, 'out') });
+    const err = result.steps.find((s) => s.id === 'clip')?.error ?? '';
+    assert(/正数秒数/.test(err), `应在发请求前报错，实际：${err}`);
+    assert(seen.create === undefined, '不该发出任何建任务请求');
+  } catch (e) {
+    assert(false, `端到端跑挂了：${e instanceof Error ? e.message : e}`);
+  } finally {
+    srv.close();
+    rmSync(dir, { recursive: true, force: true });
+  }
+}
+
 console.log('\n─── 端到端：两个视频步骤并行，各拿各的片 ───');
 {
   // 这条测的是整个视频实现里最容易出错的一环：秘塔的查询接口**不按 task_id 过滤**，

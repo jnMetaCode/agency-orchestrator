@@ -370,6 +370,70 @@ await test('任务失败后不再挂在"在飞"名单里', async () => {
   assert(msg === null || !/2091363060444401664/.test(msg), `失败的任务不该还挂着：${msg}`);
 });
 
+console.log('\n─── 瞬时故障不能把一个已付费的任务扔掉 ───');
+
+await test('查询接口网络异常时继续等，不是当场抛错', async () => {
+  // 任务已经在跑、钱已经花了。查询这一跳出网络问题就抛错 = 把成品扔了。
+  // 假服务：前两次查询直接掐断连接，第三次才正常返回 succeeded。
+  let queries = 0;
+  let port = 0;
+  const srv = http.createServer((req, res) => {
+    const url = new URL(req.url || '/', 'http://x');
+    if (req.method === 'POST' && url.pathname.endsWith('/v2/video_generation')) {
+      let b = ''; req.on('data', (c) => { b += c; });
+      req.on('end', () => { res.writeHead(200, { 'Content-Type': 'application/json' }); res.end(JSON.stringify({ task_id: 'T1' })); });
+      return;
+    }
+    if (url.pathname.endsWith('/v2/query/video_generation')) {
+      queries++;
+      if (queries <= 2) { req.socket.destroy(); return; }        // 掐断：模拟网络抖动
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      return res.end(JSON.stringify({ items: [{ id: 'T1', status: 'succeeded', content: { url: `http://127.0.0.1:${port}/f.mp4` }, usage: { total_seconds: 5 } }] }));
+    }
+    if (url.pathname === '/f.mp4') { res.writeHead(200, { 'Content-Type': 'video/mp4' }); return res.end(MP4); }
+    res.writeHead(404).end('{}');
+  });
+  port = await listen(srv);
+  try {
+    const v = await generateVideo(cfg({ base_url: `http://127.0.0.1:${port}` }), 'x',
+      { model: 'MiniMax-H3', poll_interval: 10, timeout: 20000 });
+    assert(v.buffer.equals(MP4), '抖动过去后应正常拿到成品');
+    assert(queries >= 3, `应至少熬过两次失败的查询，实际查了 ${queries} 次`);
+  } finally { srv.close(); }
+});
+
+await test('下载成品失败会重试一次；两次都失败时报错带上 task_id', async () => {
+  let hits = 0;
+  let port = 0;
+  const srv = http.createServer((req, res) => {
+    const url = new URL(req.url || '/', 'http://x');
+    if (req.method === 'POST' && url.pathname.endsWith('/v2/video_generation')) {
+      let b = ''; req.on('data', (c) => { b += c; });
+      req.on('end', () => { res.writeHead(200, { 'Content-Type': 'application/json' }); res.end(JSON.stringify({ task_id: 'T2' })); });
+      return;
+    }
+    if (url.pathname.endsWith('/v2/query/video_generation')) {
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      return res.end(JSON.stringify({ items: [{ id: 'T2', status: 'succeeded', content: { url: `http://127.0.0.1:${port}/gone.mp4` } }] }));
+    }
+    if (url.pathname === '/gone.mp4') { hits++; res.writeHead(403).end('expired'); return; }
+    res.writeHead(404).end('{}');
+  });
+  port = await listen(srv);
+  let msg = '';
+  try {
+    await generateVideo(cfg({ base_url: `http://127.0.0.1:${port}` }), 'x', { model: 'MiniMax-H3', poll_interval: 10, timeout: 20000 });
+  } catch (e) { msg = e instanceof Error ? e.message : String(e); } finally { srv.close(); }
+  assert(hits === 2, `应重试一次（共 2 次下载尝试），实际 ${hits}`);
+  assert(/T2/.test(msg) && /控制台/.test(msg), `报错要能拿去自救，实际：${msg}`);
+});
+
+await test('无论从哪条出口退出，都不留在"在飞"名单里', async () => {
+  const { describePendingVideoTasks } = await import('../src/connectors/video.js');
+  const before = describePendingVideoTasks();
+  assert(before === null, `上面的用例应已清干净，实际还挂着：${before}`);
+});
+
 console.log('\n─── 产物落盘 ───');
 
 await test('mp4 落到 assets/，base64 绝不进 metadata.json', () => {

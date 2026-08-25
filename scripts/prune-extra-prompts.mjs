@@ -72,6 +72,26 @@ export const RULES = [
   ['性化描述', /\b(nsfw|porn|erotic|topless)\b|\bnaked\s+(body|woman|man|girl|boy)\b|nude\s+(body|figure|woman|man|model|photo)|innocent-?sexy/i],
 ];
 
+/**
+ * 命中处是否只是**风格描述或颜色名**，而不是把品牌/角色当主体。
+ *
+ * 与"Pixar-style 不算 IP、nude lips 不算色情"是同一条道理：抽查真被剔掉的条目时发现
+ * 「Nike-style premium ad aesthetic」「Porsche yellow inner chamber」也被一刀切了——
+ * 前者是风格词、后者是颜色名，都不是在拿别人的商标当产品主体。误删不会有人来报 bug，
+ * 只会让库悄悄变少，所以这类必须放行。
+ */
+export function isStyleOrColorContext(text, index, word) {
+  const after = text.slice(index + word.length, index + word.length + 24).toLowerCase();
+  const before = text.slice(Math.max(0, index - 24), index).toLowerCase();
+  // X-style / X style / X aesthetic / X vibe → 风格描述
+  if (/^[\s-]*(style|styled|esque|aesthetic|vibe|inspired|like)\b/.test(after)) return true;
+  // inspired by X / in the style of X / like X → 同上
+  if (/(inspired by|in the style of|reminiscent of|similar to|like)\s*$/.test(before)) return true;
+  // X yellow / X red … → 颜色名（Porsche yellow、Ferrari red、Tiffany blue 这类惯用法）
+  if (/^\s*(yellow|red|blue|green|black|white|orange|silver|gold|grey|gray|pink|purple)\b/.test(after)) return true;
+  return false;
+}
+
 /** 命中处是否落在"负面提示词"的语境里（no / avoid / without / never / 不要 …）。 */
 export function isNegativeContext(text, index) {
   const before = text.slice(Math.max(0, index - 40), index).toLowerCase();
@@ -81,8 +101,18 @@ export function isNegativeContext(text, index) {
 export function violation(item) {
   const hay = `${item.title || ''}\n${item.prompt || ''}`;
   for (const [name, rx] of RULES) {
-    const m = rx.exec(hay);
-    if (m && !isNegativeContext(hay, m.index)) return { name, word: m[0] };
+    // 一条提示词里同一类词可能出现多次：前面那处是风格词、后面那处才是主体，
+    // 只看第一处会漏判。全局扫，任一处构成"拿它当主体"就算命中。
+    const re = new RegExp(rx.source, rx.flags.includes('g') ? rx.flags : `${rx.flags}g`);
+    // 风格/颜色豁免**只给品牌与 IP**，不给真人：Nike-style 是画风、Porsche yellow 是颜色，
+    // 但"inspired by 某某明星"做出来的仍然是那个人的脸——致敬不改变用了肖像这件事。
+    const styleExemptable = name === '品牌商标作主体' || name === 'IP 角色作主体';
+    let m;
+    while ((m = re.exec(hay)) !== null) {
+      if (isNegativeContext(hay, m.index)) continue;
+      if (styleExemptable && isStyleOrColorContext(hay, m.index, m[0])) continue;
+      return { name, word: m[0] };
+    }
   }
   return null;
 }
