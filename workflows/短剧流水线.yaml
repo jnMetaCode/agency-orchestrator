@@ -207,6 +207,15 @@ steps:
     output: shot3_mp4
     depends_on: [character, shot3_prompt]
 
+  - id: film
+    type: concat
+    name: "三镜合成"
+    emoji: "🎞"
+    concat:
+      inputs: ["{{shot1_mp4}}", "{{shot2_mp4}}", "{{shot3_mp4}}"]   # 本机 ffmpeg，不花厂商的钱
+    output: film_mp4
+    depends_on: [shot1, shot2, shot3]
+
   - id: pack
     role: "design/design-visual-storyteller"
     name: "交付页"
@@ -214,6 +223,7 @@ steps:
     task: |
       整理成一页可存档的短剧交付说明：
 
+      成片（三镜合成）：{{film_mp4}}
       定妆图：{{character_img}}
       镜头 1：{{shot1_mp4}}
       镜头 2：{{shot2_mp4}}
@@ -223,9 +233,9 @@ steps:
       {{script}}
 
       需要包含：
-      1. 定妆图与三镜成片的引用（原样保留上面四行链接，按顺序）
+      1. 成片、定妆图与三镜的引用（原样保留上面五行链接，按顺序；成片放最前）
       2. 每镜一句"这一镜在讲什么"
       3. 若要重跑，最值得改的两处（角色一致性 / 运镜 / 节奏）
-      4. 成本一行：3 镜 × {{video_duration}} 秒 × {{video_resolution}}；剪辑合成可用 ffmpeg concat 三段 mp4
+      4. 成本一行：3 镜 × {{video_duration}} 秒 × {{video_resolution}}（合成不花钱，本机 ffmpeg）
     output: delivery
-    depends_on: [shot1, shot2, shot3]
+    depends_on: [film]

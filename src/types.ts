@@ -58,7 +58,9 @@ export interface StepDefinition {
   skill?: string;             // 给本步挂一个方法论 skill（注入 system prompt），如 "test-driven-development"
   skills?: string[];          // 多个 skill（与 skill 合并）
   depends_on?: string[];      // 依赖的步骤 id
-  type?: 'normal' | 'approval' | 'human_input' | 'image' | 'video'; // 节点类型（image/video = 文生图/文生视频：task 即提示词）
+  type?: 'normal' | 'approval' | 'human_input' | 'image' | 'video' | 'concat'; // 节点类型（image/video = 文生图/文生视频：task 即提示词；concat = ffmpeg 合成多段视频）
+  /** type: concat 专用——把上游多段 mp4（视频步骤的输出变量）按顺序合成一条；需要本机 ffmpeg */
+  concat?: { inputs: string[]; size?: string; fps?: number };
   /** type: image 专用——图片模型与参数（model 必填：各家图片模型编码互不通用，不猜） */
   image?: { provider?: string; model?: string; size?: string; quality?: string; background?: string };
   /**

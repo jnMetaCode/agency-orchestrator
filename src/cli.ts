@@ -11,7 +11,7 @@
 import { readFileSync, existsSync, writeFileSync } from 'node:fs';
 import { resolve, join, dirname, basename } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { execSync, spawn } from 'node:child_process';
+import { spawnSync, execSync, spawn } from 'node:child_process';
 import { parseWorkflow, validateWorkflow } from './core/parser.js';
 import type { LLMConfig } from './types.js';
 import { buildDAG, formatDAG } from './core/dag.js';
@@ -745,6 +745,12 @@ async function handleDoctor(): Promise<void> {
   console.log(imageCapable.length
     ? `  🎨 可用于文生图的供应商（已配 key、协议对得上）：${imageCapable.join(', ')}\n     ↳ 是否真上架图片模型看服务商；image.model 必填且不通用，配了 key 可在 Studio 点「获取模型列表」`
     : `  ·  文生图暂不可用：需要一个 OpenAI 兼容的 API provider 并配 key（本地 CLI 与 Anthropic 协议都没有图片端点）`);
+  // 合成（type: concat）靠本机 ffmpeg，不随包分发
+  const ffmpegBin = process.env.AO_FFMPEG || 'ffmpeg';
+  const ffmpegOk = (() => { try { return spawnSync(ffmpegBin, ['-version'], { encoding: 'utf-8' }).status === 0; } catch { return false; } })();
+  console.log(ffmpegOk
+    ? `  🎞 ffmpeg 可用（type: concat 多段视频合成）`
+    : `  ·  ffmpeg 未找到：type: concat（多段视频合成）不可用。macOS: brew install ffmpeg；Ubuntu: apt install ffmpeg；或设 AO_FFMPEG=/path`);
   const videoKeyed = VIDEO_PROVIDERS.filter((p) => process.env[p.envKey] || studioKeys[p.id]?.apiKey).map((p) => p.id);
   console.log(videoKeyed.length
     ? `  🎬 文生视频可用（type: video）：${videoKeyed.join(', ')}（余额与计费需在服务商控制台自查，doctor 不探）`

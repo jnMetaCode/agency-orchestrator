@@ -18,6 +18,7 @@ import { collectSkillNames, injectSkills } from '../skills/loader.js';
 import { createConnector } from '../connectors/factory.js';
 import { generateImage } from '../connectors/image.js';
 import { generateVideo , type VideoStepOptions } from '../connectors/video.js';
+import { concatVideos } from '../media/concat.js';
 import { verifyAcceptance, buildReworkBlock, formatFailedItems } from './verify.js';
 import { checkAssert, buildAssertReworkBlock } from './assert.js';
 import { createInterface } from 'node:readline';
@@ -63,6 +64,8 @@ export interface ExecutorOptions {
 
 /** 本次运行里图片步骤的产物（文件名 → 字节）。图生视频步骤在运行中引用上游图片时从这里取。 */
 const producedAssets = new Map<string, Buffer>();
+/** 本次运行里视频步骤 / concat 步骤的产物（文件名 → 字节）。concat 在运行中引用上游视频时从这里取。 */
+const producedVideos = new Map<string, Buffer>();
 
 export async function executeDAG(dag: DAG, options: ExecutorOptions): Promise<WorkflowResult> {
   const {
@@ -515,8 +518,30 @@ async function executeStep(
     const vid = await generateVideo(vidConfig, prompt, videoOpts, (m: string) => process.stderr.write(`  ${m}\n`));
     const filename = `${node.step.id}.mp4`;
     node.videoAsset = { filename, base64: vid.buffer.toString('base64'), ...(vid.seconds ? { seconds: vid.seconds } : {}) };
+    producedVideos.set(filename, vid.buffer);
     const mb = (vid.buffer.length / 1024 / 1024).toFixed(1);
     process.stderr.write(`  🎬 ${node.step.id} 生成视频 ${filename}（${mb}MB${vid.seconds ? `，计费 ${vid.seconds}s` : ''}）\n`);
+    return `[▶ ${node.step.id}.mp4](assets/${filename})`;
+  }
+
+  // 合成节点：把上游多段 mp4 按顺序拼成一条（短剧流水线的三镜合一）。不花厂商的钱，只用本机 ffmpeg。
+  if (node.step.type === 'concat') {
+    node.agentName = node.step.name || '合成';
+    node.agentEmoji = node.step.emoji || '🎞';
+    const refs = (node.step.concat?.inputs ?? []).map((r) => renderTemplate(r, opts.context).trim()).filter(Boolean);
+    const inputs = refs.map((ref) => {
+      const m = ref.match(/\[[^\]]*\]\(([^)]+)\)/);
+      const target = (m ? m[1] : ref).trim();
+      const name = target.split('/').pop() || target;
+      const buffer = producedVideos.get(name) ?? (existsSync(target) ? readFileSync(target) : undefined);
+      if (!buffer) throw new Error(`concat 找不到视频：${ref.slice(0, 120)}（上游视频步骤没产出？或本地路径不存在）`);
+      return { name, buffer };
+    });
+    const out = await concatVideos(inputs, { size: node.step.concat?.size, fps: node.step.concat?.fps }, (m: string) => process.stderr.write(`  ${m}\n`));
+    const filename = `${node.step.id}.mp4`;
+    node.videoAsset = { filename, base64: out.toString('base64') };
+    producedVideos.set(filename, out);
+    process.stderr.write(`  🎞 ${node.step.id} 合成 ${inputs.length} 段 → ${filename}（${(out.length / 1024 / 1024).toFixed(1)}MB）\n`);
     return `[▶ ${node.step.id}.mp4](assets/${filename})`;
   }
 

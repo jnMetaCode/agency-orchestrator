@@ -171,6 +171,14 @@ steps:
       image: "{{cover_img}}"          # optional image-to-video first frame: public URL, an upstream image step's output, or a local path. Vendors accept public URLs only — APIMart uploads local files automatically (POST /v1/uploads/images, 72h); MetaSota has no upload, local files fail with a clear error
       ratio: "16:9"
     output: promo_mp4                # variable = markdown link; mp4 saved to <run>/assets/
+
+  - id: film                         # concat step: stitch upstream clips with local ffmpeg (no vendor cost)
+    type: concat                     # no role/task; needs ffmpeg on PATH (or AO_FFMPEG); `ao doctor` reports it
+    concat:
+      inputs: ["{{shot1_mp4}}", "{{shot2_mp4}}"]   # upstream video outputs, in order
+      size: "1280x720"               # optional; defaults to first clip's size. Clips are normalized (scale/pad/fps, silent audio if missing) then concatenated
+    output: film_mp4
+    depends_on: [shot1, shot2]
 ```
 
 Image steps try the OpenAI Images API (`/images/generations`) first and automatically fall

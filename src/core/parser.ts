@@ -57,7 +57,7 @@ export function parseWorkflow(
   // 顶层 llm.model 只是文本步骤要用的。逼用户随手填一个用不上的文本模型，等于教他写谎话
   // （与 agents_dir 那条同一个道理：一个角色都不用的工作流不该被"找不到角色库"挡在门外）。
   const mediaOnly = Array.isArray(doc.steps) && doc.steps.length > 0
-    && (doc.steps as Array<Record<string, unknown>>).every((s) => s?.type === 'image' || s?.type === 'video');
+    && (doc.steps as Array<Record<string, unknown>>).every((s) => s?.type === 'image' || s?.type === 'video' || s?.type === 'concat');
   if (!llm.model && !cliProviders.includes(llm.provider as string) && !mediaOnly) {
     fail(t('parse.missing_model'));
   }
@@ -81,10 +81,18 @@ export function parseWorkflow(
     const isHumanNode = step.type === 'approval' || step.type === 'human_input';
     const isImageNode = step.type === 'image';
     const isVideoNode = step.type === 'video';
-    if (!isHumanNode && !isImageNode && !isVideoNode && !step.role) {
+    const isConcatNode = step.type === 'concat';
+    if (!isHumanNode && !isImageNode && !isVideoNode && !isConcatNode && !step.role) {
       fail(`step "${step.id}" 缺少 role`);
     }
-    if (!step.task && !isHumanNode) {
+    if (isConcatNode) {
+      const ins = step.concat?.inputs;
+      if (!Array.isArray(ins) || ins.length === 0 || !ins.every((x) => typeof x === 'string' && x.trim())) {
+        fail(`step "${step.id}" 是 concat 步骤，必须写 concat: { inputs: ["{{shot1_mp4}}", "{{shot2_mp4}}", …] }（上游视频步骤的输出变量，按顺序合成）`);
+      }
+      if (step.acceptance || step.assert) fail(`step "${step.id}" 是 concat 步骤，暂不支持 acceptance / assert`);
+    }
+    if (!step.task && !isHumanNode && !isConcatNode) {
       fail(`step "${step.id}" 缺少 task${isImageNode ? '（image 步骤的 task 就是图片提示词）' : isVideoNode ? '（video 步骤的 task 就是视频提示词）' : ''}`);
     }
     if (isVideoNode && (step.acceptance || step.assert)) {
