@@ -4,7 +4,7 @@ import { Tip } from "@/components/ui/tip";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useLanguage } from "@/i18n/LanguageProvider";
 import { Button } from "@/components/ui/button";
-import { api, getFavWorkflows, setFavWorkflows, type CommunityTemplate, type Workflow } from "@/lib/studio";
+import { api, recentUsage, type RunSummary, getFavWorkflows, setFavWorkflows, type CommunityTemplate, type Workflow } from "@/lib/studio";
 import { track } from "@/lib/track";
 import { cn } from "@/lib/utils";
 import { RoleAvatar } from "./RoleAvatar";
@@ -162,6 +162,9 @@ function InputsDialog({ wf, provider, onClose, onRun, onCompare }: { wf: Workflo
 export function WorkflowsPanel({ provider, onRun, demo, onInstallPrompt }: { provider: string; onRun: (r: RunRequest) => void; demo?: boolean; onInstallPrompt?: () => void }) {
   const { t, lang } = useLanguage();
   const [wfs, setWfs] = useState<Workflow[]>([]);
+  // 最近 30 天运行记录——「最近运行」区按工作流文件聚合（用户隐式的"常用"，排在显式 ☆ 之后）
+  const [runs, setRuns] = useState<RunSummary[]>([]);
+  useEffect(() => { if (!demo) api.runs().then(setRuns).catch(() => setRuns([])); }, [demo]);
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState<string | null>(null);
   const [q, setQ] = useState("");
@@ -259,8 +262,11 @@ export function WorkflowsPanel({ provider, onRun, demo, onInstallPrompt }: { pro
       const ia = CATEGORY_ORDER.indexOf(a), ib = CATEGORY_ORDER.indexOf(b);
       return (ia < 0 ? 99 : ia) - (ib < 0 ? 99 : ib);
     });
-    return { mine, fav, cats: cats.map((c) => [c, byCat.get(c)!] as [string, Workflow[]]) };
-  }, [filtered, favs]);
+    // 最近运行：按次数倒序取前 6（搜索时不显示——搜索结果本身就是用户要的）
+    const byFile = new Map(filtered.map((w) => [w.file, w] as const));
+    const recent = q.trim() ? [] : recentUsage(runs, (r) => (r.file ? [r.file] : undefined)).map(([f]) => byFile.get(f)).filter((w): w is Workflow => !!w).slice(0, 6);
+    return { mine, fav, recent, cats: cats.map((c) => [c, byCat.get(c)!] as [string, Workflow[]]) };
+  }, [filtered, favs, runs, q]);
 
   useEffect(() => {
     if (demo) return;
@@ -500,6 +506,7 @@ export function WorkflowsPanel({ provider, onRun, demo, onInstallPrompt }: { pro
               />
             )}
             {groups.fav.length > 0 && <Section title={lang === "en" ? "Favorites" : "常用（点 ☆ 收藏）"} items={groups.fav} star />}
+            {groups.recent.length > 0 && <Section title={lang === "en" ? "Recently run" : "最近运行"} items={groups.recent} hint={lang === "en" ? "most-run in the last 30 days, from local run history" : "近 30 天跑得最多的，来自本机运行历史"} />}
             {groups.cats.map(([c, items]) => <Section key={c} title={c} items={items} />)}
             {!demo && community.length > 0 && (
               <section className="mt-8">

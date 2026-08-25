@@ -236,7 +236,13 @@ try {
     const noRun = await fetch(base + '/api/runs/' + encodeURIComponent(notARun) + '/assets/x.png');
     assert(noRun.status === 404, '没有 metadata.json 的目录不提供产物');
 
-    const runsList = (await (await fetch(base + '/api/runs')).json()) as Array<{ id: string; startedAt?: string }>;
+    const runsList = (await (await fetch(base + '/api/runs')).json()) as Array<{ id: string; startedAt?: string; file?: string; roles?: string[] }>;
+    {
+      // 「最近运行 / 最近用过」的数据基础：列表项带工作流文件与用过的角色
+      const withRoles = runsList.find((r) => Array.isArray(r.roles) && r.roles.length > 0);
+      assert(!!withRoles, '/api/runs 列表项应带 roles（步骤 role 去重）');
+      assert(runsList.every((r) => Array.isArray(r.roles)), '/api/runs 每项 roles 都是数组');
+    }
     const legacy = runsList.find((r) => r.id === legacyRun);
     const fresh = runsList.find((r) => r.id === newRun);
     assert(legacy?.startedAt === '2026-07-15T02:30:26.000Z', `老产物目录名按 UTC 还原成绝对时刻(实际 ${legacy?.startedAt})`);

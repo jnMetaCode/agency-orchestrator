@@ -3,7 +3,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { useLanguage } from "@/i18n/LanguageProvider";
-import { api, getFavRoles, setFavRoles, type ComposeResult, type Role, type Team, type Workflow } from "@/lib/studio";
+import { api, getFavRoles, recentUsage, setFavRoles, type ComposeResult, type Role, type RunSummary, type Team, type Workflow } from "@/lib/studio";
 import { track } from "@/lib/track";
 import { demoRoles } from "@/lib/demo";
 import { cn } from "@/lib/utils";
@@ -63,6 +63,13 @@ export function RolesPicker({
 
   // 用户自选「常用」角色：点星收藏（localStorage，与工作流的 ☆ 同一交互）
   const [favs, setFavs] = useState<Set<string>>(() => getFavRoles());
+  // 最近 30 天运行里用过的角色（按次数）——"最近用过"一行芯片，点即加入组队
+  const [runs, setRuns] = useState<RunSummary[]>([]);
+  useEffect(() => { if (!demo) api.runs().then(setRuns).catch(() => setRuns([])); }, [demo]);
+  const recentRoles = useMemo(() => {
+    const byKey = new Map(roles.map((r) => [roleKey(r), r] as const));
+    return recentUsage(runs, (r) => r.roles).map(([k]) => byKey.get(k)).filter((r): r is Role => !!r).slice(0, 8);
+  }, [runs, roles]);
   const toggleFav = (r: Role, e: React.MouseEvent) => {
     e.stopPropagation();
     setFavs((prev) => {
@@ -569,6 +576,29 @@ export function RolesPicker({
           </button>
         ))}
       </div>
+
+      {/* 最近用过：只在「全部」且未搜索时显示，与 ☆常用互补（显式 vs 隐式） */}
+      {cat === "all" && !q.trim() && recentRoles.length > 0 && (
+        <div className="mt-4 flex flex-wrap items-center gap-1.5">
+          <span className="mr-1 text-xs font-medium text-muted-foreground">{t.studio.roles.recentTitle}</span>
+          {recentRoles.map((r) => {
+            const on = !!selected[roleKey(r)];
+            return (
+              <button
+                key={roleKey(r)}
+                type="button"
+                onClick={() => toggle(r)}
+                className={cn(
+                  "rounded-full border px-2.5 py-1 text-xs transition-colors",
+                  on ? "border-primary bg-primary/10 text-primary" : "border-border/70 text-muted-foreground hover:border-primary/40 hover:text-foreground",
+                )}
+              >
+                {r.name}
+              </button>
+            );
+          })}
+        </div>
+      )}
 
       {/* role grid */}
       <div className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">

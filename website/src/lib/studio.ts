@@ -67,7 +67,11 @@ export interface RunSummary {
   tokens?: { input: number; output: number };
   stepCount?: number;
   completedCount?: number;
+  /** 工作流文件绝对路径（与 Workflow.file 同源）——「最近运行」按此聚合 */
   file?: string;
+  /** 本次运行用到的角色 key（category/id）——「最近用过」按此聚合 */
+  roles?: string[];
+  mtime?: number;
   steps?: RunStepSummary[];
   /** 完成时刻（UTC ISO）。目录名里的时间戳是 UTC，显示一律用这个字段按本地时区渲染。 */
   startedAt?: string;
@@ -376,6 +380,22 @@ export function getFavRoles(): Set<string> {
 export function setFavRoles(keys: Set<string>) {
   if (typeof window === "undefined") return;
   window.localStorage.setItem(FAV_ROLES_KEY, JSON.stringify([...keys]));
+}
+
+/** 近 N 天的运行按 key 计数，返回 [key, 次数] 按次数倒序（次数同则最近优先） */
+export function recentUsage(runs: RunSummary[], keyOf: (r: RunSummary) => string[] | undefined, days = 30): [string, number][] {
+  const since = Date.now() - days * 86_400_000;
+  const count = new Map<string, number>();
+  const last = new Map<string, number>();
+  for (const r of runs) {
+    const t = r.startedAt ? Date.parse(r.startedAt) : r.mtime ?? 0;
+    if (t < since) continue;
+    for (const k of keyOf(r) ?? []) {
+      count.set(k, (count.get(k) ?? 0) + 1);
+      last.set(k, Math.max(last.get(k) ?? 0, t));
+    }
+  }
+  return [...count.entries()].sort((a, b) => b[1] - a[1] || (last.get(b[0]) ?? 0) - (last.get(a[0]) ?? 0));
 }
 
 // ── 用户自选「常用」模型（顶栏快切置顶；按供应商分开存，存 localStorage，按机器） ──

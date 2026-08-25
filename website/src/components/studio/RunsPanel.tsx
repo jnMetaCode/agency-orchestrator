@@ -281,6 +281,8 @@ export function RunsPanel({ provider, onRun }: { provider: string; onRun: (r: Ru
   const [filter, setFilter] = useState<StatusFilter>("all");
   // 管理模式：出复选框做批量删除；平时每条 hover 出单条删除
   const [manage, setManage] = useState(false);
+  // 分组方式：按日（默认，时间倒序）或按工作流（"这条工作流我跑过哪几次"）
+  const [groupBy, setGroupBy] = useState<"day" | "workflow">("day");
   const [checked, setChecked] = useState<Set<string>>(new Set());
   const [pending, setPending] = useState<string[] | null>(null);
   const [busy, setBusy] = useState(false);
@@ -308,6 +310,17 @@ export function RunsPanel({ provider, onRun }: { provider: string; onRun: (r: Ru
     const today = localDayKey(new Date());
     const yest = localDayKey(new Date(Date.now() - 86_400_000));
     const out: { key: string; label: string; items: RunSummary[] }[] = [];
+    if (groupBy === "workflow") {
+      // 按工作流：组顺序 = 该工作流最近一次运行的时间（列表已倒序，首次出现即最近）
+      const idx = new Map<string, number>();
+      for (const r of filtered) {
+        const key = r.file || r.name;
+        const i = idx.get(key);
+        if (i === undefined) { idx.set(key, out.length); out.push({ key, label: r.name, items: [r] }); }
+        else out[i].items.push(r);
+      }
+      return out;
+    }
     for (const r of filtered) {
       const d = runDate(r);
       const key = d ? localDayKey(d) : "—";
@@ -323,7 +336,7 @@ export function RunsPanel({ provider, onRun }: { provider: string; onRun: (r: Ru
       else out.push({ key, label, items: [r] });
     }
     return out;
-  }, [filtered, locale, t]);
+  }, [filtered, locale, t, groupBy]);
 
   async function deletePending() {
     if (!pending) return;
@@ -393,11 +406,18 @@ export function RunsPanel({ provider, onRun }: { provider: string; onRun: (r: Ru
             </button>
           ))}
           <button
+            onClick={() => setGroupBy((g) => (g === "day" ? "workflow" : "day"))}
+            title={t.studio.runs.groupToggleTitle}
+            className="ml-auto rounded-lg border border-border/70 px-2.5 py-1 text-xs text-muted-foreground transition-colors hover:text-foreground"
+          >
+            {groupBy === "day" ? t.studio.runs.groupByWorkflow : t.studio.runs.groupByDay}
+          </button>
+          <button
             onClick={() => {
               setManage((v) => !v);
               setChecked(new Set());
             }}
-            className="ml-auto rounded-lg border border-border/70 px-2.5 py-1 text-xs text-muted-foreground transition-colors hover:text-foreground"
+            className="rounded-lg border border-border/70 px-2.5 py-1 text-xs text-muted-foreground transition-colors hover:text-foreground"
           >
             {manage ? t.studio.runs.exitManage : t.studio.runs.manage}
           </button>

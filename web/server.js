@@ -667,6 +667,10 @@ app.get('/api/runs', (_req, res) => {
           stepCount: meta.steps?.length || 0,
           completedCount: meta.steps?.filter(s => s.status === 'completed').length || 0,
           timestamp: ts,
+          // 工作流文件与用过的角色：前端「最近运行 / 最近用过」按此聚合——
+          // 使用频率数据本地就有，不埋点不上传。
+          file: typeof meta.file === 'string' ? meta.file : undefined,
+          roles: [...new Set((meta.steps || []).map(s => s.role).filter(r => typeof r === 'string'))],
           // 绝对时刻（UTC ISO）——前端用 toLocaleString 按系统时区显示（#101）
           startedAt: runTimestampISO(d, meta, stat.mtimeMs),
           mtime: stat.mtimeMs,
