@@ -40,6 +40,7 @@
 - **我的角色 + 提示生成** —— 「提示生成」页产出的 system prompt 一键存为自建角色（`~/.ao/roles`），组队页「我的」分类直接用；角色卡可 ☆ 收藏常用
 - **多语言角色库** —— `npm i agency-agents-ko`（ko / ru / pt-br / id / ar）后，Studio「角色库」下拉一键切换，工作流 `agents_dir` 写包名即可跑
 - **创意库** —— 图片 **1500+** 条提示词（229 条策展 + 1275 条扩充池，可搜索 / 分类 / 一键复制，配了 key 直接出图）＋ 视频 **76** 条（22 个 5 段式题材模板带变量表、6 个可复用构件、48 条社区成品单条）；扩充池点了才加载，不拖慢首屏
+- **出片流水线** —— `type: image` 文生图、`type: video` 文生视频 / **图生视频**（首帧 = 上游定妆图，角色不变脸）、`type: concat` 本机 ffmpeg 多镜合成、15 个预设的**风格库**；内置模板「短剧流水线（3 镜）」把它们串成 剧本 → 定妆图 → 三镜并行出片 → 合成 → 交付页。图片/视频供应商在 Studio 右上角统一切换，换赞助商就是换下拉，按秒计费看得见
 
 **跑完把成果发出去**
 
@@ -160,7 +161,7 @@ ao compose "帮我分析做一个AI记账工具的可行性" --run
 ### 第 3 步：用内置模板或在 AI 编程工具中使用
 
 ```bash
-# 用 32 个内置模板
+# 用 60+ 个内置模板（含英文版）
 ao run workflows/一人公司全员大会.yaml --input idea="帮打工人用AI写简历的求职神器"
 ao run workflows/dev/pr-review.yaml --input code=@src/main.ts
 ao run workflows/story-creation.yaml -i premise="一个程序员发现AI开始回复不该知道的事情"
