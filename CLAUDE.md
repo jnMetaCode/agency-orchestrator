@@ -191,8 +191,9 @@ image/video needs neither `llm.model` nor a text connector.
 
 - **Image prompts**: `website/src/content/creative-prompts.json` — 229 curated items (CC BY 4.0,
   per-item author, **the only ones with SEO static pages**) plus `creative-prompts-extra.json` —
-  1,349 more (CC BY 4.0 + MIT, regenerate with `scripts/import-creative-extra.mjs`). The extra pool
-  is **lazy-loaded on an explicit click** (2MB) and is deliberately kept out of the sitemap.
+  1,282 more (CC BY 4.0 + MIT, regenerate with `scripts/import-creative-extra.mjs`). The extra pool
+  is **lazy-loaded on an explicit click** (2MB raw, ~640KB gzipped) and is deliberately kept out of
+  the sitemap.
   Browsable at `/creative` with one-click generation via `POST /api/image/generate`.
 - **Video prompts** live in the **sister repo** `ai-shortfilm-prompts` (22 genre templates + 6 reusable
   building blocks, its own site at prompts.aiolaola.com). AO only *consumes* them: run
@@ -211,13 +212,13 @@ image/video needs neither `llm.model` nor a text connector.
   fills `titleZh`/`descZh` via the local `claude` CLI in resumable batches — run it after any re-import,
   otherwise Chinese users cannot search those items (the prompt body itself always stays in the source
   language: that is what the model consumes).
-- **Video previews**: 18 community items carry an external sample clip (OpenAI's Sora showcase CDN and
+- **Video previews**: 17 community items carry an external sample clip (OpenAI's Sora showcase CDN and
   Twitter CDN); the card loads them **only on click** (some are 17–48MB). The 22 genre templates have
   **no sample yet** — no open-source library ships licensed, self-hosted example videos, so the clean
   path is generating our own: `scripts/gen-video-previews.mjs` fills each template's variable table into
   its 5-part body, renders via `type: video`, ffmpeg-shrinks it, and writes the local path back.
   It is a **dry run by default** (it spends real money: ~¥9.9 for all 22 at 768P×5s) — pass `--yes`.
-- A third pool exists: `video-prompts-community.json` (49 finished English singles from
+- A third pool exists: `video-prompts-community.json` (47 finished English singles from
   `awesome_sora2_prompt`, MIT, via `scripts/import-video-community.mjs`). Imports **drop prompts
   naming real people or IP** — same rule the 视频提示词工程师 role follows — and the UI says the
   filter is best-effort rather than pretending it is exhaustive.

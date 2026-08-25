@@ -3,15 +3,28 @@
 > 这份文档只记**从 git log 里看不出来的东西**：为什么这么做、哪些是有意的取舍、下一步按什么顺序动。
 > 具体改动看 `CHANGELOG.md` 与各条提交说明。历史章节按时间保留在下方，**当前状态只看本节**。
 
-## 〇、当前状态速览（2026-08-21）
+## 〇、当前状态速览（2026-08-25）
 
-**没有阻塞。** 三渠道全部自动发版且版本对齐：npm `v0.18.0` · 桌面 `v0.4.8`（三平台）· Docker `0.18.0`。
+**代码侧没有阻塞**，两处等维护者动作。当前版本：npm `v0.18.0` · 桌面 `v0.4.8`（三平台）· Docker `0.18.0`。
 
 - **发版**：推 `v*` tag → npm（Trusted Publishing/OIDC）+ Docker（内置等-npm-出现的防竞态轮询）；推 `desktop-v*` → 三平台桌面包。macOS 签名流水线已备好，填 5 个 Secrets 即自动真签名+公证（`docs/SIGNING.md`）。**给流水线加新步骤前必须本地原样预演**（悬空 .bin 符号链接曾炸掉一次 mac 构建）。
-- **本轮新增能力**（0.15–0.18）：`ao report` 分享报告页 / `--notify` 群推送（钉钉/飞书/企微自适配）/ `--export pptx` / 图片输入 vision（data URI 协议，`src/utils/vision.ts`）/ 社区模板收录制（远程清单 `communityTemplates`，CONTRIBUTING 有投稿指南）/ Studio「新版可用」角标 / gemini-cli 软下线（`DEPRECATED_CLI_PROVIDERS`）。
-- **官网**：SEO 静态页 sitemap 已达 545 条 URL（267 角色 + 25 工作流 + 229 创意提示词 + 12 分类 + 评测中英）；本地 Studio **零统计脚本**（GA 只在公网域名加载——别回退这条）。
-- **角色库**：`agency-agents-zh` 已补齐 C-suite 六件套（CEO/CTO/CMO/COO/CPO/CFO，v1.3.0 待 npm 发布者配置后自动发版）。发布后记得：AO 依赖升级 + 全站「267」计数刷新 + 角色 SEO 页重新生成。
-- **等维护者动作**：Apple 开发者账号（签名）、agency-agents-zh 的 npm Trusted Publisher 配置、两篇文章发布、HN 投稿。
+- **最新能力：文生视频**（`type: video`，`src/connectors/video.ts`）——建任务 → 轮询 → 下载 → Studio 内联播放，接了两家（秘塔 MiniMax-H3 / APIMart Sora2·VEO3·可灵）。加第二家只新增了一个 `SHAPES` adapter，主流程一行没动。三条硬纪律见下方「视频步骤」小节。
+- **此前能力**（0.15–0.18）：`ao report` 分享报告页 / `--notify` 群推送（钉钉/飞书/企微自适配）/ `--export pptx` / 图片输入 vision（`src/utils/vision.ts`）/ 社区模板收录制（远程清单 `communityTemplates`）/ Studio「新版可用」角标 / gemini-cli 软下线。
+- **官网**：sitemap **714** 条 URL（267 角色 + 27 工作流 + 394 提示词 + 15 分类 + 其余）；创意库图片 **1511** 条（229 策展有 SEO 页 + 1282 扩充池点击才加载）、视频 **75** 条（22 题材模板 + 6 构件 + 47 社区，17 条带示例成片）。本地 Studio **零统计脚本**（GA 只在公网域名加载——别回退这条）。
+- **角色库**：`agency-agents-zh` GitHub main 已是 1.4.0（**276** 角色，新建 `company/` 公司经营部七位高管 + 视频提示词工程师），**线上仍 1.2.7、v1.4.0 tag 未打**——等 npm Trusted Publisher 配置。仓内英文库 `agency-agents/` 已同步到 191。
+  发布后六步：打 tag → `npm i agency-agents-zh@^1.4.0` → 全站计数 267→276 → **换掉两处过渡角色**（`workflows/一句话出短片.yaml` 三步 `design/design-image-prompt-engineer`→`design-video-prompt-engineer`；一人公司 4 个中文模板 7 处 `specialized/business-strategist`→`company/chief-executive-officer`）→ `npm run gen:experts` → 发 v0.19.0 + 桌面 v0.4.9。
+- **等维护者动作**：① agency-agents-zh 的 npm Trusted Publisher 配置 ② 给 APIMart / 秘塔 H3 充值（才能出 22 条示例成片、补 APIMart 建议模型）③ Apple 开发者账号 ④ 文章 / HN 投稿。
+- **运营侧完整交接**（含待办排序与坐标）在私有文档 `/Users/yx/work/战略/AO交接总表-2026-08-22.md`。
+
+### 视频步骤的三条硬纪律
+
+这是 AO 里唯一「本地进程没了、活还在服务商那边跑、钱照花」的步骤：
+
+1. **轮询失败绝不能中断任务**——查询要包 try/catch，抖动只记一笔继续等到 deadline；所有出口用 `finally` 摘 `inFlight`；中断时把 task_id 打出来。下载也要重试。
+2. **档位名各家不通用，绝不替用户猜**：秘塔 480p/512p/768P/2K、APIMart 720p/1080p/4k 且 VEO3 固定 8 秒。所以模板把 provider/model/resolution/duration 全做成必填输入；`video.*` 每个字符串字段都要过变量渲染，`duration` 还要 string→number 强转。
+3. **端点靠探不靠抄**：零余额是好探针（存在回 402/400、不存在回 404），但**必须同时跑一条乱写路径作对照**，否则分不清真存在还是全站兜底。
+
+回归测试：`test/video-step.ts`、`test/e2e-video.ts`（并发用例钉住了「秘塔查询端点忽略 task_id、必须客户端按 id 过滤」）。
 
 ## 二、两条互相独立的生效路径（重要）
 
