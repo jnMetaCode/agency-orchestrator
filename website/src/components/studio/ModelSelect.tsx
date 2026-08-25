@@ -156,7 +156,7 @@ export function ModelSelect({ provider }: { provider: string }) {
         className="flex h-8 items-center gap-1.5 rounded-lg border border-border/70 bg-card/60 px-2.5 text-sm text-foreground outline-none transition-colors hover:border-border"
       >
         <Cpu className="size-3.5 shrink-0 opacity-60" />
-        <span className="max-w-[140px] truncate font-mono text-xs">{saving ? "…" : current || p.modelDefaultLabel}</span>
+        <span className="max-w-[88px] truncate font-mono text-xs md:max-w-[140px]">{saving ? "…" : current || p.modelDefaultLabel}</span>
         <ChevronDown className="size-3.5 shrink-0 opacity-60" />
       </button>
 

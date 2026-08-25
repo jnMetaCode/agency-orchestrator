@@ -477,8 +477,8 @@ export function WorkflowsPanel({ provider, onRun, demo, onInstallPrompt, filter 
                   <Tip
                     label={
                       w.private
-                        ? favs.has(w.file) ? (lang === "en" ? "Unpin" : "取消置顶") : (lang === "en" ? "Pin to top" : "置顶到最前")
-                        : favs.has(w.file) ? (lang === "en" ? "Unfavorite" : "取消收藏") : (lang === "en" ? "Add to favorites" : "收藏为常用")
+                        ? favs.has(w.file) ? (lang === "en" ? "Unpin" : "取消常用（不再置顶）") : (lang === "en" ? "Pin to top" : "设为常用（置顶）")
+                        : favs.has(w.file) ? (lang === "en" ? "Unpin" : "取消常用") : (lang === "en" ? "Pin" : "设为常用")
                     }
                   >
                     <button
@@ -569,10 +569,10 @@ export function WorkflowsPanel({ provider, onRun, demo, onInstallPrompt, filter 
               <Section
                 title={lang === "en" ? "My Workflows" : "我的工作流"}
                 items={groups.mine}
-                hint={lang === "en" ? "yours — composed or saved from canvas; ☆ pins to top, otherwise newest first" : "自动组队 / 画布保存的都在这；点 ☆ 置顶，其余按最近修改排序"}
+                hint={lang === "en" ? "yours — composed or saved from canvas; ☆ pins to top, otherwise newest first" : "自动组队 / 画布保存的都在这；点 ☆ 设为常用即置顶，其余按最近修改排序"}
               />
             )}
-            {groups.fav.length > 0 && <Section title={lang === "en" ? "Favorites" : "常用（点 ☆ 收藏）"} items={groups.fav} star />}
+            {groups.fav.length > 0 && <Section title={lang === "en" ? "Favorites" : "常用（点 ☆ 设为常用）"} items={groups.fav} star />}
             {groups.recent.length > 0 && <Section title={lang === "en" ? "Recently run" : "最近运行"} items={groups.recent} hint={lang === "en" ? "most-run in the last 30 days, from local run history" : "近 30 天跑得最多的，来自本机运行历史"} />}
             {groups.cats.map(([c, items]) => <Section key={c} title={c} items={items} />)}
             {!demo && !filter && community.length > 0 && (

@@ -129,7 +129,7 @@ export function ProviderSelect({ value, onChange, onOpenProviders }: { value: st
         )}
       >
         {(selectedFlagship || selectedAdvanced) && <Star className="size-3.5 shrink-0 fill-gold text-gold" />}
-        <span className="max-w-[160px] truncate">{labelFor(value)}</span>
+        <span className="max-w-[96px] truncate md:max-w-[160px]">{labelFor(value)}</span>
         <ChevronDown className="size-3.5 shrink-0 opacity-60" />
       </button>
 

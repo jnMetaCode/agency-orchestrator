@@ -186,21 +186,22 @@ function StudioInner() {
                     <button
                       key={tb.id}
                       onClick={() => setTab(tb.id)}
-                      title={tb.hint}
+                      title={`${tb.label} · ${tb.hint}`}
                       className={cn(
-                        "flex shrink-0 items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-medium transition-colors",
+                        // 窄屏只留图标（文字进 title），四个 tab 才挤得进一行
+                        "flex shrink-0 items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-sm font-medium transition-colors md:px-3",
                         on ? "bg-background text-primary shadow-sm" : "text-muted-foreground hover:text-foreground",
                       )}
                     >
                       <Icon className="size-4" />
-                      {tb.label}
+                      <span className="hidden md:inline">{tb.label}</span>
                     </button>
                   );
                 })}
               </nav>
             )}
 
-            <div className="ml-auto flex items-center gap-2">
+            <div className="ml-auto flex items-center gap-1.5 md:gap-2">
               <span
                 title={
                   status === "online" && stale ? t.studio.shell.engineStaleTitle
@@ -209,14 +210,15 @@ function StudioInner() {
                   : t.studio.shell.engineChecking
                 }
                 className={cn(
-                  "inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium",
+                  // 窄屏只留状态点（文字进 title）
+                  "inline-flex items-center gap-1.5 rounded-full px-2 py-1 text-xs font-medium lg:px-2.5",
                   status === "online" && !stale && "bg-emerald-500/15 text-emerald-500",
                   ((status === "online" && stale) || status === "offline") && "bg-amber-500/15 text-amber-600 dark:text-amber-400",
                   status === "checking" && "bg-muted text-muted-foreground",
                 )}
               >
                 <span className={cn("size-1.5 rounded-full", status === "online" && !stale ? "bg-emerald-500" : status === "checking" ? "bg-muted-foreground" : "bg-amber-500")} />
-                {status === "online" ? (stale ? t.studio.shell.statusStale : t.studio.shell.statusOnline) : status === "offline" ? t.studio.shell.statusOffline : t.studio.shell.statusChecking}
+                <span className="hidden lg:inline">{status === "online" ? (stale ? t.studio.shell.statusStale : t.studio.shell.statusOnline) : status === "offline" ? t.studio.shell.statusOffline : t.studio.shell.statusChecking}</span>
               </span>
               {updateAvailable && (
                 <button
@@ -224,7 +226,7 @@ function StudioInner() {
                   onClick={() => window.open("https://github.com/jnMetaCode/agency-orchestrator/releases/latest", "_blank")}
                   className="inline-flex items-center gap-1 rounded-full bg-primary/15 px-2.5 py-1 text-xs font-medium text-primary transition-colors hover:bg-primary/25"
                 >
-                  ↑ {t.studio.shell.updateAvailable} v{latest}
+                  ↑ <span className="hidden lg:inline">{t.studio.shell.updateAvailable} </span>v{latest}
                 </button>
               )}
               <ProviderSelect value={provider} onChange={setProvider} onOpenProviders={() => setTab("providers")} />
