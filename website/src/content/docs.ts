@@ -274,6 +274,37 @@ steps:
         title: { zh: "DAG 与依赖", en: "DAG & dependencies" },
         sections: [
           {
+            heading: { zh: "图生视频、三镜合成与风格库", en: "Image-to-video, concat, and the style library" },
+            body: {
+              zh: "**图生视频**：视频步骤加 `image:` 给首帧参考图——可以是公网 URL、上游图片步骤的输出变量（如 `{{cover_img}}`）或本地文件。两家都只收公网 URL：APIMart 有上传接口，引擎自动把本地图传上去（72 小时有效）；秘塔没有，本地图会明确报错并给出路，绝不偷偷塞 base64 白花一次。角色一致就靠这个：三镜都以同一张定妆图为首帧，人物不会镜镜变脸。**三镜合成**：`type: concat` 用本机 ffmpeg 把多段 mp4 按顺序拼成一条——各段先规整到同一尺寸/帧率/音轨（缺音轨补静音）再无损拼接，不花厂商的钱；找不到 ffmpeg 会报各平台装法，`ao doctor` 也会报出是否可用。**风格库**：15 个预设（真人 13 / 3D / 2D），每个风格是中文名 + 一段摄影机/镜头/胶片/色调/光源的英文提示词后缀；输入写 `source: styles` 就在 Studio 里成为分组下拉，引擎在运行前把你选的名字展开成这段后缀，逐镜一致，CLI 与 Studio 行为相同。内置模板「短剧流水线（3 镜）」把这三样串起来：剧本 → 主角定妆图 → 三镜提示词并行 → 三镜以定妆图为首帧并行出片 → 合成 → 交付页。",
+              en: "**Image-to-video**: add `image:` to a video step for a first-frame reference — a public URL, an upstream image step's output (e.g. `{{cover_img}}`), or a local file. Both vendors accept public URLs only: APIMart has an upload endpoint, so the engine uploads local files for you (valid 72h); MetaSota has none, so a local file fails with a clear message instead of silently smuggling base64 and burning a run. This is what keeps characters consistent: every shot starts from the same character sheet. **Concat**: `type: concat` stitches clips with local ffmpeg — each clip is normalized to one size/fps/audio track (silence is added where missing) and then joined losslessly, at no vendor cost; if ffmpeg is missing you get per-platform install hints and `ao doctor` reports it. **Style library**: 15 presets (13 live-action / 3D / 2D), each a Chinese name plus an English suffix describing camera, lens, film stock, grade and light; an input with `source: styles` becomes a grouped dropdown in Studio, and the engine expands the chosen name into that suffix before the run so every shot shares it and CLI matches Studio. The built-in \"短剧流水线（3 镜）\" workflow chains all three: script → character sheet → three shot prompts in parallel → three image-to-video shots in parallel → concat → delivery page.",
+            },
+            code: `steps:
+  - id: character
+    type: image
+    task: "{{character_prompt}}"
+    image: { provider: "{{image_provider}}", model: "{{image_model}}" }
+    output: character_img
+
+  - id: shot1
+    type: video
+    task: "{{shot1_prompt}}"
+    video:
+      provider: "apimart"
+      model: "veo3.1-fast"
+      duration: 8
+      image: "{{character_img}}"      # 首帧 = 定妆图
+    output: shot1_mp4
+    depends_on: [character]
+
+  - id: film
+    type: concat                      # 本机 ffmpeg，不花厂商的钱
+    concat:
+      inputs: ["{{shot1_mp4}}", "{{shot2_mp4}}", "{{shot3_mp4}}"]
+    output: film_mp4
+    depends_on: [shot1, shot2, shot3]`,
+          },
+          {
             heading: { zh: "depends_on 自动并行", en: "depends_on auto-parallelism" },
             body: {
               zh: "用 `depends_on` 声明依赖，引擎据此排出 DAG，把互不依赖的步骤自动并行跑。下面 `outline` 完成后，`draft_a` 和 `draft_b` 会并行：",
