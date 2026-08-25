@@ -26,6 +26,11 @@ export interface WorkflowInput {
   description?: string;
   required?: boolean;
   default?: string;
+  /** 静态候选（渲染成下拉，可手填） */
+  options?: string[];
+  /** 动态候选源（见引擎 InputDefinition.source） */
+  source?: "image_providers" | "video_providers" | "models" | "video_resolutions" | "video_durations";
+  source_from?: string;
 }
 
 export interface Workflow {
@@ -315,6 +320,8 @@ export interface ConfigResponse {
    * 前端别拿 family:"api" 自己筛，那一族里混着 claude-code / gemini-cli。
    */
   imageProviders?: string[];
+  /** 视频供应商（独立表）：是否已配 key + 各家档位表 */
+  videoProviders?: { id: string; hasKey: boolean; models: string[]; resolutions: string[]; durations: number[] }[];
   /** 用户自己加的自定义供应商（任意 OpenAI 兼容 endpoint）。 */
   customProviders?: CustomProviderMeta[];
   /** 远程清单：增量上架的赞助商 / CLI 中转商 / 下架的内置 id。 */

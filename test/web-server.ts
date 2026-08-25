@@ -242,6 +242,14 @@ try {
       const withRoles = runsList.find((r) => Array.isArray(r.roles) && r.roles.length > 0);
       assert(!!withRoles, '/api/runs 列表项应带 roles（步骤 role 去重）');
       assert(runsList.every((r) => Array.isArray(r.roles)), '/api/runs 每项 roles 都是数组');
+      // 输入下拉的数据基础：/api/config 给视频供应商档位表；/api/workflows 透传 source/source_from
+      const cfgNow = (await (await fetch(base + '/api/config')).json()) as { videoProviders?: Array<{ id: string; resolutions: string[]; models: string[] }> };
+      const metaso = cfgNow.videoProviders?.find((v) => v.id === 'metaso');
+      assert(!!metaso && metaso.resolutions.includes('768P') && metaso.models.includes('MiniMax-H3'), '/api/config.videoProviders 应带秘塔的档位表');
+      const wfsNow = (await (await fetch(base + '/api/workflows')).json()) as Array<{ filename: string; inputs?: Array<{ name: string; source?: string; source_from?: string }> }>;
+      const film = wfsNow.find((w) => w.filename === '一句话出短片.yaml');
+      const vm = film?.inputs?.find((i) => i.name === 'video_model');
+      assert(vm?.source === 'models' && vm?.source_from === 'video_provider', '/api/workflows 应透传输入的 source / source_from');
       // 运行卡片缩略图：有 assets/ 图片的运行带 thumb，走既有资产路由
       const imgEntry = (runsList as Array<{ id: string; thumb?: string }>).find((r) => r.id === imgRun);
       assert(imgEntry?.thumb === `/api/runs/${encodeURIComponent(imgRun)}/assets/poster.png`, '/api/runs 图片运行应带 thumb 指向首图: ' + imgEntry?.thumb);

@@ -4,7 +4,7 @@ import { Tip } from "@/components/ui/tip";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useLanguage } from "@/i18n/LanguageProvider";
 import { Button } from "@/components/ui/button";
-import { api, recentUsage, type RunSummary, getFavWorkflows, setFavWorkflows, type CommunityTemplate, type Workflow } from "@/lib/studio";
+import { api, type WorkflowInput, type ConfigResponse, API_PROVIDERS, recentUsage, type RunSummary, getFavWorkflows, setFavWorkflows, type CommunityTemplate, type Workflow } from "@/lib/studio";
 import { track } from "@/lib/track";
 import { cn } from "@/lib/utils";
 import { RoleAvatar } from "./RoleAvatar";
@@ -38,6 +38,44 @@ function CastStack({ steps }: { steps: NonNullable<Workflow["steps"]> }) {
 function InputsDialog({ wf, provider, onClose, onRun, onCompare }: { wf: Workflow; provider: string; onClose: () => void; onRun: (r: RunRequest) => void; onCompare: (inputs: Record<string, string>) => void }) {
   const { t, lang } = useLanguage();
   const inputs = wf.inputs ?? [];
+  // 下拉候选的动态源：供应商/档位表来自 /api/config；模型列表按供应商实拉（视频供应商用内置表）
+  const hasDynamic = inputs.some((i) => i.source || i.options);
+  const [cfg, setCfg] = useState<ConfigResponse | null>(null);
+  const [modelLists, setModelLists] = useState<Record<string, string[] | "loading" | "error">>({});
+  useEffect(() => { if (hasDynamic) api.config().then(setCfg).catch(() => setCfg(null)); }, [hasDynamic]);
+  // 选了候选之外的值 → 该输入切到手填模式
+  const [custom, setCustom] = useState<Record<string, boolean>>({});
+  const providerLabel = (id: string) => {
+    const p = cfg?.providers[id];
+    const known = (API_PROVIDERS.find((x) => x.id === id)?.shortName) || cfg?.customProviders?.find((c) => c.id === id)?.name || id;
+    return p && !p.hasKey ? `${known} · ${t.studio.workflows.inputNoKey}` : known;
+  };
+  const optionsFor = (inp: WorkflowInput, vals: Record<string, string>): { value: string; label: string }[] | "loading" | null => {
+    if (inp.options?.length) return inp.options.map((o) => ({ value: o, label: o }));
+    if (!inp.source) return null;
+    if (!cfg) return "loading";
+    const keyedFirst = (ids: string[]) => [...ids.filter((id) => cfg.providers[id]?.hasKey), ...ids.filter((id) => !cfg.providers[id]?.hasKey)];
+    if (inp.source === "image_providers") return keyedFirst(cfg.imageProviders ?? []).map((id) => ({ value: id, label: providerLabel(id) }));
+    if (inp.source === "video_providers") return (cfg.videoProviders ?? []).slice().sort((a, b) => Number(b.hasKey) - Number(a.hasKey)).map((v) => ({ value: v.id, label: v.hasKey ? v.id : `${v.id} · ${t.studio.workflows.inputNoKey}` }));
+    const pid = (inp.source_from ? vals[inp.source_from] : "") || provider;
+    const vp = cfg.videoProviders?.find((v) => v.id === pid);
+    if (inp.source === "video_resolutions") return (vp?.resolutions ?? []).map((r) => ({ value: r, label: r }));
+    if (inp.source === "video_durations") return (vp?.durations ?? []).map((d) => ({ value: String(d), label: `${d}s` }));
+    if (inp.source === "models") {
+      if (vp) return vp.models.map((m) => ({ value: m, label: m }));
+      if (!pid) return [];
+      const cached = modelLists[pid];
+      if (cached === undefined) {
+        setModelLists((p) => ({ ...p, [pid]: "loading" }));
+        api.providerModels({ provider: pid }).then((r) => setModelLists((p) => ({ ...p, [pid]: r.ok && r.models?.length ? r.models : "error" }))).catch(() => setModelLists((p) => ({ ...p, [pid]: "error" })));
+        return "loading";
+      }
+      if (cached === "loading") return "loading";
+      if (cached === "error") return [];
+      return cached.map((m) => ({ value: m, label: m }));
+    }
+    return null;
+  };
   const [vals, setVals] = useState<Record<string, string>>(() => {
     const init: Record<string, string> = {};
     inputs.forEach((i) => (init[i.name] = i.default ?? ""));
@@ -115,12 +153,41 @@ function InputsDialog({ wf, provider, onClose, onRun, onCompare }: { wf: Workflo
                 </Tip>
               </span>
               {inp.description && <span className="block text-xs text-muted-foreground">{inp.description}</span>}
-              <textarea
-                value={vals[inp.name] ?? ""}
-                onChange={(e) => setVals((p) => ({ ...p, [inp.name]: e.target.value }))}
-                rows={2}
-                className="mt-1 w-full rounded-xl border border-border/70 bg-card/60 px-3 py-2 text-sm outline-none focus:border-primary/50"
-              />
+              {(() => {
+                const opts = optionsFor(inp, vals);
+                const cur = vals[inp.name] ?? "";
+                const inList = opts !== null && opts !== "loading" && opts.some((o) => o.value === cur);
+                const showSelect = opts !== null && !custom[inp.name] && (cur === "" || inList || opts === "loading");
+                if (!showSelect) return (
+                  <textarea
+                    value={cur}
+                    onChange={(e) => setVals((p) => ({ ...p, [inp.name]: e.target.value }))}
+                    rows={2}
+                    className="mt-1 w-full rounded-xl border border-border/70 bg-card/60 px-3 py-2 text-sm outline-none focus:border-primary/50"
+                  />
+                );
+                return (
+                  <select
+                    value={inList ? cur : ""}
+                    disabled={opts === "loading"}
+                    onChange={(e) => {
+                      if (e.target.value === "__custom__") { setCustom((p) => ({ ...p, [inp.name]: true })); return; }
+                      setVals((p) => ({ ...p, [inp.name]: e.target.value }));
+                    }}
+                    className="mt-1 h-10 w-full rounded-xl border border-border/70 bg-card/60 px-3 text-sm outline-none focus:border-primary/50"
+                  >
+                    {opts === "loading" ? (
+                      <option value="">{t.studio.workflows.inputModelsLoading}</option>
+                    ) : (
+                      <>
+                        <option value="">{inp.required ? "—" : `— ${t.studio.workflows.inputFollowText}`}</option>
+                        {opts.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+                        <option value="__custom__">{t.studio.workflows.inputCustom}</option>
+                      </>
+                    )}
+                  </select>
+                );
+              })()}
               {fileMeta[inp.name] && (
                 <span className="mt-0.5 block text-[11px] text-muted-foreground">📎 {fileMeta[inp.name]}</span>
               )}

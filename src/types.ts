@@ -29,6 +29,17 @@ export interface InputDefinition {
   description?: string;
   required?: boolean;
   default?: string;            // 可选输入的默认值
+  /** 静态候选值（Studio 渲染成下拉；仍可手填自定义值） */
+  options?: string[];
+  /**
+   * 动态候选源（Studio 从引擎配置实时取，引擎本身不消费）：
+   *   image_providers / video_providers —— 已配 key 的图片 / 视频供应商
+   *   models —— 该供应商的模型列表（视频供应商用内置表，其余实拉 /models）
+   *   video_resolutions / video_durations —— 该视频供应商的档位表（各家不通用）
+   * 带 provider 参数的源用 source_from 指向存放供应商 id 的那个输入。
+   */
+  source?: 'image_providers' | 'video_providers' | 'models' | 'video_resolutions' | 'video_durations';
+  source_from?: string;
 }
 
 export interface StepDefinition {
