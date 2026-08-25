@@ -1,8 +1,8 @@
-import { ArrowLeft, Check, Download, ExternalLink, Eye, EyeOff, Loader2, Plug, Plus, TriangleAlert, XCircle } from "lucide-react";
+import { ArrowLeft, Check, Download, ExternalLink, Eye, EyeOff, Loader2, Plug, Plus, Star, TriangleAlert, XCircle } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { useLanguage } from "@/i18n/LanguageProvider";
-import { api, CLI_RELAY_PRESETS, CUSTOM_PROVIDER_PRESETS, groupModelsByVendor, providerLogo, type CliRelayPreset, type ConfigResponse } from "@/lib/studio";
+import { api, CLI_RELAY_PRESETS, CUSTOM_PROVIDER_PRESETS, getFavModels, groupModelsByVendor, providerLogo, toggleFavModel, type CliRelayPreset, type ConfigResponse } from "@/lib/studio";
 import { sponsors, sponsorUrl } from "@/content/sponsors";
 import { Tip } from "@/components/ui/tip";
 import { track } from "@/lib/track";
@@ -100,6 +100,8 @@ export function ProviderConfigView({
   const [fetchNeedsKey, setFetchNeedsKey] = useState(false);
   // 模型列表搜索词（大列表时用来筛几百个模型）
   const [modelFilter, setModelFilter] = useState("");
+  // 「常用」模型(星号):与顶栏快切共用同一份 localStorage,这里钉了顶栏立刻置顶
+  const [favModels, setFavModels] = useState<string[]>([]);
 
   // 从本机 cc-switch 一键导入 key（对齐 cc-switch 深链接「直接带 key 导入」的思路，
   // 数据源换成 ~/.cc-switch 本机库）。后端探测不到库/没有带 key 的条目时按钮不出现。
@@ -127,6 +129,7 @@ export function ProviderConfigView({
   const displayTitle = isAdd ? p.addCustomProvider : target.kind === "ollama" ? "Ollama" : (target as { name: string }).name;
   const avatarChar = (isAdd ? (customName || "+") : displayTitle).slice(0, 1).toUpperCase();
   const logo = !isAdd ? providerLogo(providerId) : undefined;
+  useEffect(() => { setFavModels(getFavModels(providerId)); }, [providerId]);
   // base_url 输入的 placeholder：内置供应商显示真实默认端点,一眼知道留空会用什么
   const baseUrlPlaceholder =
     target.kind === "api" && target.defaultBaseUrl ? target.defaultBaseUrl
@@ -285,6 +288,30 @@ export function ProviderConfigView({
   const filteredChips = modelFilter.trim()
     ? modelChips.filter((m) => m.toLowerCase().includes(modelFilter.trim().toLowerCase()))
     : modelChips;
+  // 常用排前(小列表直接排序;大列表另起「★ 常用」组)
+  const pinnedFirst = [...filteredChips.filter((m) => favModels.includes(m)), ...filteredChips.filter((m) => !favModels.includes(m))];
+  const chip = (m: string) => {
+    const pinned = favModels.includes(m);
+    return (
+      <span
+        key={m}
+        className={cn(
+          "inline-flex items-center rounded-full border text-xs transition-colors",
+          model === m ? "border-primary bg-primary/10 text-primary" : "border-border/70 text-muted-foreground hover:border-primary/40 hover:text-foreground",
+        )}
+      >
+        <button type="button" onClick={() => setModel(m)} className="py-0.5 pl-2.5 pr-1">{m}</button>
+        <button
+          type="button"
+          title={pinned ? p.modelUnpin : p.modelPin}
+          onClick={() => setFavModels(toggleFavModel(providerId, m))}
+          className={cn("mr-1 rounded p-0.5", pinned ? "text-gold" : "opacity-40 hover:opacity-100")}
+        >
+          <Star className={cn("size-3", pinned && "fill-gold")} />
+        </button>
+      </span>
+    );
+  };
 
   // 生效配置预览（对齐 cc-switch 的「配置 JSON」透明度）：AO 不写全局配置文件，
   // 注入的是 AO 所启动 CLI 子进程的环境变量——预览的就是保存后实际生效的那份 env。
@@ -720,45 +747,23 @@ export function ProviderConfigView({
                   (filteredChips.length > 12 ? (
                     // 大列表(通常是拉到的真实全量):按厂商分组,像 cc-switch 那样可扫读,不再一堆平铺
                     <div className="mt-1.5 max-h-60 space-y-2 overflow-auto pr-1">
+                      {filteredChips.some((m) => favModels.includes(m)) && (
+                        <div>
+                          <p className="mb-1 text-[10px] font-semibold uppercase tracking-wide text-gold/80">★ {p.modelFavGroup}</p>
+                          <div className="flex flex-wrap gap-1.5">{filteredChips.filter((m) => favModels.includes(m)).map(chip)}</div>
+                        </div>
+                      )}
                       {groupModelsByVendor(filteredChips, fetchedVendors).map(([vendor, ms]) => (
                         <div key={vendor}>
                           <p className="mb-1 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground/70">
                             {vendor} · {ms.length}
                           </p>
-                          <div className="flex flex-wrap gap-1.5">
-                            {ms.map((m) => (
-                              <button
-                                key={m}
-                                type="button"
-                                onClick={() => setModel(m)}
-                                className={cn(
-                                  "rounded-full border px-2.5 py-0.5 text-xs transition-colors",
-                                  model === m ? "border-primary bg-primary/10 text-primary" : "border-border/70 text-muted-foreground hover:border-primary/40 hover:text-foreground",
-                                )}
-                              >
-                                {m}
-                              </button>
-                            ))}
-                          </div>
+                          <div className="flex flex-wrap gap-1.5">{ms.map(chip)}</div>
                         </div>
                       ))}
                     </div>
                   ) : (
-                    <div className="mt-1.5 flex max-h-44 flex-wrap gap-1.5 overflow-auto">
-                      {filteredChips.map((m) => (
-                        <button
-                          key={m}
-                          type="button"
-                          onClick={() => setModel(m)}
-                          className={cn(
-                            "rounded-full border px-2.5 py-0.5 text-xs transition-colors",
-                            model === m ? "border-primary bg-primary/10 text-primary" : "border-border/70 text-muted-foreground hover:border-primary/40 hover:text-foreground",
-                          )}
-                        >
-                          {m}
-                        </button>
-                      ))}
-                    </div>
+                    <div className="mt-1.5 flex max-h-44 flex-wrap gap-1.5 overflow-auto">{pinnedFirst.map(chip)}</div>
                   ))}
               </div>
             </Section>
