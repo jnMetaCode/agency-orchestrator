@@ -55,6 +55,19 @@ await test('缺 image.model 在解析期就报清楚（与文本侧"不猜默认
   rmSync(dir, { recursive: true, force: true });
 });
 
+await test('image.provider 指定另一家：走它的端点和 key，不带文本供应商的 base_url / api_key', () => {
+  const prevKey = process.env.LANOX_API_KEY; process.env.LANOX_API_KEY = 'lk-img';
+  try {
+    const textCfg = { provider: 'deepseek', api_key: 'dk-text', base_url: 'https://text.example/v1', model: 'deepseek-chat' } as unknown as LLMConfig;
+    const r = resolveImageAccess(textCfg, { provider: 'lanox' });
+    assert(r.apiKey === 'lk-img', `应用 lanox 自己的 key，实际 ${r.apiKey}`);
+    assert(!/text\.example/.test(r.baseUrl), `不应带上文本供应商的 base_url，实际 ${r.baseUrl}`);
+    // 不指定时保持原行为：跟文本供应商走
+    const same = resolveImageAccess(textCfg, {});
+    assert(same.baseUrl === 'https://text.example/v1' && same.apiKey === 'dk-text', '未指定 image.provider 时仍沿用 llm 配置');
+  } finally { if (prevKey === undefined) delete process.env.LANOX_API_KEY; else process.env.LANOX_API_KEY = prevKey; }
+});
+
 await test('CLI provider 不是图片端点——报错要把这条说清并给出路', () => {
   let msg = '';
   try { resolveImageAccess(cfg({ provider: 'claude-code', api_key: undefined, base_url: undefined })); }

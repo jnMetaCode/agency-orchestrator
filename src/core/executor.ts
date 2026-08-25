@@ -450,7 +450,7 @@ async function executeStep(
     // 所有字符串字段都过变量渲染，不只是 model：模板把 size 之类做成输入是合理的，
     // 漏渲染就会把 "{{image_size}}" 原样发给厂商（video 那边真踩过这个坑，见下）
     const imageOpts = { ...(node.step.image ?? {}) };
-    for (const k of ['model', 'size', 'quality', 'background'] as const) {
+    for (const k of ['provider', 'model', 'size', 'quality', 'background'] as const) {
       const v = imageOpts[k];
       if (typeof v === 'string') imageOpts[k] = renderTemplate(v, opts.context);
     }

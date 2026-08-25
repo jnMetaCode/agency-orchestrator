@@ -47,6 +47,8 @@ export function resolveVideoAccess(
   opts: VideoStepOptions,
 ): { spec: VideoProviderSpec; baseUrl: string; apiKey: string } {
   const id = (opts.provider || config.provider || '').trim();
+  // 步骤指定了另一家：文本供应商的 base_url / api_key 不能带过去（与 image 同一条规则）
+  if (id !== config.provider) config = { ...config, base_url: undefined, api_key: undefined } as LLMConfig;
   const spec = VIDEO_PROVIDER_MAP[id];
   if (!spec) {
     const known = Object.keys(VIDEO_PROVIDER_MAP).join(' / ') || '（暂无）';

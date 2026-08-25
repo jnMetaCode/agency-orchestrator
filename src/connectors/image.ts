@@ -15,6 +15,12 @@ import { postApiEndpoint, isGatewayRouteMissShell } from './endpoint.js';
 import type { LLMConfig } from '../types.js';
 
 export interface ImageStepOptions {
+  /**
+   * 图片供应商 id（缺省用 llm.provider）。与 video.provider 对称：文本步骤想用便宜的
+   * DeepSeek、图片想走 LanoX/胜算云，此前做不到——图片步骤只能跟着整条工作流的文本供应商走，
+   * Studio 顶栏一选 Claude / CLI 类，图片步骤就报"没有图片端点"。
+   */
+  provider?: string;
   /** 图片模型（必填——各家的图片模型编码互不通用，不猜） */
   model?: string;
   /** 如 "1024x1024" */
@@ -73,7 +79,12 @@ function settle(
  * CLI（claude-code / agy…）是编码工具不是图片端点，claude 原生协议也没有图片 API。
  * 报错必须把这条说清，别让用户拿 CLI provider 撞一头雾水。
  */
-export function resolveImageAccess(config: LLMConfig): { baseUrl: string; apiKey: string } {
+export function resolveImageAccess(config: LLMConfig, opts: { provider?: string } = {}): { baseUrl: string; apiKey: string } {
+  // 步骤指定了另一家供应商时，**文本供应商的 base_url / api_key 一律不带过去**：
+  // 它们是 --base-url / 工作流 llm 里给文本模型的，拿去打图片供应商只会把请求发错地方。
+  if (opts.provider && opts.provider.trim() && opts.provider.trim() !== config.provider) {
+    config = { ...config, provider: opts.provider.trim(), base_url: undefined, api_key: undefined } as LLMConfig;
+  }
   // Anthropic 原生协议的 provider（claude 本身 + AICodeMirror 这类中转）**有** base_url，
   // 所以不会掉进下面"没有端点"的分支——不显式拦住的话，请求会照打
   // `https://api.anthropic.com/images/generations`，两条协议各撞一次 404，
@@ -136,7 +147,7 @@ export async function generateImage(
       '各家可用的图片模型在 Studio「供应商」页配 key 后点「获取模型列表」查看（或看该服务商文档）。'
     );
   }
-  const { baseUrl, apiKey } = resolveImageAccess(config);
+  const { baseUrl, apiKey } = resolveImageAccess(config, opts);
   const headers = { 'Content-Type': 'application/json', Authorization: `Bearer ${apiKey}` };
   const timeoutMs = config.timeout && config.timeout > 0 ? config.timeout : 300_000;
 

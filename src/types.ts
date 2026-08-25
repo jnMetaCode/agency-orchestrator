@@ -47,7 +47,7 @@ export interface StepDefinition {
   depends_on?: string[];      // 依赖的步骤 id
   type?: 'normal' | 'approval' | 'human_input' | 'image' | 'video'; // 节点类型（image/video = 文生图/文生视频：task 即提示词）
   /** type: image 专用——图片模型与参数（model 必填：各家图片模型编码互不通用，不猜） */
-  image?: { model?: string; size?: string; quality?: string; background?: string };
+  image?: { provider?: string; model?: string; size?: string; quality?: string; background?: string };
   /**
    * type: video 专用——文生视频参数（model 必填，同图片：各家编码互不通用，不猜）。
    * 视频是**异步任务**（建任务 → 轮询 → 下载），一次跑几十秒到几分钟，且按秒计费，

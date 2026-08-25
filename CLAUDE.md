@@ -154,6 +154,7 @@ steps:
     type: image                      # no role needed; requires an OpenAI-compatible API provider
     task: "Generate a poster for {{copy_text}}"
     image:
+      provider: "lanox"              # optional — image provider; defaults to llm.provider. When set, the text provider's base_url/api_key are NOT carried over (same rule as video.provider)
       model: "gpt-image-2"           # REQUIRED — image model ids are vendor-specific, never guessed
       size: "1024x1024"              # optional; also: quality, background
     output: cover_img                # variable = markdown image ref; PNG saved to <run>/assets/

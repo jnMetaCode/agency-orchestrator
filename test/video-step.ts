@@ -34,6 +34,15 @@ const MP4 = Buffer.from('0000001c667479706d70343200000000', 'hex');   // 够用�
 const cfg = (o: Record<string, unknown> = {}): LLMConfig =>
   ({ provider: 'metaso', api_key: 'mk-test', ...o } as unknown as LLMConfig);
 
+await test('video.provider 指定另一家时，不带文本供应商的 base_url / api_key', () => {
+  const prev = process.env.METASO_API_KEY; process.env.METASO_API_KEY = 'mk-env';
+  try {
+    const r = resolveVideoAccess(cfg({ provider: 'deepseek', api_key: 'dk-text', base_url: 'https://text.example/v1' }), { provider: 'metaso' });
+    assert(r.apiKey === 'mk-env', `应用 metaso 自己的 key，实际 ${r.apiKey}`);
+    assert(!/text\.example/.test(r.baseUrl), `不应带上文本供应商 base_url，实际 ${r.baseUrl}`);
+  } finally { if (prev === undefined) delete process.env.METASO_API_KEY; else process.env.METASO_API_KEY = prev; }
+});
+
 /**
  * 一个按秘塔实测契约行为的假服务：
  *   POST /v2/video_generation        → {"task_id": "…"}
@@ -145,8 +154,12 @@ await test('缺 key 时报错指明环境变量名', () => {
 });
 
 await test('video.provider 可覆盖 llm.provider（一条工作流里文本走一家、视频走另一家）', () => {
-  const r = resolveVideoAccess(cfg({ provider: 'deepseek' }), { provider: 'metaso' });
-  assert(r.spec.id === 'metaso' && r.baseUrl.includes('metaso.cn'), `应解析到秘塔，实际 ${r.spec?.id} ${r.baseUrl}`);
+  // 视频供应商用**自己**的 key（env），不是 llm.api_key——那把是文本供应商的
+  const prev = process.env.METASO_API_KEY; process.env.METASO_API_KEY = 'mk-env';
+  try {
+    const r = resolveVideoAccess(cfg({ provider: 'deepseek' }), { provider: 'metaso' });
+    assert(r.spec.id === 'metaso' && r.baseUrl.includes('metaso.cn'), `应解析到秘塔，实际 ${r.spec?.id} ${r.baseUrl}`);
+  } finally { if (prev === undefined) delete process.env.METASO_API_KEY; else process.env.METASO_API_KEY = prev; }
 });
 
 console.log('\n─── 异步链路：建任务 → 轮询 → 下载 ───');
