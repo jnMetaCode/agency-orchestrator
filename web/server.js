@@ -534,7 +534,8 @@ function loadWorkflowMeta(dir, tagPrivate = false, deletable = false) {
               // Fallback: readable English from role filename
               name = roleSuffix.replace(/-/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
             }
-            return { id: s.id, role: s.role, name: name || s.id, emoji: emoji || '🤖' };
+            // type: image/video 步骤没有 role——Studio「创意出片」按此挑出文生图/文生视频模板
+            return { id: s.id, role: s.role, name: name || s.id, emoji: emoji || '🤖', ...(s.type ? { type: s.type } : {}) };
           }),
           provider: doc?.llm?.provider,
           private: tagPrivate,

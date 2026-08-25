@@ -1,8 +1,10 @@
-import { BarChart3, Boxes, Download, History, KeyRound, Plug, TriangleAlert, Users } from "lucide-react";
+import { Clapperboard, Download, History, KeyRound, Rocket, Settings, TriangleAlert, WandSparkles } from "lucide-react";
+import { Link } from "react-router-dom";
 import { lazy, Suspense, useCallback, useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { SiteFooter } from "@/components/layout/SiteFooter";
 import { ChatPanel, type ChatRole, type ChatSeed } from "@/components/studio/ChatPanel";
+import { CreativePanel } from "@/components/studio/CreativePanel";
 import { ModelSelect } from "@/components/studio/ModelSelect";
 import { ProviderSelect } from "@/components/studio/ProviderSelect";
 import { ProvidersPanel } from "@/components/studio/ProvidersPanel";
@@ -29,18 +31,35 @@ const UsagePanel = lazy(() => import("@/components/studio/UsagePanel").then((m) 
 const KEYED = API_PROVIDERS.map((p) => p.id);
 
 // 提示词优化已在顶部主导航单独成页(/prompt)，Studio 内不再重复一个 tab。
-type Tab = "roles" | "workflows" | "runs" | "usage" | "providers";
+// 顶栏按「用户来干嘛」分四组，不按系统里有什么功能平铺：
+//   开始做事（角色组队 / 工作流模板）· 我的运行 · 创意出片 · 设置（供应商 / 用量）
+// 旧的 5 tab（roles/workflows/runs/usage/providers）保留为子视图 id，?tab= 深链兼容。
+type Tab = "start" | "runs" | "create" | "settings";
+type StartView = "roles" | "workflows";
+type SettingsView = "providers" | "usage";
+type LegacyTab = Tab | StartView | SettingsView;
 
-const TAB_META: { id: Tab; icon: typeof Users }[] = [
-  { id: "roles", icon: Users },
-  { id: "workflows", icon: Boxes },
+const TAB_META: { id: Tab; icon: typeof Rocket }[] = [
+  { id: "start", icon: Rocket },
   { id: "runs", icon: History },
-  { id: "usage", icon: BarChart3 },
-  { id: "providers", icon: Plug },
+  { id: "create", icon: Clapperboard },
+  { id: "settings", icon: Settings },
 ];
 
+/** 旧 tab id → 新 tab + 子视图（创意库深链 ?tab=workflows 等仍然有效） */
+function resolveTab(qp: string | null): { tab: Tab; start?: StartView; settings?: SettingsView } {
+  switch (qp) {
+    case "roles": return { tab: "start", start: "roles" };
+    case "workflows": return { tab: "start", start: "workflows" };
+    case "providers": return { tab: "settings", settings: "providers" };
+    case "usage": return { tab: "settings", settings: "usage" };
+    case "runs": case "create": case "settings": case "start": return { tab: qp };
+    default: return { tab: "start" };
+  }
+}
+
 function StudioInner() {
-  const { t, lang } = useLanguage();
+  const { t, lang, prefix } = useLanguage();
   const { status, version, stale, latest, updateAvailable } = useBackend();
   // 防御：任一 tab 文案缺失也不要让整个 Studio 渲染崩溃（否则所有 tab 都点不动）
   const TABS = TAB_META.map((tb) => ({
@@ -51,11 +70,10 @@ function StudioInner() {
   const { start, open } = useRunManager();
   // ?tab=workflows 深链：创意库的视频卡要能一步跳到「一句话出短片」，
   // 落在默认的"角色组队"页再让用户自己找，等于把闭环断在最后一米。
-  const [tab, setTabState] = useState<Tab>(() => {
-    if (typeof window === "undefined") return "roles";
-    const qp = new URLSearchParams(window.location.search).get("tab");
-    return (TAB_META.some((tb) => tb.id === qp) ? qp : "roles") as Tab;
-  });
+  const initial = typeof window === "undefined" ? resolveTab(null) : resolveTab(new URLSearchParams(window.location.search).get("tab"));
+  const [tab, setTabState] = useState<Tab>(initial.tab);
+  const [startView, setStartView] = useState<StartView>(initial.start ?? "roles");
+  const [settingsView, setSettingsView] = useState<SettingsView>(initial.settings ?? "providers");
   const [provider, setProviderState] = useState(getActiveProvider);
   const [keyedHas, setKeyedHas] = useState<Record<string, boolean>>({});
   const [installOpen, setInstallOpen] = useState(false);
@@ -82,15 +100,48 @@ function StudioInner() {
       .catch(() => {});
   }, []);
   // Refresh key status whenever leaving the providers tab (so the warning clears).
+  // 接受旧 id：代码里各处 setTab("providers") / setTab("workflows") 不用改，自动落到对应子视图
   const setTab = useCallback(
-    (t: Tab) => {
+    (id: LegacyTab) => {
+      const r = resolveTab(id);
+      if (r.start) setStartView(r.start);
+      if (r.settings) setSettingsView(r.settings);
       setTabState((prev) => {
-        if (prev === "providers" && t !== "providers") refreshConfig();
-        return t;
+        if (prev === "settings" && r.tab !== "settings") refreshConfig();
+        return r.tab;
       });
     },
     [refreshConfig],
   );
+  // 子视图切换条（开始做事 / 设置 两个 tab 下各有两个子视图）
+  const subNav = (items: [string, string][], value: string, onChange: (v: string) => void, extra?: React.ReactNode) => (
+    <div className="mb-4 flex flex-wrap items-center gap-1">
+      {items.map(([id, label]) => (
+        <button
+          key={id}
+          onClick={() => onChange(id)}
+          className={cn(
+            "rounded-full px-3 py-1 text-xs font-medium transition-colors",
+            value === id ? "bg-primary text-primary-foreground" : "bg-muted/60 text-muted-foreground hover:text-foreground",
+          )}
+        >
+          {label}
+        </button>
+      ))}
+      {extra}
+    </div>
+  );
+  const subLabel = (id: LegacyTab | "prompt") => t.studio.shell.tabs[id]?.label ?? id;
+  const startSubNav = subNav(
+    [["roles", subLabel("roles")], ["workflows", subLabel("workflows")]],
+    startView,
+    (v) => setStartView(v as StartView),
+    // 提示词工坊是独立页（/prompt），这里只给入口不重复 tab
+    <Link to={prefix("/prompt")} className="ml-auto inline-flex items-center gap-1 rounded-full px-3 py-1 text-xs text-muted-foreground transition-colors hover:text-primary">
+      <WandSparkles className="size-3.5" /> {subLabel("prompt")}
+    </Link>,
+  );
+  const settingsSubNav = subNav([["providers", subLabel("providers")], ["usage", subLabel("usage")]], settingsView, (v) => setSettingsView(v as SettingsView));
   const openPlainChat = useCallback((seedText?: string, role?: ChatRole) => {
     setChatRole(role ?? null);
     if (seedText) setChatSeed({ text: seedText, n: ++seedCounter.current });
@@ -199,9 +250,12 @@ function StudioInner() {
               </Button>
             </div>
           )}
-          {tab === "providers" ? (
+          {tab === "settings" && settingsView === "providers" ? (
             // 供应商/API 面板在线、离线都能进、能填（演示站没有引擎也照样展示卡片，只是无法实际运行）
-            <ProvidersPanel active={provider} onSetActive={(p) => setProvider(p)} offline={offline} />
+            <>
+              {settingsSubNav}
+              <ProvidersPanel active={provider} onSetActive={(p) => setProvider(p)} offline={offline} />
+            </>
           ) : offline ? (
             <>
               <div className="mb-5 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-amber-500/40 bg-amber-500/[0.07] px-4 py-3">
@@ -215,15 +269,20 @@ function StudioInner() {
                 </Button>
               </div>
               {/* 演示模式也按 tab 显示真实内容（可浏览，只是不能真跑）；运行类操作引导安装 */}
-              {tab === "workflows" ? (
-                <WorkflowsPanel provider={provider} onRun={start} demo onInstallPrompt={() => setInstallOpen(true)} />
+              {tab === "start" && startView === "workflows" ? (
+                <>
+                  {startSubNav}
+                  <WorkflowsPanel provider={provider} onRun={start} demo onInstallPrompt={() => setInstallOpen(true)} />
+                </>
+              ) : tab === "create" ? (
+                <CreativePanel provider={provider} onRun={start} demo onInstallPrompt={() => setInstallOpen(true)} />
               ) : tab === "runs" ? (
                 <p className="mx-auto max-w-md py-16 text-center text-sm text-muted-foreground">
                   {lang === "en"
                     ? "Run History — demo mode has no records yet. Once you run workflows locally, each run's outputs, duration and tokens show here, and you can re-run from any step."
                     : "运行历史 —— 演示模式还没有记录。本地实际跑过工作流后，这里会列出每次运行的产物、耗时与 token，并支持从任意步骤重跑。"}
                 </p>
-              ) : tab === "usage" ? (
+              ) : tab === "settings" ? (
                 <p className="mx-auto max-w-md py-16 text-center text-sm text-muted-foreground">
                   {lang === "en"
                     ? "Usage — demo mode has no data yet. After real local runs, this tab charts token usage and estimated cost by day and by role."
@@ -231,23 +290,32 @@ function StudioInner() {
                 </p>
               ) : (
                 <>
+                  {startSubNav}
                   <RolesPicker provider={provider} onRun={() => setInstallOpen(true)} demo onInstallPrompt={() => setInstallOpen(true)} />
                   <StudioDemo />
                 </>
               )}
             </>
-          ) : tab === "roles" ? (
-            <RolesPicker provider={provider} onRun={start} onGoToWorkflows={() => setTab("workflows")} onPlainChat={openPlainChat} taskSeed={taskSeed} />
-          ) : tab === "workflows" ? (
-            <WorkflowsPanel provider={provider} onRun={start} />
+          ) : tab === "start" ? (
+            <>
+              {startSubNav}
+              {startView === "roles" ? (
+                <RolesPicker provider={provider} onRun={start} onGoToWorkflows={() => setTab("workflows")} onPlainChat={openPlainChat} taskSeed={taskSeed} />
+              ) : (
+                <WorkflowsPanel provider={provider} onRun={start} />
+              )}
+            </>
+          ) : tab === "create" ? (
+            <CreativePanel provider={provider} onRun={start} />
           ) : tab === "runs" ? (
             <RunsPanel provider={provider} onRun={start} />
-          ) : tab === "usage" ? (
-            <Suspense fallback={<div className="py-20 text-center text-sm text-muted-foreground">…</div>}>
-              <UsagePanel />
-            </Suspense>
           ) : (
-            <ProvidersPanel active={provider} onSetActive={(p) => setProvider(p)} />
+            <>
+              {settingsSubNav}
+              <Suspense fallback={<div className="py-20 text-center text-sm text-muted-foreground">…</div>}>
+                <UsagePanel />
+              </Suspense>
+            </>
           )}
         </div>
       </main>

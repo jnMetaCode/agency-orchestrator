@@ -15,6 +15,8 @@ export interface Role {
 export interface WorkflowStepMeta {
   id: string;
   role: string;
+  /** 媒体步骤类型（image / video）；普通角色步骤无此字段 */
+  type?: string;
   name?: string;
   emoji?: string;
 }

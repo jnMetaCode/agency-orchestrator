@@ -159,7 +159,7 @@ function InputsDialog({ wf, provider, onClose, onRun, onCompare }: { wf: Workflo
   );
 }
 
-export function WorkflowsPanel({ provider, onRun, demo, onInstallPrompt }: { provider: string; onRun: (r: RunRequest) => void; demo?: boolean; onInstallPrompt?: () => void }) {
+export function WorkflowsPanel({ provider, onRun, demo, onInstallPrompt, filter }: { provider: string; onRun: (r: RunRequest) => void; demo?: boolean; onInstallPrompt?: () => void; /** 只展示满足条件的模板（「创意出片」用）；设了就不再显示社区模板区 */ filter?: (w: Workflow) => boolean }) {
   const { t, lang } = useLanguage();
   const [wfs, setWfs] = useState<Workflow[]>([]);
   // 最近 30 天运行记录——「最近运行」区按工作流文件聚合（用户隐式的"常用"，排在显式 ☆ 之后）
@@ -237,8 +237,8 @@ export function WorkflowsPanel({ provider, onRun, demo, onInstallPrompt }: { pro
 
   const filtered = useMemo(() => {
     const n = q.trim().toLowerCase();
-    return wfs.filter((w) => !n || (w.name + (w.description ?? "")).toLowerCase().includes(n));
-  }, [wfs, q]);
+    return wfs.filter((w) => (!filter || filter(w)) && (!n || (w.name + (w.description ?? "")).toLowerCase().includes(n)));
+  }, [wfs, q, filter]);
 
   // 分组：「我的工作流」最顶（用户自己组/存的是核心资产，按最近修改倒序，#92），
   // 其次 ⭐ 常用，再按类目（一人公司系列置顶 → 开发 → 内容 → 商业 → 职场 → 其他）。
@@ -508,7 +508,7 @@ export function WorkflowsPanel({ provider, onRun, demo, onInstallPrompt }: { pro
             {groups.fav.length > 0 && <Section title={lang === "en" ? "Favorites" : "常用（点 ☆ 收藏）"} items={groups.fav} star />}
             {groups.recent.length > 0 && <Section title={lang === "en" ? "Recently run" : "最近运行"} items={groups.recent} hint={lang === "en" ? "most-run in the last 30 days, from local run history" : "近 30 天跑得最多的，来自本机运行历史"} />}
             {groups.cats.map(([c, items]) => <Section key={c} title={c} items={items} />)}
-            {!demo && community.length > 0 && (
+            {!demo && !filter && community.length > 0 && (
               <section className="mt-8">
                 <h2 className="mb-3 flex items-baseline gap-2 text-sm font-bold">
                   {lang === "en" ? "Community Templates" : "社区模板"}
