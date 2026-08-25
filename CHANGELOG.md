@@ -5,6 +5,9 @@
 ## [Unreleased]
 
 ### Added
+- **图生视频**：`video.image` 首帧参考图——公网 URL / 上游图片步骤的输出变量 / 本地文件。秘塔按 MiniMax 官方 H3 协议在 `content[]` 加 `{type:image_url, role:first_frame}`（只收公网 URL，本地图明确报错并给出路）；APIMart sora/veo 用 `image_urls[]`、MiniMax-H3 用 `first_frame_image`，本地图先走 `POST /v1/uploads/images` 自动换 URL（72 小时有效）。执行器登记本次运行图片步骤的产物，视频步骤在产物落盘前就能引用。
+- **内置模板「短剧流水线（3 镜）」**：剧本 → 主角定妆图（文生图）→ 三镜提示词并行 → 三镜以定妆图为首帧并行出片 → 交付页。角色一致靠图生视频；模型可换、成本可见。
+- 视频模型档位改为**按模型**（docs.apimart.ai 抓取）：sora-2 720p/4·8·12·16·20s、sora-2-pro 720p·1024p·1080p、veo3.1-fast/quality/lite 720p·1080p·4k/固定 8s、MiniMax-H3 2K·768P/4–15s；秘塔 MiniMax-H3 480p/512p/768P/2K/4–10s。Studio 换模型档位跟着换。
 - **顶栏「出图 / 出片」胶囊**（创意出片 tab 显示）：图片/视频供应商、模型、档位在这里统一切换（与文本的供应商/模型胶囊并列，存 localStorage）；模板运行弹窗里媒体输入折叠成一行摘要只展示，「本次单独指定」才展开。创意出片视图平铺 + 🎨/🎬 产物角标。
 - **出片 / 出图可换供应商、换模型（Studio 下拉）**：工作流输入新增 `options`（静态候选）与 `source`（动态源：`image_providers` / `video_providers` 列已配 key 的供应商，`models` 按所选供应商实拉或取内置表，`video_resolutions` / `video_durations` 取各家档位表），`source_from` 指向存供应商 id 的输入。「一句话出短片」四个输入全部下拉，换供应商时档位候选跟着换（秘塔 768P 与 APIMart 1080p 不通用，从根上消灭填错被拒）；「图文内容套装」新增 `image_provider`（留空跟随文本供应商）。候选仍可「自定义…」手填；视频模型只列已核实编码。`/api/config` 新带 `videoProviders`（含 hasKey + 档位表）。
 - **图片步骤支持 `image.provider`**（与 `video.provider` 对称）：文本走 DeepSeek、图片走 LanoX 这类搭配终于可行；此前图片步骤只能跟整条工作流的文本供应商走，顶栏选了 Claude / CLI 类就报没有图片端点。
