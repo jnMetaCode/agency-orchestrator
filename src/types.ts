@@ -29,6 +29,8 @@ export interface InputDefinition {
   description?: string;
   required?: boolean;
   default?: string;            // 可选输入的默认值
+  /** Studio 里显示的名称（缺省显示变量名） */
+  label?: string;
   /** 静态候选值（Studio 渲染成下拉；仍可手填自定义值） */
   options?: string[];
   /**

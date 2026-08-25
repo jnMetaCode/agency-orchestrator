@@ -21,40 +21,49 @@ concurrency: 3
 
 inputs:
   - name: story
+    label: "故事梗概"
     description: "故事梗概（两三句即可，如：末日废城里一个机器人清道夫捡到一只会说话的鸵鸟）"
     required: true
   - name: style
+    label: "视觉风格"
     description: "视觉风格（如：美式复古好莱坞 / 霓虹赛博 / 日式青春胶片 / 国产都市写实）"
     required: true
     default: "美式复古好莱坞"
+    options: ["美式复古好莱坞", "霓虹赛博电影", "日式青春胶片", "国产都市写实", "武侠江湖写实摄影", "韩剧都市柔光", "复古科幻原子朋克", "老式工业影视", "荒野电影", "宫斗权谋冷峻"]
   - name: image_provider
+    label: "图片供应商"
     description: "定妆图用哪家图片供应商（留空 = 跟随文本供应商；需 OpenAI 兼容的 API 服务商）"
     required: false
     default: ""
     source: image_providers
   - name: image_model
+    label: "图片模型"
     description: "图片模型编码（各家互不通用；选了供应商后下拉列出）"
     required: true
     source: models
     source_from: image_provider
   - name: video_provider
+    label: "视频供应商"
     description: "视频供应商。本流水线用本机定妆图做首帧，需要有上传接口的供应商（APIMart）；秘塔只收公网 URL"
     required: true
     default: "apimart"
     source: video_providers
   - name: video_model
+    label: "视频模型"
     description: "视频模型编码（各家互不通用）"
     required: true
     default: "veo3.1-fast"
     source: models
     source_from: video_provider
   - name: video_resolution
+    label: "分辨率"
     description: "分辨率档位（按模型给候选；sora-2 只有 720p，veo 可到 4k，H3 是 2K/768P）"
     required: true
     default: "720p"
     source: video_resolutions
     source_from: video_provider
   - name: video_duration
+    label: "每镜秒数"
     description: "每镜秒数（按秒计费，3 镜合计 ×3；veo3 固定 8 秒）"
     required: true
     default: "8"

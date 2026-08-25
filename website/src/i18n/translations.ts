@@ -594,6 +594,7 @@ const zh = {
         summary: "本次出图 / 出片",
         change: "在右上角「出图 / 出片」里更改",
         customize: "本次单独指定",
+        panelHint: "本次运行以此为准；运行后自动记为默认，下次不用再选",
       },
       creative: {
         title: "创意出片",
@@ -1363,6 +1364,7 @@ const en: typeof zh = {
         summary: "This run will use",
         change: "Change under \"Image / Video\" at the top right",
         customize: "Override for this run",
+        panelHint: "Used for this run; saved as default afterwards so you won't pick again",
       },
       creative: {
         title: "Create",

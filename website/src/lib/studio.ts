@@ -26,6 +26,8 @@ export interface WorkflowInput {
   description?: string;
   required?: boolean;
   default?: string;
+  /** 显示名（缺省显示变量名） */
+  label?: string;
   /** 静态候选（渲染成下拉，可手填） */
   options?: string[];
   /** 动态候选源（见引擎 InputDefinition.source） */

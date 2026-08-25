@@ -23,30 +23,36 @@ llm:
 
 inputs:
   - name: idea
+    label: "创意"
     description: "你想拍什么（如：一只橘猫在窗台上看日落，治愈风 / 一双跑鞋在雨夜街头的广告片）"
     required: true
   - name: video_provider
+    label: "视频供应商"
     description: "视频供应商（Studio 里下拉可选；已配 key 的排前）"
     required: true
     default: "metaso"
     source: video_providers
   - name: video_model
+    label: "视频模型"
     description: "视频模型编码（各家互不通用，秘塔填 MiniMax-H3；APIMart 可填 veo3.1-fast / sora-2 等）"
     required: true
     default: "MiniMax-H3"
     source: models
     source_from: video_provider
   - name: video_resolution
+    label: "分辨率"
     description: "分辨率档位。**两家不通用**：秘塔 480p/512p/768P/2K；APIMart 720p/1080p/4k。换供应商必须一起换"
     required: true
     default: "768P"
     source: video_resolutions
     source_from: video_provider
   - name: reference_image
+    label: "首帧参考图"
     description: "首帧参考图（可选，图生视频）：公网图片 URL。留空 = 纯文生视频。本地图片只有 APIMart 能用（引擎自动上传），秘塔只收公网 URL"
     required: false
     default: ""
   - name: video_duration
+    label: "秒数"
     description: "秒数（按秒计费）。秘塔可 4~10 秒；APIMart 的 VEO3 固定 8 秒——填错会被服务商直接拒"
     required: true
     default: "5"

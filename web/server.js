@@ -511,6 +511,7 @@ function loadWorkflowMeta(dir, tagPrivate = false, deletable = false) {
             required: !!i.required,
             default: i.default,
             // 下拉候选（静态 options / 动态 source）：Studio 输入弹窗据此渲染选择框，而不是让用户手打供应商 id
+            ...(typeof i.label === 'string' ? { label: i.label } : {}),
             ...(Array.isArray(i.options) ? { options: i.options.filter((o) => typeof o === 'string') } : {}),
             ...(typeof i.source === 'string' ? { source: i.source } : {}),
             ...(typeof i.source_from === 'string' ? { source_from: i.source_from } : {}),

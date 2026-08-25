@@ -15,14 +15,17 @@ concurrency: 2
 
 inputs:
   - name: product
+    label: "产品或主题"
     description: "产品或主题（如：便携手冲咖啡杯 / AI 编程入门课）"
     required: true
   - name: image_provider
+    label: "图片供应商"
     description: "图片供应商（留空 = 跟随文本供应商）。文生图只有 OpenAI 兼容的 API 服务商能跑，CLI 订阅类与 Claude 原生协议不出图；文本走 DeepSeek、图片走 LanoX 这类搭配在这里选"
     required: false
     default: ""
     source: image_providers
   - name: image_model
+    label: "图片模型"
     description: "图片模型编码（各家互不通用，如 gpt-image-2 / lanox-image-2 / doubao-seedream；选了供应商后下拉会列出它的模型）"
     required: true
     source: models

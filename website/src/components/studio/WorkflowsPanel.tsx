@@ -4,7 +4,7 @@ import { Tip } from "@/components/ui/tip";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useLanguage } from "@/i18n/LanguageProvider";
 import { Button } from "@/components/ui/button";
-import { api, type WorkflowInput, type ConfigResponse, API_PROVIDERS, recentUsage, type RunSummary, getFavWorkflows, setFavWorkflows, getMediaDefaults, mediaDefaultFor, type CommunityTemplate, type Workflow } from "@/lib/studio";
+import { api, type WorkflowInput, type ConfigResponse, API_PROVIDERS, recentUsage, type RunSummary, getFavWorkflows, setFavWorkflows, getMediaDefaults, mediaDefaultFor, setMediaDefaults, type CommunityTemplate, type Workflow } from "@/lib/studio";
 import { track } from "@/lib/track";
 import { cn } from "@/lib/utils";
 import { RoleAvatar } from "./RoleAvatar";
@@ -87,9 +87,8 @@ function InputsDialog({ wf, provider, onClose, onRun, onCompare }: { wf: Workflo
     inputs.forEach((i) => (init[i.name] = mediaDefaultFor(i, media) || i.default || ""));
     return init;
   });
-  // 媒体输入默认折叠成一行摘要（只展示）；有必填项没值、或用户点「本次单独指定」才展开
+  // 媒体输入放右栏面板（紧凑行）；运行时记为默认，下次自动预填
   const mediaInputs = inputs.filter(isMediaInput);
-  const [mediaOpen, setMediaOpen] = useState(() => mediaInputs.some((i) => i.required && !(mediaDefaultFor(i, media) || i.default)));
   const [materialize, setMaterialize] = useState(false);
   // 从文件读入输入变量（#96）：浏览器端 FileReader 读文本填进值，不经服务器路径，
   // 与引擎的 AO_NO_AT_FILE 防护（禁止网页按路径读服务器文件）互不冲突。
@@ -122,7 +121,22 @@ function InputsDialog({ wf, provider, onClose, onRun, onCompare }: { wf: Workflo
     r.readAsText(f);
   };
 
+  const rememberMedia = () => {
+    if (!mediaInputs.length) return;
+    const d = getMediaDefaults();
+    for (const i of mediaInputs) {
+      const v = vals[i.name] ?? "";
+      if (i.source === "image_providers") d.image.provider = v;
+      else if (i.source === "video_providers") d.video.provider = v;
+      else if (i.source === "video_resolutions") d.video.resolution = v;
+      else if (i.source === "video_durations") d.video.duration = v;
+      else if (i.source === "models" && i.source_from?.startsWith("image")) d.image.model = v;
+      else if (i.source === "models" && i.source_from?.startsWith("video")) d.video.model = v;
+    }
+    setMediaDefaults(d);
+  };
   const submit = () => {
+    rememberMedia();
     onRun({ kind: "workflow", title: wf.name, file: wf.file, inputs: vals, provider: provider || undefined, cast: wf.steps, materialize });
     onClose();
   };
@@ -131,106 +145,118 @@ function InputsDialog({ wf, provider, onClose, onRun, onCompare }: { wf: Workflo
     onClose();
   };
 
+  const isMedia = mediaInputs.length > 0;
+  const hasMediaStep = !!wf.steps?.some((st) => st.type === "image" || st.type === "video");
+  const m = t.studio.shell.media;
+  // 一个输入 = 标签行 + 说明 + 控件。compact = 右栏「出图 / 出片」面板：标签与控件同行，说明进 title
+  const field = (inp: WorkflowInput, compact: boolean) => {
+    const opts = optionsFor(inp, vals);
+    const cur = vals[inp.name] ?? "";
+    const inList = opts !== null && opts !== "loading" && opts.some((o) => o.value === cur);
+    const showSelect = opts !== null && !custom[inp.name] && (cur === "" || inList || opts === "loading");
+    const title = inp.label || inp.name;
+    const control = !showSelect ? (
+      <textarea
+        value={cur}
+        onChange={(e) => setVals((p) => ({ ...p, [inp.name]: e.target.value }))}
+        rows={compact ? 1 : 2}
+        className={cn("w-full rounded-xl border border-border/70 bg-card/60 px-3 py-2 text-sm outline-none focus:border-primary/50", compact ? "h-9 resize-none py-1.5 text-xs" : "mt-1")}
+      />
+    ) : (
+      <select
+        value={inList ? cur : ""}
+        disabled={opts === "loading"}
+        onChange={(e) => {
+          if (e.target.value === "__custom__") { setCustom((p) => ({ ...p, [inp.name]: true })); return; }
+          setVals((p) => ({ ...p, [inp.name]: e.target.value }));
+        }}
+        className={cn("w-full rounded-xl border border-border/70 bg-card/60 px-3 text-sm outline-none focus:border-primary/50", compact ? "h-9 text-xs" : "mt-1 h-10")}
+      >
+        {opts === "loading" ? (
+          <option value="">{t.studio.workflows.inputModelsLoading}</option>
+        ) : (
+          <>
+            <option value="">{inp.required ? "—" : `— ${t.studio.workflows.inputFollowText}`}</option>
+            {opts.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+            <option value="__custom__">{t.studio.workflows.inputCustom}</option>
+          </>
+        )}
+      </select>
+    );
+    if (compact) return (
+      <label key={inp.name} className="grid grid-cols-[76px_1fr] items-center gap-2" title={inp.description || ""}>
+        <span className="truncate text-xs text-muted-foreground">{title}{inp.required && <span className="text-red-500">*</span>}</span>
+        {control}
+      </label>
+    );
+    return (
+      <label key={inp.name} className="block">
+        <span className="flex items-center justify-between text-sm font-medium">
+          <span>{title}{inp.required && <span className="text-red-500"> *</span>}</span>
+          {/* #96：识别技术文档类场景——把 .md/.txt/代码等文本文件内容一键填进输入；下拉项不需要 */}
+          {!showSelect && (
+            <Tip label={t.studio.workflows.inputFromFile}>
+              <button type="button" onClick={() => pickFileFor(inp.name)} className="inline-flex items-center gap-1 rounded-lg px-1.5 py-0.5 text-xs font-normal text-muted-foreground transition-colors hover:text-primary">
+                <Paperclip className="size-3.5" />
+                {t.studio.workflows.inputFromFileShort}
+              </button>
+            </Tip>
+          )}
+        </span>
+        {inp.description && <span className="block text-xs text-muted-foreground">{inp.description}</span>}
+        {control}
+        {fileMeta[inp.name] && <span className="mt-0.5 block text-[11px] text-muted-foreground">📎 {fileMeta[inp.name]}</span>}
+      </label>
+    );
+  };
+  const contentInputs = inputs.filter((i) => !isMediaInput(i));
+
   return (
     <div className="fixed inset-0 z-[55] grid place-items-center bg-black/50 p-4 backdrop-blur-sm" onClick={onClose}>
-      <div className="w-full max-w-lg rounded-2xl border border-border/70 bg-background p-5 shadow-2xl" onClick={(e) => e.stopPropagation()}>
-        <div className="flex items-center justify-between">
-          <h3 className="font-semibold">{wf.name}</h3>
-          <button onClick={onClose} className="text-muted-foreground hover:text-foreground">
-            <X className="size-4" />
-          </button>
+      {/* 有出图/出片设置时放宽成两栏：左=内容，右=媒体设置；正文可滚动，按钮固定在底部 */}
+      <div className={cn("flex max-h-[88vh] w-full flex-col rounded-2xl border border-border/70 bg-background shadow-2xl", isMedia ? "max-w-4xl" : "max-w-lg")} onClick={(e) => e.stopPropagation()}>
+        <div className="px-5 pt-5">
+          <div className="flex items-center justify-between">
+            <h3 className="font-semibold">{wf.name}</h3>
+            <button onClick={onClose} className="text-muted-foreground hover:text-foreground"><X className="size-4" /></button>
+          </div>
+          {wf.description && <p className="mt-1 line-clamp-2 text-sm text-muted-foreground">{wf.description}</p>}
         </div>
-        {wf.description && <p className="mt-1 text-sm text-muted-foreground">{wf.description}</p>}
-        <div className="mt-4 space-y-3">
-          {mediaInputs.length > 0 && !mediaOpen && (
-            <div className="flex flex-wrap items-center gap-x-3 gap-y-1 rounded-xl border border-border/70 bg-card/40 px-3 py-2 text-xs">
-              <span className="font-medium">{t.studio.shell.media.summary}</span>
-              {mediaInputs.map((i) => (
-                <span key={i.name} className="font-mono text-muted-foreground">{i.name.replace(/^(image|video)_/, "")}={vals[i.name] || "—"}</span>
-              ))}
-              <span className="text-muted-foreground/70">{t.studio.shell.media.change}</span>
-              <button type="button" onClick={() => setMediaOpen(true)} className="ml-auto text-primary hover:underline">{t.studio.shell.media.customize}</button>
-            </div>
-          )}
-          {inputs.filter((inp) => mediaOpen || !isMediaInput(inp)).map((inp) => (
-            <label key={inp.name} className="block">
-              <span className="flex items-center justify-between text-sm font-medium">
-                <span>
-                  {inp.name}
-                  {inp.required && <span className="text-red-500"> *</span>}
+        <div className={cn("min-h-0 flex-1 overflow-auto px-5 py-4", isMedia && "grid gap-5 md:grid-cols-[1fr_300px]")}>
+          <div className="space-y-3">
+            {contentInputs.map((inp) => field(inp, false))}
+            {fileErr && <p className="text-xs text-red-500">{fileErr}</p>}
+            <input ref={fileInputRef} type="file" accept=".md,.txt,.markdown,.json,.yaml,.yml,.csv,.log,.html,.css,.js,.ts,.tsx,.py,.java,.go,.rs,.sh,.xml,.toml,.ini,text/*" hidden onChange={onFilePicked} />
+            {!inputs.length && <p className="text-sm text-muted-foreground">{t.studio.workflows.noInputsNeeded}</p>}
+            {!hasMediaStep && (
+              <label className="mt-2 flex cursor-pointer items-start gap-2 rounded-xl border border-border/70 bg-card/40 p-3">
+                <input type="checkbox" checked={materialize} onChange={(e) => setMaterialize(e.target.checked)} className="mt-0.5" />
+                <span className="text-sm">
+                  <span className="font-medium">{lang === "en" ? "Develop project (write code to files)" : "开发项目（把生成的代码写成真实文件）"}</span>
+                  <span className="mt-0.5 block text-xs text-muted-foreground">
+                    {lang === "en" ? "If the workflow produces code, save it as a runnable scaffold on disk. The run log shows where." : "若工作流会产出代码，跑完落盘成可运行脚手架到本地；运行日志里显示路径。"}
+                  </span>
                 </span>
-                {/* #96：识别技术文档类场景——把 .md/.txt/代码等文本文件内容一键填进输入 */}
-                <Tip label={t.studio.workflows.inputFromFile}>
-                  <button
-                    type="button"
-                    onClick={() => pickFileFor(inp.name)}
-                    className="inline-flex items-center gap-1 rounded-lg px-1.5 py-0.5 text-xs font-normal text-muted-foreground transition-colors hover:text-primary"
-                  >
-                    <Paperclip className="size-3.5" />
-                    {t.studio.workflows.inputFromFileShort}
-                  </button>
-                </Tip>
-              </span>
-              {inp.description && <span className="block text-xs text-muted-foreground">{inp.description}</span>}
-              {(() => {
-                const opts = optionsFor(inp, vals);
-                const cur = vals[inp.name] ?? "";
-                const inList = opts !== null && opts !== "loading" && opts.some((o) => o.value === cur);
-                const showSelect = opts !== null && !custom[inp.name] && (cur === "" || inList || opts === "loading");
-                if (!showSelect) return (
-                  <textarea
-                    value={cur}
-                    onChange={(e) => setVals((p) => ({ ...p, [inp.name]: e.target.value }))}
-                    rows={2}
-                    className="mt-1 w-full rounded-xl border border-border/70 bg-card/60 px-3 py-2 text-sm outline-none focus:border-primary/50"
-                  />
-                );
-                return (
-                  <select
-                    value={inList ? cur : ""}
-                    disabled={opts === "loading"}
-                    onChange={(e) => {
-                      if (e.target.value === "__custom__") { setCustom((p) => ({ ...p, [inp.name]: true })); return; }
-                      setVals((p) => ({ ...p, [inp.name]: e.target.value }));
-                    }}
-                    className="mt-1 h-10 w-full rounded-xl border border-border/70 bg-card/60 px-3 text-sm outline-none focus:border-primary/50"
-                  >
-                    {opts === "loading" ? (
-                      <option value="">{t.studio.workflows.inputModelsLoading}</option>
-                    ) : (
-                      <>
-                        <option value="">{inp.required ? "—" : `— ${t.studio.workflows.inputFollowText}`}</option>
-                        {opts.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
-                        <option value="__custom__">{t.studio.workflows.inputCustom}</option>
-                      </>
-                    )}
-                  </select>
-                );
-              })()}
-              {fileMeta[inp.name] && (
-                <span className="mt-0.5 block text-[11px] text-muted-foreground">📎 {fileMeta[inp.name]}</span>
+              </label>
+            )}
+          </div>
+          {isMedia && (
+            <aside className="h-fit space-y-2 rounded-2xl border border-border/60 bg-card/40 p-3">
+              <p className="text-xs font-semibold">🎨🎬 {m.title}</p>
+              <p className="text-[11px] leading-relaxed text-muted-foreground">{m.panelHint}</p>
+              {mediaInputs.some((i) => i.source === "image_providers" || (i.source === "models" && i.source_from?.startsWith("image"))) && (
+                <p className="pt-1 text-[10px] font-bold uppercase tracking-wider text-muted-foreground/70">🎨 {m.image}</p>
               )}
-            </label>
-          ))}
-          {fileErr && <p className="text-xs text-red-500">{fileErr}</p>}
-          <input ref={fileInputRef} type="file" accept=".md,.txt,.markdown,.json,.yaml,.yml,.csv,.log,.html,.css,.js,.ts,.tsx,.py,.java,.go,.rs,.sh,.xml,.toml,.ini,text/*" hidden onChange={onFilePicked} />
-          {!inputs.length && <p className="text-sm text-muted-foreground">{t.studio.workflows.noInputsNeeded}</p>}
+              {mediaInputs.filter((i) => i.source === "image_providers" || (i.source === "models" && i.source_from?.startsWith("image"))).map((i) => field(i, true))}
+              {mediaInputs.some((i) => i.source?.startsWith("video") || (i.source === "models" && i.source_from?.startsWith("video"))) && (
+                <p className="pt-1 text-[10px] font-bold uppercase tracking-wider text-muted-foreground/70">🎬 {m.video}</p>
+              )}
+              {mediaInputs.filter((i) => i.source?.startsWith("video") || (i.source === "models" && i.source_from?.startsWith("video"))).map((i) => field(i, true))}
+            </aside>
+          )}
         </div>
-        <label className="mt-4 flex cursor-pointer items-start gap-2 rounded-xl border border-border/70 bg-card/40 p-3">
-          <input type="checkbox" checked={materialize} onChange={(e) => setMaterialize(e.target.checked)} className="mt-0.5" />
-          <span className="text-sm">
-            <span className="font-medium">{lang === "en" ? "Develop project (write code to files)" : "开发项目（把生成的代码写成真实文件）"}</span>
-            <span className="mt-0.5 block text-xs text-muted-foreground">
-              {lang === "en"
-                ? "If the workflow produces code, save it as a runnable scaffold on disk. The run log shows where."
-                : "若工作流会产出代码，跑完落盘成可运行脚手架到本地；运行日志里显示路径。"}
-            </span>
-          </span>
-        </label>
-        <div className="mt-5 flex justify-end gap-2">
-          <Button variant="ghost" onClick={onClose}>
-            {t.studio.workflows.cancel}
-          </Button>
+        <div className="flex justify-end gap-2 border-t border-border/60 px-5 py-3">
+          <Button variant="ghost" onClick={onClose}>{t.studio.workflows.cancel}</Button>
           <Button variant="outline" onClick={compare} title={lang === "en" ? "Run the workflow and a single-shot baseline, then blind-judge both" : "跑工作流 + 单次基线并盲评对比"}>
             <Scale className="size-4" />
             {lang === "en" ? "vs Single-shot" : "对比单次"}
