@@ -1,4 +1,5 @@
 name: "Codex + Claude Code 协作编程(闭环版)"
+agents_dir: "agency-agents-zh"
 
 # 顶层 llm 必填。CLI 类 provider 的 model 可留空 ""
 llm:
