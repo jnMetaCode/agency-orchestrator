@@ -35,6 +35,7 @@ export function ProviderSelect({ value, onChange, onOpenProviders }: { value: st
       setCustomProviders(c.customProviders ?? []);
       setRemoteProviders(c.remoteProviders ?? []);
       setKeyed(new Set(Object.entries(c.providers).filter(([, v]) => !!v.hasKey).map(([k]) => k)));
+      setRemoved(c.removedProviders ?? []);
       // 远程清单可能补充新中转商；内置的（Cubence）优先，同名去重
       setRelayPresets([...CLI_RELAY_PRESETS, ...(c.relayPresets ?? []).filter((r) => !CLI_RELAY_PRESETS.some((b) => b.name === r.name))]);
     }).catch(() => {});
@@ -102,8 +103,18 @@ export function ProviderSelect({ value, onChange, onOpenProviders }: { value: st
         ))}
       </>
     ) : null;
-  // 组内稳定排序：有 key 的在前，其余保持注册表顺序（旗舰/赞助商在前的既定次序不打乱）
-  const keyedFirst = (ids: string[]) => [...ids.filter((p) => keyed.has(p)), ...ids.filter((p) => !keyed.has(p))];
+  // 组内排序按**层级**：旗舰 → 进阶 → 赞助商 → 普通 → 已下架；每层内已配 key 的在前。
+  // 上一版只按"有 key 在前"，把配过 key 的已下架多元探索和非赞助的 Agnes 顶到了赞助商前面。
+  // 已下架的（内置 delisted / 远程清单 removedProviders）只对配过 key 或当前正选中的用户露出，排最后。
+  const [removed, setRemoved] = useState<string[]>([]);
+  const isDelisted = (p: string) => !!API_PROVIDERS.find((x) => x.id === p)?.delisted || removed.includes(p);
+  const tier = (p: string) => (isDelisted(p) ? 4 : isFlagship(p) ? 0 : isAdvanced(p) ? 1 : isSponsor(p) ? 2 : 3);
+  const keyedFirst = (ids: string[]) =>
+    ids
+      .filter((p) => !isDelisted(p) || keyed.has(p) || p === value)
+      .map((p, i) => ({ p, i }))
+      .sort((a, b) => tier(a.p) - tier(b.p) || Number(keyed.has(b.p)) - Number(keyed.has(a.p)) || a.i - b.i)
+      .map((x) => x.p);
   const groups: { label: string; ids: string[] }[] = [
     // 聚合平台：内置聚合商(旗舰/赞助商在前) + 远程清单上架的赞助商
     // videoOnly 的供应商（秘塔等）只跑 type: video 步骤，没有 chat 端点——不进这个下拉
@@ -178,9 +189,14 @@ export function ProviderSelect({ value, onChange, onOpenProviders }: { value: st
                           {t.studio.providers.advancedTag}
                         </span>
                       )}
-                      {sponsor && (
+                      {sponsor && !isDelisted(p) && (
                         <span className="shrink-0 rounded-full bg-gold/15 px-1.5 py-0.5 text-[10px] font-semibold text-gold">
                           {t.studio.providers.sponsorTag}
+                        </span>
+                      )}
+                      {isDelisted(p) && (
+                        <span className="shrink-0 rounded-full bg-muted px-1.5 py-0.5 text-[10px] text-muted-foreground">
+                          {t.studio.providers.delistedTag}
                         </span>
                       )}
                       {on && <Check className="size-4 shrink-0 text-gold" />}

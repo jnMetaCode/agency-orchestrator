@@ -34,6 +34,8 @@ export function ModelSelect({ provider }: { provider: string }) {
   const [favs, setFavs] = useState<string[]>([]);
   // 远程清单下发的换代模型建议（providerOverrides）——比打包进前端的静态建议新
   const [remoteSuggestions, setRemoteSuggestions] = useState<string[] | null>(null);
+  // 没配 key 就别露「拉取全部模型」：拉了必 401，用户看到一坨厂商 JSON 只会以为坏了。推荐集本身就是"常用模型"。
+  const [hasKey, setHasKey] = useState<boolean>(true);
   const ref = useRef<HTMLDivElement>(null);
 
   // 当前供应商已保存的模型（切换供应商时刷新）
@@ -48,6 +50,7 @@ export function ModelSelect({ provider }: { provider: string }) {
       .config()
       .then((c) => {
         setCurrent(c.providers[eff]?.model || "");
+        setHasKey(c.providers[eff]?.hasKey !== false);
         setRemoteSuggestions(c.providers[eff]?.modelSuggestions ?? null);
       })
       .catch(() => setCurrent(""));
@@ -76,9 +79,9 @@ export function ModelSelect({ provider }: { provider: string }) {
     try {
       const r = await api.providerModels({ provider: eff });
       if (r.ok && r.models && r.models.length > 0) setFetched({ models: r.models, vendors: r.vendors });
-      else setFetchError(r.error || p.modelsEmpty);
+      else setFetchError((r.error || p.modelsEmpty).split(/（HTTP|\(HTTP/)[0].trim());
     } catch (e: any) {
-      setFetchError(e?.message || String(e));
+      setFetchError(String(e?.message || e).split(/（HTTP|\(HTTP/)[0].trim());
     } finally {
       setFetching(false);
     }
@@ -184,7 +187,9 @@ export function ModelSelect({ provider }: { provider: string }) {
                 <div className="px-2.5 py-2 text-xs text-muted-foreground">{fetchError || p.modelsEmpty}</div>
               )}
               {list.map(item)}
-              {fetching ? (
+              {!hasKey ? (
+                <div className="mt-1 border-t border-border/50 px-2.5 py-2 text-[11px] text-muted-foreground">{p.modelsNeedKey}</div>
+              ) : fetching ? (
                 <div className="flex items-center gap-1.5 px-2.5 py-2 text-xs text-muted-foreground">
                   <Loader2 className="size-3.5 animate-spin" />
                   {p.modelsFetching}

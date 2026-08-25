@@ -409,6 +409,37 @@ export function recentUsage(runs: RunSummary[], keyOf: (r: RunSummary) => string
   return [...count.entries()].sort((a, b) => b[1] - a[1] || (last.get(b[0]) ?? 0) - (last.get(a[0]) ?? 0));
 }
 
+// ── 出图 / 出片默认值（顶栏「出图 / 出片」统一切换；创意出片模板运行时自动填入对应输入） ──
+export interface MediaDefaults {
+  image: { provider: string; model: string };
+  video: { provider: string; model: string; resolution: string; duration: string };
+}
+const MEDIA_KEY = "ao-media-defaults";
+export function getMediaDefaults(): MediaDefaults {
+  const empty: MediaDefaults = { image: { provider: "", model: "" }, video: { provider: "", model: "", resolution: "", duration: "" } };
+  if (typeof window === "undefined") return empty;
+  try {
+    const v = JSON.parse(window.localStorage.getItem(MEDIA_KEY) || "{}");
+    return { image: { ...empty.image, ...(v.image || {}) }, video: { ...empty.video, ...(v.video || {}) } };
+  } catch { return empty; }
+}
+export function setMediaDefaults(d: MediaDefaults) {
+  if (typeof window === "undefined") return;
+  window.localStorage.setItem(MEDIA_KEY, JSON.stringify(d));
+  window.dispatchEvent(new Event("ao-media-defaults"));
+}
+/** 输入的动态源 → 媒体默认值里对应的字段（找不到返回 undefined） */
+export function mediaDefaultFor(inp: { source?: string; source_from?: string }, d: MediaDefaults): string | undefined {
+  switch (inp.source) {
+    case "image_providers": return d.image.provider;
+    case "video_providers": return d.video.provider;
+    case "video_resolutions": return d.video.resolution;
+    case "video_durations": return d.video.duration;
+    case "models": return inp.source_from?.startsWith("video") ? d.video.model : inp.source_from?.startsWith("image") ? d.image.model : undefined;
+    default: return undefined;
+  }
+}
+
 // ── 用户自选「常用」模型（顶栏快切置顶；按供应商分开存，存 localStorage，按机器） ──
 // 推荐集是我们替用户挑的，常用是用户替自己挑的：两者并存，常用在前。
 const FAV_MODELS_KEY = "ao-fav-models";

@@ -4,7 +4,7 @@ import { Tip } from "@/components/ui/tip";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useLanguage } from "@/i18n/LanguageProvider";
 import { Button } from "@/components/ui/button";
-import { api, type WorkflowInput, type ConfigResponse, API_PROVIDERS, recentUsage, type RunSummary, getFavWorkflows, setFavWorkflows, type CommunityTemplate, type Workflow } from "@/lib/studio";
+import { api, type WorkflowInput, type ConfigResponse, API_PROVIDERS, recentUsage, type RunSummary, getFavWorkflows, setFavWorkflows, getMediaDefaults, mediaDefaultFor, type CommunityTemplate, type Workflow } from "@/lib/studio";
 import { track } from "@/lib/track";
 import { cn } from "@/lib/utils";
 import { RoleAvatar } from "./RoleAvatar";
@@ -76,11 +76,17 @@ function InputsDialog({ wf, provider, onClose, onRun, onCompare }: { wf: Workflo
     }
     return null;
   };
+  // 媒体类输入（source 指向供应商/模型/档位）优先取顶栏「出图 / 出片」里选好的，其次才是模板默认值
+  const media = getMediaDefaults();
+  const isMediaInput = (i: WorkflowInput) => !!i.source;
   const [vals, setVals] = useState<Record<string, string>>(() => {
     const init: Record<string, string> = {};
-    inputs.forEach((i) => (init[i.name] = i.default ?? ""));
+    inputs.forEach((i) => (init[i.name] = mediaDefaultFor(i, media) || i.default || ""));
     return init;
   });
+  // 媒体输入默认折叠成一行摘要（只展示）；有必填项没值、或用户点「本次单独指定」才展开
+  const mediaInputs = inputs.filter(isMediaInput);
+  const [mediaOpen, setMediaOpen] = useState(() => mediaInputs.some((i) => i.required && !(mediaDefaultFor(i, media) || i.default)));
   const [materialize, setMaterialize] = useState(false);
   // 从文件读入输入变量（#96）：浏览器端 FileReader 读文本填进值，不经服务器路径，
   // 与引擎的 AO_NO_AT_FILE 防护（禁止网页按路径读服务器文件）互不冲突。
@@ -133,7 +139,17 @@ function InputsDialog({ wf, provider, onClose, onRun, onCompare }: { wf: Workflo
         </div>
         {wf.description && <p className="mt-1 text-sm text-muted-foreground">{wf.description}</p>}
         <div className="mt-4 space-y-3">
-          {inputs.map((inp) => (
+          {mediaInputs.length > 0 && !mediaOpen && (
+            <div className="flex flex-wrap items-center gap-x-3 gap-y-1 rounded-xl border border-border/70 bg-card/40 px-3 py-2 text-xs">
+              <span className="font-medium">{t.studio.shell.media.summary}</span>
+              {mediaInputs.map((i) => (
+                <span key={i.name} className="font-mono text-muted-foreground">{i.name.replace(/^(image|video)_/, "")}={vals[i.name] || "—"}</span>
+              ))}
+              <span className="text-muted-foreground/70">{t.studio.shell.media.change}</span>
+              <button type="button" onClick={() => setMediaOpen(true)} className="ml-auto text-primary hover:underline">{t.studio.shell.media.customize}</button>
+            </div>
+          )}
+          {inputs.filter((inp) => mediaOpen || !isMediaInput(inp)).map((inp) => (
             <label key={inp.name} className="block">
               <span className="flex items-center justify-between text-sm font-medium">
                 <span>
@@ -451,7 +467,7 @@ export function WorkflowsPanel({ provider, onRun, demo, onInstallPrompt, filter 
 
   return (
     <div className="pb-28">
-      <div className="relative max-w-md">
+      <div className={cn("relative max-w-md", filter && "hidden")}>
         <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
         <input
           value={q}
@@ -502,6 +518,15 @@ export function WorkflowsPanel({ provider, onRun, demo, onInstallPrompt, filter 
                   </button>
                 </Tip>
               </div>
+              {(() => {
+                const kinds = new Set((w.steps ?? []).map((s) => s.type).filter((x): x is string => x === "image" || x === "video"));
+                return kinds.size > 0 ? (
+                  <div className="mt-1.5 flex gap-1">
+                    {kinds.has("image") && <span className="rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-medium text-primary">🎨 {t.studio.shell.media.image} · PNG</span>}
+                    {kinds.has("video") && <span className="rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-medium text-primary">🎬 {t.studio.shell.media.video} · MP4</span>}
+                  </div>
+                ) : null;
+              })()}
               {w.description && <p className="mt-1 line-clamp-2 text-xs text-muted-foreground">{w.description}</p>}
               {!!(w.steps && w.steps.length) && (
                 <div className="mt-3">
@@ -563,6 +588,8 @@ export function WorkflowsPanel({ provider, onRun, demo, onInstallPrompt, filter 
             <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">{items.map(renderCard)}</div>
           </section>
         );
+        // 「创意出片」等筛选视图：条目少，不分组、不分类，直接平铺
+        if (filter) return <div className="mt-2 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">{filtered.map(renderCard)}</div>;
         return (
           <>
             {groups.mine.length > 0 && (

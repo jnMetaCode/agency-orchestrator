@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { SiteFooter } from "@/components/layout/SiteFooter";
 import { ChatPanel, type ChatRole, type ChatSeed } from "@/components/studio/ChatPanel";
 import { CreativePanel } from "@/components/studio/CreativePanel";
+import { MediaSelect } from "@/components/studio/MediaSelect";
 import { ModelSelect } from "@/components/studio/ModelSelect";
 import { ProviderSelect } from "@/components/studio/ProviderSelect";
 import { ProvidersPanel } from "@/components/studio/ProvidersPanel";
@@ -231,6 +232,7 @@ function StudioInner() {
               )}
               <ProviderSelect value={provider} onChange={setProvider} onOpenProviders={() => setTab("providers")} />
               <ModelSelect provider={provider} />
+              {tab === "create" && <MediaSelect />}
               <Button size="sm" variant="outline" onClick={() => setTab("providers")}>
                 <KeyRound className="size-4" />
                 <span className="hidden sm:inline">{t.studio.shell.keys}</span>
