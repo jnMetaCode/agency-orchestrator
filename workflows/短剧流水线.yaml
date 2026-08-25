@@ -1,0 +1,222 @@
+# 短剧流水线（3 镜）——剧本 → 主角定妆图 → 逐镜图生视频 → 交付。
+#
+# 对标"短剧 Agent"类产品的核心链路，但三点不同（这是 AO 的位置）：
+#   1. 模型你选：定妆图用哪家图片模型、出片用哪家视频模型都是输入，换赞助商就是换下拉。
+#   2. 成本可见：3 镜各按秒计费，默认最短档；方向满意再加长、上更高档。
+#   3. 流水线是你的：换个剧本再跑一遍，不是留在别人平台里的"创作历史"。
+#
+# 角色一致性靠 **图生视频**：三镜都以同一张定妆图为首帧（video.image），人物不会镜镜变脸。
+# 注意：秘塔只收公网 URL 的首帧图，本流水线的定妆图是本机产物，所以视频供应商默认 APIMart（自带上传）。
+name: "短剧流水线（3 镜）"
+description: "一段故事 → 编剧写 3 镜微剧本 → 主角定妆图（文生图）→ 三镜提示词并行 → 三镜以定妆图为首帧并行出片 → 交付页。角色一致靠图生视频，模型和成本你说了算。"
+category: "内容创作"
+agents_dir: "agency-agents-zh"
+
+llm:
+  provider: "deepseek"
+  model: "deepseek-chat"
+  max_tokens: 4096
+
+concurrency: 3
+
+inputs:
+  - name: story
+    description: "故事梗概（两三句即可，如：末日废城里一个机器人清道夫捡到一只会说话的鸵鸟）"
+    required: true
+  - name: style
+    description: "视觉风格（如：美式复古好莱坞 / 霓虹赛博 / 日式青春胶片 / 国产都市写实）"
+    required: true
+    default: "美式复古好莱坞"
+  - name: image_provider
+    description: "定妆图用哪家图片供应商（留空 = 跟随文本供应商；需 OpenAI 兼容的 API 服务商）"
+    required: false
+    default: ""
+    source: image_providers
+  - name: image_model
+    description: "图片模型编码（各家互不通用；选了供应商后下拉列出）"
+    required: true
+    source: models
+    source_from: image_provider
+  - name: video_provider
+    description: "视频供应商。本流水线用本机定妆图做首帧，需要有上传接口的供应商（APIMart）；秘塔只收公网 URL"
+    required: true
+    default: "apimart"
+    source: video_providers
+  - name: video_model
+    description: "视频模型编码（各家互不通用）"
+    required: true
+    default: "veo3.1-fast"
+    source: models
+    source_from: video_provider
+  - name: video_resolution
+    description: "分辨率档位（按模型给候选；sora-2 只有 720p，veo 可到 4k，H3 是 2K/768P）"
+    required: true
+    default: "720p"
+    source: video_resolutions
+    source_from: video_provider
+  - name: video_duration
+    description: "每镜秒数（按秒计费，3 镜合计 ×3；veo3 固定 8 秒）"
+    required: true
+    default: "8"
+    source: video_durations
+    source_from: video_provider
+
+steps:
+  - id: script
+    role: "game-development/narrative-designer"
+    name: "编剧"
+    emoji: "✍️"
+    task: |
+      把这个故事写成一部 **3 镜微短剧**的剧本：{{story}}
+      视觉风格：{{style}}
+
+      输出严格按下面结构，不要多余解释：
+
+      ## 主角
+      一段 60 字以内的外形描述：性别/年龄感、面部特征、服装（写质地不写品类）、两处瑕疵（磨损/尘土/伤痕）。
+      **三镜里主角外形不变**，后面定妆图和每一镜都引用这段。
+
+      ## 镜头 1（建立）
+      场景 / 主角在做什么 / 情绪 / 这一镜结束时的画面（各一行）
+
+      ## 镜头 2（冲突）
+      同上结构
+
+      ## 镜头 3（转折或收束）
+      同上结构
+
+      硬要求：不出现任何影视 IP、角色名、明星姓名；三镜发生在不超过两个场景里；每镜能在 {{video_duration}} 秒内演完。
+    output: script
+
+  - id: character_prompt
+    role: "design/design-image-prompt-engineer"
+    name: "定妆图提示词"
+    emoji: "🧍"
+    task: |
+      根据剧本里的【主角】段落，写一条**角色定妆图**的文生图提示词（正面全身、干净浅灰背景、柔和棚光、{{style}}）：
+
+      {{script}}
+
+      要求：把主角外形描述逐项落实到画面（面部、服装质地、两处瑕疵都要在）；写明摄影机与镜头型号；
+      全文 150 字以内；只输出提示词本身。
+    output: character_prompt
+    depends_on: [script]
+
+  - id: character
+    type: image
+    name: "主角定妆图"
+    emoji: "🎨"
+    task: "{{character_prompt}}"
+    image:
+      provider: "{{image_provider}}"
+      model: "{{image_model}}"
+      size: "1024x1536"
+    output: character_img
+    depends_on: [character_prompt]
+
+  - id: shot1_prompt
+    role: "design/design-image-prompt-engineer"
+    name: "镜头 1 提示词"
+    emoji: "🎬"
+    task: |
+      只针对剧本的【镜头 1】写一条 {{video_duration}} 秒视频提示词（5 段式：核心主题 tag | 人物与设定 | 氛围与画质（摄影机+镜头型号+色调+光源）| 运镜 | 按秒分镜+声音）。
+      视觉风格：{{style}}。人物外形必须与【主角】段落一致（首帧会用定妆图，提示词里重点写动作和运镜，不要重新描述长相）。
+      220 字以内，只输出提示词本身。
+
+      {{script}}
+    output: shot1_prompt
+    depends_on: [script]
+
+  - id: shot2_prompt
+    role: "design/design-image-prompt-engineer"
+    name: "镜头 2 提示词"
+    emoji: "🎬"
+    task: |
+      只针对剧本的【镜头 2】写一条 {{video_duration}} 秒视频提示词（5 段式：核心主题 tag | 人物与设定 | 氛围与画质（摄影机+镜头型号+色调+光源）| 运镜 | 按秒分镜+声音）。
+      视觉风格：{{style}}。人物外形必须与【主角】段落一致（首帧会用定妆图，重点写动作和运镜）。
+      220 字以内，只输出提示词本身。
+
+      {{script}}
+    output: shot2_prompt
+    depends_on: [script]
+
+  - id: shot3_prompt
+    role: "design/design-image-prompt-engineer"
+    name: "镜头 3 提示词"
+    emoji: "🎬"
+    task: |
+      只针对剧本的【镜头 3】写一条 {{video_duration}} 秒视频提示词（5 段式：核心主题 tag | 人物与设定 | 氛围与画质（摄影机+镜头型号+色调+光源）| 运镜 | 按秒分镜+声音）。
+      视觉风格：{{style}}。人物外形必须与【主角】段落一致（首帧会用定妆图，重点写动作和运镜）。
+      220 字以内，只输出提示词本身。
+
+      {{script}}
+    output: shot3_prompt
+    depends_on: [script]
+
+  - id: shot1
+    type: video
+    name: "镜头 1 出片"
+    emoji: "🎥"
+    task: "{{shot1_prompt}}"
+    video:
+      provider: "{{video_provider}}"
+      model: "{{video_model}}"
+      resolution: "{{video_resolution}}"
+      duration: "{{video_duration}}"
+      image: "{{character_img}}"
+      ratio: "16:9"
+    output: shot1_mp4
+    depends_on: [character, shot1_prompt]
+
+  - id: shot2
+    type: video
+    name: "镜头 2 出片"
+    emoji: "🎥"
+    task: "{{shot2_prompt}}"
+    video:
+      provider: "{{video_provider}}"
+      model: "{{video_model}}"
+      resolution: "{{video_resolution}}"
+      duration: "{{video_duration}}"
+      image: "{{character_img}}"
+      ratio: "16:9"
+    output: shot2_mp4
+    depends_on: [character, shot2_prompt]
+
+  - id: shot3
+    type: video
+    name: "镜头 3 出片"
+    emoji: "🎥"
+    task: "{{shot3_prompt}}"
+    video:
+      provider: "{{video_provider}}"
+      model: "{{video_model}}"
+      resolution: "{{video_resolution}}"
+      duration: "{{video_duration}}"
+      image: "{{character_img}}"
+      ratio: "16:9"
+    output: shot3_mp4
+    depends_on: [character, shot3_prompt]
+
+  - id: pack
+    role: "design/design-visual-storyteller"
+    name: "交付页"
+    emoji: "📦"
+    task: |
+      整理成一页可存档的短剧交付说明：
+
+      定妆图：{{character_img}}
+      镜头 1：{{shot1_mp4}}
+      镜头 2：{{shot2_mp4}}
+      镜头 3：{{shot3_mp4}}
+
+      剧本：
+      {{script}}
+
+      需要包含：
+      1. 定妆图与三镜成片的引用（原样保留上面四行链接，按顺序）
+      2. 每镜一句"这一镜在讲什么"
+      3. 若要重跑，最值得改的两处（角色一致性 / 运镜 / 节奏）
+      4. 成本一行：3 镜 × {{video_duration}} 秒 × {{video_resolution}}；剪辑合成可用 ffmpeg concat 三段 mp4
+    output: delivery
+    depends_on: [shot1, shot2, shot3]
