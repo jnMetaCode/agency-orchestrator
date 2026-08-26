@@ -83,6 +83,8 @@ export interface RunSummary {
   mtime?: number;
   /** 产物首图 URL（assets/ 里第一张图片），无则不带 */
   thumb?: string;
+  /** 有 mp4 产物（视频 / 合成步骤） */
+  hasVideo?: boolean;
   steps?: RunStepSummary[];
   /** 完成时刻（UTC ISO）。目录名里的时间戳是 UTC，显示一律用这个字段按本地时区渲染。 */
   startedAt?: string;

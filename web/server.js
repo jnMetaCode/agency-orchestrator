@@ -680,6 +680,8 @@ app.get('/api/runs', (_req, res) => {
           roles: [...new Set((meta.steps || []).map(s => s.role).filter(r => typeof r === 'string'))],
           // 首图：assets/ 里第一张图片（图片/视频工作流的产物）——运行卡片显示缩略图，
           // "我做过什么"靠画面比靠名字好认。URL 走既有的 /api/runs/:id/assets/:file。
+          // 有 mp4 产物（视频/合成步骤）：卡片上标 🎬——没有首图也能一眼认出"这是出片的那次"
+          hasVideo: (() => { const a = join(OUTPUT_DIR, d, 'assets'); return existsSync(a) && readdirSync(a).some(f => /\.(mp4|mov|webm)$/i.test(f)); })(),
           thumb: (() => {
             const assetsDir = join(OUTPUT_DIR, d, 'assets');
             if (!existsSync(assetsDir)) return undefined;

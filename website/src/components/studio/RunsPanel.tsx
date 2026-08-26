@@ -473,7 +473,11 @@ export function RunsPanel({ provider, onRun }: { provider: string; onRun: (r: Ru
                     )}
                     <button onClick={() => setSel(r.id)} className="flex min-w-0 flex-1 items-start gap-2.5 text-left">
                       {r.success ? <CheckCircle2 className="mt-0.5 size-4 shrink-0 text-emerald-500" /> : <XCircle className="mt-0.5 size-4 shrink-0 text-red-500" />}
-                      {r.thumb && <img src={r.thumb} alt="" loading="lazy" className="size-10 shrink-0 rounded-md border border-border/60 object-cover" />}
+                      {r.thumb ? (
+                        <img src={r.thumb} alt="" loading="lazy" className="size-10 shrink-0 rounded-md border border-border/60 object-cover" />
+                      ) : r.hasVideo ? (
+                        <span className="grid size-10 shrink-0 place-items-center rounded-md border border-border/60 bg-muted/50 text-base" title="mp4">🎬</span>
+                      ) : null}
                       <span className="min-w-0 flex-1">
                         <span className="block truncate text-sm font-medium">{r.name}</span>
                         <span className="mt-0.5 flex items-center gap-2 text-[11px] text-muted-foreground">
