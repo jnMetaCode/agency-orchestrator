@@ -1941,7 +1941,7 @@ app.post('/api/providers/video-probe', async (req, res) => {
   if (!apiKey || !baseUrl) return res.json({ ok: false, error: '该供应商没配 key 或没有 base_url' });
   try {
     const r = await probeVideoEndpoints({ id: provider, baseUrl, apiKey }, { timeoutMs: 8000 });
-    res.json({ ok: true, ...r, hasOpenAIVideos: r.shapes.some((s) => s.shape === 'openai-videos' && s.verdict === 'exists') });
+    res.json({ ok: true, ...r, hasOpenAIVideos: r.shapes.some((s) => s.shape === 'openai-videos' && s.verdict === 'exists'), hasImages: r.image.verdict === 'exists', noImages: r.image.verdict === 'missing' });
   } catch (err) {
     res.json({ ok: false, error: err instanceof Error ? err.message : String(err) });
   }

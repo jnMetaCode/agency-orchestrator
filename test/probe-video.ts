@@ -30,8 +30,21 @@ await test('APIMart 形状存在（400）、其余 404、对照 404 → 判定 e
     assert(ap?.verdict === 'exists' && ap.status === 400, `apimart 形状应判 exists，实际 ${JSON.stringify(ap)}`);
     assert(r.shapes.filter((s) => s.shape !== 'apimart').every((s) => s.verdict === 'missing'), '其余形状应判 missing');
     assert(r.videoModels.join(',') === 'sora-2,veo3.1-fast', `应捞出视频模型名，实际 ${r.videoModels}`);
+    assert(r.image.verdict === 'missing', `该假站没有 /images/generations，应判 missing，实际 ${JSON.stringify(r.image)}`);
     assert(/有视频端点/.test(r.summary) && /apimart/.test(r.summary), `摘要：${r.summary}`);
     assert(bodies.every((b) => b.includes('__ao_probe__') || b === '{}' || b === ''), '请求体必须是故意不合法的探针，不能是真任务');
+  } finally { srv.close(); }
+});
+
+await test('图片端点 /images/generations 回 400 且对照 404 → image.verdict=exists', async () => {
+  const srv = http.createServer((req, res) => {
+    if (req.url === '/v1/images/generations') { res.writeHead(400).end('{"error":"bad model"}'); return; }
+    res.writeHead(404).end('{}');
+  });
+  const port = await listen(srv);
+  try {
+    const r = await probeVideoEndpoints({ id: 'i', baseUrl: `http://127.0.0.1:${port}/v1`, apiKey: 'k' }, { timeoutMs: 3000 });
+    assert(r.image.verdict === 'exists' && /图片端点/.test(r.summary), `实际 ${JSON.stringify(r.image)} ${r.summary}`);
   } finally { srv.close(); }
 });
 

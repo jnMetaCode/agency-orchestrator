@@ -15,6 +15,8 @@ export interface VideoProbeResult {
   shapes: Array<{ shape: string; path: string; status: number | 'timeout' | 'error'; verdict: 'exists' | 'missing' | 'unreliable' | 'unknown' }>;
   /** /models 里像视频模型的名字（最多 12 个） */
   videoModels: string[];
+  /** 图片端点 POST /images/generations 的判定（同一套探针逻辑） */
+  image: { status: number | 'timeout' | 'error'; verdict: 'exists' | 'missing' | 'unreliable' | 'unknown' };
   /** 对照路径的状态：全站兜底时它不是 404 */
   controlStatus: number | 'timeout' | 'error';
   summary: string;
@@ -53,16 +55,19 @@ export async function probeVideoEndpoints(
   const control = await hit(f, `${base}/__ao_probe_no_such_path__`, { method: 'POST', headers, body: '{}' }, timeoutMs);
   const controlIs404 = control.status === 404;
 
+  const judge = (status: number | 'timeout' | 'error'): VideoProbeResult['shapes'][number]['verdict'] => {
+    if (typeof status !== 'number') return 'unknown';
+    if (status === 404 || status === 405) return 'missing';
+    return controlIs404 ? 'exists' : 'unreliable';
+  };
+  const img = await hit(f, `${base}/images/generations`, { method: 'POST', headers, body: JSON.stringify({ model: '__ao_probe__', prompt: 'probe', n: 1 }) }, timeoutMs);
+  const image = { status: img.status, verdict: judge(img.status) };
+
   const shapes: VideoProbeResult['shapes'] = [];
   for (const c of VIDEO_SHAPE_CANDIDATES) {
     const r = await hit(f, `${base}/${c.path}`, { method: 'POST', headers, body: JSON.stringify(c.body) }, timeoutMs);
-    let verdict: VideoProbeResult['shapes'][number]['verdict'] = 'unknown';
-    if (typeof r.status === 'number') {
-      if (r.status === 404 || r.status === 405) verdict = 'missing';
-      else if (!controlIs404) verdict = 'unreliable';           // 对照也不是 404：分不清真存在还是兜底
-      else verdict = 'exists';                                    // 400/401/402/403/422/200… 且对照 404 → 路径真在
-    }
-    shapes.push({ shape: c.shape, path: c.path, status: r.status, verdict });
+    // 400/401/402/403/422/200… 且对照 404 → 路径真在；对照也不是 404 → 分不清真存在还是兜底
+    shapes.push({ shape: c.shape, path: c.path, status: r.status, verdict: judge(r.status) });
   }
 
   const models = await hit(f, `${base}/models`, { method: 'GET', headers }, timeoutMs);
@@ -81,5 +86,6 @@ export async function probeVideoEndpoints(
       : videoModels.length
         ? `三种已知形状都不在，但 /models 里有视频模型名（${videoModels.slice(0, 3).join(', ')}…）——它走的是别的形状，找该站要文档`
         : `没探到视频端点，/models 里也没有视频模型名`;
-  return { id: target.id, baseUrl: base, shapes, videoModels, controlStatus: control.status, summary };
+  const imgNote = image.verdict === 'exists' ? '；图片端点 /images/generations 存在' : image.verdict === 'missing' ? '；没有图片端点' : '';
+  return { id: target.id, baseUrl: base, shapes, videoModels, image, controlStatus: control.status, summary: summary + imgNote };
 }

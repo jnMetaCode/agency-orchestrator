@@ -769,7 +769,7 @@ async function handleDoctor(): Promise<void> {
     for (const t of targets) {
       const r = await probeVideoEndpoints(t);
       const line = r.shapes.map((x) => `${x.shape}=${String(x.status)}${x.verdict === 'exists' ? '✓' : x.verdict === 'unreliable' ? '?' : ''}`).join('  ');
-      console.log(`  ${r.shapes.some((x) => x.verdict === 'exists') ? '🎬' : '· '} ${t.id}  ${line}  对照=${String(r.controlStatus)}`);
+      console.log(`  ${r.shapes.some((x) => x.verdict === 'exists') ? '🎬' : '· '} ${t.id}  ${line}  images=${String(r.image.status)}${r.image.verdict === 'exists' ? '✓' : ''}  对照=${String(r.controlStatus)}`);
       console.log(`     ${r.summary}`);
       if (r.videoModels.length) console.log(`     视频模型名：${r.videoModels.join(', ')}`);
     }

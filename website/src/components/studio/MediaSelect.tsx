@@ -43,9 +43,12 @@ export function MediaSelect({ embedded }: { embedded?: boolean } = {}) {
   const removed = new Set(cfg?.removedProviders ?? []);
   const delisted = (id: string) => !!API_PROVIDERS.find((p) => p.id === id)?.delisted || removed.has(id);
   // 图片供应商：已配 key 在前，其余按注册表顺序；已下架的只对配过 key 的露出（与顶栏供应商下拉同一规则）
+  // 排序：探测有图片端点的 → 已配 key 的 → 其余；探测确认**没有**图片端点的沉底并标注（DeepSeek/Kimi 这类本来就不出图）
+  const imgRank = (id: string) => (api.probedImage(id) === true ? 0 : api.probedImage(id) === false ? 3 : hasKey(id) ? 1 : 2);
   const imageProviders = (cfg?.imageProviders ?? [])
     .filter((id) => !delisted(id) || hasKey(id))
-    .sort((a, b) => Number(hasKey(b)) - Number(hasKey(a)));
+    .sort((a, b) => imgRank(a) - imgRank(b));
+  const imgTag = (id: string) => (api.probedImage(id) === true ? " ✓" : api.probedImage(id) === false ? ` · ${m.noImageEndpoint}` : "");
   const [probedTick, setProbedTick] = useState(0);
   useEffect(() => { const f = () => setProbedTick((n) => n + 1); window.addEventListener("ao-video-probed", f); return () => window.removeEventListener("ao-video-probed", f); }, []);
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -55,7 +58,7 @@ export function MediaSelect({ embedded }: { embedded?: boolean } = {}) {
   const [probing, setProbing] = useState<string | null>(null);
   const [probeMsg, setProbeMsg] = useState<string | null>(null);
   const probeCandidates = Object.entries(cfg?.providers ?? {})
-    .filter(([id, p]) => p.family === "api" && p.hasKey && !videoProviders.some((v) => v.id === id) && !!API_PROVIDERS.find((x) => x.id === id && !x.videoOnly))
+    .filter(([id, p]) => p.family === "api" && p.hasKey && !!API_PROVIDERS.find((x) => x.id === id && !x.videoOnly))
     .map(([id]) => id);
   const probeAll = async () => {
     if (probing) return;
@@ -65,7 +68,10 @@ export function MediaSelect({ embedded }: { embedded?: boolean } = {}) {
       setProbing(id);
       try {
         const r = await api.videoProbe(id);
-        if (r.ok && r.hasOpenAIVideos) { setProbedVideoProvider({ id, models: r.videoModels ?? [], probedAt: 0 }); found.push(id); }
+        if (r.ok) {
+          setProbedVideoProvider({ id, models: r.videoModels ?? [], probedAt: 0, video: !!r.hasOpenAIVideos, image: r.hasImages ? true : r.noImages ? false : undefined });
+          if (r.hasOpenAIVideos || r.hasImages) found.push(id);
+        }
       } catch { /* 忽略单家失败 */ }
     }
     setProbing(null);
@@ -113,7 +119,7 @@ export function MediaSelect({ embedded }: { embedded?: boolean } = {}) {
         {row(m.provider, (
           <select className={selCls} value={d.image.provider} onChange={(e) => save({ ...d, image: { provider: e.target.value, model: "" } })}>
             <option value="">— {m.followText}</option>
-            {imageProviders.map((id) => <option key={id} value={id}>{withKey(id, label(id))}</option>)}
+            {imageProviders.map((id) => <option key={id} value={id}>{withKey(id, label(id))}{imgTag(id)}</option>)}
           </select>
         ))}
         {row(m.model, (

@@ -416,7 +416,7 @@ export function recentUsage(runs: RunSummary[], keyOf: (r: RunSummary) => string
 }
 
 // ── 探测通过的"额外"视频供应商（OpenAI Videos 形状），存 localStorage；与 /api/config 的视频表合并进下拉 ──
-export interface ProbedVideoProvider { id: string; models: string[]; probedAt: number }
+export interface ProbedVideoProvider { id: string; models: string[]; probedAt: number; /** 图片端点：true 有 / false 没有 / undefined 未知 */ image?: boolean; /** 视频（openai-videos 形状） */ video?: boolean }
 const PROBED_KEY = "ao-video-probed";
 export function getProbedVideoProviders(): ProbedVideoProvider[] {
   if (typeof window === "undefined") return [];
@@ -436,6 +436,7 @@ export type VideoProviderEntry = NonNullable<ConfigResponse["videoProviders"]>[n
 export function mergedVideoProviders(cfg: ConfigResponse | null): VideoProviderEntry[] {
   const base: VideoProviderEntry[] = (cfg?.videoProviders ?? []).slice();
   for (const p of getProbedVideoProviders()) {
+    if (p.video === false) continue;
     if (base.some((b) => b.id === p.id)) continue;
     const models = p.models.length ? p.models : ["sora-2"];
     base.push({ id: p.id, hasKey: !!cfg?.providers[p.id]?.hasKey, models, tiers: Object.fromEntries(models.map((m) => [m, OPENAI_VIDEOS_TIER])), ...OPENAI_VIDEOS_TIER, probed: true });
@@ -659,7 +660,9 @@ export const api = {
   // 拉取供应商真实可用模型列表（OpenAI 兼容 GET /models）；baseUrl/apiKey 可覆盖（未保存时先试拉）；
   // protocol:"anthropic" = Anthropic 兼容端点（claude-code 中转商），认证头用 x-api-key
   videoProbe: (provider: string) =>
-    postJSON<{ ok: boolean; error?: string; summary?: string; hasOpenAIVideos?: boolean; videoModels?: string[] }>("/providers/video-probe", { provider }),
+    postJSON<{ ok: boolean; error?: string; summary?: string; hasOpenAIVideos?: boolean; hasImages?: boolean; noImages?: boolean; videoModels?: string[] }>("/providers/video-probe", { provider }),
+  /** 探测结果里的图片端点判定：true 有 / false 没有 / undefined 没探过 */
+  probedImage: (id: string): boolean | undefined => getProbedVideoProviders().find((p) => p.id === id)?.image,
   providerModels: (body: { provider?: string; baseUrl?: string; apiKey?: string; protocol?: "anthropic" }) =>
     // vendors: 模型 id → 供应商响应里的 owned_by/provider（分组标题用，缺省则前端按模型名推断）
     postJSON<{ ok: boolean; models?: string[]; vendors?: Record<string, string>; error?: string; source?: string }>("/provider-models", body),
