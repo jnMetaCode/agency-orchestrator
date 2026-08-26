@@ -170,17 +170,21 @@ const SHAPES: Record<string, VideoShapeAdapter> = {
   //   乱写路径                      → 404 Invalid URL（对照组：说明上面两条不是兜底响应）
   apimart: {
     createPath: 'videos/generations',
-    // 图生视频字段按模型：MiniMax-H3 用 first_frame_image，sora/veo 用 image_urls[]（docs.apimart.ai）
-    createBody: (opts, prompt, imageUrl) => JSON.stringify({
-      model: opts.model,
-      prompt,
-      ...(imageUrl ? (/^minimax-h3/i.test(opts.model || '') ? { first_frame_image: imageUrl } : { image_urls: [imageUrl] }) : {}),
-      ...(opts.duration ? { duration: opts.duration } : {}),
-      // 这家叫 aspect_ratio 不叫 ratio；分辨率档位也不同（720p/1080p/4k，不是 768P/2K）——
-      // 原样透传，不替用户换算：档位名是厂商的事，猜错就是一次白花的生成
-      ...(opts.ratio ? { aspect_ratio: opts.ratio } : {}),
-      ...(opts.resolution ? { resolution: opts.resolution } : {}),
-    }),
+    // 字段名**按模型**：同一网关上可灵的档位叫 mode、Wan/PixVerse/Grok 的宽高比叫 size、MiniMax 系首帧叫
+    // first_frame_image（都从 docs.apimart.ai 逐页核对，见 api-providers.ts 的 models[].fields）。
+    // 档位值原样透传不换算：档位名是厂商的事，猜错就是一次白花的生成。
+    createBody: (opts, prompt, imageUrl) => {
+      const m = VIDEO_PROVIDER_MAP.apimart?.models?.find((x) => x.id.toLowerCase() === (opts.model || '').toLowerCase());
+      const f = { resolution: 'resolution', ratio: 'aspect_ratio', image: 'image_urls', ...(m?.fields ?? {}) };
+      return JSON.stringify({
+        model: opts.model,
+        prompt,
+        ...(imageUrl ? (f.image === 'first_frame_image' ? { first_frame_image: imageUrl } : { image_urls: [imageUrl] }) : {}),
+        ...(opts.duration ? { duration: opts.duration } : {}),
+        ...(opts.ratio ? { [f.ratio]: opts.ratio } : {}),
+        ...(opts.resolution ? { [f.resolution]: opts.resolution } : {}),
+      });
+    },
     // POST /v1/uploads/images，multipart 字段 file，回 {url}；URL 72 小时有效（够本次任务用）
     uploadImage: async (baseUrl, headers, bytes, name) => {
       const form = new FormData();

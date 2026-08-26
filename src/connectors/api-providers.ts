@@ -188,7 +188,17 @@ export interface VideoProviderSpec {
    * 已核实的视频模型（Studio 下拉候选；仍可手填）。档位**按模型**给——同一家网关上
    * sora-2 只有 720p、veo3 固定 8 秒、MiniMax-H3 是 2K/768P，按供应商一刀切必错。
    */
-  models?: Array<{ id: string; resolutions?: string[]; durations?: number[] }>;
+  models?: Array<{
+    id: string;
+    resolutions?: string[];
+    durations?: number[];
+    ratios?: string[];
+    /**
+     * 同一网关上各模型的字段名都不一样（文档逐页核对）：可灵的档位叫 mode（std/pro/4k），
+     * Wan / PixVerse / Grok 的宽高比叫 size，MiniMax 系的首帧图叫 first_frame_image。缺省 = resolution / aspect_ratio / image_urls。
+     */
+    fields?: { resolution?: 'resolution' | 'mode'; ratio?: 'aspect_ratio' | 'size'; image?: 'image_urls' | 'first_frame_image' };
+  }>;
 }
 
 export const VIDEO_PROVIDERS: VideoProviderSpec[] = [
@@ -199,7 +209,7 @@ export const VIDEO_PROVIDERS: VideoProviderSpec[] = [
     defaultBaseUrl: 'https://metaso.cn/api/minimax',
     shape: 'minimax',
     // 档位来自内置模板真机跑过的取值
-    models: [{ id: 'MiniMax-H3', resolutions: ['480p', '512p', '768P', '2K'], durations: [4, 5, 6, 7, 8, 9, 10] }],
+    models: [{ id: 'MiniMax-H3', resolutions: ['480p', '512p', '768P', '2K'], durations: [4, 5, 6, 7, 8, 9, 10], ratios: ['16:9', '9:16', '1:1'] }],
   },
   // APIMart（赞助商）—— 同一个 key 既是 OpenAI 兼容网关（见上面 API_PROVIDERS），
   // 也提供视频：Sora2 / VEO3 / 可灵 / 海螺 / MiniMax-H3 等一堆模型，走自家任务接口。
@@ -220,13 +230,24 @@ export const VIDEO_PROVIDERS: VideoProviderSpec[] = [
     //   sora-2 720p / 4·8·12·16·20s；sora-2-pro 720p·1024p·1080p；veo3.1-* 720p·1080p·4k / 固定 8s；
     //   MiniMax-H3 2K·768P / 4–15s。图生视频：sora/veo 用 image_urls[]，H3 用 first_frame_image，都只收公网 URL，
     //   本地图先走 POST /v1/uploads/images（72 小时有效）。
+    // 每条的档位/字段名都来自 docs.apimart.ai 对应模型页（2026-08-26 逐页抓取），不是猜的；
+    // 秒数区间型的（3–15 等）按整数展开给下拉。
     models: [
-      { id: 'sora-2', resolutions: ['720p'], durations: [4, 8, 12, 16, 20] },
-      { id: 'sora-2-pro', resolutions: ['720p', '1024p', '1080p'], durations: [4, 8, 12, 16, 20] },
-      { id: 'veo3.1-fast', resolutions: ['720p', '1080p', '4k'], durations: [8] },
-      { id: 'veo3.1-quality', resolutions: ['720p', '1080p', '4k'], durations: [8] },
-      { id: 'veo3.1-lite', resolutions: ['720p', '1080p', '4k'], durations: [8] },
-      { id: 'MiniMax-H3', resolutions: ['2K', '768P'], durations: [4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15] },
+      { id: 'sora-2', resolutions: ['720p'], durations: [4, 8, 12, 16, 20], ratios: ['16:9', '9:16'] },
+      { id: 'sora-2-pro', resolutions: ['720p', '1024p', '1080p'], durations: [4, 8, 12, 16, 20], ratios: ['16:9', '9:16'] },
+      { id: 'veo3.1-fast', resolutions: ['720p', '1080p', '4k'], durations: [8], ratios: ['16:9', '9:16'] },
+      { id: 'veo3.1-quality', resolutions: ['720p', '1080p', '4k'], durations: [8], ratios: ['16:9', '9:16'] },
+      { id: 'veo3.1-lite', resolutions: ['720p', '1080p', '4k'], durations: [8], ratios: ['16:9', '9:16'] },
+      { id: 'seedance-2.5', resolutions: ['480p', '720p', '1080p'], durations: [4, 5, 6, 8, 10, 12, 15, 20, 30], ratios: ['16:9', '4:3', '1:1', '3:4', '9:16', '21:9', 'adaptive'] },
+      { id: 'kling-v3', resolutions: ['std', 'pro', '4k'], durations: [3,4,5,6,7,8,9,10,11,12,13,14,15], ratios: ['16:9', '9:16', '1:1'], fields: { resolution: 'mode' } },
+      { id: 'MiniMax-H3', resolutions: ['2K', '768P'], durations: [4,5,6,7,8,9,10,11,12,13,14,15], ratios: ['21:9', '16:9', '4:3', '1:1', '3:4', '9:16'], fields: { image: 'first_frame_image' } },
+      { id: 'MiniMax-Hailuo-2.3', resolutions: ['768p', '1080p'], durations: [6, 10], fields: { image: 'first_frame_image' } },
+      { id: 'MiniMax-Hailuo-2.3-Fast', resolutions: ['768p', '1080p'], durations: [6, 10], fields: { image: 'first_frame_image' } },
+      { id: 'wan2.7', resolutions: ['720P', '1080P'], durations: [2,3,4,5,6,7,8,9,10,11,12,13,14,15], ratios: ['16:9', '9:16', '1:1', '4:3', '3:4'], fields: { ratio: 'size' } },
+      { id: 'viduq3-pro', resolutions: ['540p', '720p', '1080p'], durations: [1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16], ratios: ['16:9', '9:16', '4:3', '3:4', '1:1'] },
+      { id: 'viduq3-turbo', resolutions: ['540p', '720p', '1080p'], durations: [1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16], ratios: ['16:9', '9:16', '4:3', '3:4', '1:1'] },
+      { id: 'pixverse-v6', resolutions: ['360p', '540p', '720p', '1080p'], durations: [1,2,3,4,5,6,7,8,9,10,11,12,13,14,15], ratios: ['16:9', '4:3', '1:1', '3:4', '9:16', '2:3', '3:2', '21:9'], fields: { ratio: 'size' } },
+      { id: 'grok-imagine-1.5-video-ext', resolutions: ['480p', '720p'], durations: [6,7,8,9,10,11,12,13,14,15], ratios: ['16:9', '9:16', '1:1', '3:2', '2:3'], fields: { ratio: 'size' } },
     ],
   },
 ];

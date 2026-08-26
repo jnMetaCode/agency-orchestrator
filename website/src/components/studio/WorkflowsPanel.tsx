@@ -69,6 +69,7 @@ function InputsDialog({ wf, provider, onClose, onRun, onCompare }: { wf: Workflo
     const tier = modelInput ? vp?.tiers?.[vals[modelInput.name] ?? ""] : undefined;
     if (inp.source === "video_resolutions") return (tier?.resolutions ?? vp?.resolutions ?? []).map((r) => ({ value: r, label: r }));
     if (inp.source === "video_durations") return (tier?.durations ?? vp?.durations ?? []).map((d) => ({ value: String(d), label: `${d}s` }));
+    if (inp.source === "video_ratios") return (tier?.ratios ?? vp?.ratios ?? []).map((r) => ({ value: r, label: r }));
     if (inp.source === "models") {
       if (vp) return vp.models.map((m) => ({ value: m, label: m }));
       if (!pid) return [];
@@ -159,6 +160,7 @@ function InputsDialog({ wf, provider, onClose, onRun, onCompare }: { wf: Workflo
       else if (i.source === "video_providers") d.video.provider = v;
       else if (i.source === "video_resolutions") d.video.resolution = v;
       else if (i.source === "video_durations") d.video.duration = v;
+      else if (i.source === "video_ratios") d.video.ratio = v;
       else if (i.source === "models" && i.source_from?.startsWith("image")) d.image.model = v;
       else if (i.source === "models" && i.source_from?.startsWith("video")) d.video.model = v;
     }
@@ -188,8 +190,8 @@ function InputsDialog({ wf, provider, onClose, onRun, onCompare }: { wf: Workflo
       <textarea
         value={cur}
         onChange={(e) => setVals((p) => ({ ...p, [inp.name]: e.target.value }))}
-        rows={compact ? 1 : 2}
-        className={cn("w-full rounded-xl border border-border/70 bg-card/60 px-3 py-2 text-sm outline-none focus:border-primary/50", compact ? "h-9 resize-none py-1.5 text-xs" : "mt-1")}
+        rows={compact ? 1 : isMedia ? 7 : 3}
+        className={cn("w-full rounded-xl border border-border/70 bg-card/60 px-3 py-2 text-sm outline-none focus:border-primary/50", compact ? "h-9 resize-none py-1.5 text-xs" : "mt-1 min-h-[5rem]")}
       />
     ) : (
       <select
@@ -224,12 +226,19 @@ function InputsDialog({ wf, provider, onClose, onRun, onCompare }: { wf: Workflo
           <span>{title}{inp.required && <span className="text-red-500"> *</span>}</span>
           {/* #96：识别技术文档类场景——把 .md/.txt/代码等文本文件内容一键填进输入；下拉项不需要 */}
           {!showSelect && (
+            <span className="flex items-center gap-1">
+            <Tip label={t.studio.workflows.inputExpandTitle}>
+              <button type="button" disabled={!cur.trim() || !!expanding} onClick={() => void expand(inp.name)} className="inline-flex items-center gap-1 rounded-lg px-1.5 py-0.5 text-xs font-normal text-primary transition-colors hover:bg-primary/10 disabled:opacity-40">
+                {expanding === inp.name ? t.studio.workflows.inputExpanding : t.studio.workflows.inputExpand}
+              </button>
+            </Tip>
             <Tip label={t.studio.workflows.inputFromFile}>
               <button type="button" onClick={() => pickFileFor(inp.name)} className="inline-flex items-center gap-1 rounded-lg px-1.5 py-0.5 text-xs font-normal text-muted-foreground transition-colors hover:text-primary">
                 <Paperclip className="size-3.5" />
                 {t.studio.workflows.inputFromFileShort}
               </button>
             </Tip>
+            </span>
           )}
         </span>
         {inp.description && <span className="block text-xs text-muted-foreground">{inp.description}</span>}
@@ -239,6 +248,17 @@ function InputsDialog({ wf, provider, onClose, onRun, onCompare }: { wf: Workflo
     );
   };
   const contentInputs = inputs.filter((i) => !isMediaInput(i));
+  // ✨ 扩写：把用户的几句话扩成更具体的描述（走 Prompt Lab 的优化接口，用当前文本供应商，一次调用）
+  const [expanding, setExpanding] = useState<string | null>(null);
+  const expand = async (name: string) => {
+    const raw = (vals[name] ?? "").trim();
+    if (!raw || expanding) return;
+    setExpanding(name);
+    try {
+      const r = await api.optimizePrompt({ rawPrompt: raw, mode: "user", provider: provider || undefined, lang });
+      if (r.optimized?.trim()) setVals((p) => ({ ...p, [name]: r.optimized.trim() }));
+    } catch { /* 失败就保留原文，不打扰 */ } finally { setExpanding(null); }
+  };
 
   return (
     <div className="fixed inset-0 z-[55] grid place-items-center bg-black/50 p-4 backdrop-blur-sm" onClick={onClose}>

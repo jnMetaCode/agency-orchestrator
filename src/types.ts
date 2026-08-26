@@ -40,7 +40,7 @@ export interface InputDefinition {
    *   video_resolutions / video_durations —— 该视频供应商的档位表（各家不通用）
    * 带 provider 参数的源用 source_from 指向存放供应商 id 的那个输入。
    */
-  source?: 'image_providers' | 'video_providers' | 'models' | 'video_resolutions' | 'video_durations' | 'styles';
+  source?: 'image_providers' | 'video_providers' | 'models' | 'video_resolutions' | 'video_durations' | 'video_ratios' | 'styles';
   source_from?: string;
 }
 

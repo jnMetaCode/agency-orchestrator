@@ -26,6 +26,12 @@ inputs:
     label: "创意"
     description: "你想拍什么（如：一只橘猫在窗台上看日落，治愈风 / 一双跑鞋在雨夜街头的广告片）"
     required: true
+  - name: genre
+    label: "类型"
+    description: "短片类型：提示词工程师按类型套用对应的节奏与运镜习惯"
+    required: false
+    default: ""
+    options: ["产品广告片", "治愈日常", "剧情片段", "悬疑惊悚", "搞笑段子", "科幻", "古风武侠", "宠物", "美食", "城市风光"]
   - name: style
     label: "视觉风格"
     description: "从风格库选（可留空，让提示词工程师按创意自行决定）；也可自己写一段描述"
@@ -57,6 +63,13 @@ inputs:
     description: "首帧参考图（可选，图生视频）：公网图片 URL。留空 = 纯文生视频。本地图片只有 APIMart 能用（引擎自动上传），秘塔只收公网 URL"
     required: false
     default: ""
+  - name: video_ratio
+    label: "宽高比"
+    description: "16:9 横屏 / 9:16 竖屏；候选按模型给"
+    required: true
+    default: "16:9"
+    source: video_ratios
+    source_from: video_provider
   - name: video_duration
     label: "秒数"
     description: "秒数（按秒计费）。秘塔可 4~10 秒；APIMart 的 VEO3 固定 8 秒——填错会被服务商直接拒"
@@ -72,6 +85,7 @@ steps:
     emoji: "🎬"
     task: |
       把这个创意写成一条 **5 秒短视频**的提示词：{{idea}}
+      类型（若非空，按该类型的节奏与运镜习惯写）：{{genre}}
       视觉风格（若非空，第 3 段【氛围与画质】必须落实这里的摄影机/胶片/色调/光源）：{{style}}
 
       按 5 段式结构写，每段一行，段与段之间空一行：
@@ -113,7 +127,7 @@ steps:
       resolution: "{{video_resolution}}"   # 必填；档位名各家不通用，所以做成输入而不是写死
       duration: "{{video_duration}}"
       image: "{{reference_image}}"       # 按秒计费，默认用最短档验证方向
-      ratio: "16:9"
+      ratio: "{{video_ratio}}"
     output: clip_mp4
     depends_on: [shot_prompt]
 

@@ -328,6 +328,21 @@ await test('APIMart 本地首帧图：先走 /uploads/images 拿 URL，sora/veo 
   } finally { fake.srv.close(); }
 });
 
+await test('APIMart 字段按模型：可灵的档位叫 mode、Wan 的宽高比叫 size（文档逐页核对）', async () => {
+  const fake = fakeApimart();
+  const port = await listen(fake.srv);
+  fake.setPort(port);
+  const c = { provider: 'apimart', api_key: 'sk-t', base_url: `http://127.0.0.1:${port}` } as unknown as LLMConfig;
+  try {
+    await generateVideo(c, '猫', { model: 'kling-v3', resolution: 'pro', ratio: '9:16', duration: 5, poll_interval: 10 });
+    let b = fake.seen.createBody;
+    assert(b.mode === 'pro' && b.resolution === undefined && b.aspect_ratio === '9:16', `可灵应发 mode，实际 ${JSON.stringify(b)}`);
+    await generateVideo(c, '猫', { model: 'wan2.7', resolution: '1080P', ratio: '1:1', duration: 5, poll_interval: 10 });
+    b = fake.seen.createBody;
+    assert(b.size === '1:1' && b.aspect_ratio === undefined && b.resolution === '1080P', `Wan 应发 size，实际 ${JSON.stringify(b)}`);
+  } finally { fake.srv.close(); }
+});
+
 await test('APIMart 上的 MiniMax-H3 用 first_frame_image；公网 URL 不上传直接用', async () => {
   const fake = fakeApimart();
   const port = await listen(fake.srv);

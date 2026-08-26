@@ -31,7 +31,7 @@ export interface WorkflowInput {
   /** 静态候选（渲染成下拉，可手填） */
   options?: string[];
   /** 动态候选源（见引擎 InputDefinition.source） */
-  source?: "image_providers" | "video_providers" | "models" | "video_resolutions" | "video_durations" | "styles";
+  source?: "image_providers" | "video_providers" | "models" | "video_resolutions" | "video_durations" | "video_ratios" | "styles";
   source_from?: string;
 }
 
@@ -327,7 +327,7 @@ export interface ConfigResponse {
   /** 风格库（引擎内置）：中文名 + 提示词后缀；输入 `source: styles` 的下拉候选 */
   styles?: { id: string; name: string; nameEn: string; category: "live" | "2d" | "3d"; prompt: string; sample?: string }[];
   /** 视频供应商（独立表）：是否已配 key + 各家档位表 */
-  videoProviders?: { id: string; hasKey: boolean; models: string[]; tiers?: Record<string, { resolutions: string[]; durations: number[] }>; resolutions: string[]; durations: number[] }[];
+  videoProviders?: { id: string; hasKey: boolean; models: string[]; tiers?: Record<string, { resolutions: string[]; durations: number[]; ratios?: string[] }>; resolutions: string[]; durations: number[]; ratios?: string[] }[];
   /** 用户自己加的自定义供应商（任意 OpenAI 兼容 endpoint）。 */
   customProviders?: CustomProviderMeta[];
   /** 远程清单：增量上架的赞助商 / CLI 中转商 / 下架的内置 id。 */
@@ -418,11 +418,11 @@ export function recentUsage(runs: RunSummary[], keyOf: (r: RunSummary) => string
 // ── 出图 / 出片默认值（顶栏「出图 / 出片」统一切换；创意出片模板运行时自动填入对应输入） ──
 export interface MediaDefaults {
   image: { provider: string; model: string };
-  video: { provider: string; model: string; resolution: string; duration: string };
+  video: { provider: string; model: string; resolution: string; duration: string; ratio: string };
 }
 const MEDIA_KEY = "ao-media-defaults";
 export function getMediaDefaults(): MediaDefaults {
-  const empty: MediaDefaults = { image: { provider: "", model: "" }, video: { provider: "", model: "", resolution: "", duration: "" } };
+  const empty: MediaDefaults = { image: { provider: "", model: "" }, video: { provider: "", model: "", resolution: "", duration: "", ratio: "" } };
   if (typeof window === "undefined") return empty;
   try {
     const v = JSON.parse(window.localStorage.getItem(MEDIA_KEY) || "{}");
@@ -441,6 +441,7 @@ export function mediaDefaultFor(inp: { source?: string; source_from?: string }, 
     case "video_providers": return d.video.provider;
     case "video_resolutions": return d.video.resolution;
     case "video_durations": return d.video.duration;
+    case "video_ratios": return d.video.ratio;
     case "models": return inp.source_from?.startsWith("video") ? d.video.model : inp.source_from?.startsWith("image") ? d.image.model : undefined;
     default: return undefined;
   }

@@ -64,6 +64,17 @@ export function MediaSelect({ embedded }: { embedded?: boolean } = {}) {
     <label className="grid grid-cols-[64px_1fr] items-center gap-2 text-xs text-muted-foreground">{lab}{el}</label>
   );
   const imgList = d.image.provider ? imgModels[d.image.provider] : undefined;
+  const [customModel, setCustomModel] = useState(false);
+  // 档位：有候选就下拉（含"自定义…"回到手填），没候选就手填
+  const tierSelect = (opts: string[], value: string, onChange: (v: string) => void, suffix = "") =>
+    opts.length > 0 && (value === "" || opts.includes(value)) ? (
+      <select className={selCls} value={value} onChange={(e) => onChange(e.target.value === "__custom__" ? "" : e.target.value)}>
+        <option value="">—</option>
+        {opts.map((x) => <option key={x} value={x}>{x}{suffix}</option>)}
+      </select>
+    ) : (
+      <input className={selCls} value={value} onChange={(e) => onChange(e.target.value)} />
+    );
   const summary = [d.image.provider ? `🎨 ${label(d.image.provider)}` : "", d.video.provider ? `🎬 ${d.video.provider}` : ""].filter(Boolean).join(" · ");
 
   const panel = (
@@ -95,23 +106,32 @@ export function MediaSelect({ embedded }: { embedded?: boolean } = {}) {
             const v = videoProviders.find((x) => x.id === e.target.value);
             const m0 = v?.models[0] ?? "";
             const t0 = v?.tiers?.[m0];
-            save({ ...d, video: { provider: e.target.value, model: m0, resolution: t0?.resolutions[0] ?? v?.resolutions[0] ?? "", duration: t0?.durations[0] != null ? String(t0.durations[0]) : "" } });
+            setCustomModel(false);
+            save({ ...d, video: { provider: e.target.value, model: m0, resolution: t0?.resolutions[0] ?? v?.resolutions[0] ?? "", duration: t0?.durations[0] != null ? String(t0.durations[0]) : "", ratio: t0?.ratios?.[0] ?? "" } });
           }}>
             <option value="">—</option>
             {videoProviders.map((v) => <option key={v.id} value={v.id}>{withKey(v.id, label(v.id))}</option>)}
           </select>
         ))}
         {row(m.model, (
-          <input list="ao-media-vid-models" className={selCls} value={d.video.model} onChange={(e) => {
-            const tm = vp?.tiers?.[e.target.value];
-            save({ ...d, video: { ...d.video, model: e.target.value, ...(tm ? { resolution: tm.resolutions[0] ?? d.video.resolution, duration: tm.durations[0] != null ? String(tm.durations[0]) : d.video.duration } : {}) } });
-          }} />
+          // 模型是下拉：用户得**看得见**这家有哪些模型（sora-2 只有 720p、sora-2-pro 才有 1080p 这种区别只有列出来才知道）
+          vp && !customModel ? (
+            <select className={selCls} value={vp.models.includes(d.video.model) ? d.video.model : ""} onChange={(e) => {
+              if (e.target.value === "__custom__") { setCustomModel(true); return; }
+              const tm = vp.tiers?.[e.target.value];
+              save({ ...d, video: { ...d.video, model: e.target.value, resolution: tm?.resolutions[0] ?? "", duration: tm?.durations[0] != null ? String(tm.durations[0]) : "", ratio: tm?.ratios?.[0] ?? "" } });
+            }}>
+              <option value="">—</option>
+              {vp.models.map((x) => <option key={x} value={x}>{x}</option>)}
+              <option value="__custom__">{m.customModel}</option>
+            </select>
+          ) : (
+            <input className={selCls} value={d.video.model} placeholder="model id" onChange={(e) => save({ ...d, video: { ...d.video, model: e.target.value } })} />
+          )
         ))}
-        <datalist id="ao-media-vid-models">{vp?.models.map((x) => <option key={x} value={x} />)}</datalist>
-        {row(m.resolution, <input list="ao-media-vid-res" className={selCls} value={d.video.resolution} onChange={(e) => save({ ...d, video: { ...d.video, resolution: e.target.value } })} />)}
-        <datalist id="ao-media-vid-res">{(tier?.resolutions ?? vp?.resolutions ?? []).map((x) => <option key={x} value={x} />)}</datalist>
-        {row(m.duration, <input list="ao-media-vid-dur" className={selCls} value={d.video.duration} onChange={(e) => save({ ...d, video: { ...d.video, duration: e.target.value } })} />)}
-        <datalist id="ao-media-vid-dur">{(tier?.durations ?? vp?.durations ?? []).map((x) => <option key={x} value={String(x)} />)}</datalist>
+        {row(m.resolution, tierSelect(tier?.resolutions ?? vp?.resolutions ?? [], d.video.resolution, (v) => save({ ...d, video: { ...d.video, resolution: v } })))}
+        {row(m.duration, tierSelect((tier?.durations ?? vp?.durations ?? []).map(String), d.video.duration, (v) => save({ ...d, video: { ...d.video, duration: v } }), "s"))}
+        {row(m.ratio, tierSelect(tier?.ratios ?? vp?.ratios ?? [], d.video.ratio, (v) => save({ ...d, video: { ...d.video, ratio: v } })))}
       </div>
     </div>
   );

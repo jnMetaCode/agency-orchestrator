@@ -1913,9 +1913,10 @@ app.get('/api/config', async (_req, res) => {
         hasKey: !!providers[v.id]?.hasKey,
         models: models.map((m) => m.id),
         // 档位按模型（同一网关上 sora 只有 720p、veo 固定 8 秒）；provider 级是并集，给没选模型时兜底
-        tiers: Object.fromEntries(models.map((m) => [m.id, { resolutions: m.resolutions || [], durations: m.durations || [] }])),
+        tiers: Object.fromEntries(models.map((m) => [m.id, { resolutions: m.resolutions || [], durations: m.durations || [], ratios: m.ratios || [] }])),
         resolutions: uniq(models.flatMap((m) => m.resolutions || [])),
         durations: uniq(models.flatMap((m) => m.durations || [])),
+        ratios: uniq(models.flatMap((m) => m.ratios || [])),
       };
     }),
     // 风格库：输入 source: styles 的候选（引擎内置，运行前由引擎展开成提示词后缀）

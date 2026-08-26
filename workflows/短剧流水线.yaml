@@ -24,6 +24,12 @@ inputs:
     label: "故事梗概"
     description: "故事梗概（两三句即可，如：末日废城里一个机器人清道夫捡到一只会说话的鸵鸟）"
     required: true
+  - name: genre
+    label: "类型"
+    description: "短剧类型：决定编剧怎么写三镜的节奏与冲突"
+    required: true
+    default: "剧情短剧"
+    options: ["剧情短剧", "产品广告片", "治愈日常", "悬疑惊悚", "搞笑段子", "科幻", "古风武侠", "纪实 Vlog"]
   - name: style
     label: "视觉风格"
     description: "视觉风格：从风格库选（引擎会把它展开成摄影机/胶片/色调/光源的英文提示词后缀，逐镜一致），也可自己写一段描述"
@@ -62,6 +68,13 @@ inputs:
     default: "720p"
     source: video_resolutions
     source_from: video_provider
+  - name: video_ratio
+    label: "宽高比"
+    description: "16:9 横屏 / 9:16 竖屏（抖音、视频号）；候选按模型给"
+    required: true
+    default: "16:9"
+    source: video_ratios
+    source_from: video_provider
   - name: video_duration
     label: "每镜秒数"
     description: "每镜秒数（按秒计费，3 镜合计 ×3；veo3 固定 8 秒）"
@@ -77,6 +90,7 @@ steps:
     emoji: "✍️"
     task: |
       把这个故事写成一部 **3 镜微短剧**的剧本：{{story}}
+      类型：{{genre}}（按这个类型的常规节奏与冲突写：广告片要有产品露出与记忆点，悬疑要有悬念钩子，搞笑要有反转，Vlog 要像真实记录）
       视觉风格：{{style}}
 
       输出严格按下面结构，不要多余解释：
@@ -173,7 +187,7 @@ steps:
       resolution: "{{video_resolution}}"
       duration: "{{video_duration}}"
       image: "{{character_img}}"
-      ratio: "16:9"
+      ratio: "{{video_ratio}}"
     output: shot1_mp4
     depends_on: [character, shot1_prompt]
 
@@ -188,7 +202,7 @@ steps:
       resolution: "{{video_resolution}}"
       duration: "{{video_duration}}"
       image: "{{character_img}}"
-      ratio: "16:9"
+      ratio: "{{video_ratio}}"
     output: shot2_mp4
     depends_on: [character, shot2_prompt]
 
@@ -203,7 +217,7 @@ steps:
       resolution: "{{video_resolution}}"
       duration: "{{video_duration}}"
       image: "{{character_img}}"
-      ratio: "16:9"
+      ratio: "{{video_ratio}}"
     output: shot3_mp4
     depends_on: [character, shot3_prompt]
 
