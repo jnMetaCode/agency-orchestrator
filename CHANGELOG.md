@@ -5,6 +5,7 @@
 ## [Unreleased]
 
 ### Added
+- **火山方舟 Agent Plan 独立供应商 `volcengine-plan`**（`ARK_PLAN_API_KEY` + base `/api/plan/v3`）：文本/图片走套餐额度、视频走按量 key 可在同一台机器并存。出图/出片面板在 `/models` 拉不到时用注册表里真机核实的 `imageModels` 候选。
 - **火山方舟接入视频供应商表**（第四种形状 `ark`：`POST /contents/generations/tasks` → `GET …/tasks/{id}` → `content.video_url` 直链），Seedance 1.0 pro / pro-fast 真机全链路 21s 出片；图片 Seedream 5.0 经 Images API（`size: "2k"`）按量与 Agent Plan 两条路都通。两个 base：按量 `/api/v3`、Agent Plan `/api/plan/v3`（`VOLCENGINE_BASE_URL`；Medium 无视频配额）。视频供应商现为 metaso / apimart / agnes / volcengine 四家。
 - 创意库 21 条视频题材模板示例成片（秘塔 MiniMax-H3，768P×4s 压至 480 宽）。
 - **Agnes AI 接入视频供应商表**（openai-videos 变体：必填 `mode:"text"`，size 用档位名 720P/960P/2K）——**openai-videos 链路真机验证通过**：agnes-video-2.5-flash 4s 出片 1280×704 带音轨，全程走 AO 适配器；图片 agnes-image-2.0-flash 走 Images API 也真机成功。供应商级 `createExtra` 机制让 OpenAI 形状的变体声明固定字段而不改主流程。
