@@ -60,6 +60,7 @@ inputs:
     source_from: video_provider
   - name: reference_image
     label: "首帧参考图"
+    format: url
     description: "首帧参考图（可选，图生视频）：公网图片 URL。留空 = 纯文生视频。本地图片只有 APIMart 能用（引擎自动上传），秘塔只收公网 URL"
     required: false
     default: ""

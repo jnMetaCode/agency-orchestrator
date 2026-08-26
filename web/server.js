@@ -7,7 +7,7 @@
  * Not for production — single-user local tool for testing + demo recording.
  */
 import express from 'express';
-import { spawn, execFileSync } from 'node:child_process';
+import { spawn, execFileSync , spawnSync } from 'node:child_process';
 import { readFileSync, readdirSync, existsSync, statSync, writeFileSync, unlinkSync, mkdirSync, rmSync } from 'node:fs';
 import { resolve, join, dirname, basename, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -185,6 +185,12 @@ function composeProviderReady(provider) {
 // into this server's process.env. That way BOTH spawned `ao` processes (they
 // inherit env) and the in-process compose (factory reads process.env) pick them
 // up — no per-call wiring needed. Keys never leave this machine.
+// 本机有没有 ffmpeg（运行卡片给视频抽封面用）；只探一次
+let _ffmpegOk = null;
+function ffmpegAvailable() {
+  if (_ffmpegOk === null) { try { _ffmpegOk = spawnSync(process.env.AO_FFMPEG || 'ffmpeg', ['-version'], { timeout: 5000 }).status === 0; } catch { _ffmpegOk = false; } }
+  return _ffmpegOk;
+}
 const KEYS_FILE = join(DATA_DIR, '.local', 'web-keys.json');
 // 自定义供应商的展示元数据（名称/备注/官网）；连接信息（key/base_url/model）复用
 // web-keys.json，跟内置 provider 存法一样，用 provider id 当 key。
@@ -514,6 +520,7 @@ function loadWorkflowMeta(dir, tagPrivate = false, deletable = false) {
             default: i.default,
             // 下拉候选（静态 options / 动态 source）：Studio 输入弹窗据此渲染选择框，而不是让用户手打供应商 id
             ...(typeof i.label === 'string' ? { label: i.label } : {}),
+            ...(typeof i.format === 'string' ? { format: i.format } : {}),
             ...(Array.isArray(i.options) ? { options: i.options.filter((o) => typeof o === 'string') } : {}),
             ...(typeof i.source === 'string' ? { source: i.source } : {}),
             ...(typeof i.source_from === 'string' ? { source_from: i.source_from } : {}),
@@ -686,7 +693,19 @@ app.get('/api/runs', (_req, res) => {
           thumb: (() => {
             const assetsDir = join(OUTPUT_DIR, d, 'assets');
             if (!existsSync(assetsDir)) return undefined;
-            const img = readdirSync(assetsDir).filter(f => /\.(png|jpe?g|webp|gif)$/i.test(f)).sort()[0];
+            const files = readdirSync(assetsDir);
+            let img = files.filter(f => /\.(png|jpe?g|webp|gif)$/i.test(f) && !f.startsWith('_poster')).sort()[0];
+            if (!img) {
+              // 纯出片的运行没有图片：本机有 ffmpeg 就抽第 1 秒一帧当封面，只抽一次（缓存 _poster.jpg）
+              const mp4 = files.filter(f => /\.(mp4|mov|webm)$/i.test(f)).sort()[0];
+              if (mp4) {
+                if (files.includes('_poster.jpg')) img = '_poster.jpg';
+                else if (ffmpegAvailable()) {
+                  const r = spawnSync(process.env.AO_FFMPEG || 'ffmpeg', ['-y', '-v', 'error', '-ss', '1', '-i', join(assetsDir, mp4), '-frames:v', '1', '-vf', 'scale=320:-2', join(assetsDir, '_poster.jpg')], { timeout: 15000 });
+                  if (r.status === 0 && existsSync(join(assetsDir, '_poster.jpg'))) img = '_poster.jpg';
+                }
+              }
+            }
             return img ? `/api/runs/${encodeURIComponent(d)}/assets/${encodeURIComponent(img)}` : undefined;
           })(),
           // 绝对时刻（UTC ISO）——前端用 toLocaleString 按系统时区显示（#101）

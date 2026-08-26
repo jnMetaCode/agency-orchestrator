@@ -192,7 +192,16 @@ function InputsDialog({ wf, provider, onClose, onRun, onCompare }: { wf: Workflo
     const inList = opts !== null && opts !== "loading" && opts.some((o) => o.value === cur);
     const showSelect = opts !== null && !custom[inp.name] && (cur === "" || inList || opts === "loading");
     const title = inp.label || inp.name;
-    const control = !showSelect ? (
+    const isUrl = inp.format === "url";
+    const control = !showSelect ? isUrl ? (
+      <input
+        type="url"
+        value={cur}
+        placeholder="https://…"
+        onChange={(e) => setVals((p) => ({ ...p, [inp.name]: e.target.value }))}
+        className={cn("w-full rounded-xl border border-border/70 bg-card/60 px-3 text-sm outline-none focus:border-primary/50", compact ? "h-9 text-xs" : "mt-1 h-10")}
+      />
+    ) : (
       <textarea
         value={cur}
         onChange={(e) => setVals((p) => ({ ...p, [inp.name]: e.target.value }))}
@@ -213,7 +222,7 @@ function InputsDialog({ wf, provider, onClose, onRun, onCompare }: { wf: Workflo
           <option value="">{t.studio.workflows.inputModelsLoading}</option>
         ) : (
           <>
-            <option value="">{inp.required ? "—" : `— ${t.studio.workflows.inputFollowText}`}</option>
+            <option value="">{inp.required ? "—" : inp.source === "image_providers" ? `— ${t.studio.workflows.inputFollowText}` : `— ${t.studio.workflows.inputOptional}`}</option>
             {opts.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
             <option value="__custom__">{t.studio.workflows.inputCustom}</option>
           </>
@@ -231,7 +240,7 @@ function InputsDialog({ wf, provider, onClose, onRun, onCompare }: { wf: Workflo
         <span className="flex items-center justify-between text-sm font-medium">
           <span>{title}{inp.required && <span className="text-red-500"> *</span>}</span>
           {/* #96：识别技术文档类场景——把 .md/.txt/代码等文本文件内容一键填进输入；下拉项不需要 */}
-          {!showSelect && (
+          {!showSelect && !isUrl && (
             <span className="flex items-center gap-1">
             <Tip label={t.studio.workflows.inputExpandTitle}>
               <button type="button" disabled={!cur.trim() || !!expanding} onClick={() => void expand(inp.name)} className="inline-flex items-center gap-1 rounded-lg px-1.5 py-0.5 text-xs font-normal text-primary transition-colors hover:bg-primary/10 disabled:opacity-40">
@@ -315,10 +324,13 @@ function InputsDialog({ wf, provider, onClose, onRun, onCompare }: { wf: Workflo
         </div>
         <div className="flex justify-end gap-2 border-t border-border/60 px-5 py-3">
           <Button variant="ghost" onClick={onClose}>{t.studio.workflows.cancel}</Button>
-          <Button variant="outline" onClick={compare} title={lang === "en" ? "Run the workflow and a single-shot baseline, then blind-judge both" : "跑工作流 + 单次基线并盲评对比"}>
-            <Scale className="size-4" />
-            {lang === "en" ? "vs Single-shot" : "对比单次"}
-          </Button>
+          {/* 出图/出片模板的产物是图片/视频，单次文本基线没法比——不给对比按钮 */}
+          {!hasMediaStep && (
+            <Button variant="outline" onClick={compare} title={lang === "en" ? "Run the workflow and a single-shot baseline, then blind-judge both" : "跑工作流 + 单次基线并盲评对比"}>
+              <Scale className="size-4" />
+              {lang === "en" ? "vs Single-shot" : "对比单次"}
+            </Button>
+          )}
           <Button onClick={submit} disabled={missingMedia.length > 0 || textNoKey}>
             <Play className="size-4" />
             {t.studio.workflows.run}

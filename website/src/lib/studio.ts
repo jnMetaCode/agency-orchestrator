@@ -28,6 +28,8 @@ export interface WorkflowInput {
   default?: string;
   /** 显示名（缺省显示变量名） */
   label?: string;
+  /** url = 单行输入、不给扩写/读文件 */
+  format?: "text" | "url";
   /** 静态候选（渲染成下拉，可手填） */
   options?: string[];
   /** 动态候选源（见引擎 InputDefinition.source） */

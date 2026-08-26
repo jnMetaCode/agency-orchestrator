@@ -31,6 +31,8 @@ export interface InputDefinition {
   default?: string;            // 可选输入的默认值
   /** Studio 里显示的名称（缺省显示变量名） */
   label?: string;
+  /** 输入形态：url = 单行、不给"扩写/从文件读入"（如首帧参考图）；缺省多行文本 */
+  format?: 'text' | 'url';
   /** 静态候选值（Studio 渲染成下拉；仍可手填自定义值） */
   options?: string[];
   /**
