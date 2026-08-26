@@ -229,11 +229,16 @@ function InputsDialog({ wf, provider, onClose, onRun, onCompare }: { wf: Workflo
         )}
       </select>
     );
+    // 风格：选中后在下拉下面给一张示例图（风格库的 sample），比读一段英文后缀直观
+    const styleSample = inp.source === "styles" && cur ? cfg?.styles?.find((st) => st.name === cur || st.id === cur)?.sample : undefined;
     if (compact) return (
-      <label key={inp.name} className="grid grid-cols-[76px_1fr] items-center gap-2" title={inp.description || ""}>
-        <span className="truncate text-xs text-muted-foreground">{title}{inp.required && <span className="text-red-500">*</span>}</span>
-        {control}
-      </label>
+      <div key={inp.name}>
+        <label className="grid grid-cols-[76px_1fr] items-center gap-2" title={inp.description || ""}>
+          <span className="truncate text-xs text-muted-foreground">{title}{inp.required && <span className="text-red-500">*</span>}</span>
+          {control}
+        </label>
+        {styleSample && <img src={styleSample} alt="" loading="lazy" className="mt-1.5 ml-[84px] h-20 w-auto rounded-lg border border-border/60 object-cover" />}
+      </div>
     );
     return (
       <label key={inp.name} className="block">

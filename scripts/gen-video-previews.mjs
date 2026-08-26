@@ -108,6 +108,8 @@ for (const t of todo) {
     } catch {
       console.log(`✅ ${(statSync(out).size / 1024 / 1024).toFixed(1)}MB（没装 ffmpeg，未压缩）`);
     }
+    // 社区池原来的外链示例（OpenAI/推特 CDN）保留一份，别丢
+    if (t.preview && /^https?:\/\//.test(String(t.preview)) && !t.previewOrigin) t.previewOrigin = t.preview;
     t.preview = `/video-previews/${t.id}.mp4`;
     // 来源标注：创意库卡片上显示"由 X 家 Y 模型出片"——这是给赞助商最实在的展示位
     t.previewBy = { provider: PROVIDER, model: MODEL, resolution: RESOLUTION, seconds: DURATION };
