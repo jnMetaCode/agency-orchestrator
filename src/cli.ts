@@ -166,7 +166,9 @@ async function handleRun(): Promise<void> {
   if (feedback && !resumeDir) resumeDir = 'last';
   // Precedence: CLI flag > .env (AO_PROVIDER/AO_MODEL) > YAML
   const provider = (getArgValue('--provider') || process.env.AO_PROVIDER) as LLMConfig['provider'] | undefined;
-  const model = getArgValue('--model') || process.env.AO_MODEL;
+  // --provider 换家但没给 --model：YAML 里的 model 是另一家的编码不能沿用，回退到该家注册表里的默认模型；
+  // 否则会把空模型名发出去（真机：--provider agnes 报 "Model name not specified"）。CLI 类 provider 允许空模型。
+  const model = getArgValue('--model') || process.env.AO_MODEL || (provider ? API_PROVIDER_MAP[provider]?.defaultModel : undefined);
   const baseUrl = getArgValue('--base-url') || getArgValue('--baseurl');
   const apiKey = getArgValue('--api-key') || getArgValue('--apikey');
   const timeoutRaw = getArgValue('--timeout');
