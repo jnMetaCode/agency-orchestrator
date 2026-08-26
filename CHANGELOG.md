@@ -5,6 +5,7 @@
 ## [Unreleased]
 
 ### Added
+- 角色组队：分类条与「全部」网格按热度排序（公司经营 → 营销 → 工程 → 设计 → 产品 → 销售 → 财务 → 人力…），常用仍置顶；创意库自托管示例成片进入视口即静音自动循环播放，并标注出片方（🎬 秘塔科技 · MiniMax-H3 ↗）。角色库 1.4.0 的高管角色名带通用缩写（CEO/CFO/CMO/COO/CPO/CTO、Chief of Staff）、产品经理（PM）。
 - **火山方舟 Agent Plan 独立供应商 `volcengine-plan`**（`ARK_PLAN_API_KEY` + base `/api/plan/v3`）：文本/图片走套餐额度、视频走按量 key 可在同一台机器并存。出图/出片面板在 `/models` 拉不到时用注册表里真机核实的 `imageModels` 候选。
 - **火山方舟接入视频供应商表**（第四种形状 `ark`：`POST /contents/generations/tasks` → `GET …/tasks/{id}` → `content.video_url` 直链），Seedance 1.0 pro / pro-fast 真机全链路 21s 出片；图片 Seedream 5.0 经 Images API（`size: "2k"`）按量与 Agent Plan 两条路都通。两个 base：按量 `/api/v3`、Agent Plan `/api/plan/v3`（`VOLCENGINE_BASE_URL`；Medium 无视频配额）。视频供应商现为 metaso / apimart / agnes / volcengine 四家。
 - 创意库 21 条视频题材模板示例成片（秘塔 MiniMax-H3，768P×4s 压至 480 宽）。
