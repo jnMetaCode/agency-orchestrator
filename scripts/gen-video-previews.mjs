@@ -26,7 +26,9 @@ import { generateVideo } from '../dist/connectors/video.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const repoRoot = resolve(__dirname, '..');
-const DATA = join(repoRoot, 'website', 'src', 'content', 'video-prompts.json');
+// --pool genre（默认，22 个题材模板）| community（47 条社区成品提示词：现在挂的是 OpenAI/推特外链，会失效，换成自托管）
+const POOL = (process.argv.includes('--pool') ? process.argv[process.argv.indexOf('--pool') + 1] : 'genre') || 'genre';
+const DATA = join(repoRoot, 'website', 'src', 'content', POOL === 'community' ? 'video-prompts-community.json' : 'video-prompts.json');
 const OUTDIR = join(repoRoot, 'website', 'public', 'video-previews');
 
 const argv = process.argv.slice(2);
@@ -45,7 +47,9 @@ const MODEL = arg('model', 'MiniMax-H3');
 const PRICE = { '768P': 0.09, '2K': 0.15 };
 
 const data = JSON.parse(readFileSync(DATA, 'utf-8'));
-const genres = data.templates.filter((t) => t.lang === 'zh' && t.kind === 'genre' && t.prompt);
+const genres = POOL === 'community'
+  ? data.templates.filter((t) => t.kind === 'community' && t.prompt)
+  : data.templates.filter((t) => t.lang === 'zh' && t.kind === 'genre' && t.prompt);
 
 /** 把模板正文里的 {{变量}} 用变量表给的示例取值填上——变量表存在就是为了这个。 */
 function fill(t) {
@@ -61,7 +65,7 @@ function fill(t) {
 
 const todo = genres.filter((t) => {
   if (ONLY.length && !ONLY.includes(t.id)) return false;
-  return !existsSync(join(OUTDIR, `${t.id}.mp4`));      // 已经有的跳过，可断点续跑
+  return !(t.preview && String(t.preview).startsWith('/video-previews/') && existsSync(join(OUTDIR, `${t.id}.mp4`)));      // 已经有的跳过，可断点续跑
 });
 
 const unit = PRICE[RESOLUTION];

@@ -52,7 +52,7 @@ try { execFileSync('ffmpeg', ['-version'], { stdio: 'ignore' }); hasFfmpeg = tru
 let ts = readFileSync(STYLES_TS, 'utf-8');
 let done = 0;
 for (const s of targets) {
-  const out = join(OUTDIR, `${s.id}.png`);
+  const out = join(OUTDIR, `${s.id}.jpg`);
   if (existsSync(out) && !argv.includes('--force')) { console.log(`跳过（已有）${s.id}`); continue; }
   const prompt = `${SUBJECT}. ${s.prompt}`;
   process.stdout.write(`🎨 ${s.id} … `);
@@ -60,12 +60,12 @@ for (const s of targets) {
     const img = await generateImage({ provider: PROVIDER, model: MODEL }, prompt, { provider: PROVIDER, model: MODEL, size: SIZE }, (m) => process.stdout.write(`\n   ${m}\n`));
     writeFileSync(out, img.buffer);
     if (hasFfmpeg) {
-      const tmp = `${out}.tmp.png`;
-      execFileSync('ffmpeg', ['-y', '-i', out, '-vf', 'scale=640:-2', tmp], { stdio: 'ignore' });
+      const tmp = `${out}.tmp.jpg`;
+      execFileSync('ffmpeg', ['-y', '-i', out, '-vf', 'scale=640:-2', '-q:v', '4', tmp], { stdio: 'ignore' });
       writeFileSync(out, readFileSync(tmp));
       execFileSync('rm', ['-f', tmp]);
     }
-    const rel = `/style-samples/${s.id}.png`;
+    const rel = `/style-samples/${s.id}.jpg`;
     // 写回 styles.ts：该风格对象里若已有 sample 就替换，否则在 prompt 字段后插入
     const re = new RegExp(`(\\{ id: '${s.id}',[\\s\\S]*?)(,\\s*sample: '[^']*')?(\\s*\\},?)`);
     ts = ts.replace(re, (m, head, _old, tail) => `${head}, sample: '${rel}'${tail}`);
