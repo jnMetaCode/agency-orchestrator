@@ -62,6 +62,11 @@ export function createConnector(config: LLMConfig): LLMConnector {
       // key 调，得到 405。每个 provider 用自己专属 env,这里的逐 provider 查表天然满足。
       const spec = API_PROVIDER_MAP[config.provider];
       if (spec) {
+        // 没 key 在这里就点名：连接器自己不知道 provider 是谁，只会说"缺少 API Key"——
+        // 用户配了出片用的 Agnes、文本供应商却没配，看到那句只会以为是 Agnes 的 key 没生效。
+        if (!(config.api_key || process.env[spec.envKey])) {
+          throw new Error(`缺少 API Key：文本供应商「${config.provider}」没配 key（环境变量 ${spec.envKey}，或在 Studio「设置 → 供应商」里填）。出图/出片供应商的 key 是另一把，不通用。`);
+        }
         return new OpenAICompatibleConnector({
           apiKey: config.api_key || process.env[spec.envKey],
           baseUrl: config.base_url || process.env[spec.envBase] || spec.defaultBaseUrl,

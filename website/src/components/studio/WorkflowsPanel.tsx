@@ -4,7 +4,7 @@ import { Tip } from "@/components/ui/tip";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useLanguage } from "@/i18n/LanguageProvider";
 import { Button } from "@/components/ui/button";
-import { api, type WorkflowInput, type ConfigResponse, API_PROVIDERS, recentUsage, type RunSummary, getFavWorkflows, setFavWorkflows, getMediaDefaults, mediaDefaultFor, setMediaDefaults, mergedVideoProviders, type CommunityTemplate, type Workflow } from "@/lib/studio";
+import { api, DEFAULT_PROVIDER, CLI_PROVIDER_IDS, type WorkflowInput, type ConfigResponse, API_PROVIDERS, recentUsage, type RunSummary, getFavWorkflows, setFavWorkflows, getMediaDefaults, mediaDefaultFor, setMediaDefaults, mergedVideoProviders, type CommunityTemplate, type Workflow } from "@/lib/studio";
 import { track } from "@/lib/track";
 import { cn } from "@/lib/utils";
 import { RoleAvatar } from "./RoleAvatar";
@@ -43,7 +43,13 @@ function InputsDialog({ wf, provider, onClose, onRun, onCompare }: { wf: Workflo
   const hasDynamic = inputs.some((i) => i.source || i.options);
   const [cfg, setCfg] = useState<ConfigResponse | null>(null);
   const [modelLists, setModelLists] = useState<Record<string, string[] | "loading" | "error">>({});
-  useEffect(() => { if (hasDynamic) api.config().then(setCfg).catch(() => setCfg(null)); }, [hasDynamic]);
+  // 总是拉一次 config：除了下拉候选，还要知道**文本供应商**有没有 key——角色步骤没 key 会立刻失败，
+  // 错误文案里又只说"缺少 API Key"，用户会以为是出图/出片那把 key 没生效。
+  useEffect(() => { api.config().then(setCfg).catch(() => setCfg(null)); }, []);
+  void hasDynamic;
+  const textProvider = provider || DEFAULT_PROVIDER;
+  const hasRoleSteps = !!wf.steps?.some((st) => !st.type || st.type === "normal");
+  const textNoKey = hasRoleSteps && !!cfg && cfg.providers[textProvider]?.hasKey === false && !CLI_PROVIDER_IDS.has(textProvider);
   // 选了候选之外的值 → 该输入切到手填模式
   const [custom, setCustom] = useState<Record<string, boolean>>({});
   const providerLabel = (id: string) => {
@@ -273,6 +279,9 @@ function InputsDialog({ wf, provider, onClose, onRun, onCompare }: { wf: Workflo
         </div>
         <div className={cn("min-h-0 flex-1 overflow-auto px-5 py-4", isMedia && "grid gap-5 md:grid-cols-[1fr_300px]")}>
           <div className="space-y-3">
+            {!isMedia && textNoKey && (
+              <p className="rounded-lg bg-red-500/10 px-2 py-1.5 text-xs text-red-600 dark:text-red-400">{t.studio.workflows.textProviderNoKey.replace("{p}", textProvider)}</p>
+            )}
             {contentInputs.map((inp) => field(inp, false))}
             {fileErr && <p className="text-xs text-red-500">{fileErr}</p>}
             <input ref={fileInputRef} type="file" accept=".md,.txt,.markdown,.json,.yaml,.yml,.csv,.log,.html,.css,.js,.ts,.tsx,.py,.java,.go,.rs,.sh,.xml,.toml,.ini,text/*" hidden onChange={onFilePicked} />
@@ -291,6 +300,9 @@ function InputsDialog({ wf, provider, onClose, onRun, onCompare }: { wf: Workflo
           </div>
           {isMedia && (
             <aside className="h-fit space-y-2">
+              {textNoKey && (
+                <p className="rounded-lg bg-red-500/10 px-2 py-1.5 text-[11px] text-red-600 dark:text-red-400">{t.studio.workflows.textProviderNoKey.replace("{p}", textProvider)}</p>
+              )}
               <MediaSelect embedded />
               <p className="px-1 text-[11px] leading-relaxed text-muted-foreground">{m.sameAsTopbar}</p>
               {/* 非供应商/模型/档位类的媒体输入（如风格）仍在这里选 */}
@@ -307,7 +319,7 @@ function InputsDialog({ wf, provider, onClose, onRun, onCompare }: { wf: Workflo
             <Scale className="size-4" />
             {lang === "en" ? "vs Single-shot" : "对比单次"}
           </Button>
-          <Button onClick={submit} disabled={missingMedia.length > 0}>
+          <Button onClick={submit} disabled={missingMedia.length > 0 || textNoKey}>
             <Play className="size-4" />
             {t.studio.workflows.run}
           </Button>
