@@ -357,6 +357,9 @@ export async function generateVideo(
     );
   }
   const { spec, baseUrl, apiKey } = resolveVideoAccess(config, opts);
+  // 供应商 id 统一从解析结果来：调用方只在 config.provider 里给（脚本就是这么调的）时，
+  // adapter 查 createExtra / 字段表用 opts.provider 会落空——真机：Agnes 少了 mode 报 400
+  opts = { ...opts, provider: spec.id };
   const shape = SHAPES[spec.shape];
   if (!shape) throw new Error(`视频供应商 ${spec.id} 的协议形状 "${spec.shape}" 没有对应的适配器（见 video.ts 的 SHAPES）`);
   const headers = { 'Content-Type': 'application/json', Authorization: `Bearer ${apiKey}` };

@@ -86,13 +86,24 @@ let ok = 0, fail = 0;
 for (const t of todo) {
   const out = join(OUTDIR, `${t.id}.mp4`);
   process.stdout.write(`  ${t.id} … `);
+  // 厂商限速（Agnes 6 次/分钟）：撞 429 就等一分钟再试，最多 3 轮；别让一批全秒失败
+  const withRetry = async (fn) => {
+    for (let i = 0; ; i++) {
+      try { return await fn(); }
+      catch (e) {
+        const m = e instanceof Error ? e.message : String(e);
+        if (/HTTP 429|rate limit/i.test(m) && i < 3) { process.stdout.write(`限速，等 65s 再试(${i + 1}/3)… `); await new Promise((r) => setTimeout(r, 65_000)); continue; }
+        throw e;
+      }
+    }
+  };
   try {
-    const vid = await generateVideo(
+    const vid = await withRetry(() => generateVideo(
       { provider: PROVIDER },
       fill(t),
       { model: MODEL, resolution: RESOLUTION, duration: DURATION, ratio: '16:9' },
       () => {},
-    );
+    ));
     writeFileSync(out, vid.buffer);
     // 压一版：卡片预览不需要原始清晰度，而原片进仓库会把部署拖垮
     try {

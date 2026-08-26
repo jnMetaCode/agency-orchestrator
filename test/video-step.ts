@@ -420,6 +420,15 @@ await test('Agnes（openai-videos 变体）：建任务自动带 mode:"text"，s
   } finally { fake.srv.close(); if (prev === undefined) delete process.env.AGNES_API_KEY; else process.env.AGNES_API_KEY = prev; }
 });
 
+await test('只在 config.provider 里给供应商（脚本的调法）时，Agnes 的 mode:"text" 也要带上', async () => {
+  const fake = fakeOpenAIVideos();
+  const port = await listen(fake.srv);
+  try {
+    await generateVideo({ provider: 'agnes', api_key: 'ak', base_url: `http://127.0.0.1:${port}/v1` } as unknown as LLMConfig, '猫', { model: 'agnes-video-2.5-flash', duration: 4, resolution: '720P', poll_interval: 10 });
+    assert(fake.seen.create?.mode === 'text', `应带 mode:text，实际 ${JSON.stringify(fake.seen.create)}`);
+  } finally { fake.srv.close(); }
+});
+
 await test('openai-videos 带本地首帧图：不上传，直接 multipart 内联 input_reference', async () => {
   const fake = fakeOpenAIVideos();
   const port = await listen(fake.srv);
