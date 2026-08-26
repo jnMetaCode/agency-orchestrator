@@ -16,12 +16,19 @@
       "description": "",
       "variables": [],
       "prompt": "Drone view of waves crashing against the rugged cliffs along Big Sur's garay point\nbeach. The crashing blue waters create white-tipped waves, while the golden light\nof the setting sun illuminates the rocky shore. A small island with a lighthouse\nsits in the distance, and green shrubbery covers the cliff's edge. The steep drop\nfrom the road down to the beach is a dramatic feat, with the cliff's edges jutting\nout over the sea. This is a view that captures the raw beauty of the coast and the\nrugged landscape of the Pacific Coast Highway.",
-      "preview": "https://cdn.openai.com/sora/videos/big-sur.mp4",
+      "preview": "/video-previews/sora2-hyperrealism-landscapes-1.mp4",
       "origin": "community",
       "source": "https://github.com/zhangchenchen/awesome_sora2_prompt",
       "license": "MIT",
       "author": "awesome_sora2_prompt",
-      "titleZh": "大苏尔海岸线"
+      "titleZh": "大苏尔海岸线",
+      "previewOrigin": "https://cdn.openai.com/sora/videos/big-sur.mp4",
+      "previewBy": {
+        "provider": "agnes",
+        "model": "agnes-video-2.5-flash",
+        "resolution": "720P",
+        "seconds": 4
+      }
     },
     {
       "id": "sora2-hyperrealism-landscapes-2",
@@ -32,12 +39,18 @@
       "description": "",
       "variables": [],
       "prompt": "Cinematic footage of massive waves during a storm in the North Atlantic. Dark, turbulent\nwaters rise into 30-foot swells, white foam and spray flying off the crests. Low,\nominous clouds race overhead. Camera mounted on ship bow, rising and falling with the\nswells, creating visceral sense of power and danger. Shot on weatherproof cinema camera,\nhigh shutter speed captures water droplets frozen in mid-air. Dramatic, documentary-style\ncinematography emphasizing nature's raw power.",
-      "preview": "",
+      "preview": "/video-previews/sora2-hyperrealism-landscapes-2.mp4",
       "origin": "community",
       "source": "https://github.com/zhangchenchen/awesome_sora2_prompt",
       "license": "MIT",
       "author": "awesome_sora2_prompt",
-      "titleZh": "海上风暴"
+      "titleZh": "海上风暴",
+      "previewBy": {
+        "provider": "agnes",
+        "model": "agnes-video-2.5-flash",
+        "resolution": "720P",
+        "seconds": 4
+      }
     },
     {
       "id": "sora2-hyperrealism-landscapes-3",
@@ -48,12 +61,18 @@
       "description": "",
       "variables": [],
       "prompt": "Aerial drone shot soaring over a pristine mountain range at dawn. Fresh snow covers\njagged peaks that catch the first pink and orange light of sunrise. Camera glides\nsmoothly between peaks, revealing valleys filled with morning mist below. A frozen\nalpine lake reflects the colorful sky like a mirror. Pine trees at lower elevations\nare frosted with snow. Thin clouds drift between peaks. Cinematic, IMAX-quality\nlandscape cinematography, shot on large format digital camera with exceptional clarity.",
-      "preview": "",
+      "preview": "/video-previews/sora2-hyperrealism-landscapes-3.mp4",
       "origin": "community",
       "source": "https://github.com/zhangchenchen/awesome_sora2_prompt",
       "license": "MIT",
       "author": "awesome_sora2_prompt",
-      "titleZh": "雪山山脉"
+      "titleZh": "雪山山脉",
+      "previewBy": {
+        "provider": "agnes",
+        "model": "agnes-video-2.5-flash",
+        "resolution": "720P",
+        "seconds": 4
+      }
     },
     {
       "id": "sora2-hyperrealism-landscapes-4",
@@ -64,12 +83,18 @@
       "description": "",
       "variables": [],
       "prompt": "Steadicam shot gliding down a winding forest path in peak autumn. Trees ablaze with\nred, orange, and yellow foliage create a natural tunnel overhead. Fallen leaves carpet\nthe ground in thick layers, some lifted by a gentle breeze swirling around the camera.\nShafts of warm afternoon sunlight pierce through gaps in the canopy, illuminating\nfloating leaves and creating volumetric light beams. Camera moves forward at walking\npace, smooth and steady, inviting viewer to take a peaceful journey. Shot on 35mm film\nwith rich, saturated fall colors.",
-      "preview": "",
+      "preview": "/video-previews/sora2-hyperrealism-landscapes-4.mp4",
       "origin": "community",
       "source": "https://github.com/zhangchenchen/awesome_sora2_prompt",
       "license": "MIT",
       "author": "awesome_sora2_prompt",
-      "titleZh": "秋日林间小径"
+      "titleZh": "秋日林间小径",
+      "previewBy": {
+        "provider": "agnes",
+        "model": "agnes-video-2.5-flash",
+        "resolution": "720P",
+        "seconds": 4
+      }
     },
     {
       "id": "sora2-hyperrealism-landscapes-5",
@@ -80,12 +105,19 @@
       "description": "",
       "variables": [],
       "prompt": "A stylish woman walks down a Tokyo street filled with warm glowing neon and animated\ncity signage. She wears a black leather jacket, a long red dress, and black boots, and\ncarries a black purse. She wears sunglasses and red lipstick. She walks confidently and\ncasually. The street is damp and reflective, creating a mirror effect of the colorful\nlights. Many pedestrians walk about.",
-      "preview": "https://cdn.openai.com/sora/videos/tokyo-walk.mp4",
+      "preview": "/video-previews/sora2-hyperrealism-landscapes-5.mp4",
       "origin": "community",
       "source": "https://github.com/zhangchenchen/awesome_sora2_prompt",
       "license": "MIT",
       "author": "awesome_sora2_prompt",
-      "titleZh": "东京夜街"
+      "titleZh": "东京夜街",
+      "previewOrigin": "https://cdn.openai.com/sora/videos/tokyo-walk.mp4",
+      "previewBy": {
+        "provider": "agnes",
+        "model": "agnes-video-2.5-flash",
+        "resolution": "720P",
+        "seconds": 4
+      }
     },
     {
       "id": "sora2-hyperrealism-landscapes-6",
@@ -96,12 +128,18 @@
       "description": "",
       "variables": [],
       "prompt": "Time-lapse of New York City intersection during evening rush hour. Camera locked in\nhigh position looking down at busy crosswalk. Yellow taxis, pedestrians, cyclists all\nflow through frame in accelerated motion. Traffic lights cycle from red to green.\nStreet lights turn on as sky transitions from blue hour to night. Long exposure effect\ncreates light trails from vehicles. Urban energy and rhythm of the city compressed into\ndynamic time-lapse. Sharp focus throughout, deep depth of field showing entire scene.",
-      "preview": "",
+      "preview": "/video-previews/sora2-hyperrealism-landscapes-6.mp4",
       "origin": "community",
       "source": "https://github.com/zhangchenchen/awesome_sora2_prompt",
       "license": "MIT",
       "author": "awesome_sora2_prompt",
-      "titleZh": "纽约早高峰"
+      "titleZh": "纽约早高峰",
+      "previewBy": {
+        "provider": "agnes",
+        "model": "agnes-video-2.5-flash",
+        "resolution": "720P",
+        "seconds": 4
+      }
     },
     {
       "id": "sora2-hyperrealism-landscapes-7",
@@ -112,12 +150,18 @@
       "description": "",
       "variables": [],
       "prompt": "Breathtaking drone shot rising over Tuscan vineyard at golden hour. Camera starts low\nbetween rows of grapevines, their leaves deep green and grapes hanging full. Slowly\nascends while rotating, revealing geometric patterns of planted rows stretching to\nhorizon. Medieval stone farmhouse and cypress trees come into view. Rolling hills in\nbackground catch warm sunset light. Shadows lengthen across the landscape. Smooth,\ncinematic drone operation with slow, majestic movement. Colors rich and saturated,\nemphasizing Mediterranean warmth.",
-      "preview": "",
+      "preview": "/video-previews/sora2-hyperrealism-landscapes-7.mp4",
       "origin": "community",
       "source": "https://github.com/zhangchenchen/awesome_sora2_prompt",
       "license": "MIT",
       "author": "awesome_sora2_prompt",
-      "titleZh": "葡萄园风光"
+      "titleZh": "葡萄园风光",
+      "previewBy": {
+        "provider": "agnes",
+        "model": "agnes-video-2.5-flash",
+        "resolution": "720P",
+        "seconds": 4
+      }
     },
     {
       "id": "sora2-hyperrealism-landscapes-8",
@@ -128,12 +172,18 @@
       "description": "",
       "variables": [],
       "prompt": "FPV drone racing through narrow slot canyon in American Southwest. Camera flies at\nhigh speed between towering red rock walls, banking and twisting to navigate tight\npassages. Shafts of sunlight pierce down from the narrow opening above. Smooth rock\nwalls blur past with incredible speed. Camera occasionally looks up showing thin strip\nof blue sky between walls. Adrenaline-pumping, dynamic flight cinematography. High\nframe rate captures crisp motion. Colors vibrant - deep red rocks, bright blue sky.",
-      "preview": "",
+      "preview": "/video-previews/sora2-hyperrealism-landscapes-8.mp4",
       "origin": "community",
       "source": "https://github.com/zhangchenchen/awesome_sora2_prompt",
       "license": "MIT",
       "author": "awesome_sora2_prompt",
-      "titleZh": "峡谷飞行"
+      "titleZh": "峡谷飞行",
+      "previewBy": {
+        "provider": "agnes",
+        "model": "agnes-video-2.5-flash",
+        "resolution": "720P",
+        "seconds": 4
+      }
     },
     {
       "id": "sora2-hyperrealism-landscapes-9",
@@ -144,12 +194,18 @@
       "description": "",
       "variables": [],
       "prompt": "Wide cinematic shot of a massive thunderstorm approaching across flat Kansas prairie.\nDark, menacing wall of clouds advances toward camera with visible rain curtain beneath.\nLightning flashes illuminate the storm's interior with brief, intense bursts. Wind whips\nthrough tall prairie grass in foreground, creating waves of motion. Last rays of sunlight\nbreak through at horizon, creating dramatic contrast between dark storm and golden light.\nTime slightly accelerated to show storm's progression. Shot on cinema camera with ND\nfilters, high contrast, documentary weather cinematography.",
-      "preview": "",
+      "preview": "/video-previews/sora2-hyperrealism-landscapes-9.mp4",
       "origin": "community",
       "source": "https://github.com/zhangchenchen/awesome_sora2_prompt",
       "license": "MIT",
       "author": "awesome_sora2_prompt",
-      "titleZh": "雷暴逼近"
+      "titleZh": "雷暴逼近",
+      "previewBy": {
+        "provider": "agnes",
+        "model": "agnes-video-2.5-flash",
+        "resolution": "720P",
+        "seconds": 4
+      }
     },
     {
       "id": "sora2-hyperrealism-landscapes-10",
@@ -160,12 +216,18 @@
       "description": "",
       "variables": [],
       "prompt": "Serene aerial shot of river valley filled with morning fog. Camera high above showing\nthick, white fog layer blanketing the valley floor like a cottony sea. Mountain peaks\nand hilltops poke through the fog layer like islands. Early morning sun creates soft,\ndiffused light, edges of fog glowing golden. River barely visible as dark ribbon through\nthe white. Complete stillness and tranquility. Slow, gentle camera movement floating\npeacefully above the scene. Meditative, ethereal quality. Colors muted and soft -\nwhites, pale golds, soft blues.",
-      "preview": "",
+      "preview": "/video-previews/sora2-hyperrealism-landscapes-10.mp4",
       "origin": "community",
       "source": "https://github.com/zhangchenchen/awesome_sora2_prompt",
       "license": "MIT",
       "author": "awesome_sora2_prompt",
-      "titleZh": "晨雾山谷"
+      "titleZh": "晨雾山谷",
+      "previewBy": {
+        "provider": "agnes",
+        "model": "agnes-video-2.5-flash",
+        "resolution": "720P",
+        "seconds": 4
+      }
     },
     {
       "id": "sora2-sora2-viral-prompts-11",
@@ -176,12 +238,18 @@
       "description": "",
       "variables": [],
       "prompt": "a group of people playing volleyball",
-      "preview": "",
+      "preview": "/video-previews/sora2-sora2-viral-prompts-11.mp4",
       "origin": "community",
       "source": "https://github.com/zhangchenchen/awesome_sora2_prompt",
       "license": "MIT",
       "author": "awesome_sora2_prompt",
-      "titleZh": "沙滩排球团体活动"
+      "titleZh": "沙滩排球团体活动",
+      "previewBy": {
+        "provider": "agnes",
+        "model": "agnes-video-2.5-flash",
+        "resolution": "720P",
+        "seconds": 4
+      }
     },
     {
       "id": "sora2-sora2-viral-prompts-12",
@@ -192,12 +260,18 @@
       "description": "",
       "variables": [],
       "prompt": "create a luxury ad for a black Mercedes Class G",
-      "preview": "",
+      "preview": "/video-previews/sora2-sora2-viral-prompts-12.mp4",
       "origin": "community",
       "source": "https://github.com/zhangchenchen/awesome_sora2_prompt",
       "license": "MIT",
       "author": "awesome_sora2_prompt",
-      "titleZh": "奔驰豪车广告"
+      "titleZh": "奔驰豪车广告",
+      "previewBy": {
+        "provider": "agnes",
+        "model": "agnes-video-2.5-flash",
+        "resolution": "720P",
+        "seconds": 4
+      }
     },
     {
       "id": "sora2-sora2-viral-prompts-13",
@@ -208,12 +282,19 @@
       "description": "",
       "variables": [],
       "prompt": "open Sora, type a prompt in, and generate video!",
-      "preview": "https://video.twimg.com/amplify_video/1973115630271471619/vid/avc1/490x270/0MCvbmNyL6GrQjJP.mp4",
+      "preview": "/video-previews/sora2-sora2-viral-prompts-13.mp4",
       "origin": "community",
       "source": "https://github.com/zhangchenchen/awesome_sora2_prompt",
       "license": "MIT",
       "author": "awesome_sora2_prompt",
-      "titleZh": "Soraception 界面模拟"
+      "titleZh": "Soraception 界面模拟",
+      "previewOrigin": "https://video.twimg.com/amplify_video/1973115630271471619/vid/avc1/490x270/0MCvbmNyL6GrQjJP.mp4",
+      "previewBy": {
+        "provider": "agnes",
+        "model": "agnes-video-2.5-flash",
+        "resolution": "720P",
+        "seconds": 4
+      }
     },
     {
       "id": "sora2-sora2-viral-prompts-14",
@@ -224,12 +305,18 @@
       "description": "",
       "variables": [],
       "prompt": "A live stream overlay with the streamer's webcam in the corner, showing a screen recording of him typing a prompt into Sora, generating a video and reacting as the result plays",
-      "preview": "",
+      "preview": "/video-previews/sora2-sora2-viral-prompts-14.mp4",
       "origin": "community",
       "source": "https://github.com/zhangchenchen/awesome_sora2_prompt",
       "license": "MIT",
       "author": "awesome_sora2_prompt",
-      "titleZh": "直播画面浮层模拟"
+      "titleZh": "直播画面浮层模拟",
+      "previewBy": {
+        "provider": "agnes",
+        "model": "agnes-video-2.5-flash",
+        "resolution": "720P",
+        "seconds": 4
+      }
     },
     {
       "id": "sora2-sora2-viral-prompts-15",
@@ -240,12 +327,18 @@
       "description": "",
       "variables": [],
       "prompt": "Testing out Sora 2... make an entire video using only prompts and have my cameo avatar say what I tell it to.",
-      "preview": "",
+      "preview": "/video-previews/sora2-sora2-viral-prompts-15.mp4",
       "origin": "community",
       "source": "https://github.com/zhangchenchen/awesome_sora2_prompt",
       "license": "MIT",
       "author": "awesome_sora2_prompt",
-      "titleZh": "含 Cameo 形象的完整视频"
+      "titleZh": "含 Cameo 形象的完整视频",
+      "previewBy": {
+        "provider": "agnes",
+        "model": "agnes-video-2.5-flash",
+        "resolution": "720P",
+        "seconds": 4
+      }
     },
     {
       "id": "sora2-sora2-viral-prompts-16",
@@ -256,12 +349,18 @@
       "description": "",
       "variables": [],
       "prompt": "star in a musical using American Revolution style. Topic of rap is 'The Innovator's Dilemma'",
-      "preview": "",
+      "preview": "/video-previews/sora2-sora2-viral-prompts-16.mp4",
       "origin": "community",
       "source": "https://github.com/zhangchenchen/awesome_sora2_prompt",
       "license": "MIT",
       "author": "awesome_sora2_prompt",
-      "titleZh": "历史人物说唱音乐剧"
+      "titleZh": "历史人物说唱音乐剧",
+      "previewBy": {
+        "provider": "agnes",
+        "model": "agnes-video-2.5-flash",
+        "resolution": "720P",
+        "seconds": 4
+      }
     },
     {
       "id": "sora2-sora2-viral-prompts-17",
@@ -272,12 +371,19 @@
       "description": "",
       "variables": [],
       "prompt": "Photorealistic Hipster, funny looking Man lays next to a camp fire staring up at the sky, it's a full moon, he looks at his hand it gets longer and grows hair, turning into the hand of a werewolf. His shoes break as his feet turn into giant werewolf feet, his nose gets longer, as he screams, his eyes turn and he if now finally a full werewolf, cinematic.",
-      "preview": "https://video.twimg.com/amplify_video/1973198405045526528/vid/avc1/490x270/gnERnJeCgJvAizMl.mp4",
+      "preview": "/video-previews/sora2-sora2-viral-prompts-17.mp4",
       "origin": "community",
       "source": "https://github.com/zhangchenchen/awesome_sora2_prompt",
       "license": "MIT",
       "author": "awesome_sora2_prompt",
-      "titleZh": "狼人变身"
+      "titleZh": "狼人变身",
+      "previewOrigin": "https://video.twimg.com/amplify_video/1973198405045526528/vid/avc1/490x270/gnERnJeCgJvAizMl.mp4",
+      "previewBy": {
+        "provider": "agnes",
+        "model": "agnes-video-2.5-flash",
+        "resolution": "720P",
+        "seconds": 4
+      }
     },
     {
       "id": "sora2-sora2-viral-prompts-19",
@@ -288,12 +394,19 @@
       "description": "",
       "variables": [],
       "prompt": "Two young adult human lovers walk hand-in-hand along an alien beach... (detailed planetary elements, cyberpunk style).",
-      "preview": "https://video.twimg.com/amplify_video/1999620553037217792/vid/avc1/320x580/lBEsR6eJVckOXXlE.mp4",
+      "preview": "/video-previews/sora2-sora2-viral-prompts-19.mp4",
       "origin": "community",
       "source": "https://github.com/zhangchenchen/awesome_sora2_prompt",
       "license": "MIT",
       "author": "awesome_sora2_prompt",
-      "titleZh": "外星海滩恋曲"
+      "titleZh": "外星海滩恋曲",
+      "previewOrigin": "https://video.twimg.com/amplify_video/1999620553037217792/vid/avc1/320x580/lBEsR6eJVckOXXlE.mp4",
+      "previewBy": {
+        "provider": "agnes",
+        "model": "agnes-video-2.5-flash",
+        "resolution": "720P",
+        "seconds": 4
+      }
     },
     {
       "id": "sora2-sora2-viral-prompts-20",
@@ -304,12 +417,18 @@
       "description": "",
       "variables": [],
       "prompt": "A Day Painted Quietly - Part 1: The Sketch World... (detailed scenes with color bleed effects).",
-      "preview": "",
+      "preview": "/video-previews/sora2-sora2-viral-prompts-20.mp4",
       "origin": "community",
       "source": "https://github.com/zhangchenchen/awesome_sora2_prompt",
       "license": "MIT",
       "author": "awesome_sora2_prompt",
-      "titleZh": "画家的素描世界"
+      "titleZh": "画家的素描世界",
+      "previewBy": {
+        "provider": "agnes",
+        "model": "agnes-video-2.5-flash",
+        "resolution": "720P",
+        "seconds": 4
+      }
     },
     {
       "id": "sora2-sora2-viral-prompts-21",
@@ -320,12 +439,19 @@
       "description": "",
       "variables": [],
       "prompt": "the gang discovers Waymo",
-      "preview": "https://video.twimg.com/amplify_video/1973158663855714304/vid/avc1/318x270/bq5WXadyKtf3uKyT.mp4",
+      "preview": "/video-previews/sora2-sora2-viral-prompts-21.mp4",
       "origin": "community",
       "source": "https://github.com/zhangchenchen/awesome_sora2_prompt",
       "license": "MIT",
       "author": "awesome_sora2_prompt",
-      "titleZh": "《南方公园》剧集"
+      "titleZh": "《南方公园》剧集",
+      "previewOrigin": "https://video.twimg.com/amplify_video/1973158663855714304/vid/avc1/318x270/bq5WXadyKtf3uKyT.mp4",
+      "previewBy": {
+        "provider": "agnes",
+        "model": "agnes-video-2.5-flash",
+        "resolution": "720P",
+        "seconds": 4
+      }
     },
     {
       "id": "sora2-sora2-viral-prompts-22",
@@ -336,12 +462,19 @@
       "description": "",
       "variables": [],
       "prompt": "Nomad List program for Windows 3.11 for the 486DX2 PC (1995) 480i handheld crt footage.",
-      "preview": "https://video.twimg.com/amplify_video/1974499681154576385/vid/avc1/490x270/KmKH7q5przmnNfbP.mp4",
+      "preview": "/video-previews/sora2-sora2-viral-prompts-22.mp4",
       "origin": "community",
       "source": "https://github.com/zhangchenchen/awesome_sora2_prompt",
       "license": "MIT",
       "author": "awesome_sora2_prompt",
-      "titleZh": "复古 Windows 软件"
+      "titleZh": "复古 Windows 软件",
+      "previewOrigin": "https://video.twimg.com/amplify_video/1974499681154576385/vid/avc1/490x270/KmKH7q5przmnNfbP.mp4",
+      "previewBy": {
+        "provider": "agnes",
+        "model": "agnes-video-2.5-flash",
+        "resolution": "720P",
+        "seconds": 4
+      }
     },
     {
       "id": "sora2-sora2-viral-prompts-23",
@@ -352,12 +485,18 @@
       "description": "",
       "variables": [],
       "prompt": "A detective cat solving crimes in 1940s New York, noir film look.",
-      "preview": "",
+      "preview": "/video-previews/sora2-sora2-viral-prompts-23.mp4",
       "origin": "community",
       "source": "https://github.com/zhangchenchen/awesome_sora2_prompt",
       "license": "MIT",
       "author": "awesome_sora2_prompt",
-      "titleZh": "黑色电影侦探猫"
+      "titleZh": "黑色电影侦探猫",
+      "previewBy": {
+        "provider": "agnes",
+        "model": "agnes-video-2.5-flash",
+        "resolution": "720P",
+        "seconds": 4
+      }
     },
     {
       "id": "sora2-sora2-viral-prompts-24",
@@ -368,12 +507,18 @@
       "description": "",
       "variables": [],
       "prompt": "Body cam footage of a police officer pulling over a car with a bunch of sliced ham as the driver. After being questioned the ham drives away with the police officer trying to chase on foot (Shaky bodycam).",
-      "preview": "",
+      "preview": "/video-previews/sora2-sora2-viral-prompts-24.mp4",
       "origin": "community",
       "source": "https://github.com/zhangchenchen/awesome_sora2_prompt",
       "license": "MIT",
       "author": "awesome_sora2_prompt",
-      "titleZh": "火腿司机的警匪追车"
+      "titleZh": "火腿司机的警匪追车",
+      "previewBy": {
+        "provider": "agnes",
+        "model": "agnes-video-2.5-flash",
+        "resolution": "720P",
+        "seconds": 4
+      }
     },
     {
       "id": "sora2-sora2-viral-prompts-26",
@@ -384,12 +529,18 @@
       "description": "",
       "variables": [],
       "prompt": "Bodycam footage of police handcuffing macaroni and cheese.",
-      "preview": "",
+      "preview": "/video-previews/sora2-sora2-viral-prompts-26.mp4",
       "origin": "community",
       "source": "https://github.com/zhangchenchen/awesome_sora2_prompt",
       "license": "MIT",
       "author": "awesome_sora2_prompt",
-      "titleZh": "逮捕通心粉"
+      "titleZh": "逮捕通心粉",
+      "previewBy": {
+        "provider": "agnes",
+        "model": "agnes-video-2.5-flash",
+        "resolution": "720P",
+        "seconds": 4
+      }
     },
     {
       "id": "sora2-sora2-viral-prompts-27",
@@ -400,12 +551,18 @@
       "description": "",
       "variables": [],
       "prompt": "A dog doing a motivational speech to a crowd of other dogs, TED Talk stage.",
-      "preview": "",
+      "preview": "/video-previews/sora2-sora2-viral-prompts-27.mp4",
       "origin": "community",
       "source": "https://github.com/zhangchenchen/awesome_sora2_prompt",
       "license": "MIT",
       "author": "awesome_sora2_prompt",
-      "titleZh": "狗狗版 TED 演讲"
+      "titleZh": "狗狗版 TED 演讲",
+      "previewBy": {
+        "provider": "agnes",
+        "model": "agnes-video-2.5-flash",
+        "resolution": "720P",
+        "seconds": 4
+      }
     },
     {
       "id": "sora2-sora2-viral-prompts-28",
@@ -416,12 +573,18 @@
       "description": "",
       "variables": [],
       "prompt": "Two raccoons getting married on a ring doorbell camera.",
-      "preview": "",
+      "preview": "/video-previews/sora2-sora2-viral-prompts-28.mp4",
       "origin": "community",
       "source": "https://github.com/zhangchenchen/awesome_sora2_prompt",
       "license": "MIT",
       "author": "awesome_sora2_prompt",
-      "titleZh": "浣熊婚礼"
+      "titleZh": "浣熊婚礼",
+      "previewBy": {
+        "provider": "agnes",
+        "model": "agnes-video-2.5-flash",
+        "resolution": "720P",
+        "seconds": 4
+      }
     },
     {
       "id": "sora2-sora2-viral-prompts-29",
@@ -432,12 +595,18 @@
       "description": "",
       "variables": [],
       "prompt": "Mark Cuban teaching a kindergarten class singing while dressed like Mr Rogers.",
-      "preview": "",
+      "preview": "/video-previews/sora2-sora2-viral-prompts-29.mp4",
       "origin": "community",
       "source": "https://github.com/zhangchenchen/awesome_sora2_prompt",
       "license": "MIT",
       "author": "awesome_sora2_prompt",
-      "titleZh": "名人幼儿园"
+      "titleZh": "名人幼儿园",
+      "previewBy": {
+        "provider": "agnes",
+        "model": "agnes-video-2.5-flash",
+        "resolution": "720P",
+        "seconds": 4
+      }
     },
     {
       "id": "sora2-sora2-viral-prompts-30",
@@ -448,12 +617,18 @@
       "description": "",
       "variables": [],
       "prompt": "Realistic door camera footage of person floating back and forth…",
-      "preview": "",
+      "preview": "/video-previews/sora2-sora2-viral-prompts-30.mp4",
       "origin": "community",
       "source": "https://github.com/zhangchenchen/awesome_sora2_prompt",
       "license": "MIT",
       "author": "awesome_sora2_prompt",
-      "titleZh": "悬浮门铃监控画面"
+      "titleZh": "悬浮门铃监控画面",
+      "previewBy": {
+        "provider": "agnes",
+        "model": "agnes-video-2.5-flash",
+        "resolution": "720P",
+        "seconds": 4
+      }
     },
     {
       "id": "sora2-sora2-viral-prompts-31",
@@ -464,12 +639,18 @@
       "description": "",
       "variables": [],
       "prompt": "A famous celebrity shoplifting a convenience store, surveillance footage.",
-      "preview": "",
+      "preview": "/video-previews/sora2-sora2-viral-prompts-31.mp4",
       "origin": "community",
       "source": "https://github.com/zhangchenchen/awesome_sora2_prompt",
       "license": "MIT",
       "author": "awesome_sora2_prompt",
-      "titleZh": "名人偷窃现场"
+      "titleZh": "名人偷窃现场",
+      "previewBy": {
+        "provider": "agnes",
+        "model": "agnes-video-2.5-flash",
+        "resolution": "720P",
+        "seconds": 4
+      }
     },
     {
       "id": "sora2-sora2-viral-prompts-32",
@@ -480,12 +661,18 @@
       "description": "",
       "variables": [],
       "prompt": "Interrupting Paul Revere during his iconic speech.",
-      "preview": "",
+      "preview": "/video-previews/sora2-sora2-viral-prompts-32.mp4",
       "origin": "community",
       "source": "https://github.com/zhangchenchen/awesome_sora2_prompt",
       "license": "MIT",
       "author": "awesome_sora2_prompt",
-      "titleZh": "历史事件被打断"
+      "titleZh": "历史事件被打断",
+      "previewBy": {
+        "provider": "agnes",
+        "model": "agnes-video-2.5-flash",
+        "resolution": "720P",
+        "seconds": 4
+      }
     },
     {
       "id": "sora2-sora2-viral-prompts-33",
@@ -496,12 +683,18 @@
       "description": "",
       "variables": [],
       "prompt": "Viewed from a helicopter, the Sphere in Las Vegas displays a {x}.",
-      "preview": "",
+      "preview": "/video-previews/sora2-sora2-viral-prompts-33.mp4",
       "origin": "community",
       "source": "https://github.com/zhangchenchen/awesome_sora2_prompt",
       "license": "MIT",
       "author": "awesome_sora2_prompt",
-      "titleZh": "定制球形显示屏"
+      "titleZh": "定制球形显示屏",
+      "previewBy": {
+        "provider": "agnes",
+        "model": "agnes-video-2.5-flash",
+        "resolution": "720P",
+        "seconds": 4
+      }
     },
     {
       "id": "sora2-sora2-viral-prompts-34",
@@ -512,12 +705,19 @@
       "description": "",
       "variables": [],
       "prompt": "CCTV security camera footage inside a dim late-night gas station... (customer mutates into multi-armed creature).",
-      "preview": "https://video.twimg.com/amplify_video/1973993789036638209/vid/avc1/490x270/b9LI2BABrIMy7NCP.mp4",
+      "preview": "/video-previews/sora2-sora2-viral-prompts-34.mp4",
       "origin": "community",
       "source": "https://github.com/zhangchenchen/awesome_sora2_prompt",
       "license": "MIT",
       "author": "awesome_sora2_prompt",
-      "titleZh": "加油站变异"
+      "titleZh": "加油站变异",
+      "previewOrigin": "https://video.twimg.com/amplify_video/1973993789036638209/vid/avc1/490x270/b9LI2BABrIMy7NCP.mp4",
+      "previewBy": {
+        "provider": "agnes",
+        "model": "agnes-video-2.5-flash",
+        "resolution": "720P",
+        "seconds": 4
+      }
     },
     {
       "id": "sora2-sora2-viral-prompts-35",
@@ -528,12 +728,19 @@
       "description": "",
       "variables": [],
       "prompt": "Create for me a trailer for a movie called \"Fear in Paris\" that follows a hooded assassin... (fast cuts, escalating chaos).",
-      "preview": "https://video.twimg.com/ext_tw_video/1973289277141270529/pu/vid/avc1/490x270/GobGPLk61tyN_9xt.mp4",
+      "preview": "/video-previews/sora2-sora2-viral-prompts-35.mp4",
       "origin": "community",
       "source": "https://github.com/zhangchenchen/awesome_sora2_prompt",
       "license": "MIT",
       "author": "awesome_sora2_prompt",
-      "titleZh": "刺客惊悚片预告"
+      "titleZh": "刺客惊悚片预告",
+      "previewOrigin": "https://video.twimg.com/ext_tw_video/1973289277141270529/pu/vid/avc1/490x270/GobGPLk61tyN_9xt.mp4",
+      "previewBy": {
+        "provider": "agnes",
+        "model": "agnes-video-2.5-flash",
+        "resolution": "720P",
+        "seconds": 4
+      }
     },
     {
       "id": "sora2-sora2-viral-prompts-36",
@@ -544,12 +751,18 @@
       "description": "",
       "variables": [],
       "prompt": "アニメのエピソードを作って。男子高校生が妖怪によってぼよんぼよんの美少女に変えられる。あわてて、男子トイレに逃げ込み鏡をみて驚く。女の声で「嘘だろ、俺、女になってる！」　カットシーンなどをいれて、シリアスに",
-      "preview": "",
+      "preview": "/video-previews/sora2-sora2-viral-prompts-36.mp4",
       "origin": "community",
       "source": "https://github.com/zhangchenchen/awesome_sora2_prompt",
       "license": "MIT",
       "author": "awesome_sora2_prompt",
-      "titleZh": "性别转换动画"
+      "titleZh": "性别转换动画",
+      "previewBy": {
+        "provider": "agnes",
+        "model": "agnes-video-2.5-flash",
+        "resolution": "720P",
+        "seconds": 4
+      }
     },
     {
       "id": "sora2-sora2-viral-prompts-37",
@@ -560,12 +773,19 @@
       "description": "",
       "variables": [],
       "prompt": "Create for me an anime trailer for a movie called \"WHITE WEAPON\" about a colossal Mecha White Tiger... (fast cuts, progression from awakening to chaos).",
-      "preview": "https://video.twimg.com/ext_tw_video/1973783785821917186/pu/vid/avc1/490x270/Ezl0bTSFpN6WWhrS.mp4",
+      "preview": "/video-previews/sora2-sora2-viral-prompts-37.mp4",
       "origin": "community",
       "source": "https://github.com/zhangchenchen/awesome_sora2_prompt",
       "license": "MIT",
       "author": "awesome_sora2_prompt",
-      "titleZh": "机甲对战预告"
+      "titleZh": "机甲对战预告",
+      "previewOrigin": "https://video.twimg.com/ext_tw_video/1973783785821917186/pu/vid/avc1/490x270/Ezl0bTSFpN6WWhrS.mp4",
+      "previewBy": {
+        "provider": "agnes",
+        "model": "agnes-video-2.5-flash",
+        "resolution": "720P",
+        "seconds": 4
+      }
     },
     {
       "id": "sora2-sora2-viral-prompts-38",
@@ -576,12 +796,18 @@
       "description": "",
       "variables": [],
       "prompt": "テーマ: ある日突然、戦国時代の本能寺の変から現代にタイムスリップした織田信長が政治家として成功する話... (movie trailer style).",
-      "preview": "",
+      "preview": "/video-previews/sora2-sora2-viral-prompts-38.mp4",
       "origin": "community",
       "source": "https://github.com/zhangchenchen/awesome_sora2_prompt",
       "license": "MIT",
       "author": "awesome_sora2_prompt",
-      "titleZh": "信长穿越预告片"
+      "titleZh": "信长穿越预告片",
+      "previewBy": {
+        "provider": "agnes",
+        "model": "agnes-video-2.5-flash",
+        "resolution": "720P",
+        "seconds": 4
+      }
     },
     {
       "id": "sora2-sora2-viral-prompts-39",
@@ -592,12 +818,19 @@
       "description": "",
       "variables": [],
       "prompt": "9:16 vertical handheld shot, natural lighting, female creator in kitchen holding [brand] protein bar... (timeline with hook).",
-      "preview": "https://video.twimg.com/amplify_video/1978106648347426816/vid/avc1/480x270/U8dColV2s2pdrCWl.mp4",
+      "preview": "/video-previews/sora2-sora2-viral-prompts-39.mp4",
       "origin": "community",
       "source": "https://github.com/zhangchenchen/awesome_sora2_prompt",
       "license": "MIT",
       "author": "awesome_sora2_prompt",
-      "titleZh": "蛋白棒用户证言"
+      "titleZh": "蛋白棒用户证言",
+      "previewOrigin": "https://video.twimg.com/amplify_video/1978106648347426816/vid/avc1/480x270/U8dColV2s2pdrCWl.mp4",
+      "previewBy": {
+        "provider": "agnes",
+        "model": "agnes-video-2.5-flash",
+        "resolution": "720P",
+        "seconds": 4
+      }
     },
     {
       "id": "sora2-sora2-viral-prompts-40",
@@ -608,12 +841,18 @@
       "description": "",
       "variables": [],
       "prompt": "A man speaks to a horse... [CUT TO] Aerial shot - The horse bolts... (precipice halt).",
-      "preview": "",
+      "preview": "/video-previews/sora2-sora2-viral-prompts-40.mp4",
       "origin": "community",
       "source": "https://github.com/zhangchenchen/awesome_sora2_prompt",
       "license": "MIT",
       "author": "awesome_sora2_prompt",
-      "titleZh": "带剪辑的叙事短片"
+      "titleZh": "带剪辑的叙事短片",
+      "previewBy": {
+        "provider": "agnes",
+        "model": "agnes-video-2.5-flash",
+        "resolution": "720P",
+        "seconds": 4
+      }
     },
     {
       "id": "sora2-sora2-viral-prompts-41",
@@ -624,12 +863,18 @@
       "description": "",
       "variables": [],
       "prompt": "The setting is a professional voiceover recording booth... A voiceover actress who sounds like Galadriel... (narrate fantasy intro).",
-      "preview": "",
+      "preview": "/video-previews/sora2-sora2-viral-prompts-41.mp4",
       "origin": "community",
       "source": "https://github.com/zhangchenchen/awesome_sora2_prompt",
       "license": "MIT",
       "author": "awesome_sora2_prompt",
-      "titleZh": "配音录制技巧"
+      "titleZh": "配音录制技巧",
+      "previewBy": {
+        "provider": "agnes",
+        "model": "agnes-video-2.5-flash",
+        "resolution": "720P",
+        "seconds": 4
+      }
     },
     {
       "id": "sora2-official-prompts-42",
@@ -640,12 +885,19 @@
       "description": "",
       "variables": [],
       "prompt": "A stylish woman walks down a Tokyo street filled with warm glowing neon and animated city signage. She wears a black leather jacket, a long red dress, and black boots, and carries a black purse. She wears sunglasses and red lipstick. She walks confidently and casually. The street is damp and reflective, creating a mirror effect of the colorful lights. Many pedestrians walk about.",
-      "preview": "https://cdn.openai.com/sora/videos/tokyo-walk.mp4",
+      "preview": "/video-previews/sora2-official-prompts-42.mp4",
       "origin": "openai-showcase",
       "source": "https://github.com/zhangchenchen/awesome_sora2_prompt",
       "license": "MIT",
       "author": "OpenAI Sora showcase",
-      "titleZh": "东京漫步"
+      "titleZh": "东京漫步",
+      "previewOrigin": "https://cdn.openai.com/sora/videos/tokyo-walk.mp4",
+      "previewBy": {
+        "provider": "agnes",
+        "model": "agnes-video-2.5-flash",
+        "resolution": "720P",
+        "seconds": 4
+      }
     },
     {
       "id": "sora2-official-prompts-43",
@@ -656,12 +908,19 @@
       "description": "",
       "variables": [],
       "prompt": "Several giant wooly mammoths approach treading through a snowy meadow, their long wooly fur lightly blows in the wind as they walk, snow covered trees and dramatic snow capped mountains in the distance, mid afternoon light with wispy clouds and a sun high in the distance creates a warm glow, the low camera view is stunning capturing the large furry mammal with beautiful photography, depth of field.",
-      "preview": "https://cdn.openai.com/sora/videos/wooly-mammoth.mp4",
+      "preview": "/video-previews/sora2-official-prompts-43.mp4",
       "origin": "openai-showcase",
       "source": "https://github.com/zhangchenchen/awesome_sora2_prompt",
       "license": "MIT",
       "author": "OpenAI Sora showcase",
-      "titleZh": "长毛猛犸象"
+      "titleZh": "长毛猛犸象",
+      "previewOrigin": "https://cdn.openai.com/sora/videos/wooly-mammoth.mp4",
+      "previewBy": {
+        "provider": "agnes",
+        "model": "agnes-video-2.5-flash",
+        "resolution": "720P",
+        "seconds": 4
+      }
     },
     {
       "id": "sora2-official-prompts-44",
@@ -672,12 +931,19 @@
       "description": "",
       "variables": [],
       "prompt": "A movie trailer featuring the adventures of the 30 year old space man wearing a red wool knitted motorcycle helmet, blue sky, salt desert, cinematic style, shot on 35mm film, vivid colors.",
-      "preview": "https://cdn.openai.com/sora/videos/mitten-astronaut.mp4",
+      "preview": "/video-previews/sora2-official-prompts-44.mp4",
       "origin": "openai-showcase",
       "source": "https://github.com/zhangchenchen/awesome_sora2_prompt",
       "license": "MIT",
       "author": "OpenAI Sora showcase",
-      "titleZh": "毛线针织宇航员"
+      "titleZh": "毛线针织宇航员",
+      "previewOrigin": "https://cdn.openai.com/sora/videos/mitten-astronaut.mp4",
+      "previewBy": {
+        "provider": "agnes",
+        "model": "agnes-video-2.5-flash",
+        "resolution": "720P",
+        "seconds": 4
+      }
     },
     {
       "id": "sora2-official-prompts-45",
@@ -688,12 +954,19 @@
       "description": "",
       "variables": [],
       "prompt": "A gorgeously rendered papercraft world of a coral reef, rife with colorful fish and sea creatures.",
-      "preview": "https://cdn.openai.com/sora/videos/origami-undersea.mp4",
+      "preview": "/video-previews/sora2-official-prompts-45.mp4",
       "origin": "openai-showcase",
       "source": "https://github.com/zhangchenchen/awesome_sora2_prompt",
       "license": "MIT",
       "author": "OpenAI Sora showcase",
-      "titleZh": "纸艺珊瑚礁"
+      "titleZh": "纸艺珊瑚礁",
+      "previewOrigin": "https://cdn.openai.com/sora/videos/origami-undersea.mp4",
+      "previewBy": {
+        "provider": "agnes",
+        "model": "agnes-video-2.5-flash",
+        "resolution": "720P",
+        "seconds": 4
+      }
     },
     {
       "id": "sora2-official-prompts-46",
@@ -704,12 +977,19 @@
       "description": "",
       "variables": [],
       "prompt": "Drone view of waves crashing against the rugged cliffs along Big Sur's garay point beach. The crashing blue waters create white-tipped waves, while the golden light of the setting sun illuminates the rocky shore. A small island with a lighthouse sits in the distance, and green shrubbery covers the cliff's edge. The steep drop from the road down to the beach is a dramatic feat, with the cliff's edges jutting out over the sea. This is a view that captures the raw beauty of the coast and the rugged landscape of the Pacific Coast Highway.",
-      "preview": "https://cdn.openai.com/sora/videos/big-sur.mp4",
+      "preview": "/video-previews/sora2-official-prompts-46.mp4",
       "origin": "openai-showcase",
       "source": "https://github.com/zhangchenchen/awesome_sora2_prompt",
       "license": "MIT",
       "author": "OpenAI Sora showcase",
-      "titleZh": "大苏尔海岸线"
+      "titleZh": "大苏尔海岸线",
+      "previewOrigin": "https://cdn.openai.com/sora/videos/big-sur.mp4",
+      "previewBy": {
+        "provider": "agnes",
+        "model": "agnes-video-2.5-flash",
+        "resolution": "720P",
+        "seconds": 4
+      }
     },
     {
       "id": "sora2-official-prompts-47",
@@ -720,12 +1000,19 @@
       "description": "",
       "variables": [],
       "prompt": "Animated scene features a close-up of a short fluffy monster kneeling beside a melting red candle. The art style is 3D and realistic, with a focus on lighting and texture. The mood of the painting is one of wonder and curiosity, as the monster gazes at the flame with wide eyes and open mouth. Its pose and expression convey a sense of innocence and playfulness, as if it is exploring the world around it for the first time. The use of warm colors and dramatic lighting further enhances the cozy atmosphere of the image.",
-      "preview": "https://cdn.openai.com/sora/videos/monster-with-melting-candle.mp4",
+      "preview": "/video-previews/sora2-official-prompts-47.mp4",
       "origin": "openai-showcase",
       "source": "https://github.com/zhangchenchen/awesome_sora2_prompt",
       "license": "MIT",
       "author": "OpenAI Sora showcase",
-      "titleZh": "怪物与融化的蜡烛"
+      "titleZh": "怪物与融化的蜡烛",
+      "previewOrigin": "https://cdn.openai.com/sora/videos/monster-with-melting-candle.mp4",
+      "previewBy": {
+        "provider": "agnes",
+        "model": "agnes-video-2.5-flash",
+        "resolution": "720P",
+        "seconds": 4
+      }
     },
     {
       "id": "sora2-official-prompts-48",
@@ -736,12 +1023,18 @@
       "description": "",
       "variables": [],
       "prompt": "Primary Target & Visuals:\na dragon slicing past serrated ice spires jutting from a glacier, trailing embers that flare in its wake like fireflies, wings spread wide casting shadows on the sunlit ice below, arcing low over a deep fjord, the gap between its belly and the water barely a wingspan, steep walls looming on either side\n\nFormat & Appearance:\n4K resolution, large-format digital sensor emulation, aspherical 50mm lens, fine grain simulation\n\nCamera & Filter:\nnose-mounted gimbal-stabilized aerial platform, tracking shot POV, 1/8 Black Pro-Mist filter for a gentle halation on highlights\n\nGrading & Palette:\nneutral to cool-temperature color palette (glacial blues, slate grays, pale mist whites), warm accents only on embers and reflected sunlight\n\nLighting & Atmosphere:\nindirect natural light from late-afternoon sun angled low, subtle god-rays breaking through mist layers, soft atmospheric perspective fading distant peaks",
-      "preview": "",
+      "preview": "/video-previews/sora2-official-prompts-48.mp4",
       "origin": "openai-showcase",
       "source": "https://github.com/zhangchenchen/awesome_sora2_prompt",
       "license": "MIT",
       "author": "OpenAI Sora showcase",
-      "titleZh": "冰川上空的巨龙"
+      "titleZh": "冰川上空的巨龙",
+      "previewBy": {
+        "provider": "agnes",
+        "model": "agnes-video-2.5-flash",
+        "resolution": "720P",
+        "seconds": 4
+      }
     },
     {
       "id": "sora2-official-prompts-49",
@@ -752,12 +1045,18 @@
       "description": "",
       "variables": [],
       "prompt": "Two mountain climbing explorers in red parkas stumble through fresh snow drifts in sequence, each calling out loudly into the white expanse as they climb toward a ridge",
-      "preview": "",
+      "preview": "/video-previews/sora2-official-prompts-49.mp4",
       "origin": "openai-showcase",
       "source": "https://github.com/zhangchenchen/awesome_sora2_prompt",
       "license": "MIT",
       "author": "OpenAI Sora showcase",
-      "titleZh": "呼喊的登山者"
+      "titleZh": "呼喊的登山者",
+      "previewBy": {
+        "provider": "agnes",
+        "model": "agnes-video-2.5-flash",
+        "resolution": "720P",
+        "seconds": 4
+      }
     }
   ]
 }
