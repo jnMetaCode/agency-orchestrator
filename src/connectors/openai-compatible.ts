@@ -126,6 +126,8 @@ export class OpenAICompatibleConnector implements LLMConnector {
   async chat(systemPrompt: string, userMessage: string, config: LLMConfig): Promise<LLMResult> {
     const maxContinuations = 3;  // 最多续写 3 次
     let fullContent = '';
+    // 空正文诊断用：最后一段流的 reasoning 字符数 / finish_reason / 请求地址（作用域在循环外）
+    let lastReasoningChars = 0, lastFinishReason: string | null = null, lastRequestUrl = '';
 
     // token 参数名/默认上限按模型定；若端点不接受该参数名，遇 400 自动切到另一个名字重试一次（双向）。issue #99
     let activeTokenParam = this.tokenParamFor(config.model);
@@ -252,7 +254,7 @@ export class OpenAICompatibleConnector implements LLMConnector {
         );
       }
 
-      let streamResult: { content: string; finishReason: string | null };
+      let streamResult: { content: string; finishReason: string | null; reasoningChars?: number };
       try {
         // 有些中转/自建端点无视 stream:true，直接回一整个 JSON。按 SSE 去解会一行都匹配不上，
         // 结果是「调用成功却什么都没生成」这种最难查的失败——按 content-type 走非流式解析。
@@ -294,6 +296,9 @@ export class OpenAICompatibleConnector implements LLMConnector {
       }
 
       fullContent += streamResult.content;
+      lastReasoningChars += streamResult.reasoningChars ?? 0;
+      lastFinishReason = streamResult.finishReason;
+      lastRequestUrl = requestUrl;
       // 干净结束但命中 max_tokens 上限（finish_reason=length）→ 自动续写，避免静默截断
       if (streamResult.finishReason === 'length' && continuation < maxContinuations) {
         process.stderr.write(`  🔄 输出达 max_tokens 上限，自动续写 (${continuation + 1}/${maxContinuations})，已累计 ${fullContent.length} 字符...\n`);
@@ -314,6 +319,15 @@ export class OpenAICompatibleConnector implements LLMConnector {
       throw err;
     }
 
+    // 正文为空绝不能当"完成"返回：下游步骤会拿着空变量继续跑（真机：提示词工程师 57s 输出 0 token 被记为完成，
+    // 反穿帮清单问"你指哪条提示词"，出片步骤把空 prompt 发给厂商才报 400）。推理模型"只想不写"是最常见的原因。
+    if (!fullContent.trim()) {
+      const rc = lastReasoningChars;
+      const why = rc > 0
+        ? `模型只返回了思考内容（${rc} 字符 reasoning）没有正文——多半是输出上限被 thinking 吃光，或该模型在这家网关上不回正文`
+        : `模型返回了空正文（finish_reason=${lastFinishReason ?? '未知'}）`;
+      throw new Error(`${why}。换一个模型（如非推理模型）或关闭 thinking 后重试；请求地址: ${lastRequestUrl}`);
+    }
     return {
       content: fullContent,
       usage: {
@@ -342,7 +356,7 @@ export class OpenAICompatibleConnector implements LLMConnector {
   private async readStream(
     response: Response,
     opts?: { onData?: () => void },
-  ): Promise<{ content: string; finishReason: string | null }> {
+  ): Promise<{ content: string; finishReason: string | null; reasoningChars?: number }> {
     const reader = response.body?.getReader();
     if (!reader) throw new Error('Response body is null');
 
@@ -350,6 +364,8 @@ export class OpenAICompatibleConnector implements LLMConnector {
     let content = '';
     let buffer = '';
     let finishReason: string | null = null;
+    // 推理模型（Agnes 2.0 / DeepSeek R 系等）先流 reasoning_content 再流 content；只记长度用于诊断"只想不写"
+    let reasoningChars = 0;
     let lastProgressTime = 0;
 
     try {
@@ -386,6 +402,8 @@ export class OpenAICompatibleConnector implements LLMConnector {
             }
             const delta = chunk.choices?.[0]?.delta?.content;
             if (delta) content += delta;
+            const rd = chunk.choices?.[0]?.delta?.reasoning_content ?? chunk.choices?.[0]?.delta?.reasoning;
+            if (typeof rd === 'string') reasoningChars += rd.length;
             const fr = chunk.choices?.[0]?.finish_reason;
             if (fr) finishReason = fr;
           } catch (e) {
@@ -405,6 +423,6 @@ export class OpenAICompatibleConnector implements LLMConnector {
     }
 
     reader.cancel().catch(() => {});  // 正常结束也释放 reader
-    return { content, finishReason };
+    return { content, finishReason, reasoningChars };
   }
 }

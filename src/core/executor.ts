@@ -471,6 +471,10 @@ async function executeStep(
     node.agentName = node.step.name || '文生图';
     node.agentEmoji = node.step.emoji || '🎨';
     const prompt = renderTemplate(node.step.task, opts.context);
+    if (!prompt.trim()) {
+      // 空提示词发出去只会拿回厂商的 400（"prompt is required"），或更糟：真出一条空片。上游变量为空就在这里说清。
+      throw new Error(`${node.step.id}：提示词为空——上游步骤没有产出（检查 task 里引用的变量是否来自失败/空输出的步骤）`);
+    }
     const stepLlmImg = node.step.llm;
     const imgConfig = (stepLlmImg ? { ...opts.llmConfig, ...stepLlmImg } : opts.llmConfig) as LLMConfig;
     // image.model 也过变量渲染：内置模板不能替用户猜图片模型名（各家编码互不通用），
@@ -499,6 +503,10 @@ async function executeStep(
     node.agentName = node.step.name || '文生视频';
     node.agentEmoji = node.step.emoji || '🎬';
     const prompt = renderTemplate(node.step.task, opts.context);
+    if (!prompt.trim()) {
+      // 空提示词发出去只会拿回厂商的 400（"prompt is required"），或更糟：真出一条空片。上游变量为空就在这里说清。
+      throw new Error(`${node.step.id}：提示词为空——上游步骤没有产出（检查 task 里引用的变量是否来自失败/空输出的步骤）`);
+    }
     const stepLlmVid = node.step.llm;
     const vidConfig = (stepLlmVid ? { ...opts.llmConfig, ...stepLlmVid } : opts.llmConfig) as LLMConfig;
     const videoOpts = { ...(node.step.video ?? {}) } as VideoStepOptions;
@@ -657,10 +665,16 @@ async function executeStep(
           attemptTimeout
         );
         addTokens({ input: result.usage.input_tokens, output: result.usage.output_tokens });
+        if (!result.content.trim()) {
+          // 空正文不是成功：下游拿空变量只会产出更离谱的东西（连接器层已拦 OpenAI 兼容，这里兜住 claude / CLI 等）
+          const e = new Error(`${node.step.id}：模型返回空内容（provider ${effectiveConfig.provider}，model ${effectiveConfig.model || '默认'}）。换模型或关闭 thinking 后重试。`);
+          (e as { noRetry?: boolean }).noRetry = true;
+          throw e;
+        }
         return result.content;
       } catch (err) {
         lastError = err instanceof Error ? err : new Error(String(err));
-        if (attempt < effectiveMaxRetry && isRetryable(lastError)) {
+        if (attempt < effectiveMaxRetry && isRetryable(lastError) && !(lastError as { noRetry?: boolean }).noRetry) {
           const errorClass = classifyError(lastError);
           // connection 类错误（超时/ECONNRESET/aborted/socket hang up 等）→ 下一次 timeout x1.5
           // 上限 900s，0=不限时保持不变，rate_limit / server_error 保持原值避免无谓放大

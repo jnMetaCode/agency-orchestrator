@@ -346,6 +346,9 @@ export async function generateVideo(
   opts: VideoStepOptions,
   onNotice?: (msg: string) => void,
 ): Promise<GeneratedVideo> {
+  if (!prompt.trim()) {
+    throw new Error('视频步骤的提示词为空——上游没产出就别去建任务（厂商只会回 "prompt is required"，或更糟：真出一条空片）。');
+  }
   if (!opts.model) {
     throw new Error(
       '视频步骤缺少模型：请在该步写 video: { model: "<视频模型>" }（秘塔填 MiniMax-H3）。\n' +
