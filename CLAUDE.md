@@ -197,6 +197,14 @@ APIMart is deliberately in **both** tables — one `APIMART_API_KEY` covers chat
 `type: video` — so `/api/config` only marks *video-only* providers as `family: 'video'`. A workflow whose steps are *all*
 image/video needs neither `llm.model` nor a text connector.
 
+## Volcengine (火山方舟) notes
+
+Two credential modes, **different base URLs**: pay-as-you-go keys use `https://ark.cn-beijing.volces.com/api/v3`; Agent Plan keys must use
+`…/api/plan/v3` (set `VOLCENGINE_BASE_URL`) — hitting `/api/v3` with a plan key bills extra. Verified 2026-08-26: images work on both
+(`doubao-seedream-5-0-260128` pay-as-you-go, `doubao-seedream-5.0-lite` on Medium; Seedream 5 needs ≥3.69 MP → use `size: "2k"`);
+video (`/contents/generations/tasks`, Ark's own shape, no adapter yet) is **Large-plan-or-pay-as-you-go only** — Medium returns
+`UnsupportedModel`. Model ids come from `GET /api/v3/models`, never guessed.
+
 ## Style Library
 
 `src/media/styles.ts` — 15 presets (真人 13 / 3D / 2D), each = Chinese name + an English prompt suffix (camera,
