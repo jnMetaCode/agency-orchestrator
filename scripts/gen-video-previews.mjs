@@ -105,6 +105,8 @@ for (const t of todo) {
       console.log(`✅ ${(statSync(out).size / 1024 / 1024).toFixed(1)}MB（没装 ffmpeg，未压缩）`);
     }
     t.preview = `/video-previews/${t.id}.mp4`;
+    // 来源标注：创意库卡片上显示"由 X 家 Y 模型出片"——这是给赞助商最实在的展示位
+    t.previewBy = { provider: PROVIDER, model: MODEL, resolution: RESOLUTION, seconds: DURATION };
     writeFileSync(DATA, JSON.stringify(data, null, 2) + '\n', 'utf-8');   // 每条落盘，中断不白花钱
     ok++;
   } catch (e) {

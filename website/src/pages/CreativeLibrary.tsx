@@ -40,6 +40,14 @@ interface GenEnv { ok: boolean; providers: { id: string; label: string }[] }
  */
 const GEN_PREF_KEY = "ao.creative.gen";
 type GenPref = { provider?: string; model?: string; size?: string };
+// 示例成片的出片方（角标 + 返利链接）。只写真出过片的；链接与 sponsors.ts 里的赞助商条目一致。
+const PREVIEW_VENDORS: Record<string, { name: string; nameEn: string; url: string }> = {
+  metaso: { name: "秘塔科技", nameEn: "MetaSota", url: "https://metaso.cn/minimax-h3/?s=gt533367" },
+  volcengine: { name: "火山引擎", nameEn: "Volcengine", url: "https://www.volcengine.com/activity/ai618?utm_campaign=hw&utm_content=hw&utm_medium=devrel_tool_web&utm_source=OWO&utm_term=agency-agents-zh" },
+  apimart: { name: "APIMart", nameEn: "APIMart", url: "https://apimart.ai" },
+  agnes: { name: "Agnes AI", nameEn: "Agnes AI", url: "https://agnes-ai.com" },
+};
+
 function readGenPref(): GenPref {
   try { return JSON.parse(localStorage.getItem(GEN_PREF_KEY) || "{}") as GenPref; } catch { return {}; }
 }
@@ -68,6 +76,8 @@ interface VideoTemplate {
   prompt: string;
   /** 示例成片（外链）。社区池里 18 条有，题材模板暂时没有——见 scripts/gen-video-previews.mjs */
   preview?: string;
+  /** 示例成片由谁出的（供应商 / 模型 / 档位）——卡片角标 + 赞助商返利链接 */
+  previewBy?: { provider: string; model: string; resolution?: string; seconds?: number };
   source: string;
   license: string;
   author: string;
@@ -130,6 +140,18 @@ function VideoCard({ t }: { t: VideoTemplate }) {
       )}
 
       <div className="mt-3 flex flex-wrap items-center gap-2 text-xs">
+        {t.preview && t.previewBy && (
+          <a
+            href={PREVIEW_VENDORS[t.previewBy.provider]?.url ?? "#"}
+            target="_blank"
+            rel="noreferrer"
+            onClick={() => track("sponsor_click", { id: t.previewBy!.provider, from: "video-preview" })}
+            title={en ? "This sample clip was generated with this provider's API" : "这条示例成片就是用这家的 API 出的"}
+            className="inline-flex items-center gap-1 rounded-full bg-gold/10 px-2 py-0.5 text-[11px] font-medium text-gold hover:bg-gold/20"
+          >
+            🎬 {(en ? PREVIEW_VENDORS[t.previewBy.provider]?.nameEn : PREVIEW_VENDORS[t.previewBy.provider]?.name) ?? t.previewBy.provider} · {t.previewBy.model}{t.previewBy.resolution ? ` · ${t.previewBy.resolution}` : ""}{t.previewBy.seconds ? ` × ${t.previewBy.seconds}s` : ""} ↗
+          </a>
+        )}
         {t.preview && !showVideo && (
           <button
             onClick={() => { setShowVideo(true); track("video_preview_play", { id: t.id }); }}
