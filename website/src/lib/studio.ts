@@ -415,6 +415,34 @@ export function recentUsage(runs: RunSummary[], keyOf: (r: RunSummary) => string
   return [...count.entries()].sort((a, b) => b[1] - a[1] || (last.get(b[0]) ?? 0) - (last.get(a[0]) ?? 0));
 }
 
+// ── 探测通过的"额外"视频供应商（OpenAI Videos 形状），存 localStorage；与 /api/config 的视频表合并进下拉 ──
+export interface ProbedVideoProvider { id: string; models: string[]; probedAt: number }
+const PROBED_KEY = "ao-video-probed";
+export function getProbedVideoProviders(): ProbedVideoProvider[] {
+  if (typeof window === "undefined") return [];
+  try { const v = JSON.parse(window.localStorage.getItem(PROBED_KEY) || "[]"); return Array.isArray(v) ? v : []; } catch { return []; }
+}
+export function setProbedVideoProvider(p: ProbedVideoProvider | null, id?: string) {
+  if (typeof window === "undefined") return;
+  const list = getProbedVideoProviders().filter((x) => x.id !== (p?.id ?? id));
+  if (p) list.push(p);
+  window.localStorage.setItem(PROBED_KEY, JSON.stringify(list));
+  window.dispatchEvent(new Event("ao-video-probed"));
+}
+/** OpenAI Videos 形状的固定档位（openai-node videos.ts）：size 是 WxH，seconds 4/8/12 */
+export const OPENAI_VIDEOS_TIER = { resolutions: ["1280x720", "720x1280", "1792x1024", "1024x1792"], durations: [4, 8, 12], ratios: ["16:9", "9:16"] };
+export type VideoProviderEntry = NonNullable<ConfigResponse["videoProviders"]>[number] & { probed?: boolean };
+/** 内置视频表 + 探测通过的中转站（按 OpenAI Videos 形状） */
+export function mergedVideoProviders(cfg: ConfigResponse | null): VideoProviderEntry[] {
+  const base: VideoProviderEntry[] = (cfg?.videoProviders ?? []).slice();
+  for (const p of getProbedVideoProviders()) {
+    if (base.some((b) => b.id === p.id)) continue;
+    const models = p.models.length ? p.models : ["sora-2"];
+    base.push({ id: p.id, hasKey: !!cfg?.providers[p.id]?.hasKey, models, tiers: Object.fromEntries(models.map((m) => [m, OPENAI_VIDEOS_TIER])), ...OPENAI_VIDEOS_TIER, probed: true });
+  }
+  return base;
+}
+
 // ── 出图 / 出片默认值（顶栏「出图 / 出片」统一切换；创意出片模板运行时自动填入对应输入） ──
 export interface MediaDefaults {
   image: { provider: string; model: string };
@@ -630,6 +658,8 @@ export const api = {
     postJSON<{ ok: boolean }>("/custom-providers", body),
   // 拉取供应商真实可用模型列表（OpenAI 兼容 GET /models）；baseUrl/apiKey 可覆盖（未保存时先试拉）；
   // protocol:"anthropic" = Anthropic 兼容端点（claude-code 中转商），认证头用 x-api-key
+  videoProbe: (provider: string) =>
+    postJSON<{ ok: boolean; error?: string; summary?: string; hasOpenAIVideos?: boolean; videoModels?: string[] }>("/providers/video-probe", { provider }),
   providerModels: (body: { provider?: string; baseUrl?: string; apiKey?: string; protocol?: "anthropic" }) =>
     // vendors: 模型 id → 供应商响应里的 owned_by/provider（分组标题用，缺省则前端按模型名推断）
     postJSON<{ ok: boolean; models?: string[]; vendors?: Record<string, string>; error?: string; source?: string }>("/provider-models", body),

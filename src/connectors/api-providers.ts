@@ -183,7 +183,7 @@ export interface VideoProviderSpec {
    * **接第二家时才知道这层抽象立不立得住**：秘塔与 APIMart 从路径到字段名到状态词
    * 没有一处相同，加 APIMart 只新增了一个 adapter，主流程一行没动。
    */
-  shape: 'minimax' | 'apimart';
+  shape: 'minimax' | 'apimart' | 'openai-videos';
   /**
    * 已核实的视频模型（Studio 下拉候选；仍可手填）。档位**按模型**给——同一家网关上
    * sora-2 只有 720p、veo3 固定 8 秒、MiniMax-H3 是 2K/768P，按供应商一刀切必错。

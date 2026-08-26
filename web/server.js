@@ -17,6 +17,7 @@ import yaml from 'js-yaml';
 import { detectInstalledCliProviders, detectUsableCliProviders } from '../dist/providers/detect.js';
 import { API_PROVIDERS, API_PROVIDER_MAP, ANTHROPIC_PROVIDERS, ANTHROPIC_PROVIDER_MAP, VIDEO_PROVIDERS, VIDEO_PROVIDER_MAP } from '../dist/connectors/api-providers.js';
 import { STYLE_PRESETS } from '../dist/media/styles.js';
+import { probeVideoEndpoints } from '../dist/media/probe-video.js';
 // base_url 规整 / 跳转保持 POST / 少写多写 /v1 兜底 —— 与运行时连接器同一份实现，
 // 保证「测试连接」和真正跑起来的行为一致（不会出现测试过了但一跑就 405）。
 import { normalizeBaseUrl, postChatCompletions, postApiEndpoint, endpointHint, joinEndpoint } from '../dist/connectors/openai-compatible.js';
@@ -1924,6 +1925,26 @@ app.get('/api/config', async (_req, res) => {
     // 角色库下拉的可选项:zh/en + 已安装的官方语言包(agency-agents-ko 等)
     roleLibs: installedRoleLibs(),
   });
+});
+
+// 零成本探测某个已配 key 的 OpenAI 兼容供应商有没有视频端点（见 src/media/probe-video.ts）。
+// Studio「出图 / 出片」里的「探测更多供应商」用：探到 openai-videos 形状的，前端把它加进视频供应商下拉。
+app.post('/api/providers/video-probe', async (req, res) => {
+  const { provider } = req.body || {};
+  const cfg = KEY_ENV[provider];
+  const saved = readKeys();
+  const spec = API_PROVIDER_MAP[provider];
+  const custom = !cfg && saved[provider]?.baseUrl ? saved[provider] : null;
+  if (!spec && !custom) return res.status(400).json({ ok: false, error: `unknown provider: ${provider || '(空)'}` });
+  const apiKey = (cfg ? (saved[provider]?.apiKey || process.env[cfg.key]) : saved[provider]?.apiKey) || '';
+  const baseUrl = saved[provider]?.baseUrl || (cfg?.base ? process.env[cfg.base] : '') || spec?.defaultBaseUrl || custom?.baseUrl || '';
+  if (!apiKey || !baseUrl) return res.json({ ok: false, error: '该供应商没配 key 或没有 base_url' });
+  try {
+    const r = await probeVideoEndpoints({ id: provider, baseUrl, apiKey }, { timeoutMs: 8000 });
+    res.json({ ok: true, ...r, hasOpenAIVideos: r.shapes.some((s) => s.shape === 'openai-videos' && s.verdict === 'exists') });
+  } catch (err) {
+    res.json({ ok: false, error: err instanceof Error ? err.message : String(err) });
+  }
 });
 
 app.post('/api/config', (req, res) => {

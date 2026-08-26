@@ -1,7 +1,7 @@
 import { ChevronDown, Clapperboard } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { useLanguage } from "@/i18n/LanguageProvider";
-import { api, API_PROVIDERS, getMediaDefaults, setMediaDefaults, type ConfigResponse, type MediaDefaults } from "@/lib/studio";
+import { api, API_PROVIDERS, getMediaDefaults, setMediaDefaults, mergedVideoProviders, setProbedVideoProvider, type ConfigResponse, type MediaDefaults } from "@/lib/studio";
 import { cn } from "@/lib/utils";
 
 /**
@@ -46,7 +46,31 @@ export function MediaSelect({ embedded }: { embedded?: boolean } = {}) {
   const imageProviders = (cfg?.imageProviders ?? [])
     .filter((id) => !delisted(id) || hasKey(id))
     .sort((a, b) => Number(hasKey(b)) - Number(hasKey(a)));
-  const videoProviders = (cfg?.videoProviders ?? []).slice().sort((a, b) => Number(b.hasKey) - Number(a.hasKey));
+  const [probedTick, setProbedTick] = useState(0);
+  useEffect(() => { const f = () => setProbedTick((n) => n + 1); window.addEventListener("ao-video-probed", f); return () => window.removeEventListener("ao-video-probed", f); }, []);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const videoProviders = mergedVideoProviders(cfg).sort((a, b) => Number(b.hasKey) - Number(a.hasKey));
+  void probedTick;
+  // 探测：已配 key、不在视频表里的 OpenAI 兼容供应商
+  const [probing, setProbing] = useState<string | null>(null);
+  const [probeMsg, setProbeMsg] = useState<string | null>(null);
+  const probeCandidates = Object.entries(cfg?.providers ?? {})
+    .filter(([id, p]) => p.family === "api" && p.hasKey && !videoProviders.some((v) => v.id === id) && !!API_PROVIDERS.find((x) => x.id === id && !x.videoOnly))
+    .map(([id]) => id);
+  const probeAll = async () => {
+    if (probing) return;
+    setProbeMsg(null);
+    const found: string[] = [];
+    for (const id of probeCandidates) {
+      setProbing(id);
+      try {
+        const r = await api.videoProbe(id);
+        if (r.ok && r.hasOpenAIVideos) { setProbedVideoProvider({ id, models: r.videoModels ?? [], probedAt: 0 }); found.push(id); }
+      } catch { /* 忽略单家失败 */ }
+    }
+    setProbing(null);
+    setProbeMsg(found.length ? `✓ ${found.map(label).join("、")}` : m.probeNone);
+  };
   const vp = videoProviders.find((v) => v.id === d.video.provider);
   const tier = vp?.tiers?.[d.video.model];
 
@@ -110,9 +134,17 @@ export function MediaSelect({ embedded }: { embedded?: boolean } = {}) {
             save({ ...d, video: { provider: e.target.value, model: m0, resolution: t0?.resolutions[0] ?? v?.resolutions[0] ?? "", duration: t0?.durations[0] != null ? String(t0.durations[0]) : "", ratio: t0?.ratios?.[0] ?? "" } });
           }}>
             <option value="">—</option>
-            {videoProviders.map((v) => <option key={v.id} value={v.id}>{withKey(v.id, label(v.id))}</option>)}
+            {videoProviders.map((v) => <option key={v.id} value={v.id}>{withKey(v.id, label(v.id))}{v.probed ? ` · ${m.probedTag}` : ""}</option>)}
           </select>
         ))}
+        {probeCandidates.length > 0 && (
+          <div className="flex items-center gap-2 pl-[72px]">
+            <button type="button" disabled={!!probing} title={m.probeHint} onClick={() => void probeAll()} className="text-[11px] text-primary hover:underline disabled:opacity-50">
+              {probing ? `${m.probing} ${label(probing)}` : `${m.probeMore}（${probeCandidates.length}）`}
+            </button>
+            {probeMsg && <span className="text-[11px] text-muted-foreground">{probeMsg}</span>}
+          </div>
+        )}
         {row(m.model, (
           // 模型是下拉：用户得**看得见**这家有哪些模型（sora-2 只有 720p、sora-2-pro 才有 1080p 这种区别只有列出来才知道）
           vp && !customModel ? (

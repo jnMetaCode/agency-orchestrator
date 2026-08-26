@@ -9,7 +9,7 @@
  *
  * 端点形状见 api-providers.ts 的 VIDEO_PROVIDERS（秘塔/MiniMax 的两条路径已实探核实）。
  */
-import { VIDEO_PROVIDER_MAP, type VideoProviderSpec } from './api-providers.js';
+import { API_PROVIDER_MAP, VIDEO_PROVIDER_MAP, type VideoProviderSpec } from './api-providers.js';
 import type { LLMConfig } from '../types.js';
 
 export interface VideoStepOptions {
@@ -54,7 +54,12 @@ export function resolveVideoAccess(
   const id = (opts.provider || config.provider || '').trim();
   // 步骤指定了另一家：文本供应商的 base_url / api_key 不能带过去（与 image 同一条规则）
   if (id !== config.provider) config = { ...config, base_url: undefined, api_key: undefined } as LLMConfig;
-  const spec = VIDEO_PROVIDER_MAP[id];
+  // 不在视频表、但是 OpenAI 兼容的 API 供应商：按 **OpenAI 官方 Videos API 形状**（POST /videos）试——
+  // ao doctor --video-probe 实测多家中转站都有这个端点（多元探索 /models 里甚至列着 seedance-2.5）。
+  // 探测不通过就是干净的 404，不花钱。
+  const api = !VIDEO_PROVIDER_MAP[id] ? API_PROVIDER_MAP[id] : undefined;
+  const spec: VideoProviderSpec | undefined = VIDEO_PROVIDER_MAP[id]
+    ?? (api ? { id, envKey: api.envKey, envBase: api.envBase, defaultBaseUrl: api.defaultBaseUrl, shape: 'openai-videos', fallback: true } as VideoProviderSpec & { fallback: true } : undefined);
   if (!spec) {
     const known = Object.keys(VIDEO_PROVIDER_MAP).join(' / ') || '（暂无）';
     throw new Error(
@@ -101,8 +106,12 @@ export interface VideoTaskState {
  */
 interface VideoShapeAdapter {
   createPath: string;
-  /** imageUrl = 已是公网地址的首帧图（本地图由 uploadImage 先换成 URL） */
-  createBody(opts: VideoStepOptions, prompt: string, imageUrl?: string): string;
+  /** imageUrl = 已是公网地址的首帧图（本地图由 uploadImage 先换成 URL；inlineImage 的形状则直接吃 opts.image_bytes） */
+  createBody(opts: VideoStepOptions, prompt: string, imageUrl?: string): string | FormData;
+  /** 首帧图随建任务请求 multipart 内联（OpenAI Videos 的 input_reference），不需要先上传换 URL */
+  inlineImage?: boolean;
+  /** 成品下载地址需要带 Authorization（OpenAI Videos 的 /content） */
+  authDownload?: boolean;
   /** 把本地图片换成该厂商能读的公网 URL；没有这个能力的厂商不实现（本地图就明确报错） */
   uploadImage?(baseUrl: string, headers: Record<string, string>, bytes: Buffer, name: string): Promise<string>;
   /** 从建任务回执里取 task_id；取不到返回空串（调用方会连同原文一起报错） */
@@ -126,7 +135,53 @@ interface MiniMaxTask {
   usage?: { total_seconds?: number };
 }
 
+/** OpenAI Videos 的 size 是 "宽x高"：resolution 已是 WxH 就直接用，否则按宽高比给 720p 档默认值 */
+function openaiVideoSize(opts: VideoStepOptions): string | undefined {
+  if (opts.resolution && /^\d+x\d+$/.test(opts.resolution)) return opts.resolution;
+  if (opts.ratio === '9:16') return '720x1280';
+  if (opts.ratio === '16:9') return '1280x720';
+  return opts.resolution ? undefined : undefined;
+}
+
 const SHAPES: Record<string, VideoShapeAdapter> = {
+  // ── OpenAI 官方 Videos API（openai-node resources/videos.ts）：POST /videos → GET /videos/{id} → GET /videos/{id}/content ─
+  //   字段：model / prompt / seconds('4'|'8'|'12') / size('1280x720'|'720x1280'|'1792x1024'|'1024x1792') / input_reference（multipart 文件）
+  //   状态：queued | in_progress | completed | failed；错误在 error.{code,message}
+  //   很多中转站照着这个形状转发（doctor --video-probe 探到的），所以任何 OpenAI 兼容供应商都可以按它试。
+  'openai-videos': {
+    createPath: 'videos',
+    inlineImage: true,
+    authDownload: true,
+    createBody: (opts, prompt) => {
+      const fields: Record<string, string> = { model: opts.model || '', prompt };
+      if (opts.duration) fields.seconds = String(opts.duration);
+      const size = openaiVideoSize(opts);
+      if (size) fields.size = size;
+      if (opts.image_bytes) {
+        const form = new FormData();
+        for (const [k, v] of Object.entries(fields)) form.append(k, v);
+        form.append('input_reference', new Blob([new Uint8Array(opts.image_bytes)], { type: 'image/png' }), opts.image_name || 'first_frame.png');
+        return form;
+      }
+      return JSON.stringify(fields);
+    },
+    parseCreate: (j) => String((j as { id?: string })?.id ?? ''),
+    queryUrl: (base, id) => `${base}/videos/${encodeURIComponent(id)}`,
+    parseQuery: (json, taskId) => {
+      const v = json as { id?: string; status?: string; progress?: number; error?: { code?: string; message?: string } | null; seconds?: string };
+      if (!v || typeof v !== 'object') return undefined;
+      const status = String(v.status ?? '').toLowerCase();
+      const phase: VideoTaskState['phase'] = status === 'completed' ? 'done' : status === 'failed' ? 'failed' : 'pending';
+      return {
+        phase,
+        // 成品不是签名链接而是需要鉴权的 /content——url 只作占位，真正下载时带 Authorization（authDownload）
+        url: phase === 'done' ? `__content__/${taskId}` : undefined,
+        error: v.error ? `${v.error.message || status}${v.error.code ? `（code ${v.error.code}）` : ''}` : undefined,
+        seconds: v.seconds ? Number(v.seconds) : undefined,
+        progress: v.progress,
+      };
+    },
+  },
   // ── 秘塔科技：MiniMax 官方协议换了个 Host ─────────────────────────────────
   minimax: {
     createPath: 'v2/video_generation',
@@ -268,7 +323,7 @@ export async function generateVideo(
 
   // ── 0. 首帧图：公网 URL 直接用；本地字节先上传（只有有上传接口的厂商能做，否则明确拒绝） ──
   let imageUrl: string | undefined;
-  if (opts.image_bytes) {
+  if (opts.image_bytes && !shape.inlineImage) {
     if (!shape.uploadImage) {
       throw new Error(
         `视频供应商 ${spec.id} 的图生视频只接受**公网 URL**，没有上传接口，本地图片（${opts.image_name || 'image'}）送不过去。\n` +
@@ -284,14 +339,23 @@ export async function generateVideo(
   }
 
   // ── 1. 建任务 ─────────────────────────────────────────────────────────────
+  const createBody = shape.createBody(opts, prompt, imageUrl);
   const createRes = await fetch(`${baseUrl}/${shape.createPath}`, {
     method: 'POST',
-    headers,
-    body: shape.createBody(opts, prompt, imageUrl),
+    headers: createBody instanceof FormData ? { Authorization: headers.Authorization } : headers,
+    body: createBody,
     signal: AbortSignal.timeout(Math.min(60_000, totalMs)),
   });
   const createText = await createRes.text();
   if (!createRes.ok) {
+    // 按 OpenAI Videos 形状"试"的 OpenAI 兼容供应商：404 = 这家就是没有视频端点，说清并给可用项，别让用户对着 404 猜
+    if ((createRes.status === 404 || createRes.status === 405) && (spec as { fallback?: boolean }).fallback) {
+      const known = Object.keys(VIDEO_PROVIDER_MAP).join(' / ');
+      throw new Error(
+        `供应商 "${spec.id}" 不在视频供应商表里，按 OpenAI Videos 形状试了 POST ${baseUrl}/videos 也不存在（HTTP ${createRes.status}）——它没有视频端点。\n` +
+        `  可用的视频供应商：${known}；哪家中转站有视频端点可用 ao doctor --video-probe 零成本探测。`
+      );
+    }
     // 余额不足、参数不合法这类都在这儿；原样带出厂商正文，别自己编原因
     throw new Error(`视频任务创建失败：HTTP ${createRes.status} ${createText.slice(0, 300)}`);
   }
@@ -358,8 +422,9 @@ export async function generateVideo(
         // 片子已经生成、钱已经花了，**一次抖动不该判死**：失败重试一次再放弃。
         // 签名链接有效期短，所以只补一次、不做长退避——真过期了重试也没用，
         // 那时错误里带着 task_id，用户还能去控制台自己下。
-        const buffer = await downloadWithRetry(url, Math.max(60_000, deadline - Date.now()), taskId, onNotice);
-        return { buffer, mime: 'video/mp4', taskId, seconds: task.seconds, sourceUrl: url };
+        const realUrl = url.startsWith('__content__/') ? `${baseUrl}/videos/${encodeURIComponent(taskId)}/content` : url;
+        const buffer = await downloadWithRetry(realUrl, Math.max(60_000, deadline - Date.now()), taskId, onNotice, shape.authDownload ? { Authorization: `Bearer ${apiKey}` } : undefined);
+        return { buffer, mime: 'video/mp4', taskId, seconds: task.seconds, sourceUrl: realUrl };
       }
     }
     throw new Error(
@@ -378,11 +443,12 @@ async function downloadWithRetry(
   timeoutMs: number,
   taskId: string,
   onNotice?: (msg: string) => void,
+  headers?: Record<string, string>,
 ): Promise<Buffer> {
   let lastErr = '';
   for (let attempt = 1; attempt <= 2; attempt++) {
     try {
-      const dl = await fetch(url, { signal: AbortSignal.timeout(timeoutMs) });
+      const dl = await fetch(url, { ...(headers ? { headers } : {}), signal: AbortSignal.timeout(timeoutMs) });
       if (dl.ok) return Buffer.from(await dl.arrayBuffer());
       lastErr = `HTTP ${dl.status}`;
     } catch (e) {

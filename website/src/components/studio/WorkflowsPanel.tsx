@@ -4,7 +4,7 @@ import { Tip } from "@/components/ui/tip";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useLanguage } from "@/i18n/LanguageProvider";
 import { Button } from "@/components/ui/button";
-import { api, type WorkflowInput, type ConfigResponse, API_PROVIDERS, recentUsage, type RunSummary, getFavWorkflows, setFavWorkflows, getMediaDefaults, mediaDefaultFor, setMediaDefaults, type CommunityTemplate, type Workflow } from "@/lib/studio";
+import { api, type WorkflowInput, type ConfigResponse, API_PROVIDERS, recentUsage, type RunSummary, getFavWorkflows, setFavWorkflows, getMediaDefaults, mediaDefaultFor, setMediaDefaults, mergedVideoProviders, type CommunityTemplate, type Workflow } from "@/lib/studio";
 import { track } from "@/lib/track";
 import { cn } from "@/lib/utils";
 import { RoleAvatar } from "./RoleAvatar";
@@ -61,9 +61,9 @@ function InputsDialog({ wf, provider, onClose, onRun, onCompare }: { wf: Workflo
       return (cfg.styles ?? []).map((s) => ({ value: s.name, label: `${cat[s.category]} · ${lang === "en" ? s.nameEn : s.name}` }));
     }
     if (inp.source === "image_providers") return keyedFirst(cfg.imageProviders ?? []).map((id) => ({ value: id, label: providerLabel(id) }));
-    if (inp.source === "video_providers") return (cfg.videoProviders ?? []).slice().sort((a, b) => Number(b.hasKey) - Number(a.hasKey)).map((v) => ({ value: v.id, label: v.hasKey ? v.id : `${v.id} · ${t.studio.workflows.inputNoKey}` }));
+    if (inp.source === "video_providers") return mergedVideoProviders(cfg).sort((a, b) => Number(b.hasKey) - Number(a.hasKey)).map((v) => ({ value: v.id, label: v.hasKey ? v.id : `${v.id} · ${t.studio.workflows.inputNoKey}` }));
     const pid = (inp.source_from ? vals[inp.source_from] : "") || provider;
-    const vp = cfg.videoProviders?.find((v) => v.id === pid);
+    const vp = mergedVideoProviders(cfg).find((v) => v.id === pid);
     // 档位按已选模型（找同一 source_from 下 source=models 的那个输入的值）；没选模型用 provider 级并集
     const modelInput = inputs.find((i) => i.source === "models" && i.source_from === inp.source_from);
     const tier = modelInput ? vp?.tiers?.[vals[modelInput.name] ?? ""] : undefined;
@@ -107,7 +107,7 @@ function InputsDialog({ wf, provider, onClose, onRun, onCompare }: { wf: Workflo
   const neededModelProviders = inputs
     .filter((i) => i.source === "models")
     .map((i) => (i.source_from ? vals[i.source_from] : "") || provider)
-    .filter((pid) => pid && !cfg?.videoProviders?.some((v) => v.id === pid));
+    .filter((pid) => pid && !mergedVideoProviders(cfg).some((v) => v.id === pid));
   const neededKey = neededModelProviders.join("|");
   useEffect(() => {
     if (!cfg) return;

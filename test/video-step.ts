@@ -20,7 +20,7 @@ import type { LLMConfig, WorkflowResult } from '../src/types.js';
 let passed = 0;
 let failed = 0;
 function test(name: string, fn: () => void | Promise<void>): Promise<void> {
-  return Promise.resolve(fn()).then(
+  return new Promise<void>((r) => r(fn())).then(
     () => { console.log(`  ✅ ${name}`); passed++; },
     (err) => { console.log(`  ❌ ${name}: ${err instanceof Error ? err.message : err}`); failed++; },
   );
@@ -138,10 +138,23 @@ await test('video 步骤挂 acceptance 直接报错，不静默忽略', () => {
 
 console.log('\n─── 端点与凭证解析 ───');
 
-await test('非视频 provider 给可读报错，并列出可用的视频供应商', () => {
+await test('完全不认识的 provider 给可读报错，并列出可用的视频供应商', () => {
   let msg = '';
-  try { resolveVideoAccess(cfg({ provider: 'deepseek' }), {}); } catch (e) { msg = e instanceof Error ? e.message : String(e); }
+  try { resolveVideoAccess(cfg({ provider: 'no-such-vendor' }), {}); } catch (e) { msg = e instanceof Error ? e.message : String(e); }
   assert(/不是/.test(msg) && /metaso/.test(msg), `应点破并给出可用项，实际：${msg}`);
+});
+
+await test('OpenAI 兼容但不在视频表的（deepseek）按 openai-videos 形状解析；真没端点时 404 说清并指向 doctor --video-probe', async () => {
+  const r = resolveVideoAccess(cfg({ provider: 'deepseek' }), {});
+  assert(r.spec.shape === 'openai-videos' && r.spec.id === 'deepseek', `应合成 openai-videos 形状，实际 ${JSON.stringify(r.spec)}`);
+  const srv = http.createServer((_req, res) => { res.writeHead(404).end('{"error":"not found"}'); });
+  await new Promise<void>((ok) => srv.listen(0, '127.0.0.1', () => ok()));
+  const port = (srv.address() as { port: number }).port;
+  try {
+    let msg = '';
+    try { await generateVideo(cfg({ provider: 'deepseek', base_url: `http://127.0.0.1:${port}/v1` }), '猫', { model: 'sora-2', poll_interval: 10 }); } catch (e) { msg = e instanceof Error ? e.message : String(e); }
+    assert(/没有视频端点/.test(msg) && /video-probe/.test(msg) && /metaso/.test(msg), `404 应说清并给出路，实际：${msg.slice(0, 160)}`);
+  } finally { srv.close(); }
 });
 
 await test('缺 key 时报错指明环境变量名', () => {
@@ -307,6 +320,70 @@ function fakeApimart(opts: { failWith?: string; pendingRounds?: number } = {}) {
   let port = 0;
   return { srv, seen, MP4X, setPort: (p: number) => { port = p; } };
 }
+
+console.log('\n─── OpenAI Videos 形状（任何 OpenAI 兼容中转站都可按它试） ───');
+
+function fakeOpenAIVideos() {
+  const seen: { create?: any; createContentType?: string; contentAuth?: string; polls: number } = { polls: 0 };
+  const MP4O = Buffer.from('0000001c667479704f50454e', 'hex');
+  const srv = http.createServer((req, res) => {
+    const url = new URL(req.url || '/', 'http://x');
+    if (req.method === 'POST' && url.pathname === '/v1/videos') {
+      let body = ''; req.on('data', (c) => { body += c; });
+      req.on('end', () => {
+        seen.createContentType = String(req.headers['content-type'] || '');
+        try { seen.create = JSON.parse(body); } catch { seen.create = { raw: body.slice(0, 400) }; }
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ id: 'video_123', object: 'video', status: 'queued', model: 'sora-2', seconds: '8', size: '1280x720' }));
+      });
+      return;
+    }
+    if (req.method === 'GET' && url.pathname === '/v1/videos/video_123/content') {
+      seen.contentAuth = String(req.headers['authorization'] || '');
+      res.writeHead(200, { 'Content-Type': 'video/mp4' }); return res.end(MP4O);
+    }
+    if (req.method === 'GET' && url.pathname === '/v1/videos/video_123') {
+      seen.polls++;
+      const done = seen.polls >= 2;
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      return res.end(JSON.stringify({ id: 'video_123', object: 'video', status: done ? 'completed' : 'in_progress', progress: done ? 100 : 40, seconds: '8', error: null }));
+    }
+    res.writeHead(404).end('{}');
+  });
+  return { srv, seen, MP4O };
+}
+
+await test('不在视频表的 OpenAI 兼容供应商（如 openai）按 openai-videos 形状：POST /videos → 轮询 → 带鉴权下载 /content', async () => {
+  const fake = fakeOpenAIVideos();
+  const port = await listen(fake.srv);
+  const prev = process.env.OPENAI_API_KEY; process.env.OPENAI_API_KEY = 'sk-env';
+  try {
+    const v = await generateVideo(
+      { provider: 'openai', api_key: 'sk-t', base_url: `http://127.0.0.1:${port}/v1` } as unknown as LLMConfig,
+      '一只橘猫',
+      { model: 'sora-2', duration: 8, ratio: '16:9', poll_interval: 10 },
+    );
+    assert(v.buffer.equals(fake.MP4O) && v.taskId === 'video_123', '应拿到 OpenAI 形状的 mp4 与 id');
+    const b = fake.seen.create;
+    assert(b.model === 'sora-2' && b.prompt === '一只橘猫' && b.seconds === '8' && b.size === '1280x720', `字段应按 OpenAI Videos：${JSON.stringify(b)}`);
+    assert(/^Bearer /.test(fake.seen.contentAuth || ''), '下载 /content 必须带 Authorization');
+    assert(v.seconds === 8, `计费秒数取 seconds，实际 ${v.seconds}`);
+  } finally { fake.srv.close(); if (prev === undefined) delete process.env.OPENAI_API_KEY; else process.env.OPENAI_API_KEY = prev; }
+});
+
+await test('openai-videos 带本地首帧图：不上传，直接 multipart 内联 input_reference', async () => {
+  const fake = fakeOpenAIVideos();
+  const port = await listen(fake.srv);
+  try {
+    await generateVideo(
+      { provider: 'openai', api_key: 'sk-t', base_url: `http://127.0.0.1:${port}/v1` } as unknown as LLMConfig,
+      '猫',
+      { model: 'sora-2', duration: 4, poll_interval: 10, image_bytes: Buffer.from('89504e47', 'hex'), image_name: 'cover.png' },
+    );
+    assert(/multipart\/form-data/.test(fake.seen.createContentType || ''), `应为 multipart，实际 ${fake.seen.createContentType}`);
+    assert(/input_reference/.test(fake.seen.create?.raw || ''), '表单里应有 input_reference');
+  } finally { fake.srv.close(); }
+});
 
 console.log('\n─── 图生视频（首帧图） ───');
 
