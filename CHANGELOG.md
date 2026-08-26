@@ -5,7 +5,7 @@
 ## [Unreleased]
 
 ### Added
-- **APIMart 视频模型 6 → 16**（Seedance 2.5、可灵 v3、海螺 2.3 / Fast、Wan 2.7、Vidu Q3 pro/turbo、PixVerse v6、Grok Imagine 1.5、sora-2-pro…），每个的分辨率 / 秒数 / 宽高比与**字段名**逐页核对 docs.apimart.ai：可灵档位叫 `mode`、Wan / PixVerse / Grok 宽高比叫 `size`、MiniMax 系首帧叫 `first_frame_image`，适配器按模型映射。出图/出片面板的模型改为下拉、档位随模型变，新增宽高比。
+- **APIMart 视频模型 6 → 15**（Seedance 2.5、可灵 v3、海螺 2.3 / Fast、Wan 2.7、Vidu Q3 pro/turbo、PixVerse v6、Grok Imagine 1.5、sora-2-pro…），每个的分辨率 / 秒数 / 宽高比与**字段名**逐页核对 docs.apimart.ai：可灵档位叫 `mode`、Wan / PixVerse / Grok 宽高比叫 `size`、MiniMax 系首帧叫 `first_frame_image`，适配器按模型映射。出图/出片面板的模型改为下拉、档位随模型变，新增宽高比。
 - 出片模板新增「类型」（剧情 / 广告 / 悬疑 / 搞笑 / 古风 / Vlog…，喂给编剧与提示词工程师）与「宽高比」输入；运行弹窗里故事输入框放大，旁有「✨ 帮我扩写」（Prompt Lab 优化接口，一次调用把几句话扩成具体描述）。
 - `scripts/gen-style-samples.mjs`：给风格库 15 个预设批量出示例图（同一中性主体，只换风格后缀），压到 640 宽并把 `sample` 写回 `styles.ts`。**默认空跑**，`--provider` / `--model` 必须显式给（图片模型编码各家不通用，不猜），`--yes` 才花钱。官网文档新增「图生视频、三镜合成与风格库」小节。
 - **风格库**：15 个预设（真人 13 / 3D / 2D），风格 = 中文名 + 英文提示词后缀（摄影机/镜头/胶片/色调/光源，与 5 段式方法论同口径）。工作流输入 `source: styles` 在 Studio 渲染成分组下拉；**引擎运行前把 id / 中文名展开成「名（EN）: 后缀」**，CLI 与 Studio 一致，自写描述原样透传。短剧流水线、一句话出短片、图文内容套装三条模板接入。示例图字段留空，待有 key 批量生成。
