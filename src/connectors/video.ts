@@ -137,10 +137,12 @@ interface MiniMaxTask {
 
 /** OpenAI Videos 的 size 是 "宽x高"：resolution 已是 WxH 就直接用，否则按宽高比给 720p 档默认值 */
 function openaiVideoSize(opts: VideoStepOptions): string | undefined {
-  if (opts.resolution && /^\d+x\d+$/.test(opts.resolution)) return opts.resolution;
+  // 用户/模板给了 resolution 就原样透传（OpenAI 是 "1280x720"，Agnes 这类变体是 "720P/960P/2K"——档位名是厂商的事，不换算）；
+  // 没给才按宽高比取 OpenAI 的 720p 默认尺寸
+  if (opts.resolution) return opts.resolution;
   if (opts.ratio === '9:16') return '720x1280';
   if (opts.ratio === '16:9') return '1280x720';
-  return opts.resolution ? undefined : undefined;
+  return undefined;
 }
 
 const SHAPES: Record<string, VideoShapeAdapter> = {
@@ -154,6 +156,10 @@ const SHAPES: Record<string, VideoShapeAdapter> = {
     authDownload: true,
     createBody: (opts, prompt) => {
       const fields: Record<string, string> = { model: opts.model || '', prompt };
+      // 供应商级固定字段（Agnes 要 mode:"text"）——只在没有首帧图时加；带图走 createExtraWithImage（未核实则不加）
+      const spec = VIDEO_PROVIDER_MAP[(opts.provider || '').trim()];
+      const extra = opts.image_bytes ? spec?.createExtraWithImage : spec?.createExtra;
+      for (const [k, v] of Object.entries(extra ?? {})) fields[k] = String(v);
       if (opts.duration) fields.seconds = String(opts.duration);
       const size = openaiVideoSize(opts);
       if (size) fields.size = size;

@@ -184,6 +184,9 @@ export interface VideoProviderSpec {
    * 没有一处相同，加 APIMart 只新增了一个 adapter，主流程一行没动。
    */
   shape: 'minimax' | 'apimart' | 'openai-videos';
+  /** 建任务时额外固定字段（如 Agnes 的 openai-videos 变体要求 mode:"text"）；有首帧图时用 createExtraWithImage */
+  createExtra?: Record<string, unknown>;
+  createExtraWithImage?: Record<string, unknown>;
   /**
    * 已核实的视频模型（Studio 下拉候选；仍可手填）。档位**按模型**给——同一家网关上
    * sora-2 只有 720p、veo3 固定 8 秒、MiniMax-H3 是 2K/768P，按供应商一刀切必错。
@@ -251,6 +254,24 @@ export const VIDEO_PROVIDERS: VideoProviderSpec[] = [
     ],
   },
 ];
+
+// Agnes AI —— OpenAI Videos 形状的变体（2026-08-26 真机核实：POST /v1/videos 建任务、GET /v1/videos/{id} 轮询、
+// GET /v1/videos/{id}/content 下载，status queued/in_progress/completed；只多一个必填 mode：文生视频 "text"）。
+// 与 APIMart 同理，它同时在 API_PROVIDERS（聊天/图片）与这里（视频），一把 AGNES_API_KEY 通用。
+// size 不是 OpenAI 的 WxH 而是档位名 720P/960P/2K（服务端 400 原话列出）；seconds "4" 真机出片 1280x704/4.46s 带音轨；其余秒数未逐个核实，只列 4/8/12。
+VIDEO_PROVIDERS.push({
+  id: 'agnes',
+  envKey: 'AGNES_API_KEY',
+  envBase: 'AGNES_BASE_URL',
+  defaultBaseUrl: 'https://apihub.agnes-ai.com/v1',
+  shape: 'openai-videos',
+  createExtra: { mode: 'text' },
+  models: [
+    { id: 'agnes-video-2.5-flash', resolutions: ['720P', '960P', '2K'], durations: [4, 8, 12], ratios: ['16:9', '9:16'] },
+    { id: 'agnes-video-2.5', resolutions: ['720P', '960P', '2K'], durations: [4, 8, 12], ratios: ['16:9', '9:16'] },
+    { id: 'agnes-video-v2.0', resolutions: ['720P', '960P', '2K'], durations: [4, 8, 12], ratios: ['16:9', '9:16'] },
+  ],
+});
 
 export const VIDEO_PROVIDER_MAP: Record<string, VideoProviderSpec> = Object.fromEntries(
   VIDEO_PROVIDERS.map((p) => [p.id, p]),

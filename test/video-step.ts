@@ -371,6 +371,17 @@ await test('不在视频表的 OpenAI 兼容供应商（如 openai）按 openai-
   } finally { fake.srv.close(); if (prev === undefined) delete process.env.OPENAI_API_KEY; else process.env.OPENAI_API_KEY = prev; }
 });
 
+await test('Agnes（openai-videos 变体）：建任务自动带 mode:"text"，size 原样透传档位名 720P（真机 2026-08-26 核实）', async () => {
+  const fake = fakeOpenAIVideos();
+  const port = await listen(fake.srv);
+  const prev = process.env.AGNES_API_KEY; process.env.AGNES_API_KEY = 'ak-env';
+  try {
+    await generateVideo({ provider: 'agnes', api_key: 'ak', base_url: `http://127.0.0.1:${port}/v1` } as unknown as LLMConfig, '猫', { provider: 'agnes', model: 'agnes-video-2.5-flash', duration: 4, resolution: '720P', poll_interval: 10 });
+    const b = fake.seen.create;
+    assert(b.mode === 'text' && b.size === '720P' && b.seconds === '4' && b.model === 'agnes-video-2.5-flash', `实际 ${JSON.stringify(b)}`);
+  } finally { fake.srv.close(); if (prev === undefined) delete process.env.AGNES_API_KEY; else process.env.AGNES_API_KEY = prev; }
+});
+
 await test('openai-videos 带本地首帧图：不上传，直接 multipart 内联 input_reference', async () => {
   const fake = fakeOpenAIVideos();
   const port = await listen(fake.srv);
