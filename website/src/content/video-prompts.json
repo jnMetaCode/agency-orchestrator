@@ -96,7 +96,13 @@
       "source": "https://prompts.aiolaola.com/p/15s-transformation.zh.html",
       "license": "MIT",
       "author": "jnMetaCode",
-      "preview": "/video-previews/15s-transformation.mp4"
+      "preview": "/video-previews/15s-transformation.mp4",
+      "previewBy": {
+        "provider": "metaso",
+        "model": "MiniMax-H3",
+        "resolution": "768P",
+        "seconds": 4
+      }
     },
     {
       "id": "animal-vlog",
@@ -165,7 +171,13 @@
       "source": "https://prompts.aiolaola.com/p/animal-vlog.zh.html",
       "license": "MIT",
       "author": "jnMetaCode",
-      "preview": "/video-previews/animal-vlog.mp4"
+      "preview": "/video-previews/animal-vlog.mp4",
+      "previewBy": {
+        "provider": "metaso",
+        "model": "MiniMax-H3",
+        "resolution": "768P",
+        "seconds": 4
+      }
     },
     {
       "id": "anime-to-real",
@@ -234,7 +246,13 @@
       "source": "https://prompts.aiolaola.com/p/anime-to-real.zh.html",
       "license": "MIT",
       "author": "jnMetaCode",
-      "preview": "/video-previews/anime-to-real.mp4"
+      "preview": "/video-previews/anime-to-real.mp4",
+      "previewBy": {
+        "provider": "metaso",
+        "model": "MiniMax-H3",
+        "resolution": "768P",
+        "seconds": 4
+      }
     },
     {
       "id": "atmosphere-prefabs",
@@ -355,7 +373,13 @@
       "source": "https://prompts.aiolaola.com/p/car-commercial.zh.html",
       "license": "MIT",
       "author": "jnMetaCode",
-      "preview": "/video-previews/car-commercial.mp4"
+      "preview": "/video-previews/car-commercial.mp4",
+      "previewBy": {
+        "provider": "metaso",
+        "model": "MiniMax-H3",
+        "resolution": "768P",
+        "seconds": 4
+      }
     },
     {
       "id": "claymation",
@@ -424,7 +448,13 @@
       "source": "https://prompts.aiolaola.com/p/claymation.zh.html",
       "license": "MIT",
       "author": "jnMetaCode",
-      "preview": "/video-previews/claymation.mp4"
+      "preview": "/video-previews/claymation.mp4",
+      "previewBy": {
+        "provider": "metaso",
+        "model": "MiniMax-H3",
+        "resolution": "768P",
+        "seconds": 4
+      }
     },
     {
       "id": "cyberpunk-city",
@@ -493,7 +523,13 @@
       "source": "https://prompts.aiolaola.com/p/cyberpunk-city.zh.html",
       "license": "MIT",
       "author": "jnMetaCode",
-      "preview": "/video-previews/cyberpunk-city.mp4"
+      "preview": "/video-previews/cyberpunk-city.mp4",
+      "previewBy": {
+        "provider": "metaso",
+        "model": "MiniMax-H3",
+        "resolution": "768P",
+        "seconds": 4
+      }
     },
     {
       "id": "dance",
@@ -562,7 +598,13 @@
       "source": "https://prompts.aiolaola.com/p/dance.zh.html",
       "license": "MIT",
       "author": "jnMetaCode",
-      "preview": "/video-previews/dance.mp4"
+      "preview": "/video-previews/dance.mp4",
+      "previewBy": {
+        "provider": "metaso",
+        "model": "MiniMax-H3",
+        "resolution": "768P",
+        "seconds": 4
+      }
     },
     {
       "id": "drone-fpv",
@@ -631,7 +673,13 @@
       "source": "https://prompts.aiolaola.com/p/drone-fpv.zh.html",
       "license": "MIT",
       "author": "jnMetaCode",
-      "preview": "/video-previews/drone-fpv.mp4"
+      "preview": "/video-previews/drone-fpv.mp4",
+      "previewBy": {
+        "provider": "metaso",
+        "model": "MiniMax-H3",
+        "resolution": "768P",
+        "seconds": 4
+      }
     },
     {
       "id": "elderly-cat-companion",
@@ -658,7 +706,13 @@
       "source": "https://prompts.aiolaola.com/p/elderly-cat-companion.zh.html",
       "license": "MIT",
       "author": "jnMetaCode",
-      "preview": "/video-previews/elderly-cat-companion.mp4"
+      "preview": "/video-previews/elderly-cat-companion.mp4",
+      "previewBy": {
+        "provider": "metaso",
+        "model": "MiniMax-H3",
+        "resolution": "768P",
+        "seconds": 4
+      }
     },
     {
       "id": "family-recipe-farewell",
@@ -685,7 +739,13 @@
       "source": "https://prompts.aiolaola.com/p/family-recipe-farewell.zh.html",
       "license": "MIT",
       "author": "jnMetaCode",
-      "preview": "/video-previews/family-recipe-farewell.mp4"
+      "preview": "/video-previews/family-recipe-farewell.mp4",
+      "previewBy": {
+        "provider": "metaso",
+        "model": "MiniMax-H3",
+        "resolution": "768P",
+        "seconds": 4
+      }
     },
     {
       "id": "fashion-film",
@@ -754,7 +814,13 @@
       "source": "https://prompts.aiolaola.com/p/fashion-film.zh.html",
       "license": "MIT",
       "author": "jnMetaCode",
-      "preview": "/video-previews/fashion-film.mp4"
+      "preview": "/video-previews/fashion-film.mp4",
+      "previewBy": {
+        "provider": "metaso",
+        "model": "MiniMax-H3",
+        "resolution": "768P",
+        "seconds": 4
+      }
     },
     {
       "id": "food-asmr",
@@ -823,7 +889,13 @@
       "source": "https://prompts.aiolaola.com/p/food-asmr.zh.html",
       "license": "MIT",
       "author": "jnMetaCode",
-      "preview": "/video-previews/food-asmr.mp4"
+      "preview": "/video-previews/food-asmr.mp4",
+      "previewBy": {
+        "provider": "metaso",
+        "model": "MiniMax-H3",
+        "resolution": "768P",
+        "seconds": 4
+      }
     },
     {
       "id": "found-footage-horror",
@@ -892,7 +964,13 @@
       "source": "https://prompts.aiolaola.com/p/found-footage-horror.zh.html",
       "license": "MIT",
       "author": "jnMetaCode",
-      "preview": "/video-previews/found-footage-horror.mp4"
+      "preview": "/video-previews/found-footage-horror.mp4",
+      "previewBy": {
+        "provider": "metaso",
+        "model": "MiniMax-H3",
+        "resolution": "768P",
+        "seconds": 4
+      }
     },
     {
       "id": "genre-camera-sop",
@@ -987,7 +1065,13 @@
       "source": "https://prompts.aiolaola.com/p/micro-drama.zh.html",
       "license": "MIT",
       "author": "jnMetaCode",
-      "preview": "/video-previews/micro-drama.mp4"
+      "preview": "/video-previews/micro-drama.mp4",
+      "previewBy": {
+        "provider": "metaso",
+        "model": "MiniMax-H3",
+        "resolution": "768P",
+        "seconds": 4
+      }
     },
     {
       "id": "movie-trailer",
@@ -1056,7 +1140,13 @@
       "source": "https://prompts.aiolaola.com/p/movie-trailer.zh.html",
       "license": "MIT",
       "author": "jnMetaCode",
-      "preview": "/video-previews/movie-trailer.mp4"
+      "preview": "/video-previews/movie-trailer.mp4",
+      "previewBy": {
+        "provider": "metaso",
+        "model": "MiniMax-H3",
+        "resolution": "768P",
+        "seconds": 4
+      }
     },
     {
       "id": "multi-shot-narrative",
@@ -1151,7 +1241,13 @@
       "source": "https://prompts.aiolaola.com/p/music-video.zh.html",
       "license": "MIT",
       "author": "jnMetaCode",
-      "preview": "/video-previews/music-video.mp4"
+      "preview": "/video-previews/music-video.mp4",
+      "previewBy": {
+        "provider": "metaso",
+        "model": "MiniMax-H3",
+        "resolution": "768P",
+        "seconds": 4
+      }
     },
     {
       "id": "nature-timelapse",
@@ -1220,7 +1316,13 @@
       "source": "https://prompts.aiolaola.com/p/nature-timelapse.zh.html",
       "license": "MIT",
       "author": "jnMetaCode",
-      "preview": "/video-previews/nature-timelapse.mp4"
+      "preview": "/video-previews/nature-timelapse.mp4",
+      "previewBy": {
+        "provider": "metaso",
+        "model": "MiniMax-H3",
+        "resolution": "768P",
+        "seconds": 4
+      }
     },
     {
       "id": "negative-prompts",
@@ -1273,7 +1375,13 @@
       "source": "https://prompts.aiolaola.com/p/pet-lifetime-narrative.zh.html",
       "license": "MIT",
       "author": "jnMetaCode",
-      "preview": "/video-previews/pet-lifetime-narrative.mp4"
+      "preview": "/video-previews/pet-lifetime-narrative.mp4",
+      "previewBy": {
+        "provider": "metaso",
+        "model": "MiniMax-H3",
+        "resolution": "768P",
+        "seconds": 4
+      }
     },
     {
       "id": "product-commercial",
@@ -1342,7 +1450,13 @@
       "source": "https://prompts.aiolaola.com/p/product-commercial.zh.html",
       "license": "MIT",
       "author": "jnMetaCode",
-      "preview": "/video-previews/product-commercial.mp4"
+      "preview": "/video-previews/product-commercial.mp4",
+      "previewBy": {
+        "provider": "metaso",
+        "model": "MiniMax-H3",
+        "resolution": "768P",
+        "seconds": 4
+      }
     },
     {
       "id": "project-planner",
@@ -1437,7 +1551,13 @@
       "source": "https://prompts.aiolaola.com/p/sci-fi-space.zh.html",
       "license": "MIT",
       "author": "jnMetaCode",
-      "preview": "/video-previews/sci-fi-space.mp4"
+      "preview": "/video-previews/sci-fi-space.mp4",
+      "previewBy": {
+        "provider": "metaso",
+        "model": "MiniMax-H3",
+        "resolution": "768P",
+        "seconds": 4
+      }
     },
     {
       "id": "sports-slowmo",
@@ -1506,7 +1626,13 @@
       "source": "https://prompts.aiolaola.com/p/sports-slowmo.zh.html",
       "license": "MIT",
       "author": "jnMetaCode",
-      "preview": "/video-previews/sports-slowmo.mp4"
+      "preview": "/video-previews/sports-slowmo.mp4",
+      "previewBy": {
+        "provider": "metaso",
+        "model": "MiniMax-H3",
+        "resolution": "768P",
+        "seconds": 4
+      }
     },
     {
       "id": "travel-vlog",
