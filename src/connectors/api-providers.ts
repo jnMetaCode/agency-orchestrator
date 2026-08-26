@@ -47,6 +47,10 @@ export const API_PROVIDERS: ApiProviderSpec[] = [
   // 主数据面 /api/v3；key 用官方环境变量名 ARK_API_KEY（console.volcengine.com/ark 创建）。
   // 给 Claude Code / Codex 配中转的另一用法见前端 CLI_RELAY_PRESETS（Anthropic 兼容 /api/compatible）。
   { id: 'volcengine', envKey: 'ARK_API_KEY', envBase: 'VOLCENGINE_BASE_URL', defaultBaseUrl: 'https://ark.cn-beijing.volces.com/api/v3', defaultModel: 'doubao-seed-2-1-pro-260628' },
+  // 方舟 Agent Plan 套餐：**另一把专属 key + 另一个 base**（/api/plan/v3，用 /api/v3 会按量扣费），所以单独成一条——
+  // 同一台机器上"文本/图片走套餐、视频走按量"才配得开。文本模型按套餐页写 ark-code-latest（Auto 路由）；
+  // 图片 doubao-seedream-5.0-lite 真机通（2026-08-26）；Medium 没有视频配额（Large 起），故不进 VIDEO_PROVIDERS。
+  { id: 'volcengine-plan', envKey: 'ARK_PLAN_API_KEY', envBase: 'VOLCENGINE_PLAN_BASE_URL', defaultBaseUrl: 'https://ark.cn-beijing.volces.com/api/plan/v3', defaultModel: 'ark-code-latest' },
   // 多元探索 DuoyuanX（赞助商）—— 全球 AI 模型 API 聚合与源头直供：一个 key 通 OpenAI /
   // Claude / Gemini / DeepSeek 等数百款模型。OpenAI 兼容端点 duoyuanx.com/v1。
   // 默认模型必须选平台实际上架且已定价的：claude-sonnet-5 未上架（报"价格尚未由管理员设置"），

@@ -639,8 +639,10 @@ const PROVIDER_LOGO_IDS = new Set(["compshare", "cubence", "apinebula", "rootflo
 /** 少数供应商的 logo 是 svg（AICodeMirror），其余是 png —— 硬编码扩展名会 404 */
 const PROVIDER_LOGO_SVG_IDS = new Set(["aicodemirror"]);
 export function providerLogo(id: string): string | undefined {
-  if (!PROVIDER_LOGO_IDS.has(id)) return undefined;
-  return `/sponsors/logo-${id}-icon.${PROVIDER_LOGO_SVG_IDS.has(id) ? "svg" : "png"}`;
+  // 同一家的多个条目共用 logo（方舟套餐 = 火山引擎）
+  const base = id === "volcengine-plan" ? "volcengine" : id;
+  if (!PROVIDER_LOGO_IDS.has(base)) return undefined;
+  return `/sponsors/logo-${base}-icon.${PROVIDER_LOGO_SVG_IDS.has(base) ? "svg" : "png"}`;
 }
 
 export const api = {
@@ -858,6 +860,8 @@ export interface ApiProviderMeta {
    * 文本步骤选模型的，选中它每一步都会失败（它没有 chat/images 端点，只有异步视频任务）。
    */
   videoOnly?: boolean;
+  /** 已核实的图片模型（/models 拉不到或没列图片模型时的候选；仍可手填） */
+  imageModels?: string[];
   sponsor?: boolean;
   /**
    * 已下架：默认不在供应商列表里露出（不再向新用户推荐）。但**已经配过 key 的用户
@@ -900,7 +904,9 @@ export const API_PROVIDERS: ApiProviderMeta[] = [
   // 直连走 OpenAI 兼容 /api/v3（配 key 后可点「获取模型列表」拉全量），Claude Code 中转见 CLI_RELAY_PRESETS
   // Agent Plan 套餐（2026-08-26 真机）：专属 key + 专属 base **/api/plan/v3**（别用 /api/v3，会按量扣费）；Medium 含图片
 // doubao-seedream-5.0-lite（size 用 2k），**视频要 Large 及以上**（Medium 调 seedance 回 UnsupportedModel）。按量 key 走 /api/v3。
-{ id: "volcengine", name: "火山引擎", hint: "ark.cn-beijing.volces.com · Agent Plan 用 base …/api/plan/v3", defaultBaseUrl: "https://ark.cn-beijing.volces.com/api/v3", signupUrl: "https://www.volcengine.com/activity/ai618?utm_campaign=hw&utm_content=hw&utm_medium=devrel_tool_web&utm_source=OWO&utm_term=agency-agents-zh", sponsor: true, modelSuggestions: ["doubao-seed-2-1-pro-260628"] },
+{ id: "volcengine", name: "火山引擎", hint: "ark.cn-beijing.volces.com · 按量付费 key", defaultBaseUrl: "https://ark.cn-beijing.volces.com/api/v3", signupUrl: "https://www.volcengine.com/activity/ai618?utm_campaign=hw&utm_content=hw&utm_medium=devrel_tool_web&utm_source=OWO&utm_term=agency-agents-zh", sponsor: true, modelSuggestions: ["doubao-seed-2-1-pro-260628"], imageModels: ["doubao-seedream-5-0-260128", "doubao-seedream-5-0-pro-260628"] },
+  // Agent Plan 套餐（专属 key + 专属 base /api/plan/v3）：Medium 含文本与图片（seedream-5.0-lite 真机通，size 用 2k），视频要 Large 起。
+  { id: "volcengine-plan", name: "火山方舟 Agent Plan", shortName: "方舟套餐", hint: "…/api/plan/v3 · 套餐专属 key · 图片 seedream-5.0-lite（size 2k）", defaultBaseUrl: "https://ark.cn-beijing.volces.com/api/plan/v3", signupUrl: "https://www.volcengine.com/activity/ai618?utm_campaign=hw&utm_content=hw&utm_medium=devrel_tool_web&utm_source=OWO&utm_term=agency-agents-zh", sponsor: true, modelSuggestions: ["ark-code-latest", "doubao-seed-2.1-turbo", "doubao-seed-2.0-lite", "deepseek-v4-flash", "deepseek-v4-pro", "glm-5.3", "kimi-k2.7-code", "minimax-m3"], imageModels: ["doubao-seedream-5.0-lite"] },
   // 普通赞助商 CompShare（优云智算）—— 排在赞助商组最后一位
   { id: "compshare", name: "CompShare", hint: "console.compshare.cn", defaultBaseUrl: "https://api.modelverse.cn/v1", signupUrl: "https://passport.compshare.cn/register?referral_code=ETD3L5JBM13CtKARkMORot&ytag=GPU_YY_YX_git_agency-agents", sponsor: true, modelSuggestions: ["deepseek-ai/DeepSeek-V3.2", "deepseek-ai/DeepSeek-R1", "Qwen/Qwen3-Coder-480B-A35B-Instruct", "MiniMaxAI/MiniMax-M2.7"] },
   // 赞助商 LanoX AI（2026-08 新增，按约定排赞助商组最后一位）—— 全球模型聚合，500+ 模型；
@@ -944,7 +950,7 @@ export const API_PROVIDERS: ApiProviderMeta[] = [
   { id: "zhipu", name: "智谱 GLM", shortName: "智谱", hint: "open.bigmodel.cn · GLM", defaultBaseUrl: "https://open.bigmodel.cn/api/paas/v4", signupUrl: "https://open.bigmodel.cn/usercenter/apikeys", vendor: true },
   // DashScope 的 **兼容模式**端点；原生 DashScope 协议我们不支持
   { id: "qwen", name: "通义千问 Qwen", shortName: "通义千问", hint: "dashscope.aliyuncs.com · Qwen", defaultBaseUrl: "https://dashscope.aliyuncs.com/compatible-mode/v1", signupUrl: "https://bailian.console.aliyun.com/?apiKey=1", vendor: true },
-  { id: "agnes", name: "Agnes AI", hint: "agnes-2.0-flash · agnes-ai.com", defaultBaseUrl: "https://apihub.agnes-ai.com/v1", modelSuggestions: ["agnes-2.0-flash", "agnes-1.5-flash"] },
+  { id: "agnes", name: "Agnes AI", hint: "agnes-2.0-flash · agnes-ai.com", defaultBaseUrl: "https://apihub.agnes-ai.com/v1", modelSuggestions: ["agnes-2.0-flash", "agnes-1.5-flash"], imageModels: ["agnes-image-2.0-flash", "agnes-image-2.1-flash"] },
   // 多元探索 DuoyuanX：赞助已于 2026-08-17 下架 —— 摘掉进阶档的置顶位与紫色高亮、
   // 推广链接（含返利参数）与"注册送 3 元"的权益文案，**保留为可用供应商**排在末位。
   // 它此前是默认 provider，配过 key 的用户基数很可能是所有供应商里最大的，

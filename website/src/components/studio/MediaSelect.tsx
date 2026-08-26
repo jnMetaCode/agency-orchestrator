@@ -93,7 +93,10 @@ export function MediaSelect({ embedded }: { embedded?: boolean } = {}) {
   const row = (lab: string, el: React.ReactNode) => (
     <label className="grid grid-cols-[64px_1fr] items-center gap-2 text-xs text-muted-foreground">{lab}{el}</label>
   );
-  const imgList = d.image.provider ? imgModels[d.image.provider] : undefined;
+  // 实拉到就用实拉的；拉不到（方舟套餐 /models 404、或没列图片模型）用注册表里核实过的 imageModels
+  const staticImg = API_PROVIDERS.find((p) => p.id === d.image.provider)?.imageModels;
+  const fetchedImg = d.image.provider ? imgModels[d.image.provider] : undefined;
+  const imgList = fetchedImg === "loading" ? "loading" : (Array.isArray(fetchedImg) && fetchedImg.some((m) => /image|seedream|flux|dall|banana|imagen/i.test(m))) ? fetchedImg.filter((m) => /image|seedream|flux|dall|banana|imagen/i.test(m)) : (staticImg ?? (Array.isArray(fetchedImg) ? fetchedImg : undefined));
   const [customModel, setCustomModel] = useState(false);
   // 档位：有候选就下拉（含"自定义…"回到手填），没候选就手填
   const tierSelect = (opts: string[], value: string, onChange: (v: string) => void, suffix = "") =>

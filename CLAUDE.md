@@ -199,7 +199,7 @@ image/video needs neither `llm.model` nor a text connector.
 
 ## Volcengine (火山方舟) notes
 
-Two credential modes, **different base URLs**: pay-as-you-go keys use `https://ark.cn-beijing.volces.com/api/v3`; Agent Plan keys must use
+Two providers now: `volcengine` (pay-as-you-go, `ARK_API_KEY`) and `volcengine-plan` (Agent Plan, `ARK_PLAN_API_KEY`, base `/api/plan/v3`) — so "text/images on the plan, video pay-as-you-go" can coexist on one machine. Two credential modes, **different base URLs**: pay-as-you-go keys use `https://ark.cn-beijing.volces.com/api/v3`; Agent Plan keys must use
 `…/api/plan/v3` (set `VOLCENGINE_BASE_URL`) — hitting `/api/v3` with a plan key bills extra. Verified 2026-08-26: images work on both
 (`doubao-seedream-5-0-260128` pay-as-you-go, `doubao-seedream-5.0-lite` on Medium; Seedream 5 needs ≥3.69 MP → use `size: "2k"`);
 video (`/contents/generations/tasks`, Ark's own shape, no adapter yet) is **Large-plan-or-pay-as-you-go only** — Medium returns
