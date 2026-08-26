@@ -157,6 +157,9 @@ export function RunViewer({ onViewHistory, onGoProviders }: { onViewHistory?: ()
           ) : (
             <StepList
               steps={run.steps}
+              // 图片/视频产物在 md 里是 assets/x.mp4 相对路径，浏览器会解析成 /studio/assets/… → 404 放不了；
+              // 运行目录一到（output-dir 事件）就改写成资产接口地址，跑完当场能播
+              assetBase={run.outputDir ? `/api/runs/${encodeURIComponent(run.outputDir.replace(/[\\/]+$/, "").split(/[\\/]/).pop() || "")}/assets` : undefined}
               onFeedback={
                 run.kind === "workflow" && !running && run.state === "done" && run.source
                   ? (stepId, feedback) => rerunWithFeedback(run.id, stepId, feedback)

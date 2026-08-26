@@ -12,8 +12,11 @@ import { cn } from "@/lib/utils";
 export function StepList({
   steps,
   onFeedback,
+  assetBase,
 }: {
   steps: LiveStep[];
+  /** 实时视图里产物链接是相对路径（assets/x.mp4），知道运行目录后改写成 /api/runs/<id>/assets 才能播 */
+  assetBase?: string;
   /** 提供时，已完成的步骤会显示「提意见重做」入口（仅工作流运行、且运行已结束时传入） */
   onFeedback?: (stepId: string, feedback: string) => void;
 }) {
@@ -97,7 +100,7 @@ export function StepList({
               <div className="max-h-[460px] overflow-auto border-t border-border/60 px-4 py-3">
                 {s.content ? (
                   <>
-                    <Markdown>{s.content}</Markdown>
+                    <Markdown>{assetBase ? s.content.replace(/\]\((?:\.\.\/)?assets\//g, `](${assetBase}/`) : s.content}</Markdown>
                     {running && <span className="ml-0.5 inline-block h-4 w-1.5 animate-pulse rounded-sm bg-primary align-middle" />}
                   </>
                 ) : (
