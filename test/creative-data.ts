@@ -8,7 +8,8 @@
  *   2. 示例视频链接必须是 https 且指向 .mp4（曾经混进过指向文章页的链接）
  *   3. 扩充池必须有中文标题（否则中文用户搜不到，等于白收）
  */
-import { readFileSync } from 'node:fs';
+import { readFileSync , existsSync } from 'node:fs';
+import { join } from 'node:path';
 import { violation } from '../scripts/prune-extra-prompts.mjs';
 
 let passed = 0, failed = 0;
@@ -39,8 +40,6 @@ test('视频社区池同样过了体检', () => {
 console.log('\n─── 示例视频链接 ───');
 
 test('preview 必须可播放：https 外链 .mp4，或自托管 /video-previews/*.mp4 且文件真在（别再塞进一个转圈的黑框）', () => {
-  const { existsSync } = require('node:fs') as typeof import('node:fs');
-  const { join } = require('node:path') as typeof import('node:path');
   const bad = vcomm.templates
     .filter((t: { preview?: string }) => t.preview)
     .filter((t: { preview: string }) => {
