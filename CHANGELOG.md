@@ -5,6 +5,7 @@
 ## [Unreleased]
 
 ### Added
+- **Agnes AI 接入视频供应商表**（openai-videos 变体：必填 `mode:"text"`，size 用档位名 720P/960P/2K）——**openai-videos 链路真机验证通过**：agnes-video-2.5-flash 4s 出片 1280×704 带音轨，全程走 AO 适配器；图片 agnes-image-2.0-flash 走 Images API 也真机成功。供应商级 `createExtra` 机制让 OpenAI 形状的变体声明固定字段而不改主流程。
 - 媒体探测也覆盖图片端点 `/images/generations`：Studio 图片供应商列表按探测结果排序（有端点 ✓ 排前、确认没有的沉底标注），不再把 DeepSeek / Kimi 这类没有图片端点的当成图片供应商列出。
 - **`ao doctor --video-probe`**：零成本探测每个已配 key 的 OpenAI 兼容中转站有没有视频端点、是哪种形状（请求体故意不合法不会建任务；路径存在回 4xx、不存在 404，再打乱写路径做对照，全站兜底判"探不出"；顺手从 /models 捞视频模型名）。实测多元探索、Agnes 都有 OpenAI 形状的 `/v1/videos`。
 - **第三种视频形状 `openai-videos`**（OpenAI 官方 Videos API，字段来自 openai-node）：不在视频表但 OpenAI 兼容的供应商自动按它试，真没端点的 404 说清并指向 doctor；首帧图 multipart 内联 `input_reference`。Studio 出图/出片面板加「🔎 探测更多供应商」，探到的记进本机并进视频下拉。
