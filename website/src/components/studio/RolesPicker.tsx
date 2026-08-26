@@ -13,6 +13,10 @@ import { RoleDetail } from "./RoleDetail";
 import type { ChatRole } from "./ChatPanel";
 import type { RunRequest } from "./RunManager";
 
+// 热门分类优先级（用户反馈：公司经营和常用的放前面）；不在表里的排后、保持原序
+const CATEGORY_PRIORITY = ["company", "marketing", "engineering", "design", "product", "sales", "finance", "hr", "project-management", "strategy", "support", "testing", "security", "specialized"];
+const catRank = (c: string) => { const i = CATEGORY_PRIORITY.indexOf(c); return i < 0 ? 99 : i; };
+
 function roleKey(r: Role) {
   return `${r.category}/${r.id}`;
 }
@@ -214,8 +218,9 @@ export function RolesPicker({
     // 「我的」有专属 tab（始终显示，含新建入口），不混进普通类目
     roles.forEach((r) => { if (r.category !== "my") map.set(r.category, r.categoryName || r.category); });
     // 「公司经营」排普通类目第一个（同 website/src/pages/Experts.tsx）：组队时先看见高管层
+    // 分类顺序：热门/高频的在前（公司经营 → 营销 → 工程 → 设计 → 产品 → 销售 → 财务 → 人力），其余按目录序
     return Array.from(map, ([id, name]) => ({ id, name }))
-      .sort((a, b) => (a.id === "company" ? -1 : b.id === "company" ? 1 : 0));
+      .sort((a, b) => catRank(a.id) - catRank(b.id));
   }, [roles]);
 
   const filtered = useMemo(() => {
@@ -226,8 +231,8 @@ export function RolesPicker({
       if (!needle) return true;
       return (r.name + r.description + r.categoryName).toLowerCase().includes(needle);
     });
-    // ⭐ 常用置顶（与工作流列表同规），其余保持原目录顺序
-    return [...list].sort((a, b) => (favs.has(roleKey(b)) ? 1 : 0) - (favs.has(roleKey(a)) ? 1 : 0));
+    // ⭐ 常用置顶（与工作流列表同规），其余「全部」视图按分类热度排（公司经营的高管排最前），分类内保持目录序
+    return [...list].sort((a, b) => ((favs.has(roleKey(b)) ? 1 : 0) - (favs.has(roleKey(a)) ? 1 : 0)) || (cat === "all" ? catRank(a.category) - catRank(b.category) : 0));
   }, [roles, q, cat, favs]);
 
   const selectedList = Object.values(selected);
