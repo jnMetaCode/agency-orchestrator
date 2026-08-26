@@ -9,7 +9,7 @@ ao run <workflow.yaml> [options]      # Execute workflow
 ao run <workflow.yaml> --resume last --from <step-id>  # Re-run from a specific step
 ao validate <workflow.yaml>           # Validate without running
 ao plan <workflow.yaml>               # Show DAG execution plan
-ao doctor [--fix] [--no-probe]        # Self-check provider/creds/endpoint reachability/CLI/system Claude Code; --fix repairs a hijacked ~/.claude (fake token / relay base_url); --no-probe skips the live endpoint probe (a 1-token request)
+ao doctor [--fix] [--no-probe] [--video-probe]  # Self-check provider/creds/endpoint reachability/CLI/system Claude Code; --fix repairs a hijacked ~/.claude (fake token / relay base_url); --no-probe skips the live endpoint probe (a 1-token request); --video-probe checks every keyed OpenAI-compatible relay for video endpoints at zero cost (invalid probe body + a control path; see src/media/probe-video.ts)
 ao roles                              # List all 267 available roles
 ao install --tool claude-code         # Install bundled roles into a coding tool (claude-code/cursor/copilot/gemini-cli/qwen/opencode); --lang zh|en, --category, --dry-run
 ao run <workflow.yaml> --compare      # Run workflow + single-shot baseline + blind judge → side-by-side verdict (productized eval)

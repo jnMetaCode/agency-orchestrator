@@ -756,6 +756,26 @@ async function handleDoctor(): Promise<void> {
     ? `  🎬 文生视频可用（type: video）：${videoKeyed.join(', ')}（余额与计费需在服务商控制台自查，doctor 不探）`
     : `  ·  文生视频暂不可用：内置视频供应商 ${VIDEO_PROVIDERS.map((p) => p.id).join(' / ')} 都没配 key（env ${VIDEO_PROVIDERS.map((p) => p.envKey).join(' / ')}）`);
 
+  // 2.9) --video-probe：探每个已配 key 的 OpenAI 兼容中转站有没有视频端点（零成本，见 media/probe-video.ts）。
+  //      用户的问题是"其他中转站可能也支持视频，只是我们不知道"——答案是探，不是全都显示。
+  if (args.includes('--video-probe')) {
+    const { probeVideoEndpoints } = await import('./media/probe-video.js');
+    const targets = API_PROVIDERS
+      // 引擎侧 API_PROVIDERS 全是 OpenAI 兼容表（Anthropic 协议与纯视频的各在自己的表里），直接探
+      .map((p) => ({ id: p.id, baseUrl: process.env[p.envBase] || p.defaultBaseUrl, apiKey: process.env[p.envKey] || studioKeys[p.id]?.apiKey || '' }))
+      .filter((t) => t.apiKey && t.baseUrl);
+    console.log(`\n  🔎 视频端点探测（${targets.length} 家已配 key；请求体故意不合法，不会真建任务、不花钱）`);
+    if (!targets.length) console.log('     没有已配 key 的 OpenAI 兼容供应商可探。');
+    for (const t of targets) {
+      const r = await probeVideoEndpoints(t);
+      const line = r.shapes.map((x) => `${x.shape}=${String(x.status)}${x.verdict === 'exists' ? '✓' : x.verdict === 'unreliable' ? '?' : ''}`).join('  ');
+      console.log(`  ${r.shapes.some((x) => x.verdict === 'exists') ? '🎬' : '· '} ${t.id}  ${line}  对照=${String(r.controlStatus)}`);
+      console.log(`     ${r.summary}`);
+      if (r.videoModels.length) console.log(`     视频模型名：${r.videoModels.join(', ')}`);
+    }
+    console.log('     接入办法：形状已知的（apimart / minimax）把该站加进 VIDEO_PROVIDERS 即可；openai-videos 形状需要新增一个 adapter；未知形状先要文档。');
+  }
+
   // 3) 默认将使用的 provider 是否就绪（跑任务前最关键）
   const def = autoProvider(process.env.AO_PROVIDER, 'deepseek');
   const ready = composeProviderHasCredentials(def);
