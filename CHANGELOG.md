@@ -5,6 +5,7 @@
 ## [Unreleased]
 
 ### Added
+- 媒体探测也覆盖图片端点 `/images/generations`：Studio 图片供应商列表按探测结果排序（有端点 ✓ 排前、确认没有的沉底标注），不再把 DeepSeek / Kimi 这类没有图片端点的当成图片供应商列出。
 - **`ao doctor --video-probe`**：零成本探测每个已配 key 的 OpenAI 兼容中转站有没有视频端点、是哪种形状（请求体故意不合法不会建任务；路径存在回 4xx、不存在 404，再打乱写路径做对照，全站兜底判"探不出"；顺手从 /models 捞视频模型名）。实测多元探索、Agnes 都有 OpenAI 形状的 `/v1/videos`。
 - **第三种视频形状 `openai-videos`**（OpenAI 官方 Videos API，字段来自 openai-node）：不在视频表但 OpenAI 兼容的供应商自动按它试，真没端点的 404 说清并指向 doctor；首帧图 multipart 内联 `input_reference`。Studio 出图/出片面板加「🔎 探测更多供应商」，探到的记进本机并进视频下拉。
 - **APIMart 视频模型 6 → 15**（Seedance 2.5、可灵 v3、海螺 2.3 / Fast、Wan 2.7、Vidu Q3 pro/turbo、PixVerse v6、Grok Imagine 1.5、sora-2-pro…），每个的分辨率 / 秒数 / 宽高比与**字段名**逐页核对 docs.apimart.ai：可灵档位叫 `mode`、Wan / PixVerse / Grok 宽高比叫 `size`、MiniMax 系首帧叫 `first_frame_image`，适配器按模型映射。出图/出片面板的模型改为下拉、档位随模型变，新增宽高比。
