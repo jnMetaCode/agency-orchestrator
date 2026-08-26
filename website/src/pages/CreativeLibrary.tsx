@@ -40,6 +40,9 @@ interface GenEnv { ok: boolean; providers: { id: string; label: string }[] }
  */
 const GEN_PREF_KEY = "ao.creative.gen";
 type GenPref = { provider?: string; model?: string; size?: string };
+/** 本地自托管的成片（/video-previews/…）可以直接自动播；外链的不行 */
+const isLocalPreview = (u: string) => u.startsWith("/video-previews/");
+
 // 示例成片的出片方（角标 + 返利链接）。只写真出过片的；链接与 sponsors.ts 里的赞助商条目一致。
 const PREVIEW_VENDORS: Record<string, { name: string; nameEn: string; url: string }> = {
   metaso: { name: "秘塔科技", nameEn: "MetaSota", url: "https://metaso.cn/minimax-h3/?s=gt533367" },
@@ -123,14 +126,19 @@ function VideoCard({ t }: { t: VideoTemplate }) {
         </div>
       )}
 
-      {showVideo && t.preview && (
+      {/* 自己出的示例成片（本地 /video-previews/，480 宽无音轨约 0.1MB）：像 GIF 一样静音自动循环，不用点；
+          外链示例（OpenAI showcase / 推特 CDN，17–48MB）仍保留点击才加载 */}
+      {t.preview && (isLocalPreview(t.preview) || showVideo) && (
         <video
           className="mt-2.5 max-h-64 w-full rounded-lg border border-border/60 bg-black"
           src={t.preview}
-          controls
+          controls={!isLocalPreview(t.preview) || showVideo}
           autoPlay
+          muted={isLocalPreview(t.preview) && !showVideo}
+          loop={isLocalPreview(t.preview) && !showVideo}
           playsInline
           preload="metadata"
+          onClick={() => { if (isLocalPreview(t.preview!) && !showVideo) setShowVideo(true); }}
           onError={(e) => { (e.currentTarget as HTMLVideoElement).style.display = "none"; }}
         />
       )}
@@ -152,7 +160,7 @@ function VideoCard({ t }: { t: VideoTemplate }) {
             🎬 {(en ? PREVIEW_VENDORS[t.previewBy.provider]?.nameEn : PREVIEW_VENDORS[t.previewBy.provider]?.name) ?? t.previewBy.provider} · {t.previewBy.model}{t.previewBy.resolution ? ` · ${t.previewBy.resolution}` : ""}{t.previewBy.seconds ? ` × ${t.previewBy.seconds}s` : ""} ↗
           </a>
         )}
-        {t.preview && !showVideo && (
+        {t.preview && !showVideo && !isLocalPreview(t.preview) && (
           <button
             onClick={() => { setShowVideo(true); track("video_preview_play", { id: t.id }); }}
             className="inline-flex items-center gap-1 rounded-lg border border-primary/40 bg-primary/5 px-2.5 py-1.5 font-medium text-primary transition-colors hover:bg-primary/10"
