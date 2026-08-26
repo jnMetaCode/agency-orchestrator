@@ -43,6 +43,44 @@ type GenPref = { provider?: string; model?: string; size?: string };
 /** 本地自托管的成片（/video-previews/…）可以直接自动播；外链的不行 */
 const isLocalPreview = (u: string) => u.startsWith("/video-previews/");
 
+/**
+ * 示例成片：本地的像 GIF 一样静音自动循环，进入视口才加载（21 条同屏不抢带宽）；点一下切成带控件正常播。
+ * React 不会把 muted 可靠写进 DOM 属性，Chrome 就会以为没静音而拒绝 autoplay ——所以用 ref 直接设 muted 再主动 play()。
+ */
+function AutoVideo({ src, local, expanded, onExpand }: { src: string; local: boolean; expanded: boolean; onExpand: () => void }) {
+  const ref = useRef<HTMLVideoElement>(null);
+  const [inView, setInView] = useState(!local);
+  useEffect(() => {
+    const el = ref.current;
+    if (!el || !local) return;
+    const io = new IntersectionObserver((es) => { if (es.some((e) => e.isIntersecting)) { setInView(true); io.disconnect(); } }, { rootMargin: "200px" });
+    io.observe(el);
+    return () => io.disconnect();
+  }, [local]);
+  useEffect(() => {
+    const el = ref.current;
+    if (!el || !inView) return;
+    if (local && !expanded) { el.muted = true; el.defaultMuted = true; }
+    el.play().catch(() => { /* 浏览器拒绝自动播就静止显示首帧，不报错 */ });
+  }, [inView, local, expanded]);
+  const quiet = local && !expanded;
+  return (
+    <video
+      ref={ref}
+      className="mt-2.5 max-h-64 w-full cursor-pointer rounded-lg border border-border/60 bg-black"
+      src={inView ? src : undefined}
+      controls={!quiet}
+      autoPlay={inView}
+      muted={quiet}
+      loop={quiet}
+      playsInline
+      preload={inView ? "auto" : "none"}
+      onClick={() => { if (quiet) onExpand(); }}
+      onError={(e) => { (e.currentTarget as HTMLVideoElement).style.display = "none"; }}
+    />
+  );
+}
+
 // 示例成片的出片方（角标 + 返利链接）。只写真出过片的；链接与 sponsors.ts 里的赞助商条目一致。
 const PREVIEW_VENDORS: Record<string, { name: string; nameEn: string; url: string }> = {
   metaso: { name: "秘塔科技", nameEn: "MetaSota", url: "https://metaso.cn/minimax-h3/?s=gt533367" },
@@ -129,18 +167,7 @@ function VideoCard({ t }: { t: VideoTemplate }) {
       {/* 自己出的示例成片（本地 /video-previews/，480 宽无音轨约 0.1MB）：像 GIF 一样静音自动循环，不用点；
           外链示例（OpenAI showcase / 推特 CDN，17–48MB）仍保留点击才加载 */}
       {t.preview && (isLocalPreview(t.preview) || showVideo) && (
-        <video
-          className="mt-2.5 max-h-64 w-full rounded-lg border border-border/60 bg-black"
-          src={t.preview}
-          controls={!isLocalPreview(t.preview) || showVideo}
-          autoPlay
-          muted={isLocalPreview(t.preview) && !showVideo}
-          loop={isLocalPreview(t.preview) && !showVideo}
-          playsInline
-          preload="metadata"
-          onClick={() => { if (isLocalPreview(t.preview!) && !showVideo) setShowVideo(true); }}
-          onError={(e) => { (e.currentTarget as HTMLVideoElement).style.display = "none"; }}
-        />
+        <AutoVideo src={t.preview} local={isLocalPreview(t.preview)} expanded={showVideo} onExpand={() => setShowVideo(true)} />
       )}
 
       {open && t.prompt && (
