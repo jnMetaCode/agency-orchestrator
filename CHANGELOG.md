@@ -5,6 +5,8 @@
 ## [Unreleased]
 
 ### Added
+- **火山方舟接入视频供应商表**（第四种形状 `ark`：`POST /contents/generations/tasks` → `GET …/tasks/{id}` → `content.video_url` 直链），Seedance 1.0 pro / pro-fast 真机全链路 21s 出片；图片 Seedream 5.0 经 Images API（`size: "2k"`）按量与 Agent Plan 两条路都通。两个 base：按量 `/api/v3`、Agent Plan `/api/plan/v3`（`VOLCENGINE_BASE_URL`；Medium 无视频配额）。视频供应商现为 metaso / apimart / agnes / volcengine 四家。
+- 创意库 21 条视频题材模板示例成片（秘塔 MiniMax-H3，768P×4s 压至 480 宽）。
 - **Agnes AI 接入视频供应商表**（openai-videos 变体：必填 `mode:"text"`，size 用档位名 720P/960P/2K）——**openai-videos 链路真机验证通过**：agnes-video-2.5-flash 4s 出片 1280×704 带音轨，全程走 AO 适配器；图片 agnes-image-2.0-flash 走 Images API 也真机成功。供应商级 `createExtra` 机制让 OpenAI 形状的变体声明固定字段而不改主流程。
 - 媒体探测也覆盖图片端点 `/images/generations`：Studio 图片供应商列表按探测结果排序（有端点 ✓ 排前、确认没有的沉底标注），不再把 DeepSeek / Kimi 这类没有图片端点的当成图片供应商列出。
 - **`ao doctor --video-probe`**：零成本探测每个已配 key 的 OpenAI 兼容中转站有没有视频端点、是哪种形状（请求体故意不合法不会建任务；路径存在回 4xx、不存在 404，再打乱写路径做对照，全站兜底判"探不出"；顺手从 /models 捞视频模型名）。实测多元探索、Agnes 都有 OpenAI 形状的 `/v1/videos`。
