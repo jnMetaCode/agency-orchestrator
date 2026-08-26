@@ -5,6 +5,7 @@
 ## [Unreleased]
 
 ### Added
+- 风格库 15 张示例图（Agnes image-2.0-flash，同一主体只换风格后缀，640 宽 jpg），运行弹窗选了风格就显示示例图；示例成片脚本加 `--pool community`（47 条社区提示词换自托管成片，原外链保留为 `previewOrigin`）与 429 退避。
 - 角色组队：分类条与「全部」网格按热度排序（公司经营 → 营销 → 工程 → 设计 → 产品 → 销售 → 财务 → 人力…），常用仍置顶；创意库自托管示例成片进入视口即静音自动循环播放，并标注出片方（🎬 秘塔科技 · MiniMax-H3 ↗）。角色库 1.4.0 的高管角色名带通用缩写（CEO/CFO/CMO/COO/CPO/CTO、Chief of Staff）、产品经理（PM）。
 - **火山方舟 Agent Plan 独立供应商 `volcengine-plan`**（`ARK_PLAN_API_KEY` + base `/api/plan/v3`）：文本/图片走套餐额度、视频走按量 key 可在同一台机器并存。出图/出片面板在 `/models` 拉不到时用注册表里真机核实的 `imageModels` 候选。
 - **火山方舟接入视频供应商表**（第四种形状 `ark`：`POST /contents/generations/tasks` → `GET …/tasks/{id}` → `content.video_url` 直链），Seedance 1.0 pro / pro-fast 真机全链路 21s 出片；图片 Seedream 5.0 经 Images API（`size: "2k"`）按量与 Agent Plan 两条路都通。两个 base：按量 `/api/v3`、Agent Plan `/api/plan/v3`（`VOLCENGINE_BASE_URL`；Medium 无视频配额）。视频供应商现为 metaso / apimart / agnes / volcengine 四家。
@@ -33,6 +34,7 @@
 - **Studio 模型「钉到常用」**：顶栏快切与配置页模型芯片都有 ★，按供应商各存各的（`localStorage` `ao-fav-models`，与角色/工作流的 ☆常用同一套）。快切列表顺序 = 当前 → 常用 → 推荐集；全量目录里常用单独成组置顶。推荐集是我们替用户挑的，常用是用户替自己挑的，两者并存。对所有 API 供应商与自定义供应商通用，只有 CLI 类（用各自工具登录态选模型）不显示。
 
 ### Fixed
+- 视频供应商 id 统一从解析结果带进 adapter：调用方只给 `config.provider` 时（脚本的调法）Agnes 少了必填 `mode` 报 400。
 - 实时运行视图里出片的播放器 0:00 放不了：产物链接是 `assets/x.mp4` 相对路径被解析到 `/studio/assets/…`；运行目录到达后改写成 `/api/runs/<id>/assets`，跑完当场能播。
 - Studio 打磨：可选下拉占位不再误写「跟随文本供应商」；输入 `format: url`（首帧参考图）单行且不带扩写/读文件；出图出片模板不显示「对比单次」（文本基线比不了片）；运行历史里纯视频运行用 ffmpeg 抽首帧做封面（一次缓存 `_poster.jpg`）。
 - **模型返回空正文不再算「完成」**：OpenAI 兼容连接器与执行器都拦住，报错点明是"只返回了思考内容（N 字符 reasoning）没有正文"还是"空正文（finish_reason=…）"，下游步骤跳过、不重试；图片/视频步骤提示词为空时在建任务前拦住（此前把空 prompt 发给厂商才报 400）。真机：推理模型在某些网关上只回 reasoning 不回 content。
