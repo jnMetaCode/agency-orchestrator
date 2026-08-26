@@ -38,11 +38,17 @@ test('视频社区池同样过了体检', () => {
 
 console.log('\n─── 示例视频链接 ───');
 
-test('preview 必须是 https 且指向 .mp4（别再塞进一个转圈的黑框）', () => {
+test('preview 必须可播放：https 外链 .mp4，或自托管 /video-previews/*.mp4 且文件真在（别再塞进一个转圈的黑框）', () => {
+  const { existsSync } = require('node:fs') as typeof import('node:fs');
+  const { join } = require('node:path') as typeof import('node:path');
   const bad = vcomm.templates
     .filter((t: { preview?: string }) => t.preview)
-    .filter((t: { preview: string }) => !/^https:\/\/.+\.mp4($|\?)/i.test(t.preview));
-  assert(bad.length === 0, `${bad.length} 条 preview 不是可播放的 mp4：${bad.slice(0, 2).map((b: { preview: string }) => b.preview).join(' | ')}`);
+    .filter((t: { preview: string }) => {
+      if (/^https:\/\/.+\.mp4($|\?)/i.test(t.preview)) return false;
+      if (/^\/video-previews\/[\w.-]+\.mp4$/.test(t.preview)) return !existsSync(join(process.cwd(), 'website', 'public', t.preview));
+      return true;
+    });
+  assert(bad.length === 0, `${bad.length} 条 preview 不是可播放的 mp4（或自托管文件缺失）：${bad.slice(0, 2).map((b: { preview: string }) => b.preview).join(' | ')}`);
 });
 
 test('有示例的条目数量合理（外链会失效，掉光了要有人知道）', () => {
