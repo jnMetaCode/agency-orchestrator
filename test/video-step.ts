@@ -321,6 +321,44 @@ function fakeApimart(opts: { failWith?: string; pendingRounds?: number } = {}) {
   return { srv, seen, MP4X, setPort: (p: number) => { port = p; } };
 }
 
+console.log('\n─── 火山方舟 ark 形状（2026-08-26 真机核实的响应） ───');
+
+await test('方舟：POST contents/generations/tasks → 轮询 status → content.video_url 直链下载；首帧图进 content[]', async () => {
+  const seen: { create?: any; polls: number } = { polls: 0 };
+  const MP4A = Buffer.from('0000001c6674797041524b00', 'hex');
+  const srv = http.createServer((req, res) => {
+    const url = new URL(req.url || '/', 'http://x');
+    if (req.method === 'POST' && url.pathname === '/api/v3/contents/generations/tasks') {
+      let body = ''; req.on('data', (c) => { body += c; });
+      req.on('end', () => { seen.create = JSON.parse(body); res.writeHead(200, { 'Content-Type': 'application/json' }); res.end(JSON.stringify({ id: 'cgt-2026-x' })); });
+      return;
+    }
+    if (req.method === 'GET' && url.pathname === '/api/v3/contents/generations/tasks/cgt-2026-x') {
+      seen.polls++;
+      const done = seen.polls >= 2;
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      return res.end(JSON.stringify(done
+        ? { id: 'cgt-2026-x', model: 'doubao-seedance-1-0-pro-fast-251015', status: 'succeeded', content: { video_url: `http://127.0.0.1:${(res.socket as any).localPort}/signed.mp4?X-Tos-Signature=abc` }, usage: { completion_tokens: 49005 }, duration: 5, resolution: '480p', ratio: '16:9' }
+        : { id: 'cgt-2026-x', status: 'running' }));
+    }
+    if (url.pathname === '/signed.mp4') { res.writeHead(200, { 'Content-Type': 'video/mp4' }); return res.end(MP4A); }
+    res.writeHead(404).end('{}');
+  });
+  const port = await listen(srv);
+  try {
+    const v = await generateVideo(
+      { provider: 'volcengine', api_key: 'ark-t', base_url: `http://127.0.0.1:${port}/api/v3` } as unknown as LLMConfig,
+      '一只橘猫',
+      { provider: 'volcengine', model: 'doubao-seedance-1-0-pro-fast-251015', duration: 5, resolution: '480p', ratio: '16:9', poll_interval: 10, image: 'https://cdn.example.com/first.png' },
+    );
+    assert(v.buffer.equals(MP4A) && v.taskId === 'cgt-2026-x' && v.seconds === 5, `实际 ${v.taskId} ${v.seconds}`);
+    const b = seen.create;
+    assert(b.model === 'doubao-seedance-1-0-pro-fast-251015' && b.resolution === '480p' && b.duration === 5 && b.ratio === '16:9', `字段：${JSON.stringify(b)}`);
+    assert(Array.isArray(b.content) && b.content[0].type === 'text' && b.content[0].text === '一只橘猫', 'content[0] 是文本');
+    assert(b.content[1]?.type === 'image_url' && b.content[1].image_url?.url === 'https://cdn.example.com/first.png' && b.content[1].role === 'first_frame', `首帧图项：${JSON.stringify(b.content[1])}`);
+  } finally { srv.close(); }
+});
+
 console.log('\n─── OpenAI Videos 形状（任何 OpenAI 兼容中转站都可按它试） ───');
 
 function fakeOpenAIVideos() {

@@ -146,6 +146,40 @@ function openaiVideoSize(opts: VideoStepOptions): string | undefined {
 }
 
 const SHAPES: Record<string, VideoShapeAdapter> = {
+  // ── 火山方舟：自家任务接口（真机核实见 api-providers.ts 的 volcengine 条目）────────────────
+  //   首帧图：content 里加 {type:"image_url", image_url:{url}, role:"first_frame"}（方舟文档格式；公网 URL 或 data URL）。
+  //   本地图片以 data URL 内联——**未真机验证**，被拒会在建任务前收到 400，不花钱。
+  ark: {
+    createPath: 'contents/generations/tasks',
+    inlineImage: true,
+    createBody: (opts, prompt, imageUrl) => {
+      const content: Array<Record<string, unknown>> = [{ type: 'text', text: prompt }];
+      const img = imageUrl || (opts.image_bytes ? `data:image/png;base64,${opts.image_bytes.toString('base64')}` : undefined);
+      if (img) content.push({ type: 'image_url', image_url: { url: img }, role: 'first_frame' });
+      return JSON.stringify({
+        model: opts.model,
+        content,
+        ...(opts.resolution ? { resolution: opts.resolution } : {}),
+        ...(opts.duration ? { duration: opts.duration } : {}),
+        ...(opts.ratio ? { ratio: opts.ratio } : {}),
+      });
+    },
+    parseCreate: (j) => String((j as { id?: string })?.id ?? ''),
+    queryUrl: (base, id) => `${base}/contents/generations/tasks/${encodeURIComponent(id)}`,
+    parseQuery: (json) => {
+      const v = json as { id?: string; status?: string; content?: { video_url?: string }; error?: { code?: string; message?: string }; duration?: number };
+      if (!v || typeof v !== 'object' || !v.status) return undefined;
+      const status = String(v.status).toLowerCase();
+      const phase: VideoTaskState['phase'] = status === 'succeeded' ? 'done' : ['failed', 'cancelled', 'expired'].includes(status) ? 'failed' : 'pending';
+      return {
+        phase,
+        url: v.content?.video_url,
+        error: v.error ? `${v.error.message || status}${v.error.code ? `（code ${v.error.code}）` : ''}` : undefined,
+        seconds: typeof v.duration === 'number' ? v.duration : undefined,
+      };
+    },
+  },
+
   // ── OpenAI 官方 Videos API（openai-node resources/videos.ts）：POST /videos → GET /videos/{id} → GET /videos/{id}/content ─
   //   字段：model / prompt / seconds('4'|'8'|'12') / size('1280x720'|'720x1280'|'1792x1024'|'1024x1792') / input_reference（multipart 文件）
   //   状态：queued | in_progress | completed | failed；错误在 error.{code,message}

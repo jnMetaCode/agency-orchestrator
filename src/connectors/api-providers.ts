@@ -183,7 +183,7 @@ export interface VideoProviderSpec {
    * **接第二家时才知道这层抽象立不立得住**：秘塔与 APIMart 从路径到字段名到状态词
    * 没有一处相同，加 APIMart 只新增了一个 adapter，主流程一行没动。
    */
-  shape: 'minimax' | 'apimart' | 'openai-videos';
+  shape: 'minimax' | 'apimart' | 'openai-videos' | 'ark';
   /** 建任务时额外固定字段（如 Agnes 的 openai-videos 变体要求 mode:"text"）；有首帧图时用 createExtraWithImage */
   createExtra?: Record<string, unknown>;
   createExtraWithImage?: Record<string, unknown>;
@@ -270,6 +270,25 @@ VIDEO_PROVIDERS.push({
     { id: 'agnes-video-2.5-flash', resolutions: ['720P', '960P', '2K'], durations: [4, 8, 12], ratios: ['16:9', '9:16'] },
     { id: 'agnes-video-2.5', resolutions: ['720P', '960P', '2K'], durations: [4, 8, 12], ratios: ['16:9', '9:16'] },
     { id: 'agnes-video-v2.0', resolutions: ['720P', '960P', '2K'], durations: [4, 8, 12], ratios: ['16:9', '9:16'] },
+  ],
+});
+
+// 火山方舟（赞助商）—— 自家形状 'ark'（2026-08-26 真机核实，按量 key）：
+//   POST {base}/contents/generations/tasks {model, content:[{type:text,text}], resolution, duration, ratio} → {id}
+//   GET  {base}/contents/generations/tasks/{id} → {status: queued|running|succeeded|failed, content:{video_url 签名直链}, usage, duration…}
+// 与 APIMart / Agnes 同理，它也在 API_PROVIDERS（聊天/图片），一把 ARK_API_KEY 通用。
+// **两个 base**：按量 key 用 /api/v3；Agent Plan 套餐 key 必须用 /api/plan/v3（VOLCENGINE_BASE_URL），且 Medium 没有视频配额（Large 起）。
+// 档位只写真机核实过的：resolution 三档由服务端逐个校验通过；duration/ratio 只有 5s / 16:9 真出过片（其余服务端校验顺序在 seed 之后，探不出，不猜）。
+// 2.x 系列（2-0 / 2-0-fast / 2-0-mini / 2-5）id 来自 /models，但本账号未开通、未核实档位，先不列进候选——开通后照此补。
+VIDEO_PROVIDERS.push({
+  id: 'volcengine',
+  envKey: 'ARK_API_KEY',
+  envBase: 'VOLCENGINE_BASE_URL',
+  defaultBaseUrl: 'https://ark.cn-beijing.volces.com/api/v3',
+  shape: 'ark',
+  models: [
+    { id: 'doubao-seedance-1-0-pro-fast-251015', resolutions: ['480p', '720p', '1080p'], durations: [5], ratios: ['16:9'] },
+    { id: 'doubao-seedance-1-0-pro-250528', resolutions: ['480p', '720p', '1080p'], durations: [5], ratios: ['16:9'] },
   ],
 });
 
