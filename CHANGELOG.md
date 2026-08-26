@@ -5,6 +5,8 @@
 ## [Unreleased]
 
 ### Added
+- **`ao doctor --video-probe`**：零成本探测每个已配 key 的 OpenAI 兼容中转站有没有视频端点、是哪种形状（请求体故意不合法不会建任务；路径存在回 4xx、不存在 404，再打乱写路径做对照，全站兜底判"探不出"；顺手从 /models 捞视频模型名）。实测多元探索、Agnes 都有 OpenAI 形状的 `/v1/videos`。
+- **第三种视频形状 `openai-videos`**（OpenAI 官方 Videos API，字段来自 openai-node）：不在视频表但 OpenAI 兼容的供应商自动按它试，真没端点的 404 说清并指向 doctor；首帧图 multipart 内联 `input_reference`。Studio 出图/出片面板加「🔎 探测更多供应商」，探到的记进本机并进视频下拉。
 - **APIMart 视频模型 6 → 15**（Seedance 2.5、可灵 v3、海螺 2.3 / Fast、Wan 2.7、Vidu Q3 pro/turbo、PixVerse v6、Grok Imagine 1.5、sora-2-pro…），每个的分辨率 / 秒数 / 宽高比与**字段名**逐页核对 docs.apimart.ai：可灵档位叫 `mode`、Wan / PixVerse / Grok 宽高比叫 `size`、MiniMax 系首帧叫 `first_frame_image`，适配器按模型映射。出图/出片面板的模型改为下拉、档位随模型变，新增宽高比。
 - 出片模板新增「类型」（剧情 / 广告 / 悬疑 / 搞笑 / 古风 / Vlog…，喂给编剧与提示词工程师）与「宽高比」输入；运行弹窗里故事输入框放大，旁有「✨ 帮我扩写」（Prompt Lab 优化接口，一次调用把几句话扩成具体描述）。
 - `scripts/gen-style-samples.mjs`：给风格库 15 个预设批量出示例图（同一中性主体，只换风格后缀），压到 640 宽并把 `sample` 写回 `styles.ts`。**默认空跑**，`--provider` / `--model` 必须显式给（图片模型编码各家不通用，不猜），`--yes` 才花钱。官网文档新增「图生视频、三镜合成与风格库」小节。

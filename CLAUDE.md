@@ -192,7 +192,7 @@ OpenAI-compatible nor Anthropic-protocol — currently **MetaSota** (MiniMax-H3)
 different, so `video.ts` keeps one adapter per `shape` and the main flow stays vendor-agnostic:
 MetaSota posts `content:[{type,text}]` to `v2/video_generation` and polls a **list** endpoint that
 ignores `task_id` (so the connector filters by id — otherwise concurrent steps swap videos);
-APIMart posts `prompt` + `aspect_ratio` to `v1/videos/generations` and polls `v1/tasks/{id}`.
+APIMart posts `prompt` + `aspect_ratio` to `v1/videos/generations` and polls `v1/tasks/{id}` (per-model field names in `models[].fields`: Kling uses `mode`, Wan/PixVerse/Grok use `size`, MiniMax family uses `first_frame_image`). A third shape, **`openai-videos`** (OpenAI's official Videos API: `POST /videos` → `GET /videos/{id}` → authenticated `GET /videos/{id}/content`, image via multipart `input_reference`), is what many relays actually expose — any OpenAI-compatible provider not in `VIDEO_PROVIDERS` is tried with it automatically; `ao doctor --video-probe` finds which relays have it at zero cost.
 APIMart is deliberately in **both** tables — one `APIMART_API_KEY` covers chat, `type: image` and
 `type: video` — so `/api/config` only marks *video-only* providers as `family: 'video'`. A workflow whose steps are *all*
 image/video needs neither `llm.model` nor a text connector.
