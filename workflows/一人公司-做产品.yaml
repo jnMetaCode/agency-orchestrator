@@ -18,7 +18,7 @@ inputs:
 
 steps:
   - id: ceo_brief
-    role: "specialized/business-strategist"
+    role: "company/chief-executive-officer"
     name: "老板"
     emoji: "👔"
     task: |
@@ -86,7 +86,7 @@ steps:
     depends_on: [architecture]
 
   - id: launch_pack
-    role: "specialized/business-strategist"
+    role: "company/chief-executive-officer"
     name: "老板"
     emoji: "👔"
     task: |

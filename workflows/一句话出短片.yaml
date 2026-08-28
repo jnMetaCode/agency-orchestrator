@@ -7,9 +7,6 @@
 #   3. 分辨率与秒数也做成输入：**两家档位名不通用**（秘塔 480p/512p/768P/2K，
 #      APIMart 720p/1080p/4k，且 VEO3 固定 8 秒）。写死一家的档位，换供应商就会被服务商直接拒。
 #
-# TODO(发布后): 第一步的角色换成 design/design-video-prompt-engineer（视频提示词工程师，
-# 已写好但要等 agency-agents-zh 1.4.0 发布）。现在暂用图像提示词工程师顶岗——同一位提示词
-# 专家，摄影机/镜头/色调的词汇是通的，5 段式结构由下面的 task 明确给出。
 name: "一句话出短片"
 description: "一句创意 → 提示词工程师按 5 段式写成电影感提示词 → 文生视频直接出片，产出可直接发布的 mp4"
 category: "内容创作"
@@ -81,7 +78,7 @@ inputs:
 
 steps:
   - id: shot_prompt
-    role: "design/design-image-prompt-engineer"
+    role: "design/design-video-prompt-engineer"
     name: "提示词工程师"
     emoji: "🎬"
     task: |
@@ -128,7 +125,7 @@ steps:
     output: video_prompt
 
   - id: negative
-    role: "design/design-image-prompt-engineer"
+    role: "design/design-video-prompt-engineer"
     name: "反穿帮清单"
     emoji: "🚫"
     task: |
@@ -161,7 +158,7 @@ steps:
     depends_on: [shot_prompt]
 
   - id: pack
-    role: "design/design-image-prompt-engineer"
+    role: "design/design-video-prompt-engineer"
     name: "成片交付"
     emoji: "📦"
     task: |

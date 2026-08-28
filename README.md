@@ -11,7 +11,7 @@
 [![License: Apache-2.0](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](./LICENSE)
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](./CONTRIBUTING.md)
 
-**一句话出结果 · 267 个专业 AI 角色 · YAML 零代码 · 11 种大模型 · 支持 key（推荐 DeepSeek），也有 7 种免 key 方式**
+**一句话出结果 · 276 个专业 AI 角色 · YAML 零代码 · 11 种大模型 · 支持 key（推荐 DeepSeek），也有 7 种免 key 方式**
 
 > 📖 [完整上手教程](https://mp.weixin.qq.com/s/XcGbkMb6TM6NLQiL7ICwbw)（从安装到实战，10 分钟上手）&nbsp;·&nbsp; 🎓 **官方配套课程**：[AI 专家团队实战](https://aiolaola.com/course/ai-agency?utm_source=github&utm_campaign=orchestrator)（33 节免费，桌面端零代码：单兵点名→自动组队→一人公司全流程，含官方评测的诚实用法边界）· 另有 [AI 内容流水线](https://aiolaola.com/course/ai-pipeline?utm_source=github&utm_campaign=orchestrator)（31 节免费——**用 AO 产线真实生产两门课的全过程留档**：蒸馏、换角色审核、机械闸门、断点续跑，含七类翻车现场）＋ [从零学会 AI 编程](https://aiolaola.com/?utm_source=github&utm_campaign=orchestrator)（180 节）＋ [从零构建 AI 智能体](https://aiolaola.com/course/ai-agent?utm_source=github&utm_campaign=orchestrator)（40 节）
 
@@ -100,7 +100,7 @@ ao compose "我是一个程序员，想用AI做自媒体副业，目标月入2�
 ==================================================
 ```
 
-**不用写代码，不用写配置，不用选角色。** 一句话 → AI 自动拆解任务 → 从 267 个角色中匹配 → 按 DAG 并行执行 → 输出完整方案。
+**不用写代码，不用写配置，不用选角色。** 一句话 → AI 自动拆解任务 → 从 276 个角色中匹配 → 按 DAG 并行执行 → 输出完整方案。
 
 ### 你能用它做什么
 
@@ -125,12 +125,12 @@ ao compose "设计一个 SaaS 产品的定价策略" --run                   # �
 
 | | ChatGPT / Claude | CrewAI / LangGraph | **Agency Orchestrator** |
 |---|--------|-----------|---------------------|
-| 角色数 | 1 个通用 | 自己写 | **267 个专业角色** |
+| 角色数 | 1 个通用 | 自己写 | **276 个专业角色** |
 | 使用方式 | 对话 | 写 Python | **一句话 / YAML** |
 | API key | — | 必须 | **支持 key，也有 7 种免 key 方式** |
 | 依赖 | — | pip + 几十个包 | **npm + 2 个依赖** |
 | 并行 | — | 手动建图 | **DAG 自动检测** |
-| 中文角色 | — | 无 | **267 个** |
+| 中文角色 | — | 无 | **276 个** |
 | 价格 | 订阅制 | 开源 + API 费 | **DeepSeek 甜区极低成本，亦可免 key 起步** |
 
 ## 3 步开始
@@ -177,7 +177,7 @@ ao run workflows/story-creation.yaml -i premise="一个程序员发现AI开始�
 # ① 多专家把需求想清楚（澄清 → 计划 → 项目脚手架），代码块直接落盘成真实文件
 ao run workflows/需求转项目脚手架.yaml -i idea="一个自动记账的命令行小工具"   --materialize ./my-app
 
-# ② 把 267 个专家角色装进你的编程工具（claude-code / cursor / copilot…共 14 个）
+# ② 把 276 个专家角色装进你的编程工具（claude-code / cursor / copilot…共 14 个）
 ao install --tool claude-code --lang zh
 
 # ③ 交给编程 Agent 接着干——脚手架和专家角色都已就位
@@ -346,7 +346,7 @@ OPENAI_API_KEY=你的key
 
 ```bash
 ao demo                              # 零配置体验多智能体协作
-ao init                              # （可选）复制 267 个中文角色到本地以便编辑
+ao init                              # （可选）复制 276 个中文角色到本地以便编辑
 ao init --lang en                    # （可选）复制 191 个英文角色到本地以便编辑
 ao init --workflow                    # 交互式创建工作流
 ao compose "一句话描述"                # AI 智能编排工作流
@@ -378,14 +378,14 @@ ao serve                             # 启动 MCP Server（供 Claude Code / Cur
 
 ### AI 智能编排（Compose）
 
-一句话描述需求，AI 自动从 267 个角色中选角色、设计 DAG、生成完整 workflow YAML：
+一句话描述需求，AI 自动从 276 个角色中选角色、设计 DAG、生成完整 workflow YAML：
 
 ```bash
 ao compose "PR 代码审查，要覆盖安全和性能"
 ```
 
 AI 会自动：
-1. 从 267 角色中匹配出 Code Reviewer、Security Engineer、Performance Benchmarker
+1. 从 276 角色中匹配出 Code Reviewer、Security Engineer、Performance Benchmarker
 2. 设计 DAG（三路并行 → 汇总）
 3. 生成带 `depends_on`、变量串联的完整 YAML
 4. 保存到 `workflows/` — 直接 `ao run` 就能跑
@@ -675,7 +675,7 @@ ao-output/产品需求评审-2026-03-22/
 
 ```
 你的 AI 会员 ──→ agency-orchestrator ──→ 400+ 个 AI 角色协作 ──→ 高质量输出
-                     │                  (267 中文 + 191 英文 + 5 语种)
+                     │                  (276 中文 + 191 英文 + 5 语种)
     ┌────────────────┼────────────────┐
     ▼                ▼                ▼
   14 个 AI 编程工具    CLI 模式         MCP Server
@@ -685,8 +685,8 @@ ao-output/产品需求评审-2026-03-22/
 
 | 项目 | 定位 | 一句话 |
 |------|------|-------|
-| **本项目**（agency-orchestrator） | 🚀 编排引擎 | 一句话 → 267 专家协作，**几分钟出方案**（11 家 LLM / 7 免费） |
-| [agency-agents-zh](https://github.com/jnMetaCode/agency-agents-zh) ![](https://img.shields.io/github/stars/jnMetaCode/agency-agents-zh?style=flat&label=⭐) | 🎭 中文角色库 | 267 个**即插即用** AI 专家，含 52 中国原创（小红书 / 抖音 / 飞书 / 钉钉） |
+| **本项目**（agency-orchestrator） | 🚀 编排引擎 | 一句话 → 276 专家协作，**几分钟出方案**（11 家 LLM / 7 免费） |
+| [agency-agents-zh](https://github.com/jnMetaCode/agency-agents-zh) ![](https://img.shields.io/github/stars/jnMetaCode/agency-agents-zh?style=flat&label=⭐) | 🎭 中文角色库 | 276 个**即插即用** AI 专家，含 52 中国原创（小红书 / 抖音 / 飞书 / 钉钉） |
 | [agency-agents](https://github.com/msitarzewski/agency-agents) | 🎭 英文角色库 | 191 个英文 AI 角色（184 个来自 [@msitarzewski](https://github.com/msitarzewski)，MIT；另 7 个是本项目补的高管层与视频提示词工程师，见 `agency-agents/company/NOTICE.md`）——**已随 npm 包内置**，英文任务 `ao compose` 自动启用，无需单独安装 |
 | [ko](https://github.com/jnMetaCode/agency-agents-ko) · [ru](https://github.com/jnMetaCode/agency-agents-ru) · [pt-BR](https://github.com/jnMetaCode/agency-agents-pt-BR) · [id](https://github.com/jnMetaCode/agency-agents-id) · [ar](https://github.com/jnMetaCode/agency-agents-ar) | 🌍 多语言角色库 | 各 187 个（184 上游翻译 + 3 本地市场原创），`npm i agency-agents-<lang>` 后 Studio「角色库」下拉切换 |
 | [superpowers-zh](https://github.com/jnMetaCode/superpowers-zh) ![](https://img.shields.io/github/stars/jnMetaCode/superpowers-zh?style=flat&label=⭐) | 🧠 工作方法论 | 20 个 skills 教 AI 怎么干活（TDD / 调试 / 代码审查等） |

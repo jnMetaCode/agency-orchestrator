@@ -4,6 +4,11 @@
 
 ## [Unreleased]
 
+## [0.19.1] - 2026-08-28
+
+### Changed
+- **角色库升到 `agency-agents-zh` 1.4.0：267 → 276 位专家**。新增「公司经营」分类七位高管（CEO / CFO / CMO / COO / CPO / CTO / 幕僚长）与视频提示词工程师。两处过渡角色换回正主：「一句话出短片」三步的图像提示词工程师 → `design/design-video-prompt-engineer`；一人公司系列（做内容 / 做产品 / 全员大会）5 处 `specialized/business-strategist` → `company/chief-executive-officer`。全站计数与专家静态页同步到 276。
+
 ## [0.19.0] - 2026-08-28
 
 ### Added

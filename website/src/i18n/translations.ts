@@ -26,7 +26,7 @@ const zh = {
     title: "一句话，让 agency-agents 的专家",
     titleHighlight: "自动组队协作",
     subtitle:
-      "把你的「一人公司」开起来——你当老板，AI 当团队。描述需求 → AI 自动拆解任务 → 从 267 位专家中选角 → 按 DAG 并行执行 → 重大决策请你签字 → 按验收标准交付完整方案。专家来自开源库 agency-agents，AO 负责把他们编排成一支团队。",
+      "把你的「一人公司」开起来——你当老板，AI 当团队。描述需求 → AI 自动拆解任务 → 从 276 位专家中选角 → 按 DAG 并行执行 → 重大决策请你签字 → 按验收标准交付完整方案。专家来自开源库 agency-agents，AO 负责把他们编排成一支团队。",
     ctaDownload: "下载客户端",
     ctaPrimary: "在 GitHub 上查看",
     ctaSecondary: "看赞助商权益",
@@ -34,7 +34,7 @@ const zh = {
     copy: "复制",
     copied: "已复制",
     stats: [
-      { value: "267", label: "agency-agents 专家" },
+      { value: "276", label: "agency-agents 专家" },
       { value: "11", label: "种大模型" },
       { value: "DAG", label: "自动并行编排" },
       { value: "YAML", label: "零代码定义" },
@@ -69,7 +69,7 @@ const zh = {
       },
       {
         icon: "users",
-        title: "267 位 agency-agents 专家",
+        title: "276 位 agency-agents 专家",
         desc: "全部来自开源专家库 agency-agents：营销 / 工程 / 设计 / 产品 / 财务 / 法律……即插即用，含中国本土平台角色（小红书 / 抖音 / 知乎 / B站 / 微信）。",
       },
       {
@@ -755,7 +755,7 @@ const zh = {
           'name: "我的工作流"\nllm:\n  provider: "deepseek"\n  model: "deepseek-chat"\nsteps:\n  - id: research\n    role: "product/product-trend-researcher"\n    task: "调研 {{topic}} 的市场"\n    output: research\n  - id: write\n    role: "marketing/marketing-content-creator"\n    task: "基于 {{research}} 写方案"\n    depends_on: [research]',
       },
     ],
-    moreInRepo: "完整文档与 267 个角色清单见 GitHub 仓库。",
+    moreInRepo: "完整文档与 276 个角色清单见 GitHub 仓库。",
   },
   tutorials: {
     badge: "官方 + 社区",
