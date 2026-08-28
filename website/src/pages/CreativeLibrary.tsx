@@ -456,7 +456,14 @@ export default function CreativeLibrary() {
       .catch(() => setExtra([]))
       .finally(() => setExtraLoading(false));
   }, [extra, extraLoading]);
-  const imagePrompts = useMemo(() => (extra ? [...DATA.prompts, ...extra] : DATA.prompts), [extra]);
+  // 精选置顶：首屏第一眼决定要不要往下翻。这几条是画面最抓人的（作者拍板 2026-08-28），
+  // 只在默认视图（全部分类、没搜索）置顶；搜索/筛选时按原顺序，不打乱结果。
+  const FEATURED_FIRST = ["ym-7", "ym-8", "ym-9"];
+  const imagePrompts = useMemo(() => {
+    const all = extra ? [...DATA.prompts, ...extra] : DATA.prompts;
+    const pinned = FEATURED_FIRST.map((id) => all.find((p) => p.id === id)).filter((p): p is typeof all[number] => !!p);
+    return pinned.length ? [...pinned, ...all.filter((p) => !FEATURED_FIRST.includes(p.id))] : all;
+  }, [extra]);
   const [videoData, setVideoData] = useState<VideoData | null>(null);
   const [videoLoading, setVideoLoading] = useState(false);
   useEffect(() => {
