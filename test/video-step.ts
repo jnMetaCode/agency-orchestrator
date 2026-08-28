@@ -126,13 +126,15 @@ await test('缺 video.model 在解析期就报错（不猜模型编码）', () =
   rmSync(dir, { recursive: true, force: true });
 });
 
-await test('video 步骤挂 acceptance 直接报错，不静默忽略', () => {
+await test('video 步骤：acceptance 放行（抽帧看图验收）、assert 直接报错不静默忽略', () => {
   const dir = mkdtempSync(join(tmpdir(), 'ao-vid-wf-'));
   const f = join(dir, 'w.yaml');
-  writeFileSync(f, 'name: "x"\nllm:\n  provider: "metaso"\n  model: "m"\nsteps:\n  - id: a\n    type: video\n    task: "猫"\n    acceptance: "要好看"\n    video:\n      model: "MiniMax-H3"\n', 'utf-8');
+  writeFileSync(f, 'name: "x"\nllm:\n  provider: "metaso"\n  model: "m"\nsteps:\n  - id: a\n    type: video\n    task: "猫"\n    acceptance: "有猫"\n    video:\n      model: "MiniMax-H3"\n', 'utf-8');
+  assert(parseWorkflow(f).steps[0].acceptance === '有猫', 'acceptance 应通过解析');
+  writeFileSync(f, 'name: "x"\nllm:\n  provider: "metaso"\n  model: "m"\nsteps:\n  - id: a\n    type: video\n    task: "猫"\n    assert:\n      contains: ["x"]\n    video:\n      model: "MiniMax-H3"\n', 'utf-8');
   let msg = '';
   try { parseWorkflow(f); } catch (e) { msg = e instanceof Error ? e.message : String(e); }
-  assert(/acceptance/.test(msg), `应明说不支持 acceptance，实际：${msg}`);
+  assert(/assert/.test(msg) && /不支持/.test(msg), `应明说不支持 assert，实际：${msg}`);
   rmSync(dir, { recursive: true, force: true });
 });
 

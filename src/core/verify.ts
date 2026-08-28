@@ -177,10 +177,10 @@ export function buildReworkBlock(
 }
 
 /**
- * 图片验收：把**图片本身**交给能看图的文本模型逐条核对验收标准。
+ * 视觉验收：把**成品本身**（一张图，或一段视频抽出的几帧）交给能看图的文本模型逐条核对验收标准。
  *
- * 为什么不是"把图交给下游视觉步骤去审"：审完不合格得有人**重出**——那是执行器里图片步骤
- * 自己的事（验收未过 → 带着未满足项重出一张 → 复核），下游步骤没法回头改上游。
+ * 为什么不是"把图交给下游视觉步骤去审"：审完不合格得有人**重出**——那是执行器里媒体步骤
+ * 自己的事（验收未过 → 带着未满足项重出 → 复核），下游步骤没法回头改上游。
  * 图片走 utils/vision.ts 的 data URI 协议进用户消息：支持 vision 的连接器
  * （openai-compatible / claude）会拆成多模态消息；不支持的（CLI 订阅类 / ollama）会把图剥掉——
  * 那样判出来的结论是对着「[图片输入已跳过]」这行字判的，等于瞎判，所以调用方必须先按
@@ -189,38 +189,45 @@ export function buildReworkBlock(
  * 判定口径与 verifyAcceptance 同源：只按标准字面判、不发明更严要求；判未满足时 why 必须
  * 描述**画面里**实际看到的东西（描述不出来 = 其实满足了）。
  */
-export async function verifyImageAcceptance(
+export async function verifyVisualAcceptance(
   connector: LLMConnector,
   llm: LLMConfig,
-  imagePrompt: string,
-  imageDataUri: string,
+  genPrompt: string,
+  imageDataUris: string[],
   acceptance: string,
+  kind: 'image' | 'video' = 'image',
 ): Promise<{ verdict: VerifyVerdict | null; tokens: { input: number; output: number } }> {
   const zh = /[一-鿿]/.test(acceptance);
+  const many = imageDataUris.length;
+  const frames = imageDataUris.map((u, i) => (kind === 'video' ? (zh ? `第 ${i + 1}/${many} 帧：` : `Frame ${i + 1}/${many}: `) : '') + u).join('\n');
   const prompt = zh
     ? [
-        '你是严格的视觉交付验收员。下面这张图是按给定提示词生成的，请**看图**逐条核对它是否满足验收标准。',
+        kind === 'video'
+          ? `你是严格的视觉交付验收员。下面是按给定提示词生成的一段视频按时间顺序抽出的 ${many} 帧（开头→结尾），请**看画面**逐条核对它是否满足验收标准。`
+          : '你是严格的视觉交付验收员。下面这张图是按给定提示词生成的，请**看图**逐条核对它是否满足验收标准。',
         '判定口径（很重要）：',
         '- **只按标准写了的字面要求判**。标准没写的细节不算缺失——不要发明标准里没有的更严要求。',
         '- 标准里**明确枚举**的东西（必须出现的元素、数量、文字）只做到一部分算未满足。',
         '- 判"未满足"时，why 里必须**描述画面里实际看到的内容**说明为什么不满足；描述不出来就说明它其实满足了。',
-        '- 审的是这张图，不是提示词写得好不好。',
-        `生成提示词：${trunc(imagePrompt, 2000)}`,
+        kind === 'video' ? '- 你只能看到静帧：运动、节奏、声音判不了，标准里涉及这些的一律按满足处理，不要猜。' : '- 审的是这张图，不是提示词写得好不好。',
+        `生成提示词：${trunc(genPrompt, 2000)}`,
         '', '验收标准：', acceptance,
-        '', '待验收图片：', imageDataUri, '',
+        '', kind === 'video' ? '待验收视频抽帧：' : '待验收图片：', frames, '',
         '只输出一行 JSON，不要任何额外文字：{"pass": true/false, "failed": [{"criterion": "未满足的条目原文", "why": "画面里看到了什么/缺了什么"}]}',
         '全部满足时 failed 必须是空数组 []。',
       ].join('\n')
     : [
-        'You are a strict visual acceptance reviewer. The image below was generated from the given prompt. LOOK at the image and check it against EACH criterion.',
+        kind === 'video'
+          ? `You are a strict visual acceptance reviewer. Below are ${many} frames sampled in order (start→end) from a video generated from the given prompt. LOOK at them and check against EACH criterion.`
+          : 'You are a strict visual acceptance reviewer. The image below was generated from the given prompt. LOOK at the image and check it against EACH criterion.',
         'How to judge (important):',
         '- Judge ONLY what a criterion literally asks for. Details it never mentions are not gaps — do not invent stricter requirements.',
         '- For things a criterion explicitly ENUMERATES (required elements, counts, text), partially met counts as NOT met.',
-        '- When marking something unmet, `why` MUST describe what is actually visible in the image. If you cannot describe it, it is met.',
-        '- Review the image, not the quality of the prompt.',
-        `Generation prompt: ${trunc(imagePrompt, 2000)}`,
+        '- When marking something unmet, `why` MUST describe what is actually visible. If you cannot describe it, it is met.',
+        kind === 'video' ? '- You only see still frames: motion, pacing and sound cannot be judged — treat criteria about them as met, never guess.' : '- Review the image, not the quality of the prompt.',
+        `Generation prompt: ${trunc(genPrompt, 2000)}`,
         '', 'Acceptance criteria:', acceptance,
-        '', 'Image under review:', imageDataUri, '',
+        '', kind === 'video' ? 'Sampled frames under review:' : 'Image under review:', frames, '',
         'Output exactly one line of JSON, nothing else: {"pass": true/false, "failed": [{"criterion": "the unmet criterion", "why": "what is visible / missing"}]}',
         'If all criteria are met, failed MUST be an empty array [].',
       ].join('\n');
@@ -243,11 +250,18 @@ export async function verifyImageAcceptance(
       if (verdict) return { verdict, tokens };
     } catch (err) {
       // 网络/超时/模型不支持 vision（服务端 4xx）：核验不可用 → null，由调用方告警跳过
-      if (process.env.AO_DEBUG) process.stderr.write(`  [verify-image] ${err instanceof Error ? err.message : String(err)}\n`);
+      if (process.env.AO_DEBUG) process.stderr.write(`  [verify-visual] ${err instanceof Error ? err.message : String(err)}\n`);
       return { verdict: null, tokens };
     }
   }
   return { verdict: null, tokens };
+}
+
+/** 单图便捷入口（图片步骤用）。 */
+export function verifyImageAcceptance(
+  connector: LLMConnector, llm: LLMConfig, imagePrompt: string, imageDataUri: string, acceptance: string,
+): Promise<{ verdict: VerifyVerdict | null; tokens: { input: number; output: number } }> {
+  return verifyVisualAcceptance(connector, llm, imagePrompt, [imageDataUri], acceptance, 'image');
 }
 
 /**
@@ -260,7 +274,7 @@ export function canSeeImages(provider: string): boolean {
 }
 
 /**
- * 图片重出的提示词：图片模型没有"上一版"可改（每次都是重新采样），能做的是把未满足项
+ * 图片/视频重出的提示词：生成模型没有"上一版"可改（每次都是重新采样），能做的是把未满足项
  * 变成提示词末尾的**明确约束**——同一段正文 + "必须：…"。不改正文本身：正文是作者/上游写的，
  * 验收员只该追加它漏了的硬要求。
  */
@@ -268,6 +282,6 @@ export function buildImageReworkPrompt(prompt: string, failed: { criterion: stri
   const zh = /[一-鿿]/.test(failed.map(f => `${f.criterion}${f.why}`).join('') + prompt.slice(0, 200));
   const items = failed.map((f, i) => `${i + 1}. ${f.criterion || f.why}${f.criterion && f.why ? (zh ? `（上一版：${f.why}）` : ` (previous attempt: ${f.why})`) : ''}`).join('\n');
   return zh
-    ? `${prompt.trim()}\n\n以下要求上一版图片没有做到，这一版必须满足：\n${items}`
-    : `${prompt.trim()}\n\nThe previous image failed these requirements; this version MUST satisfy them:\n${items}`;
+    ? `${prompt.trim()}\n\n以下要求上一版没有做到，这一版必须满足：\n${items}`
+    : `${prompt.trim()}\n\nThe previous attempt failed these requirements; this version MUST satisfy them:\n${items}`;
 }

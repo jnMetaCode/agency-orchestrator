@@ -23,8 +23,10 @@ export interface MediaSpendItem {
   seconds?: number;      // 视频秒数（能解析出数字时）
   /** 该步带 condition 且条件靠上游产出才能判 → 视条件；条件只引用输入时已经判定 */
   conditional: 'yes' | 'no' | 'unknown';
-  /** 图片步骤挂了 acceptance：验收不过会重出一张（最多多花一张） */
+  /** 挂了 acceptance。图片：不过会重出一张（最多多花一张）；视频：只审不重出，除非 rework */
   verified?: boolean;
+  /** 视频：验收不过会重出（video.rework: true），最多再花一条 */
+  rework?: boolean;
 }
 
 export interface MediaSpendSummary {
@@ -67,6 +69,7 @@ export function summarizeMediaSpend(workflow: WorkflowDefinition, inputs: Map<st
         spec: [soft(v.resolution, inputs), Number.isFinite(sec) && sec > 0 ? `${sec}s` : secRaw ? `${secRaw}s` : '', soft(v.ratio, inputs)].filter(Boolean).join(' · '),
         ...(Number.isFinite(sec) && sec > 0 ? { seconds: sec } : {}),
         conditional: judgeCondition(s, inputs),
+        ...(s.acceptance ? { verified: true, rework: v.rework === true } : {}),
       });
     } else if (s.type === 'image') {
       const im = s.image ?? {};
@@ -110,7 +113,10 @@ export function summarizeMediaSpend(workflow: WorkflowDefinition, inputs: Map<st
     for (const g of groups.values()) {
       const v = g[0];
       const cond = g.some((x) => x.conditional === 'unknown') ? '（视条件）' : '';
-      lines.push(`🎬 出片 ${g.length} 条 × ${v.spec || '档位未填'}  ${v.provider}${v.model ? ` / ${v.model}` : ''}${cond}`);
+      const rw = g.filter((x) => x.rework).length;
+      const judged = g.filter((x) => x.verified && !x.rework).length;
+      const note = rw ? `（${rw} 条挂了验收且开了重出，不过会再出一条，最多 +${rw}）` : judged ? `（${judged} 条挂了验收，只审不重出）` : '';
+      lines.push(`🎬 出片 ${g.length} 条 × ${v.spec || '档位未填'}  ${v.provider}${v.model ? ` / ${v.model}` : ''}${cond}${note}`);
     }
     const unknownSec = videos.some((v) => v.seconds === undefined);
     lines.push(`   合计 ${videoSeconds}${unknownSec ? '+' : ''} 秒——按秒计费，钱在这一步花出去`);

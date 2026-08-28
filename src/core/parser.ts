@@ -131,9 +131,12 @@ export function parseWorkflow(
     if (!step.task && !isHumanNode && !isConcatNode) {
       fail(`step "${step.id}" 缺少 task${isImageNode ? '（image 步骤的 task 就是图片提示词）' : isVideoNode ? '（video 步骤的 task 就是视频提示词）' : isTtsNode ? '（tts 步骤的 task 就是要念的文案）' : ''}`);
     }
-    if (isVideoNode && (step.acceptance || step.assert)) {
-      // 同 image：核验的是文本产出，视频核验是另一件事，别装作跑了
-      fail(`step "${step.id}" 是 video 步骤，暂不支持 acceptance / assert（它们核验的是文本产出）`);
+    if (isVideoNode && step.assert) {
+      // 同 image：assert 数的是文本结构。acceptance 可以：抽帧交给能看图的文本模型审（默认只审不重出）
+      fail(`step "${step.id}" 是 video 步骤，不支持 assert（它核验的是文本结构）；要审成片请用 acceptance（抽帧给支持 vision 的文本模型看，video.rework: true 才会重出）`);
+    }
+    if (isVideoNode && step.video?.rework !== undefined && typeof step.video.rework !== 'boolean') {
+      fail(`step "${step.id}" 的 video.rework 必须是 true/false`);
     }
     if (isVideoNode && !step.video?.model) {
       // 视频比图片更贵、更慢（异步任务、按秒计费），猜错模型 = 等几分钟收到"模型不存在"

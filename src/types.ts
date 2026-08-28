@@ -114,6 +114,11 @@ export interface StepDefinition {
     ratio?: string;       // 如 "16:9"
     timeout?: number;     // 整个任务（建 + 轮询 + 下载）的上限毫秒，默认 10 分钟
     poll_interval?: number; // 轮询间隔毫秒，默认 5 秒
+    /**
+     * acceptance 未过时要不要重出一条（默认 false：只审、标 ⚠️、不重出）。
+     * 视频按秒真钱，重出 = 再付一整条；图片默认重出而视频默认不重出，就是这个差别。
+     */
+    rework?: boolean;
   };
   prompt?: string;            // approval / human_input 类型的提示文本
   condition?: string;           // 如 "{{category}} contains bug"

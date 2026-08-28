@@ -189,6 +189,8 @@ steps:
       duration: 5                    # seconds — billed per second, never inflated by the engine
       image: "{{cover_img}}"          # optional image-to-video first frame: public URL, an upstream image step's output, or a local path. Vendors accept public URLs only — APIMart uploads local files automatically (POST /v1/uploads/images, 72h); MetaSota has no upload, local files fail with a clear error
       ratio: "16:9"
+      rework: false                  # optional: regenerate once when acceptance fails (default false — video is billed per second; the default only reports ⚠️)
+    acceptance: "1. 画面里有一只猫  2. 没有文字或水印"   # optional: 3 frames (start/mid/end, local ffmpeg) go to the vision-capable text provider; judges still frames only — write visible hard conditions, not motion/sound. No ffmpeg → skipped with a warning.
     output: promo_mp4                # variable = markdown link; mp4 saved to <run>/assets/
 
   - id: vo1                          # text-to-speech step: task IS the text to speak

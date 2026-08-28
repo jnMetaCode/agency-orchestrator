@@ -21,7 +21,9 @@ import { generateImage } from '../connectors/image.js';
 import { generateVideo , type VideoStepOptions } from '../connectors/video.js';
 import { concatVideos } from '../media/concat.js';
 import { generateSpeech, type TtsStepOptions } from '../connectors/tts.js';
-import { verifyAcceptance, buildReworkBlock, formatFailedItems, verifyImageAcceptance, buildImageReworkPrompt, canSeeImages } from './verify.js';
+import { verifyAcceptance, buildReworkBlock, formatFailedItems, verifyImageAcceptance, verifyVisualAcceptance, buildImageReworkPrompt, canSeeImages } from './verify.js';
+import { extractFrames, jpegDataUri } from '../media/frames.js';
+import { FfmpegMissingError } from '../media/concat.js';
 import { checkAssert, buildAssertReworkBlock } from './assert.js';
 import { createInterface } from 'node:readline';
 
@@ -610,7 +612,75 @@ async function executeStep(
       }
       videoOpts.duration = n;
     }
-    const vid = await generateVideo(vidConfig, prompt, videoOpts, (m: string) => process.stderr.write(`  ${m}\n`));
+    const vlog = (m: string) => process.stderr.write(`  ${m}\n`);
+    let vid = await generateVideo(vidConfig, prompt, videoOpts, vlog);
+
+    // 视频验收：抽 3 帧（开头/中段/结尾）交给能看图的文本模型逐条核对。与图片验收的差别只有一个：
+    // **默认只审不重出**——视频按秒真钱，重出 = 再付一整条，得作者写 video.rework: true 明示。
+    // 静帧判不了运动与声音，标准只该写画面里看得见的硬条件（文档里说了）。
+    if (node.step.acceptance) {
+      node.acceptance = renderTemplate(node.step.acceptance, opts.context);
+      const verifyEnabled = opts.verify === true && node.step.verify !== false;
+      if (verifyEnabled) {
+        const judgeCfg: LLMConfig = (node.step.llm ? { ...opts.llmConfig, ...node.step.llm } : opts.llmConfig) as LLMConfig;
+        const judge = (!opts.connector || (node.step.llm && (node.step.llm.provider || node.step.llm.base_url !== undefined || node.step.llm.api_key !== undefined)))
+          ? createConnector(judgeCfg) : opts.connector;
+        const tokens = { input: 0, output: 0 };
+        const add = (t: { input: number; output: number }) => { tokens.input += t.input; tokens.output += t.output; node.tokenUsage = { ...tokens }; };
+        const judgeClip = async (buf: Buffer) => {
+          const fr = await extractFrames(buf, 3);
+          return verifyVisualAcceptance(judge, judgeCfg, prompt, fr.frames.map(jpegDataUri), node.acceptance!, 'video');
+        };
+        if (!canSeeImages(judgeCfg.provider)) {
+          process.stderr.write(`  ⚠️  ${node.step.id} 写了 acceptance，但文本供应商 ${judgeCfg.provider} 看不了图（CLI/本地连接器会剥掉图片），已跳过视频验收\n`);
+        } else {
+          let c1: Awaited<ReturnType<typeof judgeClip>> | null = null;
+          try { c1 = await judgeClip(vid.buffer); } catch (err) {
+            const msg = err instanceof Error ? err.message : String(err);
+            process.stderr.write(`  ⚠️  ${node.step.id} 抽帧失败，已跳过视频验收：${err instanceof FfmpegMissingError ? msg : msg.slice(0, 160)}\n`);
+          }
+          if (c1) {
+            add(c1.tokens);
+            if (!c1.verdict) {
+              process.stderr.write(`  ⚠️  ${node.step.id} 视频验收不可用（模型不支持看图或核验出错），已跳过验收\n`);
+            } else if (c1.verdict.pass) {
+              node.verification = { pass: true, failed: [], reworked: false };
+            } else {
+              const failed1 = formatFailedItems(c1.verdict.failed);
+              if (!videoOpts.rework) {
+                node.verification = { pass: false, failed: failed1, reworked: false };
+                process.stderr.write(`\n  ⚠️  ${node.step.id} 视频验收未过（${failed1.length} 条未满足）。按秒计费，默认不重出——要自动重出请写 video.rework: true，或看完片后 --resume --from ${node.step.id}\n`);
+                failed1.forEach((f) => process.stderr.write(`      · ${f}\n`));
+              } else {
+                process.stderr.write(`\n  ⟳ ${node.step.id} 视频验收未过（${failed1.length} 条未满足），video.rework 已开：带着未满足项重出一条（再付一整条的钱）...\n`);
+                failed1.forEach((f) => process.stderr.write(`      · ${f}\n`));
+                try {
+                  const vid2 = await generateVideo(vidConfig, buildImageReworkPrompt(prompt, c1.verdict.failed), videoOpts, vlog);
+                  let c2: Awaited<ReturnType<typeof judgeClip>> | null = null;
+                  try { c2 = await judgeClip(vid2.buffer); } catch { /* 抽帧失败 → 复核不可用 */ }
+                  if (c2) add(c2.tokens);
+                  vid = vid2;
+                  if (c2?.verdict?.pass) {
+                    node.verification = { pass: true, failed: [], reworked: true };
+                  } else if (c2?.verdict) {
+                    node.verification = { pass: false, failed: formatFailedItems(c2.verdict.failed), reworked: true };
+                    process.stderr.write(`\n  ⚠️  ${node.step.id} 重出后仍有 ${c2.verdict.failed.length} 条未满足\n`);
+                  } else {
+                    node.verification = { pass: false, failed: failed1, reworked: true };
+                    process.stderr.write(`\n  ⚠️  ${node.step.id} 重出后复核不可用，验收状态按未通过记录\n`);
+                  }
+                } catch (err) {
+                  const msg = err instanceof Error ? err.message.slice(0, 80) : String(err);
+                  process.stderr.write(`\n  ⚠️  ${node.step.id} 重出失败（${msg}），保留第一条\n`);
+                  node.verification = { pass: false, failed: failed1, reworked: false };
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+
     const filename = `${node.step.id}.mp4`;
     node.videoAsset = { filename, base64: vid.buffer.toString('base64'), ...(vid.seconds ? { seconds: vid.seconds } : {}) };
     producedVideos.set(filename, vid.buffer);

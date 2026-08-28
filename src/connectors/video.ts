@@ -31,6 +31,8 @@ export interface VideoStepOptions {
   image?: string;
   /** 本地首帧图字节（执行器从上游图片步骤/文件解析）；有上传接口的厂商先传再用 */
   image_bytes?: Buffer;
+  /** acceptance 未过时重出一条（执行器读；连接器不用） */
+  rework?: boolean;
   image_name?: string;
 }
 

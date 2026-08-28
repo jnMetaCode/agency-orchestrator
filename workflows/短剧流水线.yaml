@@ -446,6 +446,10 @@ steps:
       duration: "{{video_duration}}"
       image: "{{character_img}}"
       ratio: "{{video_ratio}}"
+    # 抽 3 帧看图验收（默认只审不重出：按秒真钱，看完片再决定 --resume --from shot1 或写 video.rework: true）
+    acceptance: |
+      1. 画面里有主角，且是定妆图里的同一个人物（发型、服装一致）
+      2. 画面里没有文字、字幕、水印或 logo
     output: shot1_mp4
     depends_on: [character, shot1_prompt]
 
@@ -461,6 +465,10 @@ steps:
       duration: "{{video_duration}}"
       image: "{{character_img}}"
       ratio: "{{video_ratio}}"
+    # 抽 3 帧看图验收（默认只审不重出：按秒真钱，看完片再决定 --resume --from shot2 或写 video.rework: true）
+    acceptance: |
+      1. 画面里有主角，且是定妆图里的同一个人物（发型、服装一致）
+      2. 画面里没有文字、字幕、水印或 logo
     output: shot2_mp4
     depends_on: [character, shot2_prompt]
 
@@ -476,6 +484,10 @@ steps:
       duration: "{{video_duration}}"
       image: "{{character_img}}"
       ratio: "{{video_ratio}}"
+    # 抽 3 帧看图验收（默认只审不重出：按秒真钱，看完片再决定 --resume --from shot3 或写 video.rework: true）
+    acceptance: |
+      1. 画面里有主角，且是定妆图里的同一个人物（发型、服装一致）
+      2. 画面里没有文字、字幕、水印或 logo
     output: shot3_mp4
     depends_on: [character, shot3_prompt]
 
