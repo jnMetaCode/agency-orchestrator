@@ -4,6 +4,8 @@
 
 ## [Unreleased]
 
+## [0.19.0] - 2026-08-28
+
 ### Added
 - **Agnes 图生视频真机接通**：短剧流水线三镜此前一条没出——先是 inlineImage 形状拿着解析好的本地首帧被当"没解析成本地图片"拒掉（已修），再是 Agnes 拒收 multipart（"only supports application/json"）。零成本探测（无效请求体只回 400）摸出契约：`mode` 合法值只有 text / reference / **keyframe**，图放 JSON 的 `first_frame`（data URI 或裸 base64；64×64 探针图会被"valid base64 data"拒——它校验的是图不是编码）。供应商表新增 `imageJsonField` + `createExtraWithImage`，mime 按字节魔数判。
 - **顶层 `verify_llm` / CLI `--verify-provider --verify-model`：指定验收员模型**。真机跑短剧流水线时暴露：验收员固定等于文本供应商，文本走 DeepSeek（看不了图）时媒体步的看图验收只能整段跳过，唯一出路是给每个媒体步手改 `llm:`。现在一处指定（优先级：步骤级 `llm` > `--verify-provider` > YAML `verify_llm` > 文本供应商），文本步的验收也一并换成它；换供应商时文本供应商的 base_url / api_key 不带过去（同 image/video.provider 规则）。写错形状解析期报。

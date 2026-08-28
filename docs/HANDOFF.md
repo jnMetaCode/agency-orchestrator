@@ -5,7 +5,7 @@
 
 ## 〇、当前状态速览（2026-08-25）
 
-**代码侧没有阻塞**，两处等维护者动作。当前版本：npm `v0.18.0` · 桌面 `v0.4.8`（三平台）· Docker `0.18.0`。
+**代码侧没有阻塞**，两处等维护者动作。当前版本：npm `v0.19.0` · 桌面 `v0.4.9`（三平台）· Docker `0.19.0`。
 
 - **发版**：推 `v*` tag → npm（Trusted Publishing/OIDC）+ Docker（内置等-npm-出现的防竞态轮询）；推 `desktop-v*` → 三平台桌面包。macOS 签名流水线已备好，填 5 个 Secrets 即自动真签名+公证（`docs/SIGNING.md`）。**给流水线加新步骤前必须本地原样预演**（悬空 .bin 符号链接曾炸掉一次 mac 构建）。
 - **最新能力：文生视频**（`type: video`，`src/connectors/video.ts`）——建任务 → 轮询 → 下载 → Studio 内联播放，接了两家（秘塔 MiniMax-H3 / APIMart Sora2·VEO3·可灵）。加第二家只新增了一个 `SHAPES` adapter，主流程一行没动。三条硬纪律见下方「视频步骤」小节。
