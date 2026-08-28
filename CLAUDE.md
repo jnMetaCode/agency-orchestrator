@@ -141,6 +141,9 @@ llm:
   # Do NOT include /v1 — the client appends /v1/messages itself (`ao doctor` flags it if you do).
 
 concurrency: 2
+verify_llm: { provider: "agnes", model: "agnes-2.0-flash" }   # optional: which model acts as the acceptance reviewer (default: the text provider).
+                                                              # Image/video acceptance needs a vision-capable API model and DeepSeek can't see images — set this
+                                                              # (or CLI --verify-provider/--verify-model) instead of hand-adding `llm:` to every media step. Step-level `llm:` still wins.
 
 inputs:
   - name: variable_name

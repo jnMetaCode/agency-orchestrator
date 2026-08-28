@@ -121,6 +121,8 @@ export async function run(
      * > YAML 顶层 verify > 默认开。只影响写了 acceptance 的步骤。
      */
     verify?: boolean;
+    /** 验收员模型（CLI --verify-provider/--verify-model）；优先级高于 YAML 顶层 verify_llm */
+    verifyLlm?: Partial<import('./types.js').LLMConfig>;
     /** 覆盖 LLM 配置（例如来自 ao demo） */
     llmOverride?: Partial<import('./types.js').LLMConfig>;
     /**
@@ -393,6 +395,7 @@ export async function run(
     restoredStepMeta,
     feedback: feedbackOption,
     verify: options?.verify ?? workflow.verify ?? true,
+    verifyLlm: options?.verifyLlm ?? workflow.verify_llm,
     stepResultsSink: partialSteps,
     onBatchStart: quiet ? undefined : useWatch ? (nodes) => {
       for (const node of nodes) {

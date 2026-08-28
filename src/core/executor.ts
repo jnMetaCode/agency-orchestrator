@@ -54,6 +54,8 @@ export interface ExecutorOptions {
    * 计算后传入；库级直调 executeDAG 不传 = 不核验（向后兼容）。step.verify: false 单步关闭。
    */
   verify?: boolean;
+  /** 验收员模型覆盖（YAML 顶层 verify_llm / CLI --verify-provider）。缺省 = 文本供应商；步骤级 llm 优先级更高 */
+  verifyLlm?: Partial<LLMConfig>;
   /**
    * 调用方提供的步骤结果收集数组：executor 增量写入（每步完成即可见），
    * 供 SIGTERM/SIGINT 中断时把已完成步骤落盘成 metadata（否则中断的 run 无痕）。
@@ -213,6 +215,7 @@ export async function executeDAG(dag: DAG, options: ExecutorOptions): Promise<Wo
           onStepStart,
           feedback: options.feedback,
           verify: options.verify,
+          verifyLlm: options.verifyLlm,
         }).then(value => {
           // 中断兜底：settle 即写入 sink 一份最小记录，不等整批屏障——否则并行批次里
           // 先完成的步骤在 SIGTERM 时会被当作"未完成"丢弃（产出和 token 白花）。
@@ -433,6 +436,36 @@ export function timeoutFailureHint(provider: string, opts?: { noContent?: boolea
   return lines.join('\n');
 }
 
+/**
+ * 验收员用哪个模型、哪个 connector。优先级：步骤级 llm > 顶层 verify_llm / --verify-provider > 文本供应商。
+ * 换了供应商就必须重建 connector（api_key / base_url 存在构造时的私有字段），且文本供应商的
+ * base_url / api_key 不带过去（与 image.provider / video.provider 同一条规则）。
+ */
+function resolveJudge(
+  node: DAGNode,
+  opts: { connector?: LLMConnector; llmConfig: LLMConfig; verifyLlm?: Partial<LLMConfig> },
+): { cfg: LLMConfig; connector: LLMConnector } {
+  const stepLlm = node.step.llm;
+  if (stepLlm) {
+    const cfg = { ...opts.llmConfig, ...stepLlm } as LLMConfig;
+    const needsNew = !opts.connector || !!(stepLlm.provider && stepLlm.provider !== opts.llmConfig.provider) || stepLlm.base_url !== undefined || stepLlm.api_key !== undefined;
+    return { cfg, connector: needsNew ? createConnector(cfg) : opts.connector! };
+  }
+  if (opts.verifyLlm?.provider) {
+    const sameProvider = opts.verifyLlm.provider === opts.llmConfig.provider;
+    const cfg = {
+      ...opts.llmConfig,
+      ...(sameProvider ? {} : { base_url: undefined, api_key: undefined }),
+      ...opts.verifyLlm,
+    } as LLMConfig;
+    const reuse = sameProvider && !!opts.connector && opts.verifyLlm.base_url === undefined && opts.verifyLlm.api_key === undefined;
+    return { cfg, connector: reuse ? opts.connector! : createConnector(cfg) };
+  }
+  // 纯媒体工作流没有文本 connector（opts.connector 为空）——验收员按文本供应商配置现建一个
+  if (!opts.connector) return { cfg: opts.llmConfig, connector: createConnector(opts.llmConfig) };
+  return { cfg: opts.llmConfig, connector: opts.connector };
+}
+
 async function executeStep(
   node: DAGNode,
   opts: {
@@ -445,6 +478,7 @@ async function executeStep(
     onStepStart?: (node: DAGNode) => void;
     feedback?: { stepId: string; text: string; previousOutput?: string };
     verify?: boolean;
+    verifyLlm?: Partial<LLMConfig>;
   }
 ): Promise<string> {
   node.status = 'running';
@@ -513,10 +547,7 @@ async function executeStep(
       node.acceptance = renderTemplate(node.step.acceptance, opts.context);
       const verifyEnabled = opts.verify === true && node.step.verify !== false;
       if (verifyEnabled) {
-        const judgeCfg: LLMConfig = (node.step.llm ? { ...opts.llmConfig, ...node.step.llm } : opts.llmConfig) as LLMConfig;
-        // 纯媒体工作流没有文本 connector（opts.connector 为空）——验收员按文本供应商配置现建一个
-        const judge = (!opts.connector || (node.step.llm && (node.step.llm.provider || node.step.llm.base_url !== undefined || node.step.llm.api_key !== undefined)))
-          ? createConnector(judgeCfg) : opts.connector;
+        const { cfg: judgeCfg, connector: judge } = resolveJudge(node, opts);
         if (!canSeeImages(judgeCfg.provider)) {
           process.stderr.write(`  ⚠️  ${node.step.id} 写了 acceptance，但文本供应商 ${judgeCfg.provider} 看不了图（CLI/本地连接器会剥掉图片），已跳过图片验收——要验收请换支持 vision 的 API 供应商与模型\n`);
         } else {
@@ -633,9 +664,7 @@ async function executeStep(
       node.acceptance = renderTemplate(node.step.acceptance, opts.context);
       const verifyEnabled = opts.verify === true && node.step.verify !== false;
       if (verifyEnabled) {
-        const judgeCfg: LLMConfig = (node.step.llm ? { ...opts.llmConfig, ...node.step.llm } : opts.llmConfig) as LLMConfig;
-        const judge = (!opts.connector || (node.step.llm && (node.step.llm.provider || node.step.llm.base_url !== undefined || node.step.llm.api_key !== undefined)))
-          ? createConnector(judgeCfg) : opts.connector;
+        const { cfg: judgeCfg, connector: judge } = resolveJudge(node, opts);
         const tokens = { input: 0, output: 0 };
         const add = (t: { input: number; output: number }) => { tokens.input += t.input; tokens.output += t.output; node.tokenUsage = { ...tokens }; };
         const judgeClip = async (buf: Buffer) => {
@@ -974,7 +1003,9 @@ async function executeStep(
     return content;
   }
 
-  const check1 = await verifyAcceptance(effectiveConnector, effectiveConfig, renderedTask, content, node.acceptance);
+  // 顶层 verify_llm 指定了验收员就用它（步骤级 llm 仍优先）；否则同一 connector 审自己的产出
+  const textJudge = opts.verifyLlm?.provider && !node.step.llm ? resolveJudge(node, opts) : { cfg: effectiveConfig, connector: effectiveConnector };
+  const check1 = await verifyAcceptance(textJudge.connector, textJudge.cfg, renderedTask, content, node.acceptance);
   addTokens(check1.tokens);
   if (!check1.verdict) {
     // 核验不可用（网络错误 / 两次解析失败）→ 跳过核验，不拦产出（检查员宕机不停产线）
@@ -999,7 +1030,7 @@ async function executeStep(
     return content;
   }
 
-  const check2 = await verifyAcceptance(effectiveConnector, effectiveConfig, renderedTask, reworked, node.acceptance);
+  const check2 = await verifyAcceptance(textJudge.connector, textJudge.cfg, renderedTask, reworked, node.acceptance);
   addTokens(check2.tokens);
   if (check2.verdict?.pass) {
     node.verification = { pass: true, failed: [], reworked: true };

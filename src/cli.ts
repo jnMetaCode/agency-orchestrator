@@ -151,6 +151,7 @@ async function handleRun(): Promise<void> {
     console.error('  --materialize <目录>     把开发步产出的「### 路径 + 代码围栏」文件块落盘成真实项目脚手架');
     console.error('  --export <格式>          把本次产出导出:docx/pdf/xlsx/pptx(给人)或 skill/plan(给编码 agent 执行)');
     console.error('  --no-verify              关闭 acceptance 自动核验（默认：写了 acceptance 的步骤产出后自动核验，未过自动返工一轮）');
+    console.error('  --verify-provider/--verify-model  指定验收员模型（默认用文本模型）。图片/视频验收要能看图的模型，DeepSeek 等看不了图时用它换一个');
     console.error('  --compare                跑完后再跑单次基线 + 盲评，并排对比多智能体 vs 单次');
     console.error('  --judge-provider/--judge-model   --compare 时指定评审模型(默认用生成模型)');
     process.exit(1);
@@ -244,6 +245,7 @@ async function handleRun(): Promise<void> {
       fromStep,
       feedback,
       verify: parseVerifyFlag(),
+      verifyLlm: parseVerifyLlm(),
       llmOverride,
       signalFlush: true,
     });
@@ -590,6 +592,7 @@ async function handleCompose(): Promise<void> {
         quiet: false,
         signalFlush: true,
         verify: parseVerifyFlag(),
+        verifyLlm: parseVerifyLlm(),
         // 用 compose 时同样的 provider 执行，避免 YAML 里写的 provider 和用户实际可用的不一致
         // CLI provider 单步调用可能很慢（1-20 分钟），给足超时；用户显式 --timeout 优先
         llmOverride: {
@@ -962,6 +965,14 @@ function parseTemperatureArg(): number | undefined {
   return temp;
 }
 
+/** --verify-provider / --verify-model → 验收员模型覆盖；没给 provider 就不覆盖 */
+function parseVerifyLlm(): Partial<LLMConfig> | undefined {
+  const provider = getArgValue('--verify-provider');
+  const model = getArgValue('--verify-model');
+  if (!provider) return undefined;
+  return { provider, ...(model ? { model } : {}) };
+}
+
 /** 解析 --verify/--no-verify 三态：true 强制开 / false 强制关 / undefined 按 YAML 顶层 verify（默认开）。 */
 function parseVerifyFlag(): boolean | undefined {
   if (args.includes('--no-verify')) return false;
@@ -1144,6 +1155,7 @@ async function runWithTeam(teamRef: string): Promise<void> {
       signalFlush: true,
       watch: args.includes('--watch'),
       verify: parseVerifyFlag(),
+      verifyLlm: parseVerifyLlm(),
       outputDir: getArgValue('--output') || defaultOutputDir(),
       llmOverride: {
         provider,

@@ -166,6 +166,7 @@ export function parseWorkflow(
     llm: doc.llm as WorkflowDefinition['llm'],
     concurrency: (doc.concurrency as number) || 2,
     verify: doc.verify as boolean | undefined,
+    verify_llm: doc.verify_llm as WorkflowDefinition['verify_llm'],
     inputs: doc.inputs as WorkflowDefinition['inputs'],
     steps,
   };
@@ -205,6 +206,12 @@ export function validateWorkflow(workflow: WorkflowDefinition, agentsDir?: strin
   // verify 开关必须是布尔（YAML 里写成 "false" 字符串会被当 truthy，静默反转语义）
   if (workflow.verify !== undefined && typeof workflow.verify !== 'boolean') {
     errors.push(`顶层 verify 必须是布尔值（true/false，不要加引号）`);
+  }
+  if (workflow.verify_llm !== undefined) {
+    const v = workflow.verify_llm as Record<string, unknown> | null;
+    if (!v || typeof v !== 'object' || Array.isArray(v) || typeof v.provider !== 'string' || !v.provider.trim()) {
+      errors.push(`顶层 verify_llm 必须是 { provider: "<供应商>", model: "<模型>" }（验收员模型；看图验收要选支持 vision 的 API 模型）`);
+    }
   }
 
   // step.output 唯一性检查：两个 step 不能 output 到同一个变量名

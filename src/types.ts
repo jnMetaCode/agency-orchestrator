@@ -7,6 +7,12 @@ export interface WorkflowDefinition {
   llm: LLMConfig;
   concurrency?: number;       // 最大并行步骤数，默认 2
   verify?: boolean;           // acceptance 自动核验+未过自动返工一轮（默认开）。false = 整个工作流关闭
+  /**
+   * 验收员用哪个模型（缺省 = 文本供应商）。图片/视频验收需要能看图的模型，而常用的文本供应商
+   * （DeepSeek 等）看不了图——真机：短剧流水线文本走 deepseek 时，媒体步的验收只能整段跳过。
+   * 写 { provider, model } 即可；key 按供应商的环境变量/已存配置解析，不从文本供应商带过去。
+   */
+  verify_llm?: Partial<LLMConfig>;
   inputs?: InputDefinition[];
   steps: StepDefinition[];
 }

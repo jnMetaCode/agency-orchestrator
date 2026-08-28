@@ -9,7 +9,7 @@ import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { run } from '../src/index.js';
-import { parseWorkflow } from '../src/core/parser.js';
+import { parseWorkflow, validateWorkflow } from '../src/core/parser.js';
 import { buildImageReworkPrompt, canSeeImages } from '../src/core/verify.js';
 import { summarizeMediaSpend } from '../src/media/preflight.js';
 
@@ -186,6 +186,56 @@ console.log('\n─── 端到端：--feedback 打在图片步骤上 → 意见
     assert(r2.success && imagePrompts.length === 2 && imagePrompts[1].startsWith('一只猫') && imagePrompts[1].includes('猫要是橘色的'), `带意见重出：提示词 = 原文 + 意见硬约束（实际：${imagePrompts[1]}）`);
   } finally {
     if (saved === undefined) delete process.env.LANOX_API_KEY; else process.env.LANOX_API_KEY = saved;
+    srv.close(); rmSync(dir, { recursive: true, force: true });
+  }
+}
+
+console.log('\n─── verify_llm：文本供应商看不了图时，顶层指定能看图的验收员 ───');
+{
+  // 真机来由：短剧流水线文本走 deepseek（看不了图），媒体步验收只能整段跳过；用户不该为此给每个媒体步手改 llm:
+  let judgeCalls = 0;
+  const srv = http.createServer((req, res) => {
+    let b = ''; req.on('data', (d) => (b += d));
+    req.on('end', () => {
+      if (/chat\/completions/.test(String(req.url))) {
+        judgeCalls++;
+        res.writeHead(200, { 'Content-Type': 'text/event-stream' });
+        res.write(`data: ${JSON.stringify({ choices: [{ delta: { content: '{"pass": true, "failed": []}' }, finish_reason: 'stop' }] })}\n\n`);
+        res.write('data: [DONE]\n\n'); return res.end();
+      }
+      if (/images\/generations/.test(String(req.url))) {
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        return res.end(JSON.stringify({ data: [{ b64_json: PNG_A }] }));
+      }
+      res.writeHead(404); res.end('{}');
+    });
+  });
+  const port = await listen(srv);
+  const dir = mkdtempSync(join(tmpdir(), 'ao-vimg-vllm-'));
+  const wf = join(dir, 'w.yaml');
+  writeFileSync(wf, [
+    'name: "图验收员"', 'llm:', '  provider: "claude-code"', '  model: "sonnet"',
+    'verify_llm: { provider: lanox, model: gpt-5.6-sol }',
+    'steps:', '  - id: poster', '    type: image', '    task: "一只猫"', '    acceptance: "1. 有猫"',
+    '    image:', '      provider: "lanox"', '      model: "gpt-image-2"',
+  ].join('\n'), 'utf-8');
+  const saved = process.env.LANOX_API_KEY; process.env.LANOX_API_KEY = 'sk-e2e';
+  const savedBase = process.env.LANOX_BASE_URL; process.env.LANOX_BASE_URL = `http://127.0.0.1:${port}/v1`;
+  try {
+    const result = await run(wf, {}, { quiet: true, outputDir: join(dir, 'out') });
+    const poster = result.steps.find((s) => s.id === 'poster');
+    assert(result.success === true && judgeCalls === 1 && poster?.verification?.pass === true, `验收员走 verify_llm（lanox）而不是看不了图的文本供应商（judgeCalls=${judgeCalls}, verification=${JSON.stringify(poster?.verification)}）`);
+    // CLI 覆盖优先于 YAML：指回看不了图的供应商 → 跳过验收
+    judgeCalls = 0;
+    const r2 = await run(wf, {}, { quiet: true, outputDir: join(dir, 'out'), verifyLlm: { provider: 'claude-code', model: 'sonnet' } });
+    assert(r2.success === true && judgeCalls === 0 && r2.steps[0]?.verification === undefined, `--verify-provider 优先于 YAML verify_llm（judgeCalls=${judgeCalls}）`);
+    // 写错形状在解析期报
+    writeFileSync(wf, ['name: x', 'llm:', '  provider: lanox', '  model: m', 'verify_llm: "lanox"', 'steps:', '  - id: a', '    type: image', '    task: t', '    image:', '      model: m2'].join('\n'), 'utf-8');
+    const errs = validateWorkflow(parseWorkflow(wf));
+    assert(errs.some((e) => /verify_llm/.test(e)), `verify_llm 不是 { provider } 对象 → validate 报错（实际：${errs.join(' | ')}）`);
+  } finally {
+    if (saved === undefined) delete process.env.LANOX_API_KEY; else process.env.LANOX_API_KEY = saved;
+    if (savedBase === undefined) delete process.env.LANOX_BASE_URL; else process.env.LANOX_BASE_URL = savedBase;
     srv.close(); rmSync(dir, { recursive: true, force: true });
   }
 }
