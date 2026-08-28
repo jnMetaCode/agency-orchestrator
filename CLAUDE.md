@@ -8,8 +8,8 @@ This is a multi-agent workflow orchestrator. Users define AI collaboration workf
 ao run <workflow.yaml> [options]      # Execute workflow
 ao run <workflow.yaml> --resume last --from <step-id>  # Re-run from a specific step
 ao validate <workflow.yaml>           # Validate without running
-ao plan <workflow.yaml>               # Show DAG execution plan
-ao doctor [--fix] [--no-probe] [--video-probe]  # Self-check provider/creds/endpoint reachability/CLI/system Claude Code; --fix repairs a hijacked ~/.claude (fake token / relay base_url); --no-probe skips the live endpoint probe (a 1-token request); --video-probe checks every keyed OpenAI-compatible relay for video endpoints at zero cost (invalid probe body + a control path; see src/media/probe-video.ts)
+ao plan <workflow.yaml>               # Show DAG execution plan + media spend preview (N clips × seconds × tier × vendor; estimated from input defaults)
+ao doctor [--fix] [--no-probe] [--media-probe]  # Self-check provider/creds/endpoint reachability/CLI/system Claude Code; --fix repairs a hijacked ~/.claude (fake token / relay base_url); --no-probe skips the live endpoint probe (a 1-token request); --media-probe (old alias: --video-probe) checks every keyed OpenAI-compatible relay for **video / image / speech** endpoints at zero cost (invalid probe body + a control path; see src/media/probe-video.ts) — speech matters because `type: tts` otherwise fails only after the paid image/video steps already ran
 ao roles                              # List all 267 available roles
 ao install --tool claude-code         # Install bundled roles into a coding tool (claude-code/cursor/copilot/gemini-cli/qwen/opencode); --lang zh|en, --category, --dry-run
 ao run <workflow.yaml> --compare      # Run workflow + single-shot baseline + blind judge → side-by-side verdict (productized eval)
@@ -45,9 +45,20 @@ dangling .bin symlinks broke a mac build once).
 ## Skills (methodology playbooks)
 
 A step can carry `skill: "<name>"` (or `skills: [..]`) — the methodology body is injected into that
-step's system prompt at run time (`src/skills/loader.ts`, applied in `core/executor.ts`). Content
-comes from the `superpowers-zh` dependency (`node_modules/superpowers-zh/skills/<name>/SKILL.md`);
-override the source dir with `AO_SKILLS_DIR`. Missing skills are skipped (warn), never fatal.
+step's system prompt at run time (`src/skills/loader.ts`, applied in `core/executor.ts`). Missing
+skills are skipped (warn), never fatal.
+
+Skills are resolved from **several dirs, merged by name** (same-name: earlier dir wins) —
+`AO_SKILLS_DIR` > `./skills` > `superpowers-zh` (the dependency, 20 skills) > this package's own
+`ao-skills/`. It must stay a merge, not first-dir-wins: under the old single-dir rule, adding one
+bundled dir made all 20 superpowers skills vanish. `AO_SKILLS_DIR` is still an *override* — it just
+no longer empties the rest.
+
+`ao-skills/shortfilm-prompt` is ours: the 5-part cinematic video-prompt methodology, adapted from
+the sister repo `ai-shortfilm-prompts` (MIT, same author). The upstream `SKILL.md` is an
+**interactive** Claude Code skill (it asks via AskUserQuestion, `Read`s template files); AO steps
+have no tools, so injecting it verbatim makes the model ask questions instead of writing a prompt.
+Keep the AO copy single-turn — `test/skills.ts` pins that.
 
 ## Prompt Lab
 
@@ -134,12 +145,19 @@ concurrency: 2
 inputs:
   - name: variable_name
     required: true
+  - name: tts_voice
+    show_when: "{{narration}} contains 配旁白"   # optional: same syntax as step.condition, may reference other INPUTS only.
+                                                # False → Studio hides it and the CLI does not count it as a missing required input.
 
 steps:
   - id: step_id
     role: "category/role-name"       # from agency-agents-zh
     task: "Task with {{variables}}"
     acceptance: "1. checkable condition…"  # optional: injected at prompt tail; output auto-verified against it after the step runs (fail → one auto-rework round); judge anchor in --compare
+    assert:                          # optional mechanical check (core/assert.ts) — no model, no network, no tokens.
+      contains: ["【声音】"]          #   模型审内容，脚本审结构：emits_files / min_bytes / max_bytes / contains / matches.
+      max_bytes: 900                 #   Fail → one targeted rework, then the step FAILS (unlike acceptance). Use it to stop
+                                     #   a bad prompt *before* a per-second video step spends money.
     verify: false                    # optional: opt this step out of acceptance auto-verify (top-level `verify: false` disables whole workflow; CLI --verify/--no-verify overrides; default on)
     output: output_variable
     skill: "test-driven-development" # optional: inject a methodology playbook (see `ao skills`)
@@ -172,14 +190,56 @@ steps:
       ratio: "16:9"
     output: promo_mp4                # variable = markdown link; mp4 saved to <run>/assets/
 
-  - id: film                         # concat step: stitch upstream clips with local ffmpeg (no vendor cost)
+  - id: vo1                          # text-to-speech step: task IS the text to speak
+    type: tts                        # no role needed; OpenAI-compatible POST {base}/audio/speech
+    task: "{{narration1}}"
+    tts:
+      provider: "openai"             # optional — defaults to llm.provider (same rule as image/video)
+      model: "gpt-4o-mini-tts"       # REQUIRED — never guessed
+      voice: "nova"                  # REQUIRED — voice ids are vendor-specific, never guessed
+      speed: 1.0                     # optional; also: format (mp3 default), instructions
+    output: vo1_audio                # variable = markdown audio link; file saved to <run>/assets/
+
+  - id: film                         # concat step: stitch clips + all post-production, with local ffmpeg (no vendor cost)
     type: concat                     # no role/task; needs ffmpeg on PATH (or AO_FFMPEG); `ao doctor` reports it
     concat:
       inputs: ["{{shot1_mp4}}", "{{shot2_mp4}}"]   # upstream video outputs, in order
       size: "1280x720"               # optional; defaults to first clip's size. Clips are normalized (scale/pad/fps, silent audio if missing) then concatenated
+      voiceover: ["{{vo1_audio}}", ""]             # optional, one per input ("" = no narration on that clip). Mixed OVER the clip's own audio, never replacing it
+      clip_volume: 0.3               # the clip's OWN audio. Default 0.3 with narration, 1.0 without
+      subtitles: ["第一镜的字幕", ""]                # optional, one per input; timed by each clip's REAL duration, split by punctuation
+      subtitle_style: { size: 22 }   # optional: font / size / color / outline / margin (ffmpeg force_style)
+      bgm: "/path/bgm.mp3"           # optional: looped to fill the film, 2s fade-out at the end
+      bgm_volume: 0.25               # default 0.25 — sits under the voice
     output: film_mp4
     depends_on: [shot1, shot2]
 ```
+
+**Media spend is shown before it is spent.** `src/media/preflight.ts` (`summarizeMediaSpend`) is a pure
+function shared by the `ao run` header, `ao plan`, and the Studio live view (engine prints a
+`__AO_PREFLIGHT__{json}` line under `AO_WEB_INPUT=1` → SSE `preflight`). Quantities only, never prices —
+we don't hold vendors' price lists. Conditions that reference only inputs are decided up front; ones
+that reference upstream output are marked "视条件" and counted as running (overestimate, never under).
+
+Post-production rules that are load-bearing:
+- **Video models already produce audio.** Veo3 / Sora2 / MiniMax-H3 output sound with the picture, and
+  it is often full *dialogue*, not just ambience. So narration is mixed **over** the clip's own track,
+  never replacing it, and how far to duck that track is `clip_volume` (0.3 by default when a voiceover
+  is present) — because only the author knows whether the generated dialogue is the performance or noise.
+  Check the raw clip before adding narration at all.
+- **Clip duration is what the user paid for — it is never stretched or trimmed to fit narration.**
+  Voiceover longer than its clip is truncated *with a loud warning* telling the author to shorten the
+  line or lengthen that shot.
+- **Burning subtitles needs an ffmpeg built with libass** (the `subtitles` filter). Plenty of builds
+  lack it — Homebrew's did on the dev machine. When it is missing the engine still delivers the film
+  and attaches the subtitles as a **soft track** (mov_text), saying exactly what is missing and how to
+  fix it; it never silently drops them, and never wastes clips that were already paid for.
+  `ao doctor` reports burn capability up front.
+- A concat input that renders empty (upstream failed/skipped) is a **hard error**, never a silently
+  shorter film.
+- Optional voiceover is wired with `condition:` on the tts steps plus `depends_on_mode: any_completed`
+  on the concat step — with the default `all`, skipped tts steps would skip the concat too and the
+  paid-for clips would never be stitched.
 
 Image steps try the OpenAI Images API (`/images/generations`) first and automatically fall
 back to the Responses API + `image_generation` tool (LanoX-style). PNG lands in
