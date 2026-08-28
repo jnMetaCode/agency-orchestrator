@@ -84,12 +84,51 @@ function AutoVideo({ src, local, expanded, onExpand }: { src: string; local: boo
 // 示例成片的出片方。角标分两档：
 //   默认 = 中性事实标注（灰色、只写模型名、无链接）——用户需要知道"这条是哪个模型出的"，但没谈成的供应商不白送曝光；
 //   promoted = 谈成赞助后打开：金色 + 厂商名 + 链接。改这一张表即可，不动数据文件。
-const PREVIEW_VENDORS: Record<string, { name: string; nameEn: string; url: string; promoted?: boolean }> = {
-  metaso: { name: "秘塔科技", nameEn: "MetaSota", url: "https://metaso.cn/minimax-h3/?s=gt533367" },
+//
+// ⏳ 展示位是**有期限**的，到期要回落成中性标注，别让它静默续下去：
+//   · metaso（秘塔科技）：10 万积分 / 3 个月，2026-08-28 起 → **2026-11-28 到期**。
+//     对价是创意库 21 条题材示例成片的金色角标 + 返利链接（本表），以及用其积分产出的
+//     视频课程 / 教程文章带同样的标注。续约就改到期日，不续就把 promoted 删掉。
+const PREVIEW_VENDORS: Record<string, { name: string; nameEn: string; url: string; logo?: string; promoted?: boolean; until?: string }> = {
+  metaso: { name: "秘塔科技", nameEn: "MetaSota", url: "https://metaso.cn/minimax-h3/?s=gt533367", logo: "/sponsors/logo-metaso-icon.png", promoted: true, until: "2026-11-28" },
   volcengine: { name: "火山引擎", nameEn: "Volcengine", url: "https://www.volcengine.com/activity/ai618?utm_campaign=hw&utm_content=hw&utm_medium=devrel_tool_web&utm_source=OWO&utm_term=agency-agents-zh" },
   apimart: { name: "APIMart", nameEn: "APIMart", url: "https://apimart.ai" },
   agnes: { name: "Agnes AI", nameEn: "Agnes AI", url: "https://agnes-ai.com" },
 };
+
+/**
+ * 出片方角标：成片正下方单独一行（不压画面——画面是内容，署名是署名），按钮行仍旧一行放得下。
+ * 赞助档 = 厂商 logo + 名字 + 模型档位 + 返利链接；没谈成的只留中性的模型档位，不白送曝光。
+ */
+function PreviewCredit({ by, en }: { by: NonNullable<VideoTemplate["previewBy"]>; en: boolean }) {
+  const v = PREVIEW_VENDORS[by.provider];
+  const spec = `${by.model}${by.resolution ? ` · ${by.resolution}` : ""}${by.seconds ? ` × ${by.seconds}s` : ""}`;
+  const base = "inline-flex max-w-full items-center gap-1.5 rounded-full px-2 py-1 text-[11px] leading-none";
+  if (!v?.promoted) {
+    return (
+      <span title={en ? "Model used for this sample clip" : "这条示例成片用的模型"} className={cn(base, "bg-muted/60 text-muted-foreground")}>
+        🎬 <span className="truncate">{spec}</span>
+      </span>
+    );
+  }
+  return (
+    <a
+      href={v.url}
+      target="_blank"
+      rel="noreferrer"
+      onClick={() => track("sponsor_click", { id: by.provider, from: "video-preview" })}
+      title={en ? "This sample clip was generated with this provider's API — click to try it" : "这条示例成片就是用这家的 API 出的，点开可以自己试"}
+      className={cn(base, "border border-gold/30 bg-gold/10 font-medium text-gold transition-colors hover:border-gold/60 hover:bg-gold/20")}
+    >
+      {v.logo
+        ? <img src={v.logo} alt="" loading="lazy" className="size-3.5 shrink-0 rounded-[3px] bg-white object-contain" />
+        : <span>🎬</span>}
+      <span className="shrink-0">{en ? v.nameEn : v.name}</span>
+      <span className="truncate text-gold/75">{spec}</span>
+      <ExternalLink className="size-2.5 shrink-0 opacity-80" />
+    </a>
+  );
+}
 
 function readGenPref(): GenPref {
   try { return JSON.parse(localStorage.getItem(GEN_PREF_KEY) || "{}") as GenPref; } catch { return {}; }
@@ -171,32 +210,16 @@ function VideoCard({ t }: { t: VideoTemplate }) {
       {t.preview && (isLocalPreview(t.preview) || showVideo) && (
         <AutoVideo src={t.preview} local={isLocalPreview(t.preview)} expanded={showVideo} onExpand={() => setShowVideo(true)} />
       )}
+      {t.preview && t.previewBy && (isLocalPreview(t.preview) || showVideo) && (
+        <div className="mt-2 flex"><PreviewCredit by={t.previewBy} en={en} /></div>
+      )}
 
       {open && t.prompt && (
         <pre className="mt-2.5 max-h-64 overflow-auto whitespace-pre-wrap rounded-lg border border-border/60 bg-muted/40 p-2.5 text-[11px] leading-relaxed">{t.prompt}</pre>
       )}
 
       <div className="mt-3 flex flex-wrap items-center gap-2 text-xs">
-        {t.preview && t.previewBy && (() => {
-          const v = PREVIEW_VENDORS[t.previewBy.provider];
-          const spec = `${t.previewBy.model}${t.previewBy.resolution ? ` · ${t.previewBy.resolution}` : ""}${t.previewBy.seconds ? ` × ${t.previewBy.seconds}s` : ""}`;
-          return v?.promoted ? (
-            <a
-              href={v.url}
-              target="_blank"
-              rel="noreferrer"
-              onClick={() => track("sponsor_click", { id: t.previewBy!.provider, from: "video-preview" })}
-              title={en ? "This sample clip was generated with this provider's API" : "这条示例成片就是用这家的 API 出的"}
-              className="inline-flex items-center gap-1 rounded-full bg-gold/10 px-2 py-0.5 text-[11px] font-medium text-gold hover:bg-gold/20"
-            >
-              🎬 {en ? v.nameEn : v.name} · {spec} ↗
-            </a>
-          ) : (
-            <span title={en ? "Model used for this sample clip" : "这条示例成片用的模型"} className="inline-flex items-center gap-1 rounded-full bg-muted/60 px-2 py-0.5 text-[11px] text-muted-foreground">
-              🎬 {spec}
-            </span>
-          );
-        })()}
+        {t.preview && t.previewBy && !(isLocalPreview(t.preview) || showVideo) && <PreviewCredit by={t.previewBy} en={en} />}
         {t.preview && !showVideo && !isLocalPreview(t.preview) && (
           <button
             onClick={() => { setShowVideo(true); track("video_preview_play", { id: t.id }); }}

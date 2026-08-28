@@ -81,5 +81,40 @@ test('构件与题材分开标（kind 混了，用户就会在题材列表里看
   assert(kinds.has('genre') && kinds.has('module'), `kind 取值异常：${[...kinds].join('、')}`);
 });
 
+// ── 示例成片的赞助角标：谈成才金，且**到期会自己叫** ─────────────────────────
+// 展示位是有期限的商务约定，而代码里的开关没有任何东西会提醒你它过期了——
+// 不钉一条，metaso 的金色角标 + 返利链接会在合作结束后继续白送下去。
+{
+  const src = readFileSync('website/src/pages/CreativeLibrary.tsx', 'utf-8');
+  const table = src.slice(src.indexOf('const PREVIEW_VENDORS'), src.indexOf('function readGenPref'));
+  const entries = [...table.matchAll(/^\s{2}(\w+):\s*\{(.+)\},$/gm)].map((m) => ({ id: m[1], body: m[2] }));
+
+  test('PREVIEW_VENDORS 能解析出条目（正则跟着代码走，别默默变成空检查）', () => {
+    assert(entries.length >= 4, `应解析出至少 4 家出片方，实得 ${entries.length}`);
+    assert(entries.some((e) => e.id === 'metaso'), '秘塔科技应在出片方表里');
+  });
+
+  test('打开 promoted 的必须写 until（没有到期日 = 无限期白送曝光）', () => {
+    for (const e of entries.filter((x) => /promoted:\s*true/.test(x.body))) {
+      assert(/until:\s*"\d{4}-\d{2}-\d{2}"/.test(e.body), `${e.id} 开了 promoted 却没写 until 到期日`);
+      assert(/url:\s*"https:\/\//.test(e.body), `${e.id} 开了 promoted 却没有可跳转的链接`);
+    }
+  });
+
+  test('展示位没有过期（过期就回落成中性标注，或续约改日期）', () => {
+    const today = new Date().toISOString().slice(0, 10);
+    for (const e of entries.filter((x) => /promoted:\s*true/.test(x.body))) {
+      const until = e.body.match(/until:\s*"(\d{4}-\d{2}-\d{2})"/)![1];
+      assert(until >= today,
+        `${e.id} 的展示位已于 ${until} 到期（今天 ${today}）——续约就改 until，不续就删掉 promoted 让角标回落成灰色中性标注`);
+    }
+  });
+
+  test('没谈成的出片方不带 promoted（中性事实标注即可，不白送曝光）', () => {
+    const promoted = entries.filter((x) => /promoted:\s*true/.test(x.body)).map((x) => x.id);
+    assert(promoted.length <= 2, `同时推广 ${promoted.join('、')} 共 ${promoted.length} 家——角标是稀缺位，别摊薄`);
+  });
+}
+
 console.log(`\n  结果: ${passed} 通过, ${failed} 失败\n`);
 if (failed > 0) process.exit(1);
