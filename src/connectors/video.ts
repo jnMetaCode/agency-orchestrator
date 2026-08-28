@@ -382,6 +382,9 @@ export async function generateVideo(
     imageUrl = await shape.uploadImage(baseUrl, headers, opts.image_bytes, opts.image_name || 'first_frame.png');
   } else if (opts.image && /^https?:\/\//.test(opts.image)) {
     imageUrl = opts.image;
+  } else if (opts.image && opts.image_bytes && shape.inlineImage) {
+    // inlineImage 形状（openai-videos 的 multipart input_reference / Ark 的 base64）直接吃 image_bytes，
+    // 不需要 URL。真机翻车：Agnes 图生视频拿着执行器解析好的定妆图字节走到这里，被下一行当"没解析成本地图片"拒掉。
   } else if (opts.image) {
     throw new Error(`video.image 既不是公网 URL 也没解析成本地图片：${opts.image.slice(0, 120)}`);
   }

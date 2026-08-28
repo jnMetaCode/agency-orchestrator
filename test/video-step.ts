@@ -445,6 +445,21 @@ await test('openai-videos 带本地首帧图：不上传，直接 multipart 内�
   } finally { fake.srv.close(); }
 });
 
+await test('openai-videos 带执行器解析好的本地首帧图（image 是 markdown 引用 + image_bytes）：不得被当成"没解析成本地图片"拒掉', async () => {
+  // 真机翻车（2026-08-28 Agnes 短剧流水线）：执行器把 {{character_img}} 解析成 image_bytes 后仍保留 image 原串，
+  // inlineImage 形状在首帧分支里没有自己的出口，落到最后一个 else 抛错——三镜一条都没出
+  const fake = fakeOpenAIVideos();
+  const port = await listen(fake.srv);
+  try {
+    await generateVideo(
+      { provider: 'openai', api_key: 'sk-t', base_url: `http://127.0.0.1:${port}/v1` } as unknown as LLMConfig,
+      '猫',
+      { model: 'sora-2', duration: 4, poll_interval: 10, image: '![character](assets/character.png)', image_bytes: Buffer.from('89504e47', 'hex'), image_name: 'character.png' },
+    );
+    assert(/input_reference/.test(fake.seen.create?.raw || ''), '应内联 input_reference 出片');
+  } finally { fake.srv.close(); }
+});
+
 console.log('\n─── 图生视频（首帧图） ───');
 
 await test('APIMart 本地首帧图：先走 /uploads/images 拿 URL，sora/veo 放 image_urls[]', async () => {
