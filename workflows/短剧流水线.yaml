@@ -187,7 +187,7 @@ steps:
     image:
       provider: "{{image_provider}}"
       model: "{{image_model}}"
-      size: "1024x1536"
+      size: "1024x1536"       # 竖版定妆图。注意：图生视频（keyframe）出片跟随首帧比例——要 16:9 成片就把这里改成横版尺寸
     # 看图验收：文本供应商（须支持 vision）对着成品图核对，未过带着未满足项重出一张（再花一张图的钱）。
     # 只写画面里**看得见**的硬条件——软性的"好看""有电影感"模型判不准，写了只会白花一轮重出。
     acceptance: |
@@ -449,7 +449,7 @@ steps:
     # 抽 3 帧看图验收（默认只审不重出：按秒真钱，看完片再决定 --resume --from shot1 或写 video.rework: true）
     acceptance: |
       1. 画面里有主角，且是定妆图里的同一个人物（发型、服装一致）
-      2. 画面里没有文字、字幕、水印或 logo
+      2. 画面上没有叠加的字幕、水印或平台 logo（场景里的招牌、商品标签这类剧情内文字不算）
     output: shot1_mp4
     depends_on: [character, shot1_prompt]
 
@@ -468,7 +468,7 @@ steps:
     # 抽 3 帧看图验收（默认只审不重出：按秒真钱，看完片再决定 --resume --from shot2 或写 video.rework: true）
     acceptance: |
       1. 画面里有主角，且是定妆图里的同一个人物（发型、服装一致）
-      2. 画面里没有文字、字幕、水印或 logo
+      2. 画面上没有叠加的字幕、水印或平台 logo（场景里的招牌、商品标签这类剧情内文字不算）
     output: shot2_mp4
     depends_on: [character, shot2_prompt]
 
@@ -487,7 +487,7 @@ steps:
     # 抽 3 帧看图验收（默认只审不重出：按秒真钱，看完片再决定 --resume --from shot3 或写 video.rework: true）
     acceptance: |
       1. 画面里有主角，且是定妆图里的同一个人物（发型、服装一致）
-      2. 画面里没有文字、字幕、水印或 logo
+      2. 画面上没有叠加的字幕、水印或平台 logo（场景里的招牌、商品标签这类剧情内文字不算）
     output: shot3_mp4
     depends_on: [character, shot3_prompt]
 
