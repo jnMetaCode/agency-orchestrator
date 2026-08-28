@@ -60,7 +60,7 @@
 </p>
 
 <p align="center">
-  <img src="./docs/screenshots/studio-role-lib-ko.png" alt="Studio · 角色组队：多语言角色库下拉（图为韩语库）" width="800"><br/>
+  <img src="./docs/screenshots/studio-roles-zh.png" alt="Studio · 角色组队：276 位专家按领域分组，公司经营部七位高管置顶" width="800"><br/>
   <em>角色组队：☆ 收藏常用、「我的」自建角色，一键切换多语言角色库（图为韩语库）</em>
 </p>
 

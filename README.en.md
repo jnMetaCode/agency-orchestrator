@@ -55,7 +55,7 @@ Switch your system Claude to any relay in one click — written to global config
 > Other tools switch everything but may break your setup; **AO does one thing — switch safely, and fix what others broke.**
 
 <p align="center">
-  <img src="./docs/screenshots/studio-role-lib-ko.png" alt="Studio · Build a Team: role-library dropdown (Korean library shown)" width="800"><br/>
+  <img src="./docs/screenshots/studio-roles-en.png" alt="Studio · Build a Team: switchable role libraries (English library, 191 roles, shown), C-suite on top" width="800"><br/>
   <em>Build a Team: ☆ favorites, My Roles, and a role-library dropdown — Chinese / English / Korean / Russian / pt-BR / Indonesian / Arabic</em>
 </p>
 
