@@ -23,6 +23,8 @@ export interface MediaSpendItem {
   seconds?: number;      // 视频秒数（能解析出数字时）
   /** 该步带 condition 且条件靠上游产出才能判 → 视条件；条件只引用输入时已经判定 */
   conditional: 'yes' | 'no' | 'unknown';
+  /** 图片步骤挂了 acceptance：验收不过会重出一张（最多多花一张） */
+  verified?: boolean;
 }
 
 export interface MediaSpendSummary {
@@ -74,6 +76,7 @@ export function summarizeMediaSpend(workflow: WorkflowDefinition, inputs: Map<st
         model: soft(im.model, inputs),
         spec: soft(im.size, inputs),
         conditional: judgeCondition(s, inputs),
+        ...(s.acceptance ? { verified: true } : {}),
       });
     } else if (s.type === 'tts') {
       const t = s.tts ?? {};
@@ -114,7 +117,8 @@ export function summarizeMediaSpend(workflow: WorkflowDefinition, inputs: Map<st
   }
   if (images.length) {
     const v = images[0];
-    lines.push(`🎨 出图 ${images.length} 张${v.spec ? ` · ${v.spec}` : ''}  ${v.provider}${v.model ? ` / ${v.model}` : ''}`);
+    const rework = images.filter((i) => i.verified).length;
+    lines.push(`🎨 出图 ${images.length} 张${v.spec ? ` · ${v.spec}` : ''}  ${v.provider}${v.model ? ` / ${v.model}` : ''}${rework ? `（${rework} 张挂了验收，不过会重出一张，最多 +${rework}）` : ''}`);
   }
   if (tts.length) {
     const v = tts[0];

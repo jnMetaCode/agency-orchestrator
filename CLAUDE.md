@@ -175,6 +175,7 @@ steps:
       provider: "lanox"              # optional — image provider; defaults to llm.provider. When set, the text provider's base_url/api_key are NOT carried over (same rule as video.provider)
       model: "gpt-image-2"           # REQUIRED — image model ids are vendor-specific, never guessed
       size: "1024x1024"              # optional; also: quality, background
+    acceptance: "1. 画面里只有一个人物  2. 没有文字或水印"   # optional: VISUAL acceptance — the text provider (must support vision) looks at the PNG and checks each item; fail → one regeneration with the unmet items appended as hard constraints (costs one more image; `ao plan` says so) → re-check. CLI/ollama providers can't see images → skipped with a warning, never faked. `assert` is NOT allowed on image steps (it counts text structure).
     output: cover_img                # variable = markdown image ref; PNG saved to <run>/assets/
     depends_on: [some_step]
 

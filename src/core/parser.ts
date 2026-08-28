@@ -144,9 +144,9 @@ export function parseWorkflow(
         `        不知道提示词怎么写？21 个题材模板与在线生成器：https://prompts.aiolaola.com/build.html`
       );
     }
-    if (isImageNode && (step.acceptance || step.assert)) {
-      // 静默忽略 = 用户以为核验生效了。诚实做法：说清目前不支持，别装作跑了
-      fail(`step "${step.id}" 是 image 步骤，暂不支持 acceptance / assert（它们核验的是文本产出；图片核验是另一件事，需要时把图片交给下游视觉模型步骤去审）`);
+    if (isImageNode && step.assert) {
+      // assert 数的是文本结构，对一张 PNG 无从数起。acceptance 可以：图交给能看图的文本模型审（executor 图片分支）
+      fail(`step "${step.id}" 是 image 步骤，不支持 assert（它核验的是文本结构）；要审图片请用 acceptance（由支持 vision 的文本模型看图核对，未过自动重出一张）`);
     }
     if (isImageNode && !step.image?.model) {
       // 与文本侧"不猜默认模型"同一条纪律；在解析期就拦下来，别烧一次调用再报"模型不存在"

@@ -175,3 +175,99 @@ export function buildReworkBlock(
     '\n\nRevise strictly against the unmet items above: keep what already passes, fix only what falls short, and output the complete revised result.',
   ].join('');
 }
+
+/**
+ * 图片验收：把**图片本身**交给能看图的文本模型逐条核对验收标准。
+ *
+ * 为什么不是"把图交给下游视觉步骤去审"：审完不合格得有人**重出**——那是执行器里图片步骤
+ * 自己的事（验收未过 → 带着未满足项重出一张 → 复核），下游步骤没法回头改上游。
+ * 图片走 utils/vision.ts 的 data URI 协议进用户消息：支持 vision 的连接器
+ * （openai-compatible / claude）会拆成多模态消息；不支持的（CLI 订阅类 / ollama）会把图剥掉——
+ * 那样判出来的结论是对着「[图片输入已跳过]」这行字判的，等于瞎判，所以调用方必须先按
+ * provider 挡掉（见 canSeeImages），这里只对能看图的连接器负责。
+ *
+ * 判定口径与 verifyAcceptance 同源：只按标准字面判、不发明更严要求；判未满足时 why 必须
+ * 描述**画面里**实际看到的东西（描述不出来 = 其实满足了）。
+ */
+export async function verifyImageAcceptance(
+  connector: LLMConnector,
+  llm: LLMConfig,
+  imagePrompt: string,
+  imageDataUri: string,
+  acceptance: string,
+): Promise<{ verdict: VerifyVerdict | null; tokens: { input: number; output: number } }> {
+  const zh = /[一-鿿]/.test(acceptance);
+  const prompt = zh
+    ? [
+        '你是严格的视觉交付验收员。下面这张图是按给定提示词生成的，请**看图**逐条核对它是否满足验收标准。',
+        '判定口径（很重要）：',
+        '- **只按标准写了的字面要求判**。标准没写的细节不算缺失——不要发明标准里没有的更严要求。',
+        '- 标准里**明确枚举**的东西（必须出现的元素、数量、文字）只做到一部分算未满足。',
+        '- 判"未满足"时，why 里必须**描述画面里实际看到的内容**说明为什么不满足；描述不出来就说明它其实满足了。',
+        '- 审的是这张图，不是提示词写得好不好。',
+        `生成提示词：${trunc(imagePrompt, 2000)}`,
+        '', '验收标准：', acceptance,
+        '', '待验收图片：', imageDataUri, '',
+        '只输出一行 JSON，不要任何额外文字：{"pass": true/false, "failed": [{"criterion": "未满足的条目原文", "why": "画面里看到了什么/缺了什么"}]}',
+        '全部满足时 failed 必须是空数组 []。',
+      ].join('\n')
+    : [
+        'You are a strict visual acceptance reviewer. The image below was generated from the given prompt. LOOK at the image and check it against EACH criterion.',
+        'How to judge (important):',
+        '- Judge ONLY what a criterion literally asks for. Details it never mentions are not gaps — do not invent stricter requirements.',
+        '- For things a criterion explicitly ENUMERATES (required elements, counts, text), partially met counts as NOT met.',
+        '- When marking something unmet, `why` MUST describe what is actually visible in the image. If you cannot describe it, it is met.',
+        '- Review the image, not the quality of the prompt.',
+        `Generation prompt: ${trunc(imagePrompt, 2000)}`,
+        '', 'Acceptance criteria:', acceptance,
+        '', 'Image under review:', imageDataUri, '',
+        'Output exactly one line of JSON, nothing else: {"pass": true/false, "failed": [{"criterion": "the unmet criterion", "why": "what is visible / missing"}]}',
+        'If all criteria are met, failed MUST be an empty array [].',
+      ].join('\n');
+
+  const tokens = { input: 0, output: 0 };
+  const maxTokens = Math.min(2000, 500 + Math.ceil(acceptance.length * 1.2));
+  for (let attempt = 0; attempt < 2; attempt++) {
+    const sys = attempt === 0
+      ? (zh ? '你是严格客观的视觉验收员，只输出 JSON。' : 'You are a strict, objective visual reviewer. Output JSON only.')
+      : (zh ? '你必须只输出一行纯 JSON，绝对不要代码块标记、前言或任何解释文字。'
+            : 'You MUST output exactly one line of raw JSON. No code fences, no preamble, no explanation.');
+    try {
+      const res = await withTimeout(
+        connector.chat(sys, prompt, { ...llm, max_tokens: maxTokens, temperature: 0 }),
+        llm.timeout || 600_000,
+      );
+      tokens.input += res.usage.input_tokens;
+      tokens.output += res.usage.output_tokens;
+      const verdict = parseVerify(res.content);
+      if (verdict) return { verdict, tokens };
+    } catch (err) {
+      // 网络/超时/模型不支持 vision（服务端 4xx）：核验不可用 → null，由调用方告警跳过
+      if (process.env.AO_DEBUG) process.stderr.write(`  [verify-image] ${err instanceof Error ? err.message : String(err)}\n`);
+      return { verdict: null, tokens };
+    }
+  }
+  return { verdict: null, tokens };
+}
+
+/**
+ * 这个文本供应商能不能看图。CLI 订阅类与 ollama 连接器会把图片 data URI 剥掉（见各连接器），
+ * 对着占位文字做视觉验收是自欺——这些一律不做验收、告警说明。API 供应商能不能看取决于所选模型，
+ * 那由服务端报错（→ verdict null → 跳过并告警）。
+ */
+export function canSeeImages(provider: string): boolean {
+  return !(provider.endsWith('-cli') || provider === 'claude-code' || provider === 'ollama');
+}
+
+/**
+ * 图片重出的提示词：图片模型没有"上一版"可改（每次都是重新采样），能做的是把未满足项
+ * 变成提示词末尾的**明确约束**——同一段正文 + "必须：…"。不改正文本身：正文是作者/上游写的，
+ * 验收员只该追加它漏了的硬要求。
+ */
+export function buildImageReworkPrompt(prompt: string, failed: { criterion: string; why: string }[]): string {
+  const zh = /[一-鿿]/.test(failed.map(f => `${f.criterion}${f.why}`).join('') + prompt.slice(0, 200));
+  const items = failed.map((f, i) => `${i + 1}. ${f.criterion || f.why}${f.criterion && f.why ? (zh ? `（上一版：${f.why}）` : ` (previous attempt: ${f.why})`) : ''}`).join('\n');
+  return zh
+    ? `${prompt.trim()}\n\n以下要求上一版图片没有做到，这一版必须满足：\n${items}`
+    : `${prompt.trim()}\n\nThe previous image failed these requirements; this version MUST satisfy them:\n${items}`;
+}

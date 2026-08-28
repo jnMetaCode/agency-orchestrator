@@ -100,13 +100,15 @@ await test('step id 带路径字符在解析期就拦（id 会拼进产物文件
   rmSync(dir, { recursive: true, force: true });
 });
 
-await test('image 步骤上写 acceptance/assert → 解析期明确报不支持（不静默忽略）', () => {
+await test('image 步骤：acceptance 放行（看图验收）、assert 解析期明确报不支持（不静默忽略）', () => {
   const dir = mkdtempSync(join(tmpdir(), 'ao-img-wf4-'));
   const f = join(dir, 'w.yaml');
   writeFileSync(f, 'name: "x"\nllm:\n  provider: "lanox"\n  model: "m"\nsteps:\n  - id: a\n    type: image\n    task: "t"\n    acceptance: "1. 好看"\n    image:\n      model: "m2"\n', 'utf-8');
+  assert(parseWorkflow(f).steps[0].acceptance === '1. 好看', 'acceptance 应通过解析');
+  writeFileSync(f, 'name: "x"\nllm:\n  provider: "lanox"\n  model: "m"\nsteps:\n  - id: a\n    type: image\n    task: "t"\n    assert:\n      contains: ["x"]\n    image:\n      model: "m2"\n', 'utf-8');
   let msg = '';
   try { parseWorkflow(f); } catch (e) { msg = e instanceof Error ? e.message : String(e); }
-  assert(/acceptance/.test(msg) && /不支持|暂不/.test(msg), `应明说不支持，实际：${msg.slice(0, 80)}`);
+  assert(/assert/.test(msg) && /不支持/.test(msg), `应明说不支持 assert，实际：${msg.slice(0, 80)}`);
   rmSync(dir, { recursive: true, force: true });
 });
 

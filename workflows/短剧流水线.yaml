@@ -188,6 +188,12 @@ steps:
       provider: "{{image_provider}}"
       model: "{{image_model}}"
       size: "1024x1536"
+    # 看图验收：文本供应商（须支持 vision）对着成品图核对，未过带着未满足项重出一张（再花一张图的钱）。
+    # 只写画面里**看得见**的硬条件——软性的"好看""有电影感"模型判不准，写了只会白花一轮重出。
+    acceptance: |
+      1. 画面里只有一个人物，正面、全身可见（头顶到脚都在画面内）
+      2. 背景是干净的浅色单色，没有场景、道具、文字或水印
+      3. 人物与提示词描述的性别、年龄段、服装一致
     output: character_img
     depends_on: [character_prompt]
 

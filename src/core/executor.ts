@@ -21,7 +21,7 @@ import { generateImage } from '../connectors/image.js';
 import { generateVideo , type VideoStepOptions } from '../connectors/video.js';
 import { concatVideos } from '../media/concat.js';
 import { generateSpeech, type TtsStepOptions } from '../connectors/tts.js';
-import { verifyAcceptance, buildReworkBlock, formatFailedItems } from './verify.js';
+import { verifyAcceptance, buildReworkBlock, formatFailedItems, verifyImageAcceptance, buildImageReworkPrompt, canSeeImages } from './verify.js';
 import { checkAssert, buildAssertReworkBlock } from './assert.js';
 import { createInterface } from 'node:readline';
 
@@ -495,7 +495,64 @@ async function executeStep(
       const v = imageOpts[k];
       if (typeof v === 'string') imageOpts[k] = renderTemplate(v, opts.context);
     }
-    const img = await generateImage(imgConfig, prompt, imageOpts, (m: string) => process.stderr.write(`  ${m}\n`));
+    const log = (m: string) => process.stderr.write(`  ${m}\n`);
+    let img = await generateImage(imgConfig, prompt, imageOpts, log);
+
+    // 图片验收：让能看图的文本模型对着**成品图**逐条核对 acceptance，未过 → 带着未满足项重出一张
+    // （再花一张图的钱，日志里说清）→ 复核。与文本步骤同一套口径与三级开关（--verify / 顶层 verify / step.verify）。
+    // 验收不过是质量信号：步骤不失败，产物带 ⚠️ 照常流向下游。
+    if (node.step.acceptance) {
+      node.acceptance = renderTemplate(node.step.acceptance, opts.context);
+      const verifyEnabled = opts.verify === true && node.step.verify !== false;
+      if (verifyEnabled) {
+        const judgeCfg: LLMConfig = (node.step.llm ? { ...opts.llmConfig, ...node.step.llm } : opts.llmConfig) as LLMConfig;
+        // 纯媒体工作流没有文本 connector（opts.connector 为空）——验收员按文本供应商配置现建一个
+        const judge = (!opts.connector || (node.step.llm && (node.step.llm.provider || node.step.llm.base_url !== undefined || node.step.llm.api_key !== undefined)))
+          ? createConnector(judgeCfg) : opts.connector;
+        if (!canSeeImages(judgeCfg.provider)) {
+          process.stderr.write(`  ⚠️  ${node.step.id} 写了 acceptance，但文本供应商 ${judgeCfg.provider} 看不了图（CLI/本地连接器会剥掉图片），已跳过图片验收——要验收请换支持 vision 的 API 供应商与模型\n`);
+        } else {
+          const tokens = { input: 0, output: 0 };
+          const add = (t: { input: number; output: number }) => { tokens.input += t.input; tokens.output += t.output; node.tokenUsage = { ...tokens }; };
+          const dataUri = (b: Buffer) => `data:image/png;base64,${b.toString('base64')}`;
+          const c1 = await verifyImageAcceptance(judge, judgeCfg, prompt, dataUri(img.buffer), node.acceptance);
+          add(c1.tokens);
+          if (!c1.verdict) {
+            process.stderr.write(`  ⚠️  ${node.step.id} 图片验收不可用（模型不支持看图或核验出错），已跳过验收\n`);
+          } else if (c1.verdict.pass) {
+            node.verification = { pass: true, failed: [], reworked: false };
+          } else {
+            const failed1 = formatFailedItems(c1.verdict.failed);
+            process.stderr.write(`\n  ⟳ ${node.step.id} 图片验收未过（${failed1.length} 条未满足），带着未满足项重出一张（再花一张图的钱）...\n`);
+            failed1.forEach((f) => process.stderr.write(`      · ${f}\n`));
+            try {
+              const img2 = await generateImage(imgConfig, buildImageReworkPrompt(prompt, c1.verdict.failed), imageOpts, log);
+              const c2 = await verifyImageAcceptance(judge, judgeCfg, prompt, dataUri(img2.buffer), node.acceptance);
+              add(c2.tokens);
+              if (c2.verdict?.pass) {
+                node.verification = { pass: true, failed: [], reworked: true };
+                img = img2;
+              } else if (c2.verdict) {
+                // 两版都没过：交付第二版（它至少针对了未满足项），如实标未通过
+                node.verification = { pass: false, failed: formatFailedItems(c2.verdict.failed), reworked: true };
+                img = img2;
+                process.stderr.write(`\n  ⚠️  ${node.step.id} 重出后仍有 ${c2.verdict.failed.length} 条未满足\n`);
+              } else {
+                node.verification = { pass: false, failed: failed1, reworked: true };
+                img = img2;
+                process.stderr.write(`\n  ⚠️  ${node.step.id} 重出后复核不可用，验收状态按未通过记录\n`);
+              }
+            } catch (err) {
+              // 重出失败 → 保留第一版：质检加严绝不能反过来搞挂本已成功的步骤
+              const msg = err instanceof Error ? err.message.slice(0, 80) : String(err);
+              process.stderr.write(`\n  ⚠️  ${node.step.id} 重出失败（${msg}），保留第一版图片\n`);
+              node.verification = { pass: false, failed: failed1, reworked: false };
+            }
+          }
+        }
+      }
+    }
+
     const filename = `${node.step.id}.png`;
     node.imageAsset = { filename, base64: img.buffer.toString('base64') };
     // 登记本次运行产出的图片：图生视频步骤用 {{cover_img}}（markdown 引用 assets/<id>.png）时从这里拿字节——
