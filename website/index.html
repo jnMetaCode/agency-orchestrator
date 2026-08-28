@@ -3,6 +3,50 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+    <!-- 资源自愈：CF Pages 的 SPA 回退（_redirects 里的 `/* /index.html 200`）会在部署
+         传播窗口里，把 index.html 当成 /assets/xxx-<hash>.js 的内容回给边缘；而 _headers
+         给 /assets/* 的是 `immutable, max-age=31536000` —— 这份 HTML 于是被缓存一年。
+         浏览器按 MIME 拒绝执行模块脚本，整站白屏，且不会自愈（2026-08-28 事故）。
+         更阴的是 CF 按 Origin 分缓存变体：浏览器加载 module 必带 Origin，curl 默认不带，
+         所以终端探测一切正常、真实访客全白屏。
+
+         这里兜底：任何 /assets/* 的 script/link 加载失败（含 MIME 拒绝），就带一个
+         cache-buster 查询参数重挂一次。不同 URL = 不同缓存键，能绕开被毒化的那份，
+         实测直接拿到正确的 JS/CSS。只重试一次，失败不再循环。
+         必须放在 head 顶部：要早于 Vite 注入的 script/link 标签注册监听。 -->
+    <script>
+      (function () {
+        window.addEventListener(
+          'error',
+          function (e) {
+            var el = e && e.target;
+            if (!el || el === window || !el.tagName) return;
+            var tag = el.tagName.toUpperCase();
+            var isScript = tag === 'SCRIPT' && el.src;
+            var isStyle = tag === 'LINK' && el.rel === 'stylesheet' && el.href;
+            if (!isScript && !isStyle) return;
+            var url = isScript ? el.src : el.href;
+            if (url.indexOf('/assets/') === -1 || url.indexOf('aocb=') !== -1) return;
+            var fresh = url + (url.indexOf('?') === -1 ? '?' : '&') + 'aocb=' + Date.now();
+            var retry;
+            if (isScript) {
+              retry = document.createElement('script');
+              retry.type = el.type || 'module';
+              if (el.crossOrigin) retry.crossOrigin = el.crossOrigin;
+              retry.src = fresh;
+            } else {
+              retry = document.createElement('link');
+              retry.rel = 'stylesheet';
+              if (el.crossOrigin) retry.crossOrigin = el.crossOrigin;
+              retry.href = fresh;
+            }
+            document.head.appendChild(retry);
+          },
+          true
+        );
+      })();
+    </script>
     <!-- 百度站长验证 -->
     <meta name="baidu-site-verification" content="codeva-uMqdeLJ0Jl" />
     <!-- 统计（GTM + GA4）只在公网官网加载。本地 Studio（`ao web` / 桌面端，同一份
