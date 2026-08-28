@@ -8,12 +8,13 @@
  */
 import express from 'express';
 import { spawn, execFileSync , spawnSync } from 'node:child_process';
-import { readFileSync, readdirSync, existsSync, statSync, writeFileSync, unlinkSync, mkdirSync, rmSync } from 'node:fs';
+import { readFileSync, readdirSync, existsSync, statSync, writeFileSync, unlinkSync, mkdirSync, rmSync, accessSync, constants as fsConstants } from 'node:fs';
 import { resolve, join, dirname, basename, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createHash } from 'node:crypto';
 import { tmpdir, homedir } from 'node:os';
 import yaml from 'js-yaml';
+import { resolveDataDir, migrateLegacyData } from './data-dir.js';
 import { detectInstalledCliProviders, detectUsableCliProviders } from '../dist/providers/detect.js';
 import { API_PROVIDERS, API_PROVIDER_MAP, ANTHROPIC_PROVIDERS, ANTHROPIC_PROVIDER_MAP, VIDEO_PROVIDERS, VIDEO_PROVIDER_MAP } from '../dist/connectors/api-providers.js';
 import { STYLE_PRESETS } from '../dist/media/styles.js';
@@ -54,7 +55,16 @@ const USER_WORKFLOWS_DIR = process.env.AO_USER_WORKFLOWS_DIR
 // Writable data dir. In dev this is the repo root; in the packaged desktop app
 // the bundle is read-only, so the Electron shell passes AO_DATA_DIR (userData)
 // and we redirect all writes (outputs, composed workflows, keys) there.
-const DATA_DIR = process.env.AO_DATA_DIR ? resolve(process.env.AO_DATA_DIR) : ROOT;
+// 全局安装(npm i -g)时 ROOT 在 node_modules 里——通常 root 所有,写 key 直接 EACCES
+// 500(issue #99);就算前缀可写,下次 `npm i -g` 也会把数据一起换掉。这种情况回落
+// 到 ~/.ao。判定与迁移都在 web/data-dir.js,那里写了为什么不能只看「可不可写」。
+const DATA_DIR = resolveDataDir(ROOT, process.env);
+// 目录建不出来/不可写时不要等到用户点保存才炸——启动就说清楚(见 app.listen 里的提示)。
+let DATA_DIR_ERROR = '';
+try { mkdirSync(DATA_DIR, { recursive: true }); accessSync(DATA_DIR, fsConstants.W_OK); }
+catch (e) { DATA_DIR_ERROR = e?.message || String(e); }
+// 旧版把 key/工作流写进了安装目录的用户(npm 前缀可写时),升级后不该觉得"东西没了"。
+const MIGRATED = DATA_DIR_ERROR ? [] : migrateLegacyData(ROOT, DATA_DIR);
 // User-composed / saved workflows (gitignored). Always writable & runnable.
 const COMPOSED_DIR = join(DATA_DIR, 'ao-workflows');
 const AGENTS_DIR = join(ROOT, 'node_modules', 'agency-agents-zh');
@@ -2636,4 +2646,12 @@ app.listen(PORT, HOST, () => {
   console.log(`🌐 agency-orchestrator ${ui}: http://${HOST}:${PORT}`);
   // 把解析到的前端路径打出来，前端缺失类问题（#81）一眼可查。
   if (!HAS_NEW_UI) console.warn(`⚠️  未找到 React 前端产物：${join(WEBSITE_DIST, 'index.html')}（将回退 legacy UI / 诊断页）`);
+  // 数据落在哪儿必须让人看得见:全局安装时它不在包目录而在 ~/.ao,
+  // 不打出来的话「我的 key 存哪了 / 产物去哪了」只能靠翻源码(issue #99)。
+  console.log(`📁 数据目录 / data dir: ${DATA_DIR}`);
+  if (MIGRATED.length) console.log(`   ↪︎ 已从旧的安装目录迁入:${MIGRATED.join('、')}`);
+  if (DATA_DIR_ERROR) {
+    console.warn(`⚠️  数据目录不可写:${DATA_DIR_ERROR}`);
+    console.warn(`   保存 API key / 生成工作流会失败。指定一个可写目录后重启:AO_DATA_DIR=~/ao-data ao web`);
+  }
 });

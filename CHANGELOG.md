@@ -34,6 +34,7 @@
 - **Studio 模型「钉到常用」**：顶栏快切与配置页模型芯片都有 ★，按供应商各存各的（`localStorage` `ao-fav-models`，与角色/工作流的 ☆常用同一套）。快切列表顺序 = 当前 → 常用 → 推荐集；全量目录里常用单独成组置顶。推荐集是我们替用户挑的，常用是用户替自己挑的，两者并存。对所有 API 供应商与自定义供应商通用，只有 CLI 类（用各自工具登录态选模型）不显示。
 
 ### Fixed
+- **全局安装后在 Studio 里存 API key 报 500（`EACCES: permission denied, mkdir '.../.local'`，#99）**：Studio 的数据目录原本直接等于包的安装目录 —— 开发仓库直跑可写、桌面端由 Electron 传 `AO_DATA_DIR`，唯独 `npm i -g` 装出来的 ROOT 在 `node_modules` 里且通常 root 所有，于是**第一次配 key 就撞墙**。现在装出来的包一律把 key / 生成的工作流 / 运行产物写到 `~/.ao`（与团队、提示词、角色同体系），优先级 `AO_DATA_DIR > AO_HOME > 可写的源码 ROOT > ~/.ao`。附带两点：npm 前缀可写（nvm）时旧版其实写进了 `node_modules`，下次 `npm i -g` 会连 key 一起换掉 —— 现在同样改走 `~/.ao`，并**一次性把旧的 `.local` / `ao-workflows` 迁过来**（`ao-output` 不搬，可能几个 G）；启动日志固定打印数据目录，目录不可写时启动就报并给出 `AO_DATA_DIR=` 的走法，不再等到用户点保存才炸。回归测试 `test/web-data-dir.ts` 17 条。
 - 视频供应商 id 统一从解析结果带进 adapter：调用方只给 `config.provider` 时（脚本的调法）Agnes 少了必填 `mode` 报 400。
 - 实时运行视图里出片的播放器 0:00 放不了：产物链接是 `assets/x.mp4` 相对路径被解析到 `/studio/assets/…`；运行目录到达后改写成 `/api/runs/<id>/assets`，跑完当场能播。
 - Studio 打磨：可选下拉占位不再误写「跟随文本供应商」；输入 `format: url`（首帧参考图）单行且不带扩写/读文件；出图出片模板不显示「对比单次」（文本基线比不了片）；运行历史里纯视频运行用 ffmpeg 抽首帧做封面（一次缓存 `_poster.jpg`）。
