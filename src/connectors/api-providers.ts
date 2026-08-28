@@ -192,6 +192,12 @@ export interface VideoProviderSpec {
   createExtra?: Record<string, unknown>;
   createExtraWithImage?: Record<string, unknown>;
   /**
+   * openai-videos 变体里首帧图走 **JSON 字段**（data URI）而不是 multipart input_reference。
+   * Agnes 真机（2026-08-28）：multipart 直接 400 "only supports application/json"；JSON 里 mode:"keyframe" +
+   * first_frame:"data:image/png;base64,…" 建任务成功（裸 base64 也收；64×64 的探针图会被"valid base64 data"拒掉——它校验的是图不是编码）。
+   */
+  imageJsonField?: string;
+  /**
    * 已核实的视频模型（Studio 下拉候选；仍可手填）。档位**按模型**给——同一家网关上
    * sora-2 只有 720p、veo3 固定 8 秒、MiniMax-H3 是 2K/768P，按供应商一刀切必错。
    */
@@ -260,7 +266,7 @@ export const VIDEO_PROVIDERS: VideoProviderSpec[] = [
 ];
 
 // Agnes AI —— OpenAI Videos 形状的变体（2026-08-26 真机核实：POST /v1/videos 建任务、GET /v1/videos/{id} 轮询、
-// GET /v1/videos/{id}/content 下载，status queued/in_progress/completed；只多一个必填 mode：文生视频 "text"）。
+// GET /v1/videos/{id}/content 下载，status queued/in_progress/completed；只多一个必填 mode：文生视频 "text"，图生视频 "keyframe"）。
 // 与 APIMart 同理，它同时在 API_PROVIDERS（聊天/图片）与这里（视频），一把 AGNES_API_KEY 通用。
 // size 不是 OpenAI 的 WxH 而是档位名 720P/960P/2K（服务端 400 原话列出）；seconds "4" 真机出片 1280x704/4.46s 带音轨；其余秒数未逐个核实，只列 4/8/12。
 VIDEO_PROVIDERS.push({
@@ -270,6 +276,10 @@ VIDEO_PROVIDERS.push({
   defaultBaseUrl: 'https://apihub.agnes-ai.com/v1',
   shape: 'openai-videos',
   createExtra: { mode: 'text' },
+  // 图生视频：mode 必须换成 keyframe（text 模式带媒体字段直接拒），图放 first_frame（JSON data URI，不是 multipart）。
+  // 服务端合法 mode 只有 text / reference / keyframe（其余一律 "invalid mode"）；v2.0 后端另有 ti2vid/keyframes/multi_reference，未接。
+  createExtraWithImage: { mode: 'keyframe' },
+  imageJsonField: 'first_frame',
   models: [
     { id: 'agnes-video-2.5-flash', resolutions: ['720P', '960P', '2K'], durations: [4, 8, 12], ratios: ['16:9', '9:16'] },
     { id: 'agnes-video-2.5', resolutions: ['720P', '960P', '2K'], durations: [4, 8, 12], ratios: ['16:9', '9:16'] },

@@ -5,6 +5,7 @@
 ## [Unreleased]
 
 ### Added
+- **Agnes 图生视频真机接通**：短剧流水线三镜此前一条没出——先是 inlineImage 形状拿着解析好的本地首帧被当"没解析成本地图片"拒掉（已修），再是 Agnes 拒收 multipart（"only supports application/json"）。零成本探测（无效请求体只回 400）摸出契约：`mode` 合法值只有 text / reference / **keyframe**，图放 JSON 的 `first_frame`（data URI 或裸 base64；64×64 探针图会被"valid base64 data"拒——它校验的是图不是编码）。供应商表新增 `imageJsonField` + `createExtraWithImage`，mime 按字节魔数判。
 - **顶层 `verify_llm` / CLI `--verify-provider --verify-model`：指定验收员模型**。真机跑短剧流水线时暴露：验收员固定等于文本供应商，文本走 DeepSeek（看不了图）时媒体步的看图验收只能整段跳过，唯一出路是给每个媒体步手改 `llm:`。现在一处指定（优先级：步骤级 `llm` > `--verify-provider` > YAML `verify_llm` > 文本供应商），文本步的验收也一并换成它；换供应商时文本供应商的 base_url / api_key 不带过去（同 image/video.provider 规则）。写错形状解析期报。
 - 短剧流水线三个镜头提示词的 `max_bytes` 900 → 1100：任务自己要求的五段标记 + 固定呼吸感句 + 【声音】行就占 ~150 字节，真机两次都卡在 938 字节上白返工一轮。
 - **媒体步骤吃 `--feedback`，Studio 一键「按未满足项重做这一步」**。此前 `--feedback` 只在文本分支拼进提示词，对出图/出片步骤"提意见重做"会把意见**静默丢掉、原样再出一张**。现在意见变成提示词末尾的硬约束（与验收重出同一套拼法）重出，日志明说带了哪条意见。Studio 实时视图在验收未满足条目下方新增按钮，把条目直接当意见交回去：文本步在原稿上改，出图/出片步追加约束重出——视频按秒计费，这个按钮就是用户的明示。

@@ -460,6 +460,22 @@ await test('openai-videos 带执行器解析好的本地首帧图（image 是 ma
   } finally { fake.srv.close(); }
 });
 
+await test('Agnes 图生视频：JSON 而非 multipart，mode 换成 keyframe，first_frame 是 data URI（2026-08-28 真机契约）', async () => {
+  const fake = fakeOpenAIVideos();
+  const port = await listen(fake.srv);
+  try {
+    await generateVideo(
+      { provider: 'agnes', api_key: 'sk-t', base_url: `http://127.0.0.1:${port}/v1` } as unknown as LLMConfig,
+      '猫',
+      { model: 'agnes-video-2.5-flash', duration: 4, poll_interval: 10, image: '![c](assets/c.png)', image_bytes: Buffer.from('ffd8ffe0', 'hex'), image_name: 'c.jpg' },
+    );
+    assert(!/multipart/.test(fake.seen.createContentType || ''), `不得是 multipart（实际 ${fake.seen.createContentType}）`);
+    const body = fake.seen.create as { mode?: string; first_frame?: string } | undefined;
+    assert(body?.mode === 'keyframe', `mode 应为 keyframe，实际 ${body?.mode}`);
+    assert(typeof body?.first_frame === 'string' && body.first_frame.startsWith('data:image/jpeg;base64,'), `first_frame 应为按魔数判 mime 的 data URI，实际 ${body?.first_frame?.slice(0, 30)}`);
+  } finally { fake.srv.close(); }
+});
+
 console.log('\n─── 图生视频（首帧图） ───');
 
 await test('APIMart 本地首帧图：先走 /uploads/images 拿 URL，sora/veo 放 image_urls[]', async () => {

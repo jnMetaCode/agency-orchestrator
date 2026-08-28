@@ -199,6 +199,12 @@ const SHAPES: Record<string, VideoShapeAdapter> = {
       if (opts.duration) fields.seconds = String(opts.duration);
       const size = openaiVideoSize(opts);
       if (size) fields.size = size;
+      if (opts.image_bytes && spec?.imageJsonField) {
+        // 供应商要 JSON 里带 data URI（Agnes）：按字节魔数定 mime，别一律写 png——jpeg 首帧也常见
+        const b = opts.image_bytes;
+        const mime = b[0] === 0xff && b[1] === 0xd8 ? 'image/jpeg' : b[0] === 0x47 && b[1] === 0x49 ? 'image/gif' : b.length > 11 && b.toString('ascii', 8, 12) === 'WEBP' ? 'image/webp' : 'image/png';
+        return JSON.stringify({ ...fields, [spec.imageJsonField]: `data:${mime};base64,${b.toString('base64')}` });
+      }
       if (opts.image_bytes) {
         const form = new FormData();
         for (const [k, v] of Object.entries(fields)) form.append(k, v);
