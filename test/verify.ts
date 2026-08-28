@@ -181,5 +181,29 @@ async function runOnce(wf: WorkflowDefinition, mock: ScriptedConnector, verify: 
 }
 
 rmSync(dir, { recursive: true, force: true });
+// ── 验收员的判定口径（2026-08-28 真机 11 次采样定的） ──────────────────────
+// 原先是"宁严勿松：条目只做到一部分也算未满足"。对可数条目对，对**质性**条目
+// （"写明了色调和光源"）等于放任评判者无限细分——产出写了"暖阳侧逆光"，它仍判
+// "未明确光源类型"。实测 11/11 全部触发返工、多数返工后仍判未过：每跑一次白付一轮，
+// 且验收长期显示未过，**用户会学会无视验收**。改口径后同一批样本 0/4 返工、4/4 通过，
+// 而故意写坏的产出照样被判不过（空泛器材 / 形容词分镜 / 混进 IP 名，三种都抓到）。
+{
+  // 精确匹配**旧的那两行原句**，而不是禁某个词——"只做到一部分算未满足"这句话
+  // 现在是有限定地合法存在的（限定在"标准明确枚举的东西"上），钝着禁会误伤它自己。
+  const src = readFileSync('src/core/verify.ts', 'utf-8');
+
+  assert(/不要发明标准里没有的更严要求/.test(src) && /do not invent stricter requirements/i.test(src),
+    '判定口径：不许发明标准里没写的更严要求（中英两版都有）');
+  assert(/引用产出中的原话/.test(src) && /举不出原话就说明它其实满足了/.test(src) && /MUST quote the deliverable/i.test(src),
+    '判定口径：判未满足必须引用产出原话——防"发明缺陷"的主闸');
+  assert(/明确枚举/.test(src) && /explicitly ENUMERATES/.test(src),
+    '判定口径：严格口径限定在标准明确枚举的东西上，不是全局');
+  assert(!/逐条核对下面的产出是否满足验收标准，宁严勿松/.test(src)
+      && !/Check the deliverable against EACH criterion; partially met counts as NOT met/.test(src),
+    '判定口径：旧的无差别严格口径没有回来（它会让质性条目每次都判不过，用户就开始无视验收）');
+  assert(/不要求字句对上/.test(src) && /exact phrasing is not required/i.test(src),
+    '判定口径：措辞不同但满足同一意图算满足');
+}
+
 console.log(`\n  结果: ${passed} 通过, ${failed} 失败\n`);
 if (failed > 0) process.exit(1);

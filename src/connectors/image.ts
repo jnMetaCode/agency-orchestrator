@@ -79,7 +79,12 @@ function settle(
  * CLI（claude-code / agy…）是编码工具不是图片端点，claude 原生协议也没有图片 API。
  * 报错必须把这条说清，别让用户拿 CLI provider 撞一头雾水。
  */
-export function resolveImageAccess(config: LLMConfig, opts: { provider?: string } = {}): { baseUrl: string; apiKey: string } {
+export function resolveImageAccess(
+  config: LLMConfig,
+  opts: { provider?: string } = {},
+  /** 报错里的用途称呼。配音步骤复用这套解析，不换称呼就会对着 tts 步骤说"图片步骤缺少 key" */
+  kind: { step: string; ability: string } = { step: '图片步骤（type: image）', ability: '图片生成端点' },
+): { baseUrl: string; apiKey: string } {
   // 步骤指定了另一家供应商时，**文本供应商的 base_url / api_key 一律不带过去**：
   // 它们是 --base-url / 工作流 llm 里给文本模型的，拿去打图片供应商只会把请求发错地方。
   if (opts.provider && opts.provider.trim() && opts.provider.trim() !== config.provider) {
@@ -91,8 +96,8 @@ export function resolveImageAccess(config: LLMConfig, opts: { provider?: string 
   // 用户看到的是一句 404 正文而不是"这家没有图片 API"。这类"能力不存在"必须当场说清。
   if (config.provider === 'claude' || ANTHROPIC_PROVIDER_MAP[config.provider]) {
     throw new Error(
-      `provider "${config.provider}" 走 Anthropic Messages 协议，**没有图片生成端点**（Anthropic 官方也不提供文生图 API）。` +
-      `图片步骤请单独配一个 OpenAI 兼容的 API provider：llm: { provider: <如 openai / lanox / shengsuanyun> }（步骤级配置只影响本步）。`
+      `provider "${config.provider}" 走 Anthropic Messages 协议，**没有${kind.ability}**（Anthropic 官方也不提供这类 API）。` +
+      `${kind.step}请单独配一个 OpenAI 兼容的 API provider：llm: { provider: <如 openai / lanox / shengsuanyun> }（步骤级配置只影响本步）。`
     );
   }
   const spec = API_PROVIDER_MAP[config.provider];
@@ -100,14 +105,14 @@ export function resolveImageAccess(config: LLMConfig, opts: { provider?: string 
   const apiKey = config.api_key || (spec ? process.env[spec.envKey] || '' : '');
   if (!baseUrl) {
     throw new Error(
-      `图片步骤（type: image）需要一个 OpenAI 兼容的 API provider（如 lanox / shengsuanyun / openai / apinebula），` +
-      `当前 provider "${config.provider}" 没有可用的图片端点。` +
-      `本地 CLI（claude-code / antigravity-cli 等）与 claude 原生协议都没有图片 API —— ` +
+      `${kind.step}需要一个 OpenAI 兼容的 API provider（如 lanox / shengsuanyun / openai / apinebula），` +
+      `当前 provider "${config.provider}" 没有可用的端点。` +
+      `本地 CLI（claude-code / antigravity-cli 等）与 claude 原生协议都没有这类 API —— ` +
       `请给这一步单独配 llm: { provider: <API provider> }（步骤级配置只影响本步）。`
     );
   }
   if (!apiKey) {
-    throw new Error(`图片步骤缺少 ${config.provider} 的 API key（${spec ? spec.envKey : 'api_key'}）。`);
+    throw new Error(`${kind.step}缺少 ${config.provider} 的 API key（${spec ? spec.envKey : 'api_key'}）。`);
   }
   return { baseUrl, apiKey };
 }

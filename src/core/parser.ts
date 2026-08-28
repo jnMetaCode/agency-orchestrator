@@ -2,6 +2,8 @@
  * YAML → WorkflowDefinition 解析器
  */
 import { readFileSync, existsSync } from 'node:fs';
+import { extractVariables } from './template.js';
+import { evaluateCondition } from './condition.js';
 import yaml from 'js-yaml';
 import type { WorkflowDefinition, StepDefinition } from '../types.js';
 import { t } from '../i18n.js';
@@ -57,7 +59,7 @@ export function parseWorkflow(
   // 顶层 llm.model 只是文本步骤要用的。逼用户随手填一个用不上的文本模型，等于教他写谎话
   // （与 agents_dir 那条同一个道理：一个角色都不用的工作流不该被"找不到角色库"挡在门外）。
   const mediaOnly = Array.isArray(doc.steps) && doc.steps.length > 0
-    && (doc.steps as Array<Record<string, unknown>>).every((s) => s?.type === 'image' || s?.type === 'video' || s?.type === 'concat');
+    && (doc.steps as Array<Record<string, unknown>>).every((s) => s?.type === 'image' || s?.type === 'video' || s?.type === 'concat' || s?.type === 'tts');
   if (!llm.model && !cliProviders.includes(llm.provider as string) && !mediaOnly) {
     fail(t('parse.missing_model'));
   }
@@ -82,7 +84,8 @@ export function parseWorkflow(
     const isImageNode = step.type === 'image';
     const isVideoNode = step.type === 'video';
     const isConcatNode = step.type === 'concat';
-    if (!isHumanNode && !isImageNode && !isVideoNode && !isConcatNode && !step.role) {
+    const isTtsNode = step.type === 'tts';
+    if (!isHumanNode && !isImageNode && !isVideoNode && !isConcatNode && !isTtsNode && !step.role) {
       fail(`step "${step.id}" 缺少 role`);
     }
     if (isConcatNode) {
@@ -91,9 +94,42 @@ export function parseWorkflow(
         fail(`step "${step.id}" 是 concat 步骤，必须写 concat: { inputs: ["{{shot1_mp4}}", "{{shot2_mp4}}", …] }（上游视频步骤的输出变量，按顺序合成）`);
       }
       if (step.acceptance || step.assert) fail(`step "${step.id}" 是 concat 步骤，暂不支持 acceptance / assert`);
+      // 逐段对应的字段，数量对不上是配置错而不是"少配一段"：
+      // 静默补齐会让第 2 段的旁白盖到第 3 段画面上，而这种错在成片里才看得出来。
+      for (const k of ['voiceover', 'subtitles'] as const) {
+        const arr = step.concat?.[k];
+        if (arr === undefined) continue;
+        if (!Array.isArray(arr) || !arr.every((x) => typeof x === 'string')) {
+          fail(`step "${step.id}" 的 concat.${k} 必须是字符串数组（与 inputs 一一对应，这段不要就留空串）`);
+        } else if (Array.isArray(ins) && arr.length !== ins.length) {
+          fail(`step "${step.id}" 的 concat.${k} 有 ${arr.length} 条，但 inputs 有 ${ins.length} 段——必须一一对应`);
+        }
+      }
+      for (const k of ['voice_volume', 'bgm_volume', 'clip_volume'] as const) {
+        const v = step.concat?.[k];
+        if (v !== undefined && (typeof v !== 'number' || !Number.isFinite(v) || v < 0)) {
+          fail(`step "${step.id}" 的 concat.${k} 必须是非负数字`);
+        }
+      }
+      if (step.concat?.bgm !== undefined && typeof step.concat.bgm !== 'string') {
+        fail(`step "${step.id}" 的 concat.bgm 必须是字符串（本地音频路径，或上游 tts 步骤的输出变量）`);
+      }
+    }
+    if (isTtsNode) {
+      if (step.acceptance || step.assert) {
+        // 同 image/video：核验的是文本产出，音频核验是另一回事，别装作跑了
+        fail(`step "${step.id}" 是 tts 步骤，暂不支持 acceptance / assert（它们核验的是文本产出——要审文案就审上游写旁白的那一步）`);
+      }
+      if (!step.tts?.model || !step.tts?.voice) {
+        fail(
+          `step "${step.id}" 是 tts 步骤，必须写 tts: { model: "<语音模型>", voice: "<音色>" }\n` +
+          `        音色 id 各家互不通用（OpenAI 是 alloy / nova / shimmer…，别家完全不同），引擎不猜——\n` +
+          `        猜错要么被拒，要么拿回一条不是你要的嗓子的成品，钱照花`
+        );
+      }
     }
     if (!step.task && !isHumanNode && !isConcatNode) {
-      fail(`step "${step.id}" 缺少 task${isImageNode ? '（image 步骤的 task 就是图片提示词）' : isVideoNode ? '（video 步骤的 task 就是视频提示词）' : ''}`);
+      fail(`step "${step.id}" 缺少 task${isImageNode ? '（image 步骤的 task 就是图片提示词）' : isVideoNode ? '（video 步骤的 task 就是视频提示词）' : isTtsNode ? '（tts 步骤的 task 就是要念的文案）' : ''}`);
     }
     if (isVideoNode && (step.acceptance || step.assert)) {
       // 同 image：核验的是文本产出，视频核验是另一件事，别装作跑了
@@ -139,6 +175,29 @@ export function validateWorkflow(workflow: WorkflowDefinition, agentsDir?: strin
   const errors: string[] = [];
   const stepIds = new Set(workflow.steps.map(s => s.id));
   const stepById = new Map(workflow.steps.map(s => [s.id, s]));
+
+  // 输入的 show_when：语法错或引用了不是输入的变量，在解析期就报——
+  // 否则 Studio 里那个输入会"永远不显示"，而用户只看到模板缺了一项、不知道为什么。
+  {
+    const inputNames = new Set((workflow.inputs ?? []).map((i) => i.name));
+    for (const inp of workflow.inputs ?? []) {
+      if (inp.show_when === undefined) continue;
+      if (typeof inp.show_when !== 'string' || !inp.show_when.trim()) {
+        errors.push(`input "${inp.name}" 的 show_when 必须是非空字符串（如 "{{narration}} contains 配旁白"）`);
+        continue;
+      }
+      const refs = extractVariables(inp.show_when);
+      const bad = refs.filter((v) => !inputNames.has(v) || v === inp.name);
+      if (!refs.length) errors.push(`input "${inp.name}" 的 show_when 没有引用任何输入变量：${inp.show_when}`);
+      if (bad.length) errors.push(`input "${inp.name}" 的 show_when 只能引用其他输入，"${bad.join('、')}" 不是输入（或引用了自己）`);
+      try {
+        // 用全空上下文试解析一次：语法错（不支持的运算符、缺运算符）在这里就会抛
+        evaluateCondition(inp.show_when, new Map([...inputNames].map((n) => [n, ''])));
+      } catch (e) {
+        errors.push(`input "${inp.name}" 的 show_when 写法不对：${e instanceof Error ? e.message : e}`);
+      }
+    }
+  }
 
   // verify 开关必须是布尔（YAML 里写成 "false" 字符串会被当 truthy，静默反转语义）
   if (workflow.verify !== undefined && typeof workflow.verify !== 'boolean') {
@@ -245,17 +304,21 @@ export function validateWorkflow(workflow: WorkflowDefinition, agentsDir?: strin
     if (step.assert !== undefined) {
       const a = step.assert as Record<string, unknown>;
       if (typeof a !== 'object' || a === null || Array.isArray(a)) {
-        errors.push(`step "${step.id}" 的 assert 必须是映射（emits_files / min_bytes / contains / matches）`);
+        errors.push(`step "${step.id}" 的 assert 必须是映射（emits_files / min_bytes / max_bytes / contains / matches）`);
       } else {
-        const known = ['emits_files', 'min_bytes', 'contains', 'matches'];
+        const known = ['emits_files', 'min_bytes', 'max_bytes', 'contains', 'matches'];
         for (const k of Object.keys(a)) {
           if (!known.includes(k)) errors.push(`step "${step.id}" 的 assert 不认识字段 "${k}"（可用：${known.join(' / ')}）`);
         }
-        for (const k of ['emits_files', 'min_bytes']) {
+        for (const k of ['emits_files', 'min_bytes', 'max_bytes']) {
           const v = a[k];
           if (v !== undefined && (typeof v !== 'number' || !Number.isInteger(v) || v < 0)) {
             errors.push(`step "${step.id}" 的 assert.${k} 必须是非负整数`);
           }
+        }
+        // 自相矛盾的区间是配错,不是"永远不过"——不在解析期拦下,就会每步都返工一轮再失败。
+        if (typeof a.min_bytes === 'number' && typeof a.max_bytes === 'number' && a.min_bytes > a.max_bytes) {
+          errors.push(`step "${step.id}" 的 assert.min_bytes(${a.min_bytes}) 大于 max_bytes(${a.max_bytes})，没有产出能同时满足`);
         }
         if (a.contains !== undefined && (!Array.isArray(a.contains) || a.contains.some((x) => typeof x !== 'string'))) {
           errors.push(`step "${step.id}" 的 assert.contains 必须是字符串数组`);

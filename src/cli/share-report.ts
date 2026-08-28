@@ -60,6 +60,14 @@ function mdToHtml(md: string, resolveAsset?: (src: string) => string | null): st
         ? `<video src="${inlined}" controls preload="metadata" style="max-width:100%;border-radius:10px;margin:8px 0"></video>`
         : `${whole} <em style="opacity:.7">（视频体积较大，未内联到本页；原文件在运行目录的 assets/ 下）</em>`;
     });
+    // type: tts 的配音产物同理（[🔊 id.mp3](assets/id.mp3)）。配音一般只有几十 KB，
+    // 不内联的话报告里就是一条点了下载文件的死链——听不到等于没有。
+    html = html.replace(/<a href="([^"]+\.(?:mp3|wav|m4a|aac|opus|flac))"[^>]*>(.*?)<\/a>/gi, (whole, src: string) => {
+      const inlined = resolveAsset(src);
+      return inlined
+        ? `<audio src="${inlined}" controls preload="metadata" style="max-width:100%;margin:8px 0"></audio>`
+        : `${whole} <em style="opacity:.7">（音频未内联到本页；原文件在运行目录的 assets/ 下）</em>`;
+    });
   }
   return html;
 }
@@ -94,7 +102,11 @@ export function renderRunDirReport(runDir: string, generatedAt?: string): string
 
   // 相对图片内联成 data URI。注意 md 里的引用是相对 steps/ 目录写的
   // （image 步骤产物是 `../assets/xx.png`），所以先按 steps/ 为基准解析，再退回 runDir。
-  const MIME: Record<string, string> = { '.png': 'image/png', '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.gif': 'image/gif', '.webp': 'image/webp', '.svg': 'image/svg+xml', '.mp4': 'video/mp4' };
+  const MIME: Record<string, string> = {
+    '.png': 'image/png', '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.gif': 'image/gif', '.webp': 'image/webp', '.svg': 'image/svg+xml',
+    '.mp4': 'video/mp4',
+    '.mp3': 'audio/mpeg', '.wav': 'audio/wav', '.m4a': 'audio/mp4', '.aac': 'audio/aac', '.opus': 'audio/ogg', '.flac': 'audio/flac',
+  };
   // 视频内联上限：一段 5s/768P 的片子一般 1~3MB，内联没问题；2K 长片可能几十 MB，
   // base64 还要再涨 1/3 —— 那种体积的单文件 HTML 发不出去也打不开，宁可退回链接并说明。
   const INLINE_CAP = 12 * 1024 * 1024;

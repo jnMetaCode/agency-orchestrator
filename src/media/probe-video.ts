@@ -1,5 +1,6 @@
 /**
- * 零成本探测：某个 OpenAI 兼容中转站有没有视频端点、是哪种"形状"。
+ * 零成本探测：某个 OpenAI 兼容中转站有没有**视频 / 图片 / 语音**端点、视频是哪种"形状"。
+ * （函数名与 `--video-probe` 是视频先落地时留下的；现在图片与语音也一并探，一次跑覆盖三样。）
  *
  * 为什么要探而不是"都显示"：视频不像聊天有统一格式——建任务路径 / 请求体 / 轮询 / 状态词每家都不同，
  * 不知道形状连请求都发不出去，把所有中转站都列进视频供应商只会让用户选中一个必失败的。
@@ -17,12 +18,22 @@ export interface VideoProbeResult {
   videoModels: string[];
   /** 图片端点 POST /images/generations 的判定（同一套探针逻辑） */
   image: { status: number | 'timeout' | 'error'; verdict: 'exists' | 'missing' | 'unreliable' | 'unknown' };
+  /**
+   * 语音端点 POST /audio/speech 的判定（type: tts 用它）。
+   * 不是所有中转站都开这条——不先探的话，用户要等工作流跑到配音那一步才知道这家不行，
+   * 而那时前面的图片/视频步骤已经花过钱了。
+   */
+  speech: { status: number | 'timeout' | 'error'; verdict: 'exists' | 'missing' | 'unreliable' | 'unknown' };
+  /** /models 里像语音模型的名字（最多 8 个） */
+  speechModels: string[];
   /** 对照路径的状态：全站兜底时它不是 404 */
   controlStatus: number | 'timeout' | 'error';
   summary: string;
 }
 
 const VIDEO_MODEL_RE = /sora|veo|kling|seedance|hailuo|minimax-h|wan\d|vidu|pixverse|imagine|video|runway|luma|hunyuan-?video|cogvideo/i;
+// 语音模型名。和视频那条一样只是「看起来像」，用于提示而不用于判定。
+const SPEECH_MODEL_RE = /tts|speech|voice|audio-?(preview|out)|cosyvoice|fish-?speech|elevenlabs/i;
 
 /** 候选形状：路径相对 baseUrl（baseUrl 通常已含 /v1） */
 export const VIDEO_SHAPE_CANDIDATES = [
@@ -62,6 +73,9 @@ export async function probeVideoEndpoints(
   };
   const img = await hit(f, `${base}/images/generations`, { method: 'POST', headers, body: JSON.stringify({ model: '__ao_probe__', prompt: 'probe', n: 1 }) }, timeoutMs);
   const image = { status: img.status, verdict: judge(img.status) };
+  // 语音同理：model / voice 都写成 __ao_probe__，最多拿回 400「模型不存在」，绝不会真合成、不花钱
+  const sp = await hit(f, `${base}/audio/speech`, { method: 'POST', headers, body: JSON.stringify({ model: '__ao_probe__', input: 'probe', voice: '__ao_probe__' }) }, timeoutMs);
+  const speech = { status: sp.status, verdict: judge(sp.status) };
 
   const shapes: VideoProbeResult['shapes'] = [];
   for (const c of VIDEO_SHAPE_CANDIDATES) {
@@ -72,10 +86,12 @@ export async function probeVideoEndpoints(
 
   const models = await hit(f, `${base}/models`, { method: 'GET', headers }, timeoutMs);
   let videoModels: string[] = [];
+  let speechModels: string[] = [];
   try {
     const j = JSON.parse(models.text.length >= 200 ? await (await f(`${base}/models`, { headers, signal: AbortSignal.timeout(timeoutMs) })).text() : models.text);
     const ids: string[] = (Array.isArray(j?.data) ? j.data : Array.isArray(j) ? j : []).map((m: { id?: string }) => String(m?.id ?? '')).filter(Boolean);
     videoModels = ids.filter((id) => VIDEO_MODEL_RE.test(id)).slice(0, 12);
+    speechModels = ids.filter((id) => SPEECH_MODEL_RE.test(id) && !VIDEO_MODEL_RE.test(id)).slice(0, 8);
   } catch { /* 拉不到就当没有 */ }
 
   const exists = shapes.filter((s) => s.verdict === 'exists');
@@ -87,5 +103,13 @@ export async function probeVideoEndpoints(
         ? `三种已知形状都不在，但 /models 里有视频模型名（${videoModels.slice(0, 3).join(', ')}…）——它走的是别的形状，找该站要文档`
         : `没探到视频端点，/models 里也没有视频模型名`;
   const imgNote = image.verdict === 'exists' ? '；图片端点 /images/generations 存在' : image.verdict === 'missing' ? '；没有图片端点' : '';
-  return { id: target.id, baseUrl: base, shapes, videoModels, image, controlStatus: control.status, summary: summary + imgNote };
+  // 真机实测（2026-08-28，Agnes / 多元探索）：`/audio/speech` **路径在**（回 503 而非 404），
+  // 但 `/models` 里一个语音模型都没有 —— 路径存在 ≠ 有可用模型。这时不能说"可用"，
+  // 那会把人送去猜一个不存在的 model id，白撞一次 400。
+  const spNote = speech.verdict === 'exists'
+    ? (speechModels.length
+      ? `；语音端点 /audio/speech 存在，type: tts 可用（如 ${speechModels.slice(0, 2).join(', ')}）`
+      : '；语音端点 /audio/speech 路径存在，但 /models 里没有语音模型名——要向该站确认它到底上架了哪个语音模型，别猜 model id')
+    : speech.verdict === 'missing' ? '；没有语音端点（type: tts 用不了这家）' : '';
+  return { id: target.id, baseUrl: base, shapes, videoModels, image, speech, speechModels, controlStatus: control.status, summary: summary + imgNote + spNote };
 }

@@ -1,6 +1,14 @@
 /**
  * acceptance 自动核验 —— 把验收标准从"注入 prompt 的嘱咐"变成"跑完真的有人对着查"。
  *
+ * 判定口径的由来（2026-08-28，用真实模型跑了 11 次采样测出来的）：
+ * 原先写的是"宁严勿松：条目只做到一部分也算未满足"。对**可数**条目（必须有 6 个文件）这是对的，
+ * 但对**质性**条目（"写明了色调和光源"）它等于放任评判者无限细分——产出已经写了"暖阳侧逆光"，
+ * 它仍判"未明确光源类型（自然光/人工光）"。结果是 **11/11 全部触发返工、返工后仍多数判未过**：
+ * 每跑一次白付一轮返工，而且验收长期显示未过——**用户会学会无视验收**，比没有验收更糟。
+ * 所以现在把"宁严勿松"限定在标准**明确枚举**的东西上，并要求判未满足时**引用产出原话**
+ * （举不出原话 = 它其实满足了），从根上掐掉"发明标准里没有的要求"。
+ *
  * 步骤产出后，用同一个 connector 做一次轻量核验（逐条核对验收标准），未通过则把
  * "上一版产出 + 未满足条目"拼成返工块交回同一专家改一轮（复用 --feedback 的对话式
  * 返工范式，见 executor.buildFeedbackBlock）。核验器自身故障时返回 null，调用方跳过
@@ -70,7 +78,12 @@ export async function verifyAcceptance(
   const zh = /[一-鿿]/.test(acceptance);
   const prompt = zh
     ? [
-        '你是严格的交付验收员。逐条核对下面的产出是否满足验收标准，宁严勿松：条目只做到一部分也算未满足。',
+        '你是严格的交付验收员。逐条核对下面的产出是否满足验收标准。',
+        '判定口径（很重要）：',
+        '- **只按标准写了的字面要求判**。标准没写的细节不算缺失——不要发明标准里没有的更严要求。',
+        '- 产出用不同措辞满足了同一条标准的意图，就算满足；不要求字句对上。',
+        '- 标准里**明确枚举**的东西（数量、必须出现的段落/字段）只做到一部分算未满足。',
+        '- 判"未满足"时，why 里必须**引用产出中的原话**说明它为什么不满足；举不出原话就说明它其实满足了。',
         `任务：${trunc(taskDesc, 2000)}`,
         '', '验收标准：', acceptance,
         '', '待验收产出：', trunc(output), '',
@@ -78,7 +91,12 @@ export async function verifyAcceptance(
         '全部满足时 failed 必须是空数组 []。',
       ].join('\n')
     : [
-        'You are a strict acceptance reviewer. Check the deliverable against EACH criterion; partially met counts as NOT met.',
+        'You are a strict acceptance reviewer. Check the deliverable against EACH criterion.',
+        'How to judge (important):',
+        '- Judge ONLY what a criterion literally asks for. Details it never mentions are not gaps — do not invent stricter requirements.',
+        '- Different wording that meets the criterion\'s intent counts as met; exact phrasing is not required.',
+        '- For things a criterion explicitly ENUMERATES (counts, required sections/fields), partially met counts as NOT met.',
+        '- When marking something unmet, `why` MUST quote the deliverable\'s own words showing why. If you cannot quote, it is met.',
         `Task: ${trunc(taskDesc, 2000)}`,
         '', 'Acceptance criteria:', acceptance,
         '', 'Deliverable under review:', trunc(output), '',

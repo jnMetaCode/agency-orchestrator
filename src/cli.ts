@@ -15,6 +15,7 @@ import { spawnSync, execSync, spawn } from 'node:child_process';
 import { parseWorkflow, validateWorkflow } from './core/parser.js';
 import type { LLMConfig } from './types.js';
 import { buildDAG, formatDAG } from './core/dag.js';
+import { summarizeMediaSpend } from './media/preflight.js';
 import { listAgents, filterAgentsByKeyword } from './agents/loader.js';
 import { run, findAgentsDir, compareWorkflowVsBaseline } from './index.js';
 import { detectInstalledCliProviders, detectUsableCliProviders, DEPRECATED_CLI_PROVIDERS } from './providers/detect.js';
@@ -397,6 +398,15 @@ function handlePlan(): void {
     const dag = buildDAG(workflow);
     console.log(`\n  ${workflow.name}\n`);
     console.log(formatDAG(dag));
+    // 媒体花费预览：plan 不带 -i，按输入默认值估；条件引用输入的当场判，其余标"视条件"
+    const defaults = new Map<string, string>();
+    for (const d of workflow.inputs ?? []) defaults.set(d.name, d.default ?? '');
+    const spend = summarizeMediaSpend(workflow, defaults);
+    if (spend.lines.length) {
+      console.log('\n  本次媒体花费（按输入默认值估算，实际以运行时输入为准）：');
+      for (const l of spend.lines) console.log(`    ${l}`);
+      console.log('');
+    }
   } catch (err) {
     console.error(`${t('error.prefix')}: ${err instanceof Error ? err.message : err}`);
     process.exit(1);
@@ -750,32 +760,46 @@ async function handleDoctor(): Promise<void> {
   // 合成（type: concat）靠本机 ffmpeg，不随包分发
   const ffmpegBin = process.env.AO_FFMPEG || 'ffmpeg';
   const ffmpegOk = (() => { try { return spawnSync(ffmpegBin, ['-version'], { encoding: 'utf-8' }).status === 0; } catch { return false; } })();
-  console.log(ffmpegOk
-    ? `  🎞 ffmpeg 可用（type: concat 多段视频合成）`
-    : `  ·  ffmpeg 未找到：type: concat（多段视频合成）不可用。macOS: brew install ffmpeg；Ubuntu: apt install ffmpeg；或设 AO_FFMPEG=/path`);
+  if (ffmpegOk) {
+    // 烧字幕要 libass。**不是每个构建都带**（Homebrew 的精简版就没有 subtitles / drawtext 滤镜），
+    // 而这件事只有在三镜都花钱出完、走到合成那一步才会暴露——放在体检里说清。
+    const filters = (() => { try { return spawnSync(ffmpegBin, ['-hide_banner', '-filters'], { encoding: 'utf-8' }).stdout || ''; } catch { return ''; } })();
+    const canBurn = filters.split('\n').some((l) => l.trim().split(/\s+/)[1] === 'subtitles');
+    console.log(`  🎞 ffmpeg 可用（type: concat 多段视频合成、配音混音、BGM）`);
+    console.log(canBurn
+      ? `  💬 字幕可烧进画面（subtitles 滤镜在位）`
+      : `  ·  字幕烧不进画面：这个 ffmpeg 没有 subtitles 滤镜（缺 libass），合成时会退成软字幕轨。要烧进画面请换完整构建（macOS: brew install ffmpeg），或用 AO_FFMPEG 指过去`);
+  } else {
+    console.log(`  ·  ffmpeg 未找到：type: concat（多段视频合成 / 配音 / 字幕 / BGM）不可用。macOS: brew install ffmpeg；Ubuntu: apt install ffmpeg；或设 AO_FFMPEG=/path`);
+  }
   const videoKeyed = VIDEO_PROVIDERS.filter((p) => process.env[p.envKey] || studioKeys[p.id]?.apiKey).map((p) => p.id);
   console.log(videoKeyed.length
     ? `  🎬 文生视频可用（type: video）：${videoKeyed.join(', ')}（余额与计费需在服务商控制台自查，doctor 不探）`
     : `  ·  文生视频暂不可用：内置视频供应商 ${VIDEO_PROVIDERS.map((p) => p.id).join(' / ')} 都没配 key（env ${VIDEO_PROVIDERS.map((p) => p.envKey).join(' / ')}）`);
 
-  // 2.9) --video-probe：探每个已配 key 的 OpenAI 兼容中转站有没有视频端点（零成本，见 media/probe-video.ts）。
-  //      用户的问题是"其他中转站可能也支持视频，只是我们不知道"——答案是探，不是全都显示。
-  if (args.includes('--video-probe')) {
+  // 2.9) --media-probe（旧名 --video-probe）：探每个已配 key 的 OpenAI 兼容中转站有没有
+  //      视频 / 图片 / 语音端点（零成本，见 media/probe-video.ts）。
+  //      用户的问题是"其他中转站可能也支持，只是我们不知道"——答案是探，不是全都显示。
+  //      语音尤其要提前探：不探的话，用户得等工作流跑到配音那一步才知道这家不行，
+  //      而那时前面的图片/视频步骤已经花过钱了。
+  if (args.includes('--media-probe') || args.includes('--video-probe')) {
     const { probeVideoEndpoints } = await import('./media/probe-video.js');
     const targets = API_PROVIDERS
       // 引擎侧 API_PROVIDERS 全是 OpenAI 兼容表（Anthropic 协议与纯视频的各在自己的表里），直接探
       .map((p) => ({ id: p.id, baseUrl: process.env[p.envBase] || p.defaultBaseUrl, apiKey: process.env[p.envKey] || studioKeys[p.id]?.apiKey || '' }))
       .filter((t) => t.apiKey && t.baseUrl);
-    console.log(`\n  🔎 视频端点探测（${targets.length} 家已配 key；请求体故意不合法，不会真建任务、不花钱）`);
+    console.log(`\n  🔎 媒体端点探测 · 视频 / 图片 / 语音（${targets.length} 家已配 key；请求体故意不合法，不会真建任务、不花钱）`);
     if (!targets.length) console.log('     没有已配 key 的 OpenAI 兼容供应商可探。');
     for (const t of targets) {
       const r = await probeVideoEndpoints(t);
       const line = r.shapes.map((x) => `${x.shape}=${String(x.status)}${x.verdict === 'exists' ? '✓' : x.verdict === 'unreliable' ? '?' : ''}`).join('  ');
-      console.log(`  ${r.shapes.some((x) => x.verdict === 'exists') ? '🎬' : '· '} ${t.id}  ${line}  images=${String(r.image.status)}${r.image.verdict === 'exists' ? '✓' : ''}  对照=${String(r.controlStatus)}`);
+      console.log(`  ${r.shapes.some((x) => x.verdict === 'exists') ? '🎬' : '· '} ${t.id}  ${line}  images=${String(r.image.status)}${r.image.verdict === 'exists' ? '✓' : ''}  speech=${String(r.speech.status)}${r.speech.verdict === 'exists' ? '✓' : ''}  对照=${String(r.controlStatus)}`);
       console.log(`     ${r.summary}`);
       if (r.videoModels.length) console.log(`     视频模型名：${r.videoModels.join(', ')}`);
+      if (r.speechModels.length) console.log(`     语音模型名：${r.speechModels.join(', ')}`);
     }
     console.log('     接入办法：形状已知的（apimart / minimax）把该站加进 VIDEO_PROVIDERS 即可；openai-videos 形状需要新增一个 adapter；未知形状先要文档。');
+    console.log('     语音（type: tts）不需要接入——探到 ✓ 就能直接用：tts: { provider: <这家>, model: <语音模型>, voice: <音色> }。');
   }
 
   // 3) 默认将使用的 provider 是否就绪（跑任务前最关键）
@@ -1370,10 +1394,10 @@ async function handlePrompt(): Promise<void> {
   }
 }
 
-/** ao skills — 列出 / 查看可挂到工作流步骤的方法论 skill（来自 superpowers-zh）。 */
+/** ao skills — 列出 / 查看可挂到工作流步骤的方法论 skill（superpowers-zh + AO 自带的 ao-skills）。 */
 async function handleSkills(): Promise<void> {
   const S = await import('./skills/loader.js');
-  const dir = S.resolveSkillsDir();
+  const dirs = S.resolveSkillsDirs();
   const ref = args[1] && !args[1].startsWith('-') ? args[1] : '';
 
   if (ref) {
@@ -1388,12 +1412,15 @@ async function handleSkills(): Promise<void> {
   }
 
   const all = S.listSkills();
-  if (!dir || all.length === 0) {
+  if (dirs.length === 0 || all.length === 0) {
     console.log(`\n  没找到 skill 库。skill 用开源的 superpowers-zh（已作为依赖）。`);
     console.log(`  也可设 AO_SKILLS_DIR=/你的skill目录 用自己的。\n`);
     return;
   }
-  console.log(`\n  共 ${all.length} 个 skill (${dir}):\n`);
+  // 目录列全：现在是多目录按名合并（同名前面的赢），只报第一个会让人以为别的没生效。
+  console.log(`\n  共 ${all.length} 个 skill，来自 ${dirs.length} 个目录：`);
+  for (const d of dirs) console.log(`    · ${d}`);
+  console.log('');
   for (const sk of all) {
     console.log(`  🧠 ${sk.name}`);
     if (sk.description) console.log(`     ${sk.description.slice(0, 90)}`);

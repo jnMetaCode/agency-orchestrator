@@ -76,6 +76,26 @@ test('min_bytes: 按 UTF-8 字节数算，不是字符数', () => {
   assert(checkAssert('一二三四五六七八九十', { min_bytes: 31 }).pass === false, '31 字节应不达标');
 });
 
+// ── max_bytes：写飞了的形态（视频提示词超字数会被厂商在提交这一步直接拒）
+test('max_bytes: 产出超长 → 拦下', () => {
+  const r = checkAssert('电影感的'.repeat(200), { max_bytes: 900 });
+  assert(r.pass === false, '超长应判不通过');
+  assert(/产出太长/.test(r.failures[0]), `应提示产出太长，实得：${r.failures[0]}`);
+});
+
+test('max_bytes: 边界按 UTF-8 字节，恰好等于上限算通过', () => {
+  // 10 个汉字 = 30 字节
+  assert(checkAssert('一二三四五六七八九十', { max_bytes: 30 }).pass === true, '恰好 30 字节应达标');
+  assert(checkAssert('一二三四五六七八九十', { max_bytes: 29 }).pass === false, '29 字节上限应不达标');
+});
+
+test('min_bytes + max_bytes: 区间内通过，两侧各自报各自的话', () => {
+  const spec = { min_bytes: 20, max_bytes: 40 };
+  assert(checkAssert('一二三四五六七八九十', spec).pass === true, '30 字节落在区间内');
+  assert(/疑似截断/.test(checkAssert('短', spec).failures[0]), '偏短报截断');
+  assert(/产出太长/.test(checkAssert('一二三四五六七八九十一二三四五', spec).failures[0]), '偏长报太长');
+});
+
 // ── matches：数小节这类计数
 test('matches: 裸模式默认多行，"^## " 数的是小节数', () => {
   const md = '## 一\n正文\n## 二\n正文\n## 三\n';
@@ -168,8 +188,18 @@ test('解析期：emits_files 写成字符串要报错', () => {
 });
 
 test('解析期：合法 assert 不报错', () => {
-  const errs = assertErrors(BASE('    assert:\n      emits_files: 6\n      min_bytes: 100\n      matches:\n        "^## ": 6\n'));
+  const errs = assertErrors(BASE('    assert:\n      emits_files: 6\n      min_bytes: 100\n      max_bytes: 900\n      matches:\n        "^## ": 6\n'));
   assert(errs.length === 0, `不该报错，实得：${errs.join('; ')}`);
+});
+
+test('解析期：max_bytes 写成字符串要报错', () => {
+  const errs = assertErrors(BASE('    assert:\n      max_bytes: "900"\n'));
+  assert(errs.some((e) => e.includes('非负整数')), `应报类型错，实得：${errs.join('; ')}`);
+});
+
+test('解析期：min_bytes 大于 max_bytes 要在解析期就报（否则每步必然返工一轮再失败）', () => {
+  const errs = assertErrors(BASE('    assert:\n      min_bytes: 900\n      max_bytes: 100\n'));
+  assert(errs.some((e) => e.includes('没有产出能同时满足')), `应报区间矛盾，实得：${errs.join('; ')}`);
 });
 
 console.log(`\n  ${passed} passed, ${failed} failed`);

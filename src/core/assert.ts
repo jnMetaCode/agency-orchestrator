@@ -18,6 +18,7 @@
  *     assert:
  *       emits_files: 6                 # 产出里必须恰好有 6 个文件块(与 --materialize 同一套解析)
  *       min_bytes: 2000                # 产出最小字节数,防截断
+ *       max_bytes: 660                 # 产出最大字节数,防超长(视频提示词超字数会被厂商直接拒)
  *       contains: ["## 验收清单"]       # 必须出现的字面串
  *       matches: { "^## ": 6 }         # 正则(多行模式)必须命中 6 次
  *
@@ -73,6 +74,15 @@ export function checkAssert(content: string, spec: StepAssert): AssertResult {
     const got = Buffer.byteLength(content, 'utf8');
     if (got < spec.min_bytes) {
       failures.push(`产出太短:要求至少 ${spec.min_bytes} 字节,实际 ${got} 字节(疑似截断)`);
+    }
+  }
+
+  // max_bytes 的来由:视频提示词写太长,厂商在提交这一步就直接拒(见姊妹仓 cases.zh.md
+  // 「提示词超字数,提交不了」)。这种事在花钱之前就该拦下,而且是数出来的、不必过模型。
+  if (spec.max_bytes !== undefined) {
+    const got = Buffer.byteLength(content, 'utf8');
+    if (got > spec.max_bytes) {
+      failures.push(`产出太长:要求至多 ${spec.max_bytes} 字节,实际 ${got} 字节(需要压缩,删冗余形容词、合并短句)`);
     }
   }
 

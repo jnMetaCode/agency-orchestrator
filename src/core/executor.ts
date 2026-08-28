@@ -20,6 +20,7 @@ import { createConnector } from '../connectors/factory.js';
 import { generateImage } from '../connectors/image.js';
 import { generateVideo , type VideoStepOptions } from '../connectors/video.js';
 import { concatVideos } from '../media/concat.js';
+import { generateSpeech, type TtsStepOptions } from '../connectors/tts.js';
 import { verifyAcceptance, buildReworkBlock, formatFailedItems } from './verify.js';
 import { checkAssert, buildAssertReworkBlock } from './assert.js';
 import { createInterface } from 'node:readline';
@@ -68,10 +69,14 @@ const producedAssets = new Map<string, Buffer>();
 /** 本次运行里视频步骤 / concat 步骤的产物（文件名 → 字节）。concat 在运行中引用上游视频时从这里取。 */
 const producedVideos = new Map<string, Buffer>();
 
+/** 本次运行里配音步骤（type: tts）的产物。concat 的 voiceover / bgm 在运行中引用它时从这里取。 */
+const producedAudios = new Map<string, Buffer>();
+
 /** 每次 run() 开始前清空登记表：同进程连跑两条工作流时，别把上一条的 cover.png 当成这一条的 */
 export function resetProducedMedia(): void {
   producedAssets.clear();
   producedVideos.clear();
+  producedAudios.clear();
 }
 /** --resume：上一轮的产物已经在磁盘上（assets/），被跳过的图片/视频步骤不会再产出，先把它们读进登记表 */
 export function preloadProducedMedia(assetsDir: string): number {
@@ -81,6 +86,7 @@ export function preloadProducedMedia(assetsDir: string): number {
     const p = join(assetsDir, f);
     if (/\.(png|jpe?g|webp|gif)$/i.test(f)) { producedAssets.set(f, readFileSync(p)); n++; }
     else if (/\.(mp4|mov|webm)$/i.test(f)) { producedVideos.set(f, readFileSync(p)); n++; }
+    else if (/\.(mp3|wav|aac|opus|flac|m4a)$/i.test(f)) { producedAudios.set(f, readFileSync(p)); n++; }
   }
   return n;
 }
@@ -157,6 +163,7 @@ export async function executeDAG(dag: DAG, options: ExecutorOptions): Promise<Wo
           // 媒体产物只带文件名：run() 落盘后据此把上一轮的 png/mp4 复制进新目录，markdown 链接才不断
           imageAsset: prev?.imageAsset,
           videoAsset: prev?.videoAsset,
+          audioAsset: prev?.audioAsset,
           status: 'completed',
           output: node.result,
           output_var: node.step.output,
@@ -223,6 +230,7 @@ export async function executeDAG(dag: DAG, options: ExecutorOptions): Promise<Wo
               tokens: node.tokenUsage || { input: 0, output: 0 },
               imageAsset: node.imageAsset,
               videoAsset: node.videoAsset,
+              audioAsset: node.audioAsset,
             });
           }
           return value;
@@ -273,6 +281,7 @@ export async function executeDAG(dag: DAG, options: ExecutorOptions): Promise<Wo
           iterations: iterCount > 0 ? iterCount + 1 : undefined,
           imageAsset: node.imageAsset,
           videoAsset: node.videoAsset,
+          audioAsset: node.audioAsset,
         });
 
         onStepComplete?.(node);
@@ -553,11 +562,57 @@ async function executeStep(
     return `[▶ ${node.step.id}.mp4](assets/${filename})`;
   }
 
+  // 配音节点：task 就是要念的文案（{{变量}} 照常渲染，上游写好的旁白直接流进来）。
+  // 产出 = markdown 音频链接（assets/<id>.mp3）；下游 concat 的 voiceover 引用它。
+  if (node.step.type === 'tts') {
+    node.agentName = node.step.name || '配音';
+    node.agentEmoji = node.step.emoji || '🎙';
+    const text = renderTemplate(node.step.task, opts.context);
+    if (!text.trim()) {
+      throw new Error(`${node.step.id}：配音文案为空——上游步骤没有产出（检查 task 里引用的变量是否来自失败/空输出的步骤）`);
+    }
+    const stepLlmTts = node.step.llm;
+    const ttsConfig = (stepLlmTts ? { ...opts.llmConfig, ...stepLlmTts } : opts.llmConfig) as LLMConfig;
+    const ttsOpts = { ...(node.step.tts ?? {}) } as TtsStepOptions;
+    // 与图片/视频同理：模板把供应商/模型/音色做成必填输入，字符串字段全部要渲染，
+    // 漏一个就会把 "{{tts_voice}}" 原样发给厂商，换回一句看不懂的 400
+    for (const k of ['provider', 'model', 'voice', 'format', 'instructions'] as const) {
+      const v = ttsOpts[k];
+      if (typeof v === 'string') ttsOpts[k] = renderTemplate(v, opts.context);
+    }
+    if (typeof (ttsOpts as { speed?: unknown }).speed === 'string') {
+      const raw = renderTemplate(String(ttsOpts.speed), opts.context).trim();
+      if (!raw) delete ttsOpts.speed;
+      else {
+        const n = Number(raw);
+        if (!Number.isFinite(n) || n <= 0) throw new Error(`tts.speed 需要一个正数，渲染后得到 "${raw}"`);
+        ttsOpts.speed = n;
+      }
+    }
+    const speech = await generateSpeech(ttsConfig, text, ttsOpts, (m: string) => process.stderr.write(`  ${m}\n`));
+    const filename = `${node.step.id}.${speech.ext}`;
+    node.audioAsset = { filename, base64: speech.buffer.toString('base64') };
+    producedAudios.set(filename, speech.buffer);
+    const kb = (speech.buffer.length / 1024).toFixed(0);
+    process.stderr.write(`  🎙 ${node.step.id} 生成配音 ${filename}（${kb}KB，${ttsOpts.voice}）\n`);
+    return `[🔊 ${filename}](assets/${filename})`;
+  }
+
   // 合成节点：把上游多段 mp4 按顺序拼成一条（短剧流水线的三镜合一）。不花厂商的钱，只用本机 ffmpeg。
   if (node.step.type === 'concat') {
     node.agentName = node.step.name || '合成';
     node.agentEmoji = node.step.emoji || '🎞';
-    const refs = (node.step.concat?.inputs ?? []).map((r) => renderTemplate(r, opts.context).trim()).filter(Boolean);
+    // 渲染后为空 = 上游那一镜没产出（失败/跳过）。**不能静默丢掉**：
+    // 悄悄少拼一镜会交付一条"看起来正常"的两镜成片，而三镜的钱已经花了。
+    const rawRefs = (node.step.concat?.inputs ?? []);
+    const refs = rawRefs.map((r) => renderTemplate(r, opts.context).trim());
+    const missing = refs.map((v, i) => (v ? null : rawRefs[i])).filter(Boolean);
+    if (missing.length) {
+      throw new Error(
+        `concat 的第 ${refs.findIndex((v) => !v) + 1} 段没有内容：${missing.join('、')} 渲染后为空——` +
+        `上游那一步失败或被跳过了。少拼一段不会自动放行：三镜的钱已经花了，交付一条缺镜的成片比报错更贵。`
+      );
+    }
     const inputs = refs.map((ref) => {
       const m = ref.match(/\[[^\]]*\]\(([^)]+)\)/);
       const target = (m ? m[1] : ref).trim();
@@ -566,7 +621,35 @@ async function executeStep(
       if (!buffer) throw new Error(`concat 找不到视频：${ref.slice(0, 120)}（上游视频步骤没产出？或本地路径不存在）`);
       return { name, buffer };
     });
-    const out = await concatVideos(inputs, { size: node.step.concat?.size, fps: node.step.concat?.fps }, (m: string) => process.stderr.write(`  ${m}\n`));
+    // 配音：上游 tts 步骤的输出（markdown 链接）→ 本次运行的产物登记；本地路径 → 读文件；空串 = 这段不配音
+    const resolveAudio = (ref: string, what: string): { name: string; buffer: Buffer } | null => {
+      const t = ref.trim();
+      if (!t) return null;
+      const m = t.match(/\[[^\]]*\]\(([^)]+)\)/);
+      const target = (m ? m[1] : t).trim();
+      const name = target.split('/').pop() || target;
+      const buffer = producedAudios.get(name) ?? (existsSync(target) ? readFileSync(target) : undefined);
+      if (!buffer) throw new Error(`concat.${what} 找不到音频：${t.slice(0, 120)}（上游 tts 步骤没产出？或本地路径不存在）`);
+      return { name, buffer };
+    };
+    const voRefs = node.step.concat?.voiceover;
+    const voiceover = voRefs
+      ? voRefs.map((r) => resolveAudio(renderTemplate(r, opts.context), 'voiceover'))
+      : undefined;
+    const bgmRef = node.step.concat?.bgm ? renderTemplate(node.step.concat.bgm, opts.context) : '';
+    const bgm = bgmRef.trim() ? resolveAudio(bgmRef, 'bgm') ?? undefined : undefined;
+    const subtitles = node.step.concat?.subtitles?.map((x) => renderTemplate(x, opts.context));
+    const out = await concatVideos(inputs, {
+      size: node.step.concat?.size,
+      fps: node.step.concat?.fps,
+      ...(voiceover ? { voiceover } : {}),
+      ...(node.step.concat?.voice_volume !== undefined ? { voice_volume: node.step.concat.voice_volume } : {}),
+      ...(node.step.concat?.clip_volume !== undefined ? { clip_volume: node.step.concat.clip_volume } : {}),
+      ...(subtitles ? { subtitles } : {}),
+      ...(node.step.concat?.subtitle_style ? { subtitle_style: node.step.concat.subtitle_style } : {}),
+      ...(bgm ? { bgm } : {}),
+      ...(node.step.concat?.bgm_volume !== undefined ? { bgm_volume: node.step.concat.bgm_volume } : {}),
+    }, (m: string) => process.stderr.write(`  ${m}\n`));
     const filename = `${node.step.id}.mp4`;
     node.videoAsset = { filename, base64: out.toString('base64') };
     producedVideos.set(filename, out);

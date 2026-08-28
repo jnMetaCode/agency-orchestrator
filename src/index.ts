@@ -18,6 +18,7 @@ export { createConnector } from './connectors/factory.js';
 export { saveResults, loadPreviousContext, findLatestOutput, computeResumeSkipIds } from './output/reporter.js';
 export { composeWorkflow, buildRoleCatalog, extractYamlFromResponse } from './cli/compose.js';
 import { buildBaselineTask, runBaseline, finalOutput, compareOutputs, type CompareVerdict } from './core/compare.js';
+import { evaluateCondition } from './core/condition.js';
 export { buildBaselineTask, runBaseline, finalOutput, compareOutputs, aggregateVerdict } from './core/compare.js';
 export type { CompareVerdict } from './core/compare.js';
 
@@ -43,10 +44,20 @@ import { resetProducedMedia, preloadProducedMedia } from './core/executor.js';
  */
 export function findMissingInputs(
   inputs: InputDefinition[] | undefined,
-  provided: { has(name: string): boolean },
+  provided: { has(name: string): boolean; get?(name: string): string | undefined },
 ): InputDefinition[] {
+  // show_when 为假的输入本轮不会用到，再逼用户填就是自相矛盾（"不配音"还得填音色）
+  const ctx = new Map<string, string>();
+  for (const def of inputs || []) {
+    const v = provided.get?.(def.name);
+    ctx.set(def.name, v !== undefined ? v : (def.default ?? ''));
+  }
+  const hidden = (def: InputDefinition): boolean => {
+    if (!def.show_when) return false;
+    try { return !evaluateCondition(def.show_when, ctx); } catch { return false; }
+  };
   return (inputs || []).filter(
-    def => def.required && !provided.has(def.name) && def.default === undefined
+    def => def.required && !provided.has(def.name) && def.default === undefined && !hidden(def)
   );
 }
 
@@ -75,6 +86,7 @@ import { parseWorkflow, validateWorkflow } from './core/parser.js';
 import { installEnvProxy } from './utils/env-proxy.js';
 import { buildDAG, formatDAG } from './core/dag.js';
 import { executeDAG, type ExecutorOptions } from './core/executor.js';
+import { summarizeMediaSpend } from './media/preflight.js';
 import { createConnector } from './connectors/factory.js';
 import { describePendingVideoTasks } from './connectors/video.js';
 import { loadAgent } from './agents/loader.js';
@@ -244,7 +256,7 @@ export async function run(
       (metadata.steps as import('./types.js').StepResult[])
         .filter(s => s.status === 'completed')
         // imageAsset / videoAsset 只带文件名（旧档案里本来就没 base64）——落盘后据此把上一轮的产物复制进新目录
-        .map(s => [s.id, { agentName: s.agentName, agentEmoji: s.agentEmoji, acceptance: s.acceptance, verification: s.verification, imageAsset: s.imageAsset, videoAsset: s.videoAsset }])
+        .map(s => [s.id, { agentName: s.agentName, agentEmoji: s.agentEmoji, acceptance: s.acceptance, verification: s.verification, imageAsset: s.imageAsset, videoAsset: s.videoAsset, audioAsset: s.audioAsset }])
     );
 
     if (!options?.quiet) {
@@ -305,6 +317,16 @@ export async function run(
     }
     if (seen.size > 0) {
       console.log(`  参与者: ${Array.from(seen.entries()).map(([n, e]) => `${e} ${n}`).join(' | ')}`);
+    }
+
+    // 媒体花费预览：会出几条片、各多少秒、哪家哪档——视频按秒计费，钱是在下面这些步花出去的，
+    // 而此前没有任何地方在开跑前把这件事说出来（"成本可见"是写在定位里的，不能只写在定位里）。
+    const spend = summarizeMediaSpend(workflow, inputMap);
+    if (spend.lines.length) {
+      console.log('  本次媒体花费：');
+      for (const l of spend.lines) console.log(`    ${l}`);
+      // Studio 实时视图靠正则读 stdout；给它一行机器可读的，别让前端去猜 emoji（同 __AO_INPUT_REQUEST__）
+      if (process.env.AO_WEB_INPUT === '1') process.stdout.write(`__AO_PREFLIGHT__${JSON.stringify({ lines: spend.lines })}\n`);
     }
 
     console.log('─'.repeat(50));
@@ -419,7 +441,7 @@ export async function run(
   // 否则新目录里 `![cover](assets/cover.png)` 是断链，分享报告和 Studio 都显示不出来
   if (resumeDir) {
     for (const s of result.steps) {
-      for (const name of [s.imageAsset?.filename, s.videoAsset?.filename]) {
+      for (const name of [s.imageAsset?.filename, s.videoAsset?.filename, s.audioAsset?.filename]) {
         if (!name) continue;
         const dst = join(outputPath, 'assets', name);
         const src = join(resumeDir, 'assets', name);

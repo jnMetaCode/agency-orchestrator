@@ -198,6 +198,7 @@ const dict: Dict = {
     compose "描述"                    AI 智能编排工作流（一句话生成 YAML）
     compose "描述" --run              生成并立即运行（一句话出结果）
     doctor [--fix] [--no-probe]       环境自检：provider/凭证/端点连通性/CLI/系统 Claude Code；--fix 一键修复被写坏的 ~/.claude；--no-probe 跳过端点探测（不发请求）
+           [--media-probe]           零成本探每家已配 key 的中转站有没有 视频/图片/语音 端点（请求体故意不合法，不会真生成）
     report [dir|last]                 把一次运行渲染成可分享的单文件 HTML 报告（默认最近一次，写到 <run>/report.html）
     team save <workflow.yaml>         把角色阵容存成可复用团队 (Loadout)
     team list / show / rm             管理已保存的团队
@@ -270,6 +271,7 @@ const dict: Dict = {
     compose "desc"                    AI-compose a workflow from one sentence
     compose "desc" --run              Compose and run immediately
     doctor [--fix] [--no-probe]       Self-check: provider/creds/endpoint reachability/CLI/system Claude Code; --fix repairs a broken ~/.claude; --no-probe skips the endpoint probe
+           [--media-probe]           Zero-cost probe for video/image/speech endpoints on every keyed relay (deliberately invalid body — nothing is generated)
     report [dir|last]                 Render a run into a shareable single-file HTML report (defaults to the latest run; writes <run>/report.html)
     team save <workflow.yaml>         Save a role line-up as a reusable team (Loadout)
     team list / show / rm             Manage saved teams

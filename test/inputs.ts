@@ -3,6 +3,7 @@
  * 回归用例——story-creation 等带 default 的旗舰模板要能 `ao run xxx.yaml` 开箱即跑。
  */
 import { findMissingInputs, modelCapabilityHint } from '../src/index.js';
+import { parseWorkflow, validateWorkflow } from '../src/core/parser.js';
 import { splitVisionMessage, stripImageDataUris, hasImageInput } from '../src/utils/vision.js';
 import { parseInputPairs } from '../src/cli/parse-inputs.js';
 import { writeFileSync, mkdtempSync } from 'node:fs';
@@ -111,6 +112,35 @@ test('没证据的 CLI（copilot/hermes/openclaw）→ 不猜不提示', () => {
   for (const p of ['copilot-cli', 'hermes-cli', 'openclaw-cli', 'codex-cli']) {
     assert(modelCapabilityHint(p) === null, `${p} 不该提示`);
   }
+});
+
+// ── show_when：条件可见的输入 ─────────────────────────────────────────────
+// 来由：短剧流水线 15 个输入里，语音供应商/模型/音色在选了"不配音"时仍摆在那儿，
+// 用户不知道要不要填；而如果它们是必填，CLI 还会拦着说"缺输入"——自相矛盾。
+test('show_when 为假的必填输入不算缺失（"不配音"就别逼人填音色）', () => {
+  const defs: InputDefinition[] = [
+    { name: 'narration', required: true, default: '不配音' },
+    { name: 'tts_voice', required: true, show_when: '{{narration}} contains 配旁白' },
+  ];
+  const off = findMissingInputs(defs, new Map([['narration', '不配音']]));
+  assert(off.length === 0, `关掉配音时 tts_voice 不该算缺失，实得 ${off.map((d) => d.name).join(',')}`);
+  const on = findMissingInputs(defs, new Map([['narration', '配旁白']]));
+  assert(on.length === 1 && on[0].name === 'tts_voice', '开了配音时 tts_voice 必须算缺失');
+  // 没提供 narration 时按它的默认值判（默认"不配音"→ 隐藏）
+  const dflt = findMissingInputs(defs, new Map());
+  assert(dflt.length === 0, '按默认值判：默认不配音，音色不算缺失');
+});
+
+test('show_when 写错在解析期就报：不支持的运算符 / 引用了非输入 / 引用自己', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'ao-showwhen-'));
+  const f = join(dir, 'w.yaml');
+  const base = (cond: string) => `name: x\nllm:\n  provider: deepseek\n  model: m\ninputs:\n  - name: a\n    default: ""\n  - name: b\n    show_when: "${cond}"\nsteps:\n  - id: s\n    role: r/r\n    task: "{{a}}{{b}}"\n`;
+  const errs = (cond: string) => { writeFileSync(f, base(cond), 'utf-8'); return validateWorkflow(parseWorkflow(f)); };
+  assert(errs('{{a}} contains x').length === 0, '合法写法不该报错');
+  assert(errs('{{a}} startswith x').some((e) => /show_when 写法不对/.test(e)), '不支持的运算符要报');
+  assert(errs('{{nope}} contains x').some((e) => /不是输入/.test(e)), '引用非输入变量要报');
+  assert(errs('{{b}} contains x').some((e) => /引用了自己|不是输入/.test(e)), '引用自己要报');
+  assert(errs('always').some((e) => /show_when/.test(e)), '没有运算符也要报');
 });
 
 console.log('\n' + '='.repeat(50));

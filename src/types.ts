@@ -33,16 +33,23 @@ export interface InputDefinition {
   label?: string;
   /** 输入形态：url = 单行、不给"扩写/从文件读入"（如首帧参考图）；缺省多行文本 */
   format?: 'text' | 'url';
+  /**
+   * 条件可见：与 step.condition 同语法（`{{other_input}} contains X` / equals），**只能引用其他输入**。
+   * 为假时 Studio 不渲染该输入、CLI 不把它当必填缺失。引擎照常把它的默认值放进上下文——
+   * 步骤引用它不会炸。来由：短剧流水线 15 个输入里，语音供应商/模型/音色在选了"不配音"时仍然
+   * 摆在那里，用户不知道要不要填。
+   */
+  show_when?: string;
   /** 静态候选值（Studio 渲染成下拉；仍可手填自定义值） */
   options?: string[];
   /**
    * 动态候选源（Studio 从引擎配置实时取，引擎本身不消费）：
-   *   image_providers / video_providers —— 已配 key 的图片 / 视频供应商
+   *   image_providers / video_providers / tts_providers —— 已配 key 的图片 / 视频 / 语音供应商
    *   models —— 该供应商的模型列表（视频供应商用内置表，其余实拉 /models）
    *   video_resolutions / video_durations —— 该视频供应商的档位表（各家不通用）
    * 带 provider 参数的源用 source_from 指向存放供应商 id 的那个输入。
    */
-  source?: 'image_providers' | 'video_providers' | 'models' | 'video_resolutions' | 'video_durations' | 'video_ratios' | 'styles';
+  source?: 'image_providers' | 'video_providers' | 'tts_providers' | 'models' | 'video_resolutions' | 'video_durations' | 'video_ratios' | 'styles';
   source_from?: string;
 }
 
@@ -60,9 +67,32 @@ export interface StepDefinition {
   skill?: string;             // 给本步挂一个方法论 skill（注入 system prompt），如 "test-driven-development"
   skills?: string[];          // 多个 skill（与 skill 合并）
   depends_on?: string[];      // 依赖的步骤 id
-  type?: 'normal' | 'approval' | 'human_input' | 'image' | 'video' | 'concat'; // 节点类型（image/video = 文生图/文生视频：task 即提示词；concat = ffmpeg 合成多段视频）
-  /** type: concat 专用——把上游多段 mp4（视频步骤的输出变量）按顺序合成一条；需要本机 ffmpeg */
-  concat?: { inputs: string[]; size?: string; fps?: number };
+  type?: 'normal' | 'approval' | 'human_input' | 'image' | 'video' | 'concat' | 'tts'; // 节点类型（image/video/tts = 文生图/文生视频/文字转语音：task 即提示词或文案；concat = ffmpeg 合成多段视频 + 配音/字幕/BGM）
+  /**
+   * type: concat 专用——把上游多段 mp4（视频步骤的输出变量）按顺序合成一条；需要本机 ffmpeg。
+   * 后期三件套（配音 / 字幕 / BGM）都在这一步做完，全程本机 ffmpeg，不花厂商的钱。
+   */
+  concat?: {
+    inputs: string[];
+    size?: string;
+    fps?: number;
+    /** 逐段配音：上游 tts 步骤的输出变量，与 inputs 一一对应（这段不配音就留空串） */
+    voiceover?: string[];
+    /** 旁白人声音量倍数，默认 1.0 */
+    voice_volume?: number;
+    /** 片段自带音轨的音量倍数；有旁白时默认 0.3，没旁白时原样。视频模型本来就出声（常是对白），压多少由你定 */
+    clip_volume?: number;
+    /** 逐段字幕文案，与 inputs 一一对应；按各段实际时长排轴后烧进画面 */
+    subtitles?: string[];
+    /** 字幕样式（ffmpeg force_style）：字号 / 颜色 / 描边 / 底边距 / 字体 */
+    subtitle_style?: { font?: string; size?: number; color?: string; outline?: number; margin?: number };
+    /** 背景音乐：本地音频路径，或上游 tts 步骤的输出变量。循环铺满全片、末尾 2 秒淡出 */
+    bgm?: string;
+    /** BGM 音量倍数，默认 0.25（有人声时压得住，别盖过台词） */
+    bgm_volume?: number;
+  };
+  /** type: tts 专用——文字转语音（model 与 voice 都必填：音色 id 各家互不通用，不猜） */
+  tts?: { provider?: string; model?: string; voice?: string; speed?: number; format?: string; instructions?: string };
   /** type: image 专用——图片模型与参数（model 必填：各家图片模型编码互不通用，不猜） */
   image?: { provider?: string; model?: string; size?: string; quality?: string; background?: string };
   /**
@@ -116,6 +146,8 @@ export interface DAGNode {
   imageAsset?: { filename: string; base64: string };
   /** type: video 的产物（与 imageAsset 同一套落盘机制；mp4 比 png 大，base64 只在落盘前存在） */
   videoAsset?: { filename: string; base64: string; seconds?: number };
+  /** type: tts 的产物（同一套落盘机制）——配音音频 */
+  audioAsset?: { filename: string; base64: string };
 }
 
 /**
@@ -130,6 +162,7 @@ export interface DAGNode {
 export interface StepAssert {
   emits_files?: number;              // 产出里的文件块数量必须恰好等于此值（解析规则与 --materialize 完全一致）
   min_bytes?: number;                // 产出最小字节数（UTF-8），防截断
+  max_bytes?: number;                // 产出最大字节数（UTF-8），防超长——提示词过长会被视频厂商直接拒收
   contains?: string[];               // 必须出现的字面串
   matches?: Record<string, number>;  // 正则 → 必须命中的次数。裸模式默认 gm；也可写 /pattern/flags
 }
@@ -197,4 +230,5 @@ export interface StepResult {
   imageAsset?: { filename: string; base64?: string };
   /** type: video 的产物。同上：metadata 里只留 filename 与时长 */
   videoAsset?: { filename: string; base64?: string; seconds?: number };
+  audioAsset?: { filename: string; base64?: string };
 }
