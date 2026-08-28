@@ -75,6 +75,39 @@ inputs:
     default: "16:9"
     source: video_ratios
     source_from: video_provider
+  - name: narration
+    label: "旁白配音"
+    description: "要不要给三镜配旁白。**先听一遍原片**——Veo3 / Sora2 / H3 这些模型本来就出声音，常常自带对白，够用就别再叠旁白。选了会同时得到配音和字幕（字幕即旁白文案；本机 ffmpeg 缺 libass 时自动退成软字幕轨并告知，`ao doctor --media-probe` 可提前查这家有没有语音端点）"
+    required: true
+    default: "不配音"
+    options: ["不配音", "配旁白"]
+  - name: tts_provider
+    show_when: "{{narration}} contains 配旁白"   # 选了「不配音」这项就收起来，别让人猜要不要填
+    label: "语音供应商"
+    description: "配音走哪家（留空 = 跟随文本供应商）。需要 OpenAI 兼容且开了 /audio/speech 的服务商；没有这条端点的会明确报「这家没有语音端点」，不是你参数填错"
+    required: false
+    default: ""
+    source: tts_providers
+  - name: tts_model
+    show_when: "{{narration}} contains 配旁白"   # 选了「不配音」这项就收起来，别让人猜要不要填
+    label: "语音模型"
+    description: "语音模型编码（各家互不通用，如 OpenAI 的 gpt-4o-mini-tts）；选了供应商后下拉列出"
+    required: false
+    default: ""
+    source: models
+    source_from: tts_provider
+  - name: tts_voice
+    show_when: "{{narration}} contains 配旁白"   # 选了「不配音」这项就收起来，别让人猜要不要填
+    label: "音色"
+    description: "音色 id（各家互不通用，猜不得）。OpenAI 常见：alloy / echo / nova / onyx / shimmer；别家见其文档"
+    required: false
+    default: ""
+  - name: bgm_file
+    label: "背景音乐"
+    format: url
+    description: "背景音乐文件的本机路径（可选，留空 = 不加）。循环铺满全片、末尾 2 秒淡出，默认压到 0.25 不盖过人声"
+    required: false
+    default: ""
   - name: video_duration
     label: "每镜秒数"
     description: "每镜秒数（按秒计费，3 镜合计 ×3；veo3 固定 8 秒）"
@@ -109,6 +142,18 @@ steps:
       同上结构
 
       硬要求：不出现任何影视 IP、角色名、明星姓名；三镜发生在不超过两个场景里；每镜能在 {{video_duration}} 秒内演完。
+    acceptance: |
+      1. 【主角】是一段 60 字以内的外形描述，且面部特征、服装质地、两处瑕疵都写到了
+      2. 三镜分别落在"建立 / 冲突 / 转折或收束"上，不是三段并列的平铺
+      3. 三镜发生在不超过两个场景里（换景越多，出片时越对不上）
+      4. 每镜的动作量能在 {{video_duration}} 秒内演完，不是塞了三件事
+      5. 全文不含任何影视 IP、角色名、明星姓名
+      6. 镜头 3 收在克制的画面上——不堆爆炸/光爆/粒子，人停住、呼吸、留白
+    assert:
+      # 少写一镜是这一步最贵的翻车：下游三个提示词步骤照跑不误，
+      # 直到花钱出片才发现镜 3 是编的。数标题这种事不该交给模型验收员。
+      contains: ["## 主角", "## 镜头 1", "## 镜头 2", "## 镜头 3"]
+      min_bytes: 300
     output: script
 
   - id: character_prompt
@@ -122,6 +167,15 @@ steps:
 
       要求：把主角外形描述逐项落实到画面（面部、服装质地、两处瑕疵都要在）；写明摄影机与镜头型号；
       全文 150 字以内；只输出提示词本身。
+    acceptance: |
+      1. 主角外形逐项落实：面部特征、服装质地、两处瑕疵，一样不缺
+      2. 写明了具体摄影机型号 + 镜头型号，不是"专业设备""高清"这类空话
+      3. 正面全身、浅灰背景、柔和棚光三项都在（这是定妆图，不是剧照）
+      4. 不含任何影视 IP 名、角色名、明星姓名
+      5. 只有提示词本身，没有解释和前后语
+    assert:
+      min_bytes: 120
+      max_bytes: 700          # 目标 150 字（≈450 字节）；超出说明写成剧照描述了
     output: character_prompt
     depends_on: [script]
 
@@ -145,8 +199,29 @@ steps:
       只针对剧本的【镜头 1】写一条 {{video_duration}} 秒视频提示词（5 段式：核心主题 tag | 人物与设定 | 氛围与画质（摄影机+镜头型号+色调+光源）| 运镜 | 按秒分镜+声音）。
       视觉风格：{{style}}。人物外形必须与【主角】段落一致（首帧会用定妆图，提示词里重点写动作和运镜，不要重新描述长相）。
       220 字以内，只输出提示词本身。
+      **五段必须以【核心主题】【人物与设定】【氛围与画质】【运镜规则】【分镜】开头，一字不差**，
+      【运镜规则】里固定带上"手持拍摄，全程保持极其轻微的、如呼吸般的镜头浮动"，末尾单独一行【声音】。
 
       {{script}}
+    skill: "shortfilm-prompt"
+    # 结构（五段标记、呼吸感那句、【声音】行、字数上限）由下面的 assert 用脚本数——
+    # 写进验收只会让验收员去挑结构毛病，导致每跑一次都白返工一轮。这里只留脚本判不了的。
+    acceptance: |
+      1. 【氛围与画质】的摄影机/镜头/色调/光源与另两镜**一致**（三镜是一部片，不是三条广告）
+      2. 重点写动作与运镜，**没有重新描述长相**（首帧已由定妆图锁定，再描述会和定妆图打架）
+      3. 每段都有具体名词，不是"氛围很好""质感高级"这类形容
+      4. 不含任何影视 IP 名、角色名、明星姓名
+    assert:
+      min_bytes: 200
+      max_bytes: 900
+      contains:
+        - "【核心主题】"
+        - "【人物与设定】"
+        - "【氛围与画质】"
+        - "【运镜规则】"
+        - "【分镜】"
+        - "【声音】"
+        - "如呼吸般的镜头浮动"
     output: shot1_prompt
     depends_on: [script]
 
@@ -158,8 +233,29 @@ steps:
       只针对剧本的【镜头 2】写一条 {{video_duration}} 秒视频提示词（5 段式：核心主题 tag | 人物与设定 | 氛围与画质（摄影机+镜头型号+色调+光源）| 运镜 | 按秒分镜+声音）。
       视觉风格：{{style}}。人物外形必须与【主角】段落一致（首帧会用定妆图，重点写动作和运镜）。
       220 字以内，只输出提示词本身。
+      **五段必须以【核心主题】【人物与设定】【氛围与画质】【运镜规则】【分镜】开头，一字不差**，
+      【运镜规则】里固定带上"手持拍摄，全程保持极其轻微的、如呼吸般的镜头浮动"，末尾单独一行【声音】。
 
       {{script}}
+    skill: "shortfilm-prompt"
+    # 结构（五段标记、呼吸感那句、【声音】行、字数上限）由下面的 assert 用脚本数——
+    # 写进验收只会让验收员去挑结构毛病，导致每跑一次都白返工一轮。这里只留脚本判不了的。
+    acceptance: |
+      1. 【氛围与画质】的摄影机/镜头/色调/光源与另两镜**一致**（三镜是一部片，不是三条广告）
+      2. 重点写动作与运镜，**没有重新描述长相**（首帧已由定妆图锁定，再描述会和定妆图打架）
+      3. 每段都有具体名词，不是"氛围很好""质感高级"这类形容
+      4. 不含任何影视 IP 名、角色名、明星姓名
+    assert:
+      min_bytes: 200
+      max_bytes: 900
+      contains:
+        - "【核心主题】"
+        - "【人物与设定】"
+        - "【氛围与画质】"
+        - "【运镜规则】"
+        - "【分镜】"
+        - "【声音】"
+        - "如呼吸般的镜头浮动"
     output: shot2_prompt
     depends_on: [script]
 
@@ -171,10 +267,166 @@ steps:
       只针对剧本的【镜头 3】写一条 {{video_duration}} 秒视频提示词（5 段式：核心主题 tag | 人物与设定 | 氛围与画质（摄影机+镜头型号+色调+光源）| 运镜 | 按秒分镜+声音）。
       视觉风格：{{style}}。人物外形必须与【主角】段落一致（首帧会用定妆图，重点写动作和运镜）。
       220 字以内，只输出提示词本身。
+      **五段必须以【核心主题】【人物与设定】【氛围与画质】【运镜规则】【分镜】开头，一字不差**，
+      【运镜规则】里固定带上"手持拍摄，全程保持极其轻微的、如呼吸般的镜头浮动"，末尾单独一行【声音】。
 
       {{script}}
+    skill: "shortfilm-prompt"
+    # 结构（五段标记、呼吸感那句、【声音】行、字数上限）由下面的 assert 用脚本数——
+    # 写进验收只会让验收员去挑结构毛病，导致每跑一次都白返工一轮。这里只留脚本判不了的。
+    acceptance: |
+      1. 【氛围与画质】的摄影机/镜头/色调/光源与另两镜**一致**（三镜是一部片，不是三条广告）
+      2. 重点写动作与运镜，**没有重新描述长相**（首帧已由定妆图锁定，再描述会和定妆图打架）
+      3. 每段都有具体名词，不是"氛围很好""质感高级"这类形容
+      4. 不含任何影视 IP 名、角色名、明星姓名；且这一镜是收尾——克制，不堆爆炸/光爆/粒子
+    assert:
+      min_bytes: 200
+      max_bytes: 900
+      contains:
+        - "【核心主题】"
+        - "【人物与设定】"
+        - "【氛围与画质】"
+        - "【运镜规则】"
+        - "【分镜】"
+        - "【声音】"
+        - "如呼吸般的镜头浮动"
     output: shot3_prompt
     depends_on: [script]
+
+  - id: narration1
+    role: "game-development/narrative-designer"
+    name: "镜 1 旁白"
+    emoji: "📝"
+    condition: "{{narration}} contains 配旁白"
+    task: |
+      只给【镜头 1】写一条**旁白**（画外音）。
+
+      {{script}}
+
+      硬要求：
+      - **必须能在 {{video_duration}} 秒内不赶地念完**：中文口播约每秒 4–5 字，
+        所以全文不超过 {{video_duration}} × 4 个字。念不完会被截断，成片里就是半句话
+      - 旁白补的是**画面之外**的信息（人物在想什么、时间过去了多久、这件事的分量），
+        不复述画面里已经看得见的动作
+      - 口语、短句；不要"命运的齿轮开始转动"这类旁白腔空话
+      - 不含任何影视 IP、角色名、明星姓名
+      - 只输出这一句旁白本身，不要引号、不要解释、不要"镜1："这类前缀
+    # 字数上限交给 assert.max_bytes 数（脚本审结构），验收只判内容
+    acceptance: |
+      1. 只有一条旁白，没有前缀、引号和解释
+      2. 补的是画面之外的信息，不是复述画面里看得见的动作
+      3. 口语短句，没有"命运的齿轮"这类旁白腔空话
+      4. 不含任何影视 IP、角色名、明星姓名
+    assert:
+      max_bytes: 200        # {{video_duration}}×4 字上限的宽松上界（≈66 汉字）；超出必然念不完
+    output: narration1
+    depends_on: [script]
+
+  - id: vo1
+    type: tts
+    name: "镜 1 配音"
+    emoji: "🎙"
+    condition: "{{narration}} contains 配旁白"
+    task: "{{narration1}}"
+    tts:
+      provider: "{{tts_provider}}"
+      model: "{{tts_model}}"
+      voice: "{{tts_voice}}"
+    output: vo1_audio
+    depends_on: [narration1]
+
+  - id: narration2
+    role: "game-development/narrative-designer"
+    name: "镜 2 旁白"
+    emoji: "📝"
+    condition: "{{narration}} contains 配旁白"
+    task: |
+      只给【镜头 2】写一条**旁白**（画外音）。
+
+      {{script}}
+
+      已经写好的前面几镜旁白（不要重复它们说过的信息）：
+      镜1：{{narration1}}
+
+      硬要求：
+      - **必须能在 {{video_duration}} 秒内不赶地念完**：中文口播约每秒 4–5 字，
+        所以全文不超过 {{video_duration}} × 4 个字。念不完会被截断，成片里就是半句话
+      - 旁白补的是**画面之外**的信息（人物在想什么、时间过去了多久、这件事的分量），
+        不复述画面里已经看得见的动作
+      - 口语、短句；不要"命运的齿轮开始转动"这类旁白腔空话
+      - 不含任何影视 IP、角色名、明星姓名
+      - 只输出这一句旁白本身，不要引号、不要解释、不要"镜2："这类前缀
+    # 字数上限交给 assert.max_bytes 数（脚本审结构），验收只判内容
+    acceptance: |
+      1. 只有一条旁白，没有前缀、引号和解释
+      2. 补的是画面之外的信息，不是复述画面里看得见的动作
+      3. 口语短句，没有"命运的齿轮"这类旁白腔空话
+      4. 不含任何影视 IP、角色名、明星姓名
+    assert:
+      max_bytes: 200        # {{video_duration}}×4 字上限的宽松上界（≈66 汉字）；超出必然念不完
+    output: narration2
+    depends_on: [script, narration1]
+
+  - id: vo2
+    type: tts
+    name: "镜 2 配音"
+    emoji: "🎙"
+    condition: "{{narration}} contains 配旁白"
+    task: "{{narration2}}"
+    tts:
+      provider: "{{tts_provider}}"
+      model: "{{tts_model}}"
+      voice: "{{tts_voice}}"
+    output: vo2_audio
+    depends_on: [narration2]
+
+  - id: narration3
+    role: "game-development/narrative-designer"
+    name: "镜 3 旁白"
+    emoji: "📝"
+    condition: "{{narration}} contains 配旁白"
+    task: |
+      只给【镜头 3】写一条**旁白**（画外音）。
+
+      {{script}}
+
+      已经写好的前面几镜旁白（不要重复它们说过的信息）：
+      镜1：{{narration1}}
+
+      已经写好的前面几镜旁白（不要重复它们说过的信息）：
+      镜2：{{narration2}}
+
+      硬要求：
+      - **必须能在 {{video_duration}} 秒内不赶地念完**：中文口播约每秒 4–5 字，
+        所以全文不超过 {{video_duration}} × 4 个字。念不完会被截断，成片里就是半句话
+      - 旁白补的是**画面之外**的信息（人物在想什么、时间过去了多久、这件事的分量），
+        不复述画面里已经看得见的动作
+      - 口语、短句；不要"命运的齿轮开始转动"这类旁白腔空话
+      - 不含任何影视 IP、角色名、明星姓名
+      - 只输出这一句旁白本身，不要引号、不要解释、不要"镜3："这类前缀
+    # 字数上限交给 assert.max_bytes 数（脚本审结构），验收只判内容
+    acceptance: |
+      1. 只有一条旁白，没有前缀、引号和解释
+      2. 补的是画面之外的信息，不是复述画面里看得见的动作
+      3. 口语短句，没有"命运的齿轮"这类旁白腔空话
+      4. 不含任何影视 IP、角色名、明星姓名
+    assert:
+      max_bytes: 200        # {{video_duration}}×4 字上限的宽松上界（≈66 汉字）；超出必然念不完
+    output: narration3
+    depends_on: [script, narration1, narration2]
+
+  - id: vo3
+    type: tts
+    name: "镜 3 配音"
+    emoji: "🎙"
+    condition: "{{narration}} contains 配旁白"
+    task: "{{narration3}}"
+    tts:
+      provider: "{{tts_provider}}"
+      model: "{{tts_model}}"
+      voice: "{{tts_voice}}"
+    output: vo3_audio
+    depends_on: [narration3]
 
   - id: shot1
     type: video
@@ -223,12 +475,27 @@ steps:
 
   - id: film
     type: concat
-    name: "三镜合成"
+    name: "三镜合成 + 后期"
     emoji: "🎞"
+    # depends_on 带上旁白与配音这六步，是为了拿到它们的产出；用 any_completed 是因为
+    # 「不配音」时它们会被 condition 跳过——默认的 all 模式会连这一步一起跳掉，
+    # 于是三镜都出好了却拼不出成片。执行是按层推进的，所以不存在抢在出片前就合成的风险。
+    #
+    # 旁白三步**必须**在 depends_on 里（哪怕 subtitles 只是引用它们的产出）：
+    # 被跳过步骤的输出只对**直接依赖方**补空串，不列进来的话，关掉旁白时
+    # subtitles 里的 {{narration1}} 会直接抛「模板变量未定义」。
+    depends_on_mode: any_completed
     concat:
       inputs: ["{{shot1_mp4}}", "{{shot2_mp4}}", "{{shot3_mp4}}"]   # 本机 ffmpeg，不花厂商的钱
+      voiceover: ["{{vo1_audio}}", "{{vo2_audio}}", "{{vo3_audio}}"] # 跳过配音时这三个是空串 = 这段不配音
+      subtitles: ["{{narration1}}", "{{narration2}}", "{{narration3}}"]
+      bgm: "{{bgm_file}}"
+      bgm_volume: 0.22
+      # 片段自带音轨压到 0.3 给旁白让路。视频模型本来就出声、而且常是成句对白——
+      # 觉得原声更好听就调回 1（旁白会同强度并存），想完全换成旁白就写 0。
+      clip_volume: 0.3
     output: film_mp4
-    depends_on: [shot1, shot2, shot3]
+    depends_on: [shot1, shot2, shot3, narration1, narration2, narration3, vo1, vo2, vo3]
 
   - id: pack
     role: "design/design-visual-storyteller"
@@ -251,5 +518,9 @@ steps:
       2. 每镜一句"这一镜在讲什么"
       3. 若要重跑，最值得改的两处（角色一致性 / 运镜 / 节奏）
       4. 成本一行：3 镜 × {{video_duration}} 秒 × {{video_resolution}}（合成不花钱，本机 ffmpeg）
+    acceptance: |
+      1. 五行链接（成片、定妆图、三镜）**原样保留**且顺序正确，成片在最前——改写一个字符就点不开
+      2. 每镜一句"这一镜在讲什么"，说的是画面内容不是技术参数
+      3. 重跑建议是具体改动（改哪一段、怎么改），不是"多抽几次"
     output: delivery
     depends_on: [film]

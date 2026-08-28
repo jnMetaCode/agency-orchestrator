@@ -12,8 +12,9 @@
  * 高管层、视频提示词工程师），门禁就会把**正确的模板**判成坏的。测试和引擎的解析口径
  * 必须是同一套，否则它守的是另一个世界。
  */
-import { readdirSync, existsSync } from 'node:fs';
+import { readdirSync, existsSync, readFileSync } from 'node:fs';
 import { resolve, join } from 'node:path';
+import { load } from 'js-yaml';
 import { parseWorkflow, validateWorkflow } from '../src/core/parser.js';
 import { findAgentsDir } from '../src/index.js';
 
@@ -57,6 +58,59 @@ for (const file of files) {
     console.log(`  ❌ ${rel}: ${err instanceof Error ? err.message.split('\n')[0] : err}`);
     failed++;
   }
+}
+
+// ── 输入的动态源必须在 Studio 里真能渲染出来 ────────────────────────────────
+// 真实故障（2026-08-28）：短剧流水线的「语音供应商」写了 source: tts_providers，
+// 而 Studio 的运行弹窗对带 source 的输入是**不画控件的**——它们由右侧「出图 / 出片」
+// 面板驱动，而那个面板只覆盖图片与视频。结果这个必填输入在弹窗里**凭空消失**，
+// 模板在 Studio 里根本没法跑，而 `ao validate` 一切正常，没有任何环节会报。
+{
+  // 这个文件的门禁是"每个模板一条"，没有 test() 助手——本节自带一个，计数并入同一对计数器
+  const test = (name: string, fn: () => void): void => {
+    try { fn(); console.log(`  ✅ ${name}`); passed++; }
+    catch (e) { console.log(`  ❌ ${name}: ${e instanceof Error ? e.message : e}`); failed++; }
+  };
+  const panel = readFileSync('website/src/components/studio/WorkflowsPanel.tsx', 'utf-8');
+  const known = new Set([...panel.matchAll(/inp\.source === "([a-z_]+)"/g)].map((m) => m[1]));
+  // 档位类在 optionsFor 里也是逐个 if，一并收进来
+  for (const m of panel.matchAll(/i\.source === "([a-z_]+)"/g)) known.add(m[1]);
+
+  const used = new Map<string, string>();   // source → 第一个用到它的模板文件
+  for (const dir of ['workflows', 'workflows/en']) {
+    if (!existsSync(dir)) continue;
+    for (const f of readdirSync(dir).filter((x) => x.endsWith('.yaml'))) {
+      const doc = load(readFileSync(join(dir, f), 'utf-8')) as { inputs?: Array<{ source?: string }> };
+      for (const i of doc?.inputs ?? []) if (i.source && !used.has(i.source)) used.set(i.source, `${dir}/${f}`);
+    }
+  }
+
+  test('模板用到的每个 input.source，Studio 都认识（否则那个输入在弹窗里消失）', () => {
+    for (const [src, file] of used) {
+      assert(known.has(src), `${file} 用了 source: ${src}，但 WorkflowsPanel 的 optionsFor 不认识它——那个输入会渲染不出候选`);
+    }
+  });
+
+  test('show_when 在弹窗的三处都生效：内容输入、媒体输入、必填缺失判断', () => {
+    // 漏一处的后果：要么隐藏的输入照样显示（等于没做），要么隐藏了却还拦着说必填缺失（自相矛盾）
+    const uses = (panel.match(/inputVisible\(/g) || []).length;
+    assert(uses >= 3, `WorkflowsPanel 应在三处调用 inputVisible，实得 ${uses}`);
+    assert(/missingMedia = mediaInputs\.filter\(\(i\) => inputVisible\(i, vals\)/.test(panel), '必填缺失判断必须先排除隐藏的输入');
+  });
+
+  test('「出图 / 出片」面板管不到的 source，必须在弹窗里就地渲染', () => {
+    // coveredByMediaPanel 列的是面板已覆盖的；其余的走 !coveredByMediaPanel 分支就地画。
+    // 这条防的是有人把新 source 加进 coveredByMediaPanel 却没在面板里实现对应控件。
+    const covered = panel.slice(panel.indexOf('const coveredByMediaPanel'), panel.indexOf('const [vals, setVals]'));
+    const listed = new Set([...covered.matchAll(/"([a-z_]+)"/g)].map((m) => m[1]));
+    const mediaSelect = readFileSync('website/src/components/studio/MediaSelect.tsx', 'utf-8');
+    for (const src of listed) {
+      if (src === 'models') continue;   // 模型下拉在面板里按 image/video 各有一处
+      const kind = src.startsWith('image') ? 'image' : 'video';
+      assert(new RegExp(kind, 'i').test(mediaSelect), `coveredByMediaPanel 声称面板覆盖了 ${src}，但 MediaSelect 里找不到 ${kind} 相关控件`);
+    }
+    assert(!listed.has('tts_providers'), '配音供应商没有面板控件，不能列进 coveredByMediaPanel，否则它会在弹窗里消失');
+  });
 }
 
 console.log('\n' + '='.repeat(50));
