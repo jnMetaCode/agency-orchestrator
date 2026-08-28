@@ -40,7 +40,8 @@ export async function demoRoleContent(lang: "zh" | "en", category: string, id: s
 
 // 演示模式工作流：公开站无后端，读取内置模板的静态快照(由 scripts/gen-workflows.mjs 生成)，
 // 可浏览 / 看步骤，但不能真跑。
-interface WfSnapshot { name: string; description: string; category?: string; featured?: boolean; steps: { id?: string; role: string; name?: string; emoji?: string }[] }
+// 媒体步骤（image / video / concat / tts）没有 role，所以 role 是可选的；type 决定它是不是"创意出片"模板
+interface WfSnapshot { name: string; description: string; category?: string; featured?: boolean; steps: { id?: string; role?: string; type?: string; name?: string; emoji?: string }[] }
 
 /** 演示模式工作流列表(完整内置模板快照，file 用 demo:// 占位，不可真跑)。 */
 export async function demoWorkflows(lang: "zh" | "en"): Promise<Workflow[]> {
@@ -54,7 +55,8 @@ export async function demoWorkflows(lang: "zh" | "en"): Promise<Workflow[]> {
     category: w.category,
     featured: w.featured,
     inputs: [],
-    steps: w.steps.map((s, j) => ({ id: s.id || `step_${j + 1}`, role: s.role, name: s.name, emoji: s.emoji })),
+    // type 必须带上：「创意出片」按 step.type 筛模板，丢了它演示模式下那一页就是空的
+    steps: w.steps.map((s, j) => ({ id: s.id || `step_${j + 1}`, role: s.role, type: s.type, name: s.name, emoji: s.emoji })),
     private: false,
   }));
 }

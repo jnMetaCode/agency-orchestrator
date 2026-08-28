@@ -309,6 +309,13 @@ export function ProvidersPanel({ active, onSetActive, offline = false }: { activ
                 // 用户只会以为"我的 key 丢了"。两条下架来源必须走同一个例外，
                 // 之前 removedProviders 无条件过滤，把配过 rootflowai/ccsub key 的老用户搞坏了
                 .filter((m) => !(m.delisted || (cfg.removedProviders ?? []).includes(m.id)) || cfg?.providers?.[m.id]?.hasKey)
+                // 赞助位不能被非赞助商占掉。这个列表原本没有排序、纯按 API_PROVIDERS 的声明顺序渲染，
+                // 于是「火山引擎 · Agent Plan 套餐」（火山引擎的套餐通道，按约定不重复标赞助商）
+                // 因为紧挨着火山引擎声明，就插在了 LanoX / APIMart 这些赞助商前面。
+                // 排序而不是挪声明位置：挪一次只治一次，排序能保证以后任何非赞助条目都排在赞助商之后。
+                // 组内保持声明顺序（稳定排序），赞助商之间的既有次序是谈好的，不能被打乱。
+                .slice()
+                .sort((a, b) => (a.flagship ? 0 : a.sponsor ? 1 : 2) - (b.flagship ? 0 : b.sponsor ? 1 : 2))
                 .map((m) => {
                 const st = keyStatus(m.id);
                 return (

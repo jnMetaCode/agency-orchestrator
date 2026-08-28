@@ -220,5 +220,42 @@ test('在架供应商不受影响', () => {
   }
 });
 
+// ── 赞助位不能被非赞助条目占掉 ───────────────────────────────────────────────
+// 2026-08-28：「火山引擎 · Agent Plan 套餐」按约定不重复标赞助商（同一家不能在列表出现两次），
+// 但它紧挨着火山引擎声明，而供应商列表原先**完全没有排序**、纯按声明顺序渲染——
+// 于是这个非赞助条目排在了 LanoX / APIMart 等赞助商前面，白占一个赞助位。
+{
+  const panel = readFileSync('website/src/components/studio/ProvidersPanel.tsx', 'utf-8');
+
+  test('Studio 供应商列表按赞助层级排序（旗舰 → 赞助商 → 其余）', () => {
+    assert(/\.sort\(\s*\(a, b\)\s*=>\s*\(a\.flagship \? 0 : a\.sponsor \? 1 : 2\)/.test(panel),
+      'ProvidersPanel 必须在渲染前按赞助层级排序，否则任何插在赞助商中间的非赞助条目都会占掉赞助位');
+  });
+
+  test('纯数据推演：非赞助条目排序后一定落在所有赞助商之后', () => {
+    const rank = (m: { flagship?: boolean; sponsor?: boolean }) => (m.flagship ? 0 : m.sponsor ? 1 : 2);
+    const sorted = API_PROVIDERS.slice().sort((a, b) => rank(a) - rank(b));
+    const lastSponsor = sorted.map(rank).lastIndexOf(1);
+    const firstPlain = sorted.map(rank).indexOf(2);
+    assert(firstPlain === -1 || lastSponsor === -1 || lastSponsor < firstPlain,
+      '排序后不该还有非赞助条目排在赞助商前面');
+    // 火山方舟套餐是这条规则的由来：它没有 sponsor 标，就必须排在赞助商之后
+    const plan = sorted.findIndex((x) => x.id === 'volcengine-plan');
+    if (plan >= 0) {
+      assert(rank(sorted[plan]) === 2, '方舟套餐不标 sponsor（同一家不重复上榜），因此应归入"其余"组');
+      assert(plan > lastSponsor, `方舟套餐应排在所有赞助商之后，实得位置 ${plan}，最后一个赞助商在 ${lastSponsor}`);
+    }
+  });
+
+  test('组内保持声明顺序（赞助商之间的次序是谈好的，排序不能打乱）', () => {
+    const rank = (m: { flagship?: boolean; sponsor?: boolean }) => (m.flagship ? 0 : m.sponsor ? 1 : 2);
+    const sorted = API_PROVIDERS.slice().sort((a, b) => rank(a) - rank(b));
+    const declared = API_PROVIDERS.filter((x) => rank(x) === 1).map((x) => x.id);
+    const rendered = sorted.filter((x) => rank(x) === 1).map((x) => x.id);
+    assert(JSON.stringify(declared) === JSON.stringify(rendered),
+      `赞助商组内顺序被打乱了：声明 ${declared.join(',')} → 渲染 ${rendered.join(',')}`);
+  });
+}
+
 console.log(`\n  结果: ${passed} 通过, ${failed} 失败\n`);
 if (failed > 0) process.exit(1);

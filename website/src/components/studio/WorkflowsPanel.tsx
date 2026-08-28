@@ -4,7 +4,7 @@ import { Tip } from "@/components/ui/tip";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useLanguage } from "@/i18n/LanguageProvider";
 import { Button } from "@/components/ui/button";
-import { api, DEFAULT_PROVIDER, CLI_PROVIDER_IDS, type WorkflowInput, type ConfigResponse, API_PROVIDERS, recentUsage, type RunSummary, getFavWorkflows, setFavWorkflows, getMediaDefaults, mediaDefaultFor, setMediaDefaults, mergedVideoProviders, type CommunityTemplate, type Workflow } from "@/lib/studio";
+import { api, DEFAULT_PROVIDER, CLI_PROVIDER_IDS, inputVisible, type WorkflowInput, type ConfigResponse, API_PROVIDERS, recentUsage, type RunSummary, getFavWorkflows, setFavWorkflows, getMediaDefaults, mediaDefaultFor, setMediaDefaults, mergedVideoProviders, type CommunityTemplate, type Workflow } from "@/lib/studio";
 import { track } from "@/lib/track";
 import { cn } from "@/lib/utils";
 import { RoleAvatar } from "./RoleAvatar";
@@ -67,6 +67,7 @@ function InputsDialog({ wf, provider, onClose, onRun, onCompare }: { wf: Workflo
       return (cfg.styles ?? []).map((s) => ({ value: s.name, label: `${cat[s.category]} · ${lang === "en" ? s.nameEn : s.name}` }));
     }
     if (inp.source === "image_providers") return keyedFirst(cfg.imageProviders ?? []).map((id) => ({ value: id, label: providerLabel(id) }));
+    if (inp.source === "tts_providers") return keyedFirst(cfg.ttsProviders ?? cfg.imageProviders ?? []).map((id) => ({ value: id, label: providerLabel(id) }));
     if (inp.source === "video_providers") return mergedVideoProviders(cfg).sort((a, b) => Number(b.hasKey) - Number(a.hasKey)).map((v) => ({ value: v.id, label: v.hasKey ? v.id : `${v.id} · ${t.studio.workflows.inputNoKey}` }));
     const pid = (inp.source_from ? vals[inp.source_from] : "") || provider;
     const vp = mergedVideoProviders(cfg).find((v) => v.id === pid);
@@ -89,6 +90,11 @@ function InputsDialog({ wf, provider, onClose, onRun, onCompare }: { wf: Workflo
   // 媒体类输入（source 指向供应商/模型/档位）优先取顶栏「出图 / 出片」里选好的，其次才是模板默认值
   const media = getMediaDefaults();
   const isMediaInput = (i: WorkflowInput) => !!i.source;
+  // 右侧「出图 / 出片」面板已经覆盖的输入（它自己有下拉，不要在弹窗里再画一遍）。
+  // 其余带 source 的输入必须就地渲染，否则用户没有任何地方能填它。
+  const coveredByMediaPanel = (i: WorkflowInput) =>
+    ["image_providers", "video_providers", "video_resolutions", "video_durations", "video_ratios"].includes(i.source ?? "")
+    || (i.source === "models" && (i.source_from?.startsWith("image") || i.source_from?.startsWith("video")));
   const [vals, setVals] = useState<Record<string, string>>(() => {
     const init: Record<string, string> = {};
     inputs.forEach((i) => (init[i.name] = mediaDefaultFor(i, media) || i.default || ""));
@@ -108,7 +114,8 @@ function InputsDialog({ wf, provider, onClose, onRun, onCompare }: { wf: Workflo
     window.addEventListener("ao-media-defaults", sync);
     return () => window.removeEventListener("ao-media-defaults", sync);
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
-  const missingMedia = mediaInputs.filter((i) => i.required && !(vals[i.name] ?? "").trim());
+  // 隐藏的（show_when 为假）不算缺失：选了"不配音"还拦着说"音色必填"就是自相矛盾
+  const missingMedia = mediaInputs.filter((i) => inputVisible(i, vals) && i.required && !(vals[i.name] ?? "").trim());
   // 需要实拉模型列表的供应商（按当前选择算出来），在 effect 里拉——渲染期不发请求、不 setState
   const neededModelProviders = inputs
     .filter((i) => i.source === "models")
@@ -163,12 +170,14 @@ function InputsDialog({ wf, provider, onClose, onRun, onCompare }: { wf: Workflo
     for (const i of mediaInputs) {
       const v = vals[i.name] ?? "";
       if (i.source === "image_providers") d.image.provider = v;
+      else if (i.source === "tts_providers") d.tts.provider = v;
       else if (i.source === "video_providers") d.video.provider = v;
       else if (i.source === "video_resolutions") d.video.resolution = v;
       else if (i.source === "video_durations") d.video.duration = v;
       else if (i.source === "video_ratios") d.video.ratio = v;
       else if (i.source === "models" && i.source_from?.startsWith("image")) d.image.model = v;
       else if (i.source === "models" && i.source_from?.startsWith("video")) d.video.model = v;
+      else if (i.source === "models" && i.source_from?.startsWith("tts")) d.tts.model = v;
     }
     setMediaDefaults(d);
   };
@@ -222,7 +231,7 @@ function InputsDialog({ wf, provider, onClose, onRun, onCompare }: { wf: Workflo
           <option value="">{t.studio.workflows.inputModelsLoading}</option>
         ) : (
           <>
-            <option value="">{inp.required ? "—" : inp.source === "image_providers" ? `— ${t.studio.workflows.inputFollowText}` : `— ${t.studio.workflows.inputOptional}`}</option>
+            <option value="">{inp.required ? "—" : inp.source === "image_providers" || inp.source === "tts_providers" ? `— ${t.studio.workflows.inputFollowText}` : `— ${t.studio.workflows.inputOptional}`}</option>
             {opts.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
             <option value="__custom__">{t.studio.workflows.inputCustom}</option>
           </>
@@ -296,7 +305,7 @@ function InputsDialog({ wf, provider, onClose, onRun, onCompare }: { wf: Workflo
             {!isMedia && textNoKey && (
               <p className="rounded-lg bg-red-500/10 px-2 py-1.5 text-xs text-red-600 dark:text-red-400">{t.studio.workflows.textProviderNoKey.replace("{p}", textProvider)}</p>
             )}
-            {contentInputs.map((inp) => field(inp, false))}
+            {contentInputs.filter((inp) => inputVisible(inp, vals)).map((inp) => field(inp, false))}
             {fileErr && <p className="text-xs text-red-500">{fileErr}</p>}
             <input ref={fileInputRef} type="file" accept=".md,.txt,.markdown,.json,.yaml,.yml,.csv,.log,.html,.css,.js,.ts,.tsx,.py,.java,.go,.rs,.sh,.xml,.toml,.ini,text/*" hidden onChange={onFilePicked} />
             {!inputs.length && <p className="text-sm text-muted-foreground">{t.studio.workflows.noInputsNeeded}</p>}
@@ -319,8 +328,10 @@ function InputsDialog({ wf, provider, onClose, onRun, onCompare }: { wf: Workflo
               )}
               <MediaSelect embedded />
               <p className="px-1 text-[11px] leading-relaxed text-muted-foreground">{m.sameAsTopbar}</p>
-              {/* 非供应商/模型/档位类的媒体输入（如风格）仍在这里选 */}
-              {mediaInputs.filter((i) => i.source === "styles").map((i) => field(i, true))}
+              {/* 「出图 / 出片」面板**管不到**的媒体输入（风格、配音供应商与语音模型…）就地渲染。
+                  用"反向排除"而不是列白名单：漏列一个的后果是那个输入在弹窗里**凭空消失**，
+                  而它又是必填 —— 模板直接跑不起来（配音供应商就这么消失过）。 */}
+              {mediaInputs.filter((i) => !coveredByMediaPanel(i) && inputVisible(i, vals)).map((i) => field(i, true))}
               {missingMedia.length > 0 && (
                 <p className="rounded-lg bg-amber-500/10 px-2 py-1.5 text-[11px] text-amber-600 dark:text-amber-400">{m.missingRequired}{missingMedia.map((i) => i.label || i.name).join("、")}</p>
               )}

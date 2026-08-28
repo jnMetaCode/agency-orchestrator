@@ -629,6 +629,12 @@ try {
     assert(imgList.includes('openai') && imgList.includes('relaytest'), `能出图的供应商应在列(实际 ${imgList.slice(0, 6).join(',')})`);
     assert(!imgList.some((id) => id === 'claude' || id === 'aicodemirror' || id.endsWith('-cli')),
       `CLI 与 Anthropic 协议不该进文生图下拉(实际 ${imgList.join(',')})`);
+    // 配音（type: tts）候选：今天与出图同口径（引擎的 generateSpeech 复用 resolveImageAccess），
+    // 但必须是**独立字段**——共用 imageProviders 的话，前端存默认值时两个设置会互相覆盖
+    const cfgTts = (await (await fetch(base3 + '/api/config')).json()) as { ttsProviders?: string[] };
+    const ttsList = cfgTts.ttsProviders ?? [];
+    assert(ttsList.includes('openai') && ttsList.includes('relaytest'), `能配音的供应商应在列(实际 ${ttsList.slice(0, 6).join(',')})`);
+    assert(!ttsList.some((id) => id === 'claude' || id.endsWith('-cli')), `CLI 与 Anthropic 协议不该进配音下拉(实际 ${ttsList.join(',')})`);
     imgUp.close();
 
     // 10) 工作流写得不对（这里：一个 steps 为空的 YAML）→ compare 该回 4xx 并说清楚，

@@ -29,6 +29,10 @@ export function Markdown({ children, className }: { children: string; className?
                 controls
                 preload="metadata"
               />
+            ) : /\.(mp3|wav|m4a|aac|opus|flac)($|\?)/i.test(String(p.href ?? "")) ? (
+              // type: tts 的配音产物（[🔊 id.mp3](assets/id.mp3)）。同理渲染成播放器——
+              // 留成链接就得另开标签页下载，跑完当场听不到等于没产出
+              <audio className="my-2 w-full max-w-md" src={String(p.href)} controls preload="metadata" />
             ) : (
               <a className="text-primary underline underline-offset-2" target="_blank" rel="noreferrer" {...p}>{children}</a>
             ),

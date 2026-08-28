@@ -1,6 +1,115 @@
 {
   "zh": [
     {
+      "name": "短剧流水线（3 镜）",
+      "description": "一段故事 → 编剧写 3 镜微剧本 → 主角定妆图（文生图）→ 三镜提示词并行 → 三镜以定妆图为首帧并行出片 → 交付页。角色一致靠图生视频，模型和成本你说了算。",
+      "category": "内容创作",
+      "steps": [
+        {
+          "id": "script",
+          "role": "game-development/narrative-designer",
+          "name": "编剧",
+          "emoji": "✍️"
+        },
+        {
+          "id": "character_prompt",
+          "role": "design/design-image-prompt-engineer",
+          "name": "定妆图提示词",
+          "emoji": "🧍"
+        },
+        {
+          "id": "character",
+          "type": "image",
+          "name": "主角定妆图",
+          "emoji": "🎨"
+        },
+        {
+          "id": "shot1_prompt",
+          "role": "design/design-image-prompt-engineer",
+          "name": "镜头 1 提示词",
+          "emoji": "🎬"
+        },
+        {
+          "id": "shot2_prompt",
+          "role": "design/design-image-prompt-engineer",
+          "name": "镜头 2 提示词",
+          "emoji": "🎬"
+        },
+        {
+          "id": "shot3_prompt",
+          "role": "design/design-image-prompt-engineer",
+          "name": "镜头 3 提示词",
+          "emoji": "🎬"
+        },
+        {
+          "id": "narration1",
+          "role": "game-development/narrative-designer",
+          "name": "镜 1 旁白",
+          "emoji": "📝"
+        },
+        {
+          "id": "vo1",
+          "type": "tts",
+          "name": "镜 1 配音",
+          "emoji": "🎙"
+        },
+        {
+          "id": "narration2",
+          "role": "game-development/narrative-designer",
+          "name": "镜 2 旁白",
+          "emoji": "📝"
+        },
+        {
+          "id": "vo2",
+          "type": "tts",
+          "name": "镜 2 配音",
+          "emoji": "🎙"
+        },
+        {
+          "id": "narration3",
+          "role": "game-development/narrative-designer",
+          "name": "镜 3 旁白",
+          "emoji": "📝"
+        },
+        {
+          "id": "vo3",
+          "type": "tts",
+          "name": "镜 3 配音",
+          "emoji": "🎙"
+        },
+        {
+          "id": "shot1",
+          "type": "video",
+          "name": "镜头 1 出片",
+          "emoji": "🎥"
+        },
+        {
+          "id": "shot2",
+          "type": "video",
+          "name": "镜头 2 出片",
+          "emoji": "🎥"
+        },
+        {
+          "id": "shot3",
+          "type": "video",
+          "name": "镜头 3 出片",
+          "emoji": "🎥"
+        },
+        {
+          "id": "film",
+          "type": "concat",
+          "name": "三镜合成 + 后期",
+          "emoji": "🎞"
+        },
+        {
+          "id": "pack",
+          "role": "design/design-visual-storyteller",
+          "name": "交付页",
+          "emoji": "📦"
+        }
+      ]
+    },
+    {
       "name": "AI 一人公司：全员大会",
       "description": "你说一句话，9 个 AI 部门自动协作，2 分钟出完整商业方案——这就是一人公司",
       "category": "一人公司",
@@ -59,6 +168,50 @@
           "role": "specialized/business-strategist",
           "name": "老板",
           "emoji": "👔"
+        }
+      ]
+    },
+    {
+      "name": "一人公司·做投研",
+      "description": "像券商研究所一样做功课：宏观→行业→标的→风控四道工序，重大结论须你签字放行。仅供研究参考，不构成投资建议",
+      "category": "一人公司",
+      "featured": true,
+      "steps": [
+        {
+          "id": "macro",
+          "role": "finance/finance-financial-analyst",
+          "name": "宏观分析师",
+          "emoji": "🌍"
+        },
+        {
+          "id": "industry",
+          "role": "finance/finance-investment-researcher",
+          "name": "行业分析师",
+          "emoji": "🏭"
+        },
+        {
+          "id": "fundamentals",
+          "role": "finance/finance-financial-forecaster",
+          "name": "财务分析师",
+          "emoji": "📈"
+        },
+        {
+          "id": "risk",
+          "role": "finance/finance-fpa-analyst",
+          "name": "风控官",
+          "emoji": "🛡️"
+        },
+        {
+          "id": "boss_signoff",
+          "type": "approval",
+          "name": "人工确认",
+          "emoji": "✋"
+        },
+        {
+          "id": "final_report",
+          "role": "finance/finance-investment-researcher",
+          "name": "首席研究员",
+          "emoji": "🎓"
         }
       ]
     },
@@ -299,44 +452,6 @@
           "role": "marketing/marketing-social-media-strategist",
           "name": "运营",
           "emoji": "📆"
-        }
-      ]
-    },
-    {
-      "name": "一人公司·做投研",
-      "description": "像券商研究所一样做功课：宏观→行业→标的→风控四道工序，重大结论须你签字放行。仅供研究参考，不构成投资建议",
-      "category": "一人公司",
-      "featured": true,
-      "steps": [
-        {
-          "id": "macro",
-          "role": "finance/finance-financial-analyst",
-          "name": "宏观分析师",
-          "emoji": "🌍"
-        },
-        {
-          "id": "industry",
-          "role": "finance/finance-investment-researcher",
-          "name": "行业分析师",
-          "emoji": "🏭"
-        },
-        {
-          "id": "fundamentals",
-          "role": "finance/finance-financial-forecaster",
-          "name": "财务分析师",
-          "emoji": "📈"
-        },
-        {
-          "id": "risk",
-          "role": "finance/finance-fpa-analyst",
-          "name": "风控官",
-          "emoji": "🛡️"
-        },
-        {
-          "id": "final_report",
-          "role": "finance/finance-investment-researcher",
-          "name": "首席研究员",
-          "emoji": "🎓"
         }
       ]
     },
@@ -583,6 +698,31 @@
       ]
     },
     {
+      "name": "图文内容套装",
+      "description": "小红书运营写种草笔记 → 图像提示词工程师把卖点转成画面描述 → 文生图出封面——一次运行交付「文案 + 封面图」成套内容",
+      "category": "内容创作",
+      "steps": [
+        {
+          "id": "copy",
+          "role": "marketing/marketing-xiaohongshu-operator"
+        },
+        {
+          "id": "cover_prompt",
+          "role": "design/design-image-prompt-engineer"
+        },
+        {
+          "id": "cover",
+          "type": "image",
+          "name": "文生图",
+          "emoji": "🎨"
+        },
+        {
+          "id": "pack",
+          "role": "marketing/marketing-xiaohongshu-operator"
+        }
+      ]
+    },
+    {
       "name": "小红书爆款笔记创作",
       "description": "一句话主题 → 策略分析 + 文案撰写 + SEO 标题 + 整合成稿",
       "steps": [
@@ -665,6 +805,37 @@
       ]
     },
     {
+      "name": "一句话出短片",
+      "description": "一句创意 → 提示词工程师按 5 段式写成电影感提示词 → 文生视频直接出片，产出可直接发布的 mp4",
+      "category": "内容创作",
+      "steps": [
+        {
+          "id": "shot_prompt",
+          "role": "design/design-image-prompt-engineer",
+          "name": "提示词工程师",
+          "emoji": "🎬"
+        },
+        {
+          "id": "negative",
+          "role": "design/design-image-prompt-engineer",
+          "name": "反穿帮清单",
+          "emoji": "🚫"
+        },
+        {
+          "id": "clip",
+          "type": "video",
+          "name": "出片",
+          "emoji": "🎬"
+        },
+        {
+          "id": "pack",
+          "role": "design/design-image-prompt-engineer",
+          "name": "成片交付",
+          "emoji": "📦"
+        }
+      ]
+    },
+    {
       "name": "Codex + Claude Code 协作编程(闭环版)",
       "description": "",
       "steps": [
@@ -731,49 +902,6 @@
         {
           "id": "format",
           "role": "marketing/marketing-content-creator"
-        }
-      ]
-    },
-    {
-      "name": "图文内容套装",
-      "description": "小红书运营写种草笔记 → 图像提示词工程师把卖点转成画面描述 → 文生图出封面——一次运行交付「文案 + 封面图」成套内容",
-      "steps": [
-        {
-          "id": "copy",
-          "role": "marketing/marketing-xiaohongshu-operator"
-        },
-        {
-          "id": "cover_prompt",
-          "role": "design/design-image-prompt-engineer"
-        },
-        {
-          "id": "pack",
-          "role": "marketing/marketing-xiaohongshu-operator"
-        }
-      ]
-    },
-    {
-      "name": "一句话出短片",
-      "description": "一句创意 → 提示词工程师按 5 段式写成电影感提示词 → 文生视频直接出片，产出可直接发布的 mp4",
-      "category": "内容创作",
-      "steps": [
-        {
-          "id": "shot_prompt",
-          "role": "design/design-image-prompt-engineer",
-          "name": "提示词工程师",
-          "emoji": "🎬"
-        },
-        {
-          "id": "negative",
-          "role": "design/design-image-prompt-engineer",
-          "name": "反穿帮清单",
-          "emoji": "🚫"
-        },
-        {
-          "id": "pack",
-          "role": "design/design-image-prompt-engineer",
-          "name": "成片交付",
-          "emoji": "📦"
         }
       ]
     },
@@ -924,6 +1052,37 @@
       ]
     },
     {
+      "name": "One-Line Short Film",
+      "description": "One idea → a 5-part cinematic prompt → text-to-video renders the mp4, plus a negative-prompt sheet and a delivery note",
+      "category": "Content",
+      "steps": [
+        {
+          "id": "shot_prompt",
+          "role": "design/design-video-prompt-engineer",
+          "name": "Video Prompt Engineer",
+          "emoji": "🎬"
+        },
+        {
+          "id": "negative",
+          "role": "design/design-video-prompt-engineer",
+          "name": "Negative Sheet",
+          "emoji": "🚫"
+        },
+        {
+          "id": "clip",
+          "type": "video",
+          "name": "Render",
+          "emoji": "🎬"
+        },
+        {
+          "id": "pack",
+          "role": "design/design-video-prompt-engineer",
+          "name": "Delivery Note",
+          "emoji": "📦"
+        }
+      ]
+    },
+    {
       "name": "PR Code Review",
       "description": "Three-dimensional parallel review: code quality, security, performance → unified verdict",
       "steps": [
@@ -1040,31 +1199,6 @@
         {
           "id": "q1_plan",
           "role": "project-management/project-management-project-shepherd"
-        }
-      ]
-    },
-    {
-      "name": "One-Line Short Film",
-      "description": "One idea → a 5-part cinematic prompt → text-to-video renders the mp4, plus a negative-prompt sheet and a delivery note",
-      "category": "Content",
-      "steps": [
-        {
-          "id": "shot_prompt",
-          "role": "design/design-video-prompt-engineer",
-          "name": "Video Prompt Engineer",
-          "emoji": "🎬"
-        },
-        {
-          "id": "negative",
-          "role": "design/design-video-prompt-engineer",
-          "name": "Negative Sheet",
-          "emoji": "🚫"
-        },
-        {
-          "id": "pack",
-          "role": "design/design-video-prompt-engineer",
-          "name": "Delivery Note",
-          "emoji": "📦"
         }
       ]
     }

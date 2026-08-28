@@ -14,8 +14,9 @@ export interface Role {
 
 export interface WorkflowStepMeta {
   id: string;
-  role: string;
-  /** 媒体步骤类型（image / video）；普通角色步骤无此字段 */
+  /** 媒体步骤（image / video / concat / tts）没有角色——这里原本写成必填，是个一直没被兑现的谎 */
+  role?: string;
+  /** 媒体步骤类型（image / video / concat / tts）；普通角色步骤无此字段 */
   type?: string;
   name?: string;
   emoji?: string;
@@ -33,8 +34,25 @@ export interface WorkflowInput {
   /** 静态候选（渲染成下拉，可手填） */
   options?: string[];
   /** 动态候选源（见引擎 InputDefinition.source） */
-  source?: "image_providers" | "video_providers" | "models" | "video_resolutions" | "video_durations" | "video_ratios" | "styles";
+  source?: "image_providers" | "video_providers" | "tts_providers" | "models" | "video_resolutions" | "video_durations" | "video_ratios" | "styles";
   source_from?: string;
+  /** 条件可见（引擎 InputDefinition.show_when）：`{{other}} contains X` / equals，为假时不渲染、不算必填 */
+  show_when?: string;
+}
+
+/**
+ * 求 show_when（与引擎 core/condition.ts 同语义的最小实现：contains / equals，忽略大小写、trim、去引号）。
+ * 解析不了一律**显示**——宁可多显示一个输入，也不能让用户找不到要填的东西。
+ */
+export function inputVisible(inp: { show_when?: string }, vals: Record<string, string>): boolean {
+  const cond = inp.show_when;
+  if (!cond) return true;
+  const m = cond.match(/^(.+?)\s+(contains|equals)\s+(.+)$/is);
+  if (!m) return true;
+  const render = (t: string) => t.replace(/\{\{(\w+)\}\}/g, (_, k: string) => vals[k] ?? "");
+  const left = render(m[1]).trim().replace(/\n/g, " ").toLowerCase();
+  const right = render(m[3]).trim().replace(/^["']|["']$/g, "").toLowerCase();
+  return m[2].toLowerCase() === "contains" ? left.includes(right) : left === right;
 }
 
 export interface Workflow {
@@ -326,6 +344,8 @@ export interface ConfigResponse {
    * 前端别拿 family:"api" 自己筛，那一族里混着 claude-code / gemini-cli。
    */
   imageProviders?: string[];
+  /** 语音合成（type: tts）候选；今天与 imageProviders 同口径，但独立字段独立设置 */
+  ttsProviders?: string[];
   /** 风格库（引擎内置）：中文名 + 提示词后缀；输入 `source: styles` 的下拉候选 */
   styles?: { id: string; name: string; nameEn: string; category: "live" | "2d" | "3d"; prompt: string; sample?: string }[];
   /** 视频供应商（独立表）：是否已配 key + 各家档位表 */
@@ -450,14 +470,17 @@ export function mergedVideoProviders(cfg: ConfigResponse | null): VideoProviderE
 export interface MediaDefaults {
   image: { provider: string; model: string };
   video: { provider: string; model: string; resolution: string; duration: string; ratio: string };
+  /** 配音（type: tts）。**必须与 image 分开存**：共用一个槽的话，选了配音供应商就会把
+   *  用户存的图片供应商默认值覆盖掉（同一设置只该有一处，不同设置不该挤在一处）。 */
+  tts: { provider: string; model: string; voice: string };
 }
 const MEDIA_KEY = "ao-media-defaults";
 export function getMediaDefaults(): MediaDefaults {
-  const empty: MediaDefaults = { image: { provider: "", model: "" }, video: { provider: "", model: "", resolution: "", duration: "", ratio: "" } };
+  const empty: MediaDefaults = { image: { provider: "", model: "" }, video: { provider: "", model: "", resolution: "", duration: "", ratio: "" }, tts: { provider: "", model: "", voice: "" } };
   if (typeof window === "undefined") return empty;
   try {
     const v = JSON.parse(window.localStorage.getItem(MEDIA_KEY) || "{}");
-    return { image: { ...empty.image, ...(v.image || {}) }, video: { ...empty.video, ...(v.video || {}) } };
+    return { image: { ...empty.image, ...(v.image || {}) }, video: { ...empty.video, ...(v.video || {}) }, tts: { ...empty.tts, ...(v.tts || {}) } };
   } catch { return empty; }
 }
 export function setMediaDefaults(d: MediaDefaults) {
@@ -470,10 +493,14 @@ export function mediaDefaultFor(inp: { source?: string; source_from?: string }, 
   switch (inp.source) {
     case "image_providers": return d.image.provider;
     case "video_providers": return d.video.provider;
+    case "tts_providers": return d.tts.provider;
     case "video_resolutions": return d.video.resolution;
     case "video_durations": return d.video.duration;
     case "video_ratios": return d.video.ratio;
-    case "models": return inp.source_from?.startsWith("video") ? d.video.model : inp.source_from?.startsWith("image") ? d.image.model : undefined;
+    case "models": return inp.source_from?.startsWith("video") ? d.video.model
+      : inp.source_from?.startsWith("image") ? d.image.model
+      : inp.source_from?.startsWith("tts") ? d.tts.model
+      : undefined;
     default: return undefined;
   }
 }

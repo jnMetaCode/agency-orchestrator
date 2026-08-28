@@ -141,7 +141,10 @@ export function ProviderSelect({ value, onChange, onOpenProviders }: { value: st
   const groups: { label: string; ids: string[] }[] = [
     // 聚合平台：内置聚合商(旗舰/赞助商在前) + 远程清单上架的赞助商
     // videoOnly 的供应商（秘塔等）只跑 type: video 步骤，没有 chat 端点——不进这个下拉
-    { label: g.groupAggregators, ids: keyedFirst([...API_PROVIDERS.filter((p) => !p.vendor && !p.videoOnly).map((p) => p.id), ...remoteProviders.map((r) => r.id)]) },
+    // 组内先按赞助层级排（旗舰 → 赞助商 → 其余），再按"配过 key 的靠前"。
+    // 不排的话顺序就是 API_PROVIDERS 的声明位置，像「火山引擎 · Agent Plan 套餐」这种
+    // 紧挨赞助商声明、自己却不标赞助商的条目，会白占一个赞助位（同 ProvidersPanel）。
+    { label: g.groupAggregators, ids: keyedFirst([...API_PROVIDERS.filter((p) => !p.vendor && !p.videoOnly).slice().sort((a, b) => (a.flagship ? 0 : a.sponsor ? 1 : 2) - (b.flagship ? 0 : b.sponsor ? 1 : 2)).map((p) => p.id), ...remoteProviders.map((r) => r.id)]) },
     // 模型公司官方 API
     { label: g.groupVendors, ids: keyedFirst(API_PROVIDERS.filter((p) => p.vendor && !p.videoOnly).map((p) => p.id)) },
     { label: g.groupCli, ids: [...CLI_PROVIDER_IDS] },

@@ -13,6 +13,10 @@ const repoRoot = resolve(__dirname, "..", "..");
 const require = createRequire(join(repoRoot, "package.json"));
 const yaml = require("js-yaml");
 
+// 没写 name/emoji 的媒体步骤在卡片上要有个说得过去的显示名（与 executor 里的默认值保持一致）
+const DEFAULT_STEP_NAME = { image: "文生图", video: "文生视频", concat: "合成", tts: "配音", approval: "人工确认", human_input: "人工输入" };
+const DEFAULT_STEP_EMOJI = { image: "🎨", video: "🎬", concat: "🎞", tts: "🎙", approval: "✋", human_input: "⌨️" };
+
 function loadDir(dir) {
   if (!existsSync(dir)) return [];
   const out = [];
@@ -29,9 +33,19 @@ function loadDir(dir) {
         // 类目/精选随 YAML 带出（如「一人公司」系列），演示站货架才能和本地一致地分组置顶
         category: doc.category ? String(doc.category) : undefined,
         featured: doc.featured === true ? true : undefined,
+        // 媒体步骤（image / video / concat / tts）**没有 role**——按 role 过滤会把它们整条丢掉，
+        // 于是演示站上「一句话出短片」只剩 3 步（出片那步不见了），
+        // 而「创意出片」是按 step.type 筛模板的，一条都匹配不到、整页空白。
+        // 该展示的要展示，能不能跑是另一回事（演示模式本来就只看不跑）。
         steps: doc.steps
-          .filter((s) => s && s.role)
-          .map((s) => ({ id: String(s.id || ""), role: String(s.role), name: s.name ? String(s.name) : undefined, emoji: s.emoji ? String(s.emoji) : undefined })),
+          .filter((s) => s && (s.role || s.type))
+          .map((s) => ({
+            id: String(s.id || ""),
+            ...(s.role ? { role: String(s.role) } : {}),
+            ...(s.type && s.type !== "normal" ? { type: String(s.type) } : {}),
+            name: s.name ? String(s.name) : DEFAULT_STEP_NAME[s.type] || undefined,
+            emoji: s.emoji ? String(s.emoji) : DEFAULT_STEP_EMOJI[s.type] || undefined,
+          })),
       });
     } catch {
       /* 跳过解析失败的模板 */

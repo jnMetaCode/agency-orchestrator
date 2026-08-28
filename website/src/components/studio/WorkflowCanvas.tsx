@@ -403,6 +403,14 @@ export function WorkflowCanvas({ file, name, onClose, onSaved }: { file: string;
                       placeholder="最少多少字节（防截断）"
                       className="h-9 w-full rounded-lg border border-border/70 bg-background px-2.5 text-xs outline-none focus:border-primary/50"
                     />
+                    <input
+                      type="number"
+                      min={0}
+                      value={String(assertOf(selected).max_bytes ?? "")}
+                      onChange={(e) => patchAssert({ max_bytes: e.target.value === "" ? undefined : Number(e.target.value) })}
+                      placeholder="最多多少字节（防写飞）"
+                      className="h-9 w-full rounded-lg border border-border/70 bg-background px-2.5 text-xs outline-none focus:border-primary/50"
+                    />
                   </div>
                   <textarea
                     value={(assertOf(selected).contains as string[] | undefined)?.join("\n") ?? ""}

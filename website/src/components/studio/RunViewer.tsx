@@ -151,6 +151,13 @@ export function RunViewer({ onViewHistory, onGoProviders }: { onViewHistory?: ()
             </pre>
           ) : run.steps.length === 0 && running ? (
             <div className="flex flex-col items-center justify-center gap-3 py-16 text-muted-foreground">
+              {/* 媒体花费预览：视频按秒计费，钱在接下来这几步花出去——开跑那一刻就要让人看见 */}
+              {!!run.preflight?.length && (
+                <div className="mb-2 w-full max-w-md rounded-xl border border-amber-500/30 bg-amber-500/5 px-4 py-3 text-left text-xs leading-relaxed text-foreground">
+                  <div className="mb-1 font-semibold">{t.studio.run.preflightTitle}</div>
+                  {run.preflight.map((l, i) => <div key={i} className="whitespace-pre-wrap">{l}</div>)}
+                </div>
+              )}
               <Loader2 className="size-6 animate-spin text-primary" />
               <p className="text-sm">{t.studio.run.summoningTeam}</p>
             </div>

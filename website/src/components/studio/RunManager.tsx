@@ -51,6 +51,8 @@ export interface RunInstance {
   state: RunState;
   steps: LiveStep[];
   terminal: string;
+  /** 开跑前的媒体花费预览（几条片 × 几秒 × 哪档），引擎算好发来；纯文本步骤没有 */
+  preflight?: string[];
   summary: string | null;
   error: string | null;
   startedAt: number;
@@ -221,6 +223,9 @@ export function RunProvider({ children }: { children: ReactNode }) {
             upsert(data.id, { verifyItems: [...prev, data.text] });
             break;
           }
+          case "preflight":
+            inst.preflight = Array.isArray(data.lines) ? data.lines.map(String) : [];
+            break;
           case "workflow-summary":
             inst.summary = data.text;
             break;

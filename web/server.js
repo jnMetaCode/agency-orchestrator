@@ -922,6 +922,12 @@ app.post('/api/run', (req, res) => {
       try { send('await-input', { runId, ...JSON.parse(inputReq[1]) }); } catch { /* ignore malformed */ }
       return;
     }
+    // 开跑前的媒体花费预览（几条片 × 几秒 × 哪档）：引擎在 web 模式下发的机器标记，前端在步骤上方展示
+    const preflight = clean.match(/^__AO_PREFLIGHT__(\{.*\})$/);
+    if (preflight) {
+      try { send('preflight', JSON.parse(preflight[1])); } catch { /* ignore malformed */ }
+      return;
+    }
 
     // Step start: "⏳ emoji name 执行中 ..."
     const startMatch = clean.match(/^⏳\s+(\S+)\s+(.+?)\s+执行中/);
@@ -1928,6 +1934,16 @@ app.get('/api/config', async (_req, res) => {
     // 本地 CLI 是编码工具、Anthropic 原生协议压根没有图片端点。前端据此只列能跑的，
     // 而不是把 family:'api' 的全塞进下拉——claude-code / gemini-cli 也在那一族里。
     imageProviders: Object.entries(providers)
+      .filter(([id, p]) => p.family === 'api'
+        && !CLI_PROVIDERS.includes(id)
+        && id !== 'claude'
+        && !ANTHROPIC_PROVIDER_MAP[id])
+      .map(([id]) => id),
+    // 语音合成（type: tts）候选：**今天与 imageProviders 同一口径**——引擎的 generateSpeech
+    // 复用 resolveImageAccess，能跑的就是 OpenAI 兼容那批。仍然给它独立字段而不是让前端复用
+    // imageProviders：一是这两个是不同的设置（共用会互相覆盖用户的默认值），
+    // 二是将来若真去探 /audio/speech，改这里就行，不用回头拆前端。
+    ttsProviders: Object.entries(providers)
       .filter(([id, p]) => p.family === 'api'
         && !CLI_PROVIDERS.includes(id)
         && id !== 'claude'

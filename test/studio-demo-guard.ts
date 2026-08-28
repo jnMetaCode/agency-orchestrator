@@ -83,5 +83,40 @@ test('拦下来之后要说人话（指向本地引擎，而不是一句 405）'
   assert(/agency-orchestrator web/.test(i18n), '提示里应给出可照做的命令');
 });
 
+// ── 演示站的「创意出片」不能是空的 ─────────────────────────────────────────
+// 真实故障（2026-08-28）：演示模式点「创意出片」整页空白。两处同源——
+// 快照生成器按 `s.role` 过滤步骤，而图片/视频/合成/配音步骤**没有 role**，
+// 于是它们被整条丢掉（「一句话出短片」只剩 3 步，出片那步不见了）；
+// 前端又按 `step.type` 筛"创意"模板，快照里根本没有 type，一条都匹配不到。
+// 该展示的要展示——能不能真跑是另一回事（演示模式本来就只看不跑）。
+{
+  const snapshot = JSON.parse(readFileSync('website/src/content/workflows.json', 'utf-8')) as {
+    zh: Array<{ name: string; steps: Array<{ id?: string; role?: string; type?: string; name?: string }> }>;
+  };
+
+  test('演示快照保留媒体步骤，并带上 type', () => {
+    const creative = snapshot.zh.filter((w) => w.steps.some((s) => s.type === 'image' || s.type === 'video'));
+    assert(creative.length >= 3, `演示站「创意出片」至少应有 3 个模板，实得 ${creative.length}（快照丢了 type 或丢了媒体步骤）`);
+    const one = snapshot.zh.find((w) => /一句话出短片/.test(w.name));
+    assert(!!one, '快照里应有「一句话出短片」');
+    assert(one!.steps.some((s) => s.type === 'video'), '「一句话出短片」的出片步不能被过滤掉——那是这条模板的重点');
+  });
+
+  test('没有 role 的媒体步骤也有显示名（卡片上不能是一串 id）', () => {
+    for (const w of snapshot.zh) {
+      for (const s of w.steps.filter((x) => !x.role)) {
+        assert(!!s.name, `${w.name} 的媒体步骤 ${s.id} 缺显示名`);
+      }
+    }
+  });
+
+  test('生成器与前端两头都不再按 role 过滤 / 丢 type', () => {
+    const gen = readFileSync('website/scripts/gen-workflows.mjs', 'utf-8');
+    assert(/s\.role \|\| s\.type/.test(gen), '生成器不能只留有 role 的步骤');
+    const demo = readFileSync('website/src/lib/demo.ts', 'utf-8');
+    assert(/type: s\.type/.test(demo), 'demoWorkflows 必须把 type 带给前端，否则「创意出片」筛不到任何模板');
+  });
+}
+
 console.log(`\n  结果: ${passed} 通过, ${failed} 失败\n`);
 if (failed > 0) process.exit(1);
