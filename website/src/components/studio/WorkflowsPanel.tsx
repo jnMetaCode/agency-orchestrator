@@ -703,8 +703,20 @@ export function WorkflowsPanel({ provider, onRun, demo, onInstallPrompt, filter 
             <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">{items.map(renderCard)}</div>
           </section>
         );
-        // 「创意出片」等筛选视图：条目少，不分组、不分类，直接平铺
-        if (filter) return <div className="mt-2 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">{filtered.map(renderCard)}</div>;
+        // 「创意出片」等筛选视图：条目少，不分类目——但「我的」副本仍要单独成区，
+        // 否则用户从画布存过一份内置模板后，这里会出现两张同名卡（一张带删除键），看起来像重复（真机反馈）
+        if (filter) {
+          const mineF = filtered.filter((w) => w.private);
+          const restF = filtered.filter((w) => !w.private);
+          return (
+            <>
+              {mineF.length > 0 && <Section title={lang === "en" ? "My Workflows" : "我的工作流"} items={mineF} hint={lang === "en" ? "your saved copies — the built-in originals are below" : "你保存的副本；内置原版在下面"} />}
+              {restF.length > 0 && (mineF.length > 0
+                ? <Section title={lang === "en" ? "Built-in templates" : "内置模板"} items={restF} />
+                : <div className="mt-2 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">{restF.map(renderCard)}</div>)}
+            </>
+          );
+        }
         return (
           <>
             {groups.mine.length > 0 && (
