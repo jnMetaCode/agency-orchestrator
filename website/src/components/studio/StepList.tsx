@@ -93,6 +93,18 @@ export function StepList({
                     <li key={i}>· {it}</li>
                   ))}
                 </ul>
+                {onFeedback && s.status === "done" && (
+                  // 一键把未满足项当作意见交回去重做：文本步在原稿上改；出图/出片步把它们追加成提示词硬约束重出
+                  //（视频按秒计费——这个按钮就是用户的明示）
+                  <button
+                    type="button"
+                    onClick={() => onFeedback(s.id, s.verifyItems!.join("\n"))}
+                    className="mt-2 inline-flex items-center gap-1.5 rounded-lg border border-amber-500/40 bg-background px-2.5 py-1 text-xs font-medium text-amber-700 transition-colors hover:bg-amber-500/10 dark:text-amber-300"
+                  >
+                    <RotateCw className="size-3.5" />
+                    {t.studio.shell.verifyReworkBtn}
+                  </button>
+                )}
               </div>
             )}
 

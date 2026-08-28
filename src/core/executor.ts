@@ -481,10 +481,16 @@ async function executeStep(
   if (node.step.type === 'image') {
     node.agentName = node.step.name || '文生图';
     node.agentEmoji = node.step.emoji || '🎨';
-    const prompt = renderTemplate(node.step.task, opts.context);
+    let prompt = renderTemplate(node.step.task, opts.context);
     if (!prompt.trim()) {
       // 空提示词发出去只会拿回厂商的 400（"prompt is required"），或更糟：真出一条空片。上游变量为空就在这里说清。
       throw new Error(`${node.step.id}：提示词为空——上游步骤没有产出（检查 task 里引用的变量是否来自失败/空输出的步骤）`);
+    }
+    // --feedback 打在媒体步骤上：生成模型没有"上一版可改"，意见只能变成提示词末尾的硬约束
+    //（与验收重出同一套拼法）。此前这里根本不看 opts.feedback——用户在 Studio 对出图步"提意见重做"，意见被静默丢掉、原样再出一张。
+    if (opts.feedback && opts.feedback.stepId === node.step.id && opts.feedback.text.trim()) {
+      prompt = buildImageReworkPrompt(prompt, [{ criterion: opts.feedback.text.trim(), why: '' }]);
+      process.stderr.write(`  ✎ ${node.step.id} 带着你的意见重出：${opts.feedback.text.trim().slice(0, 60)}\n`);
     }
     const stepLlmImg = node.step.llm;
     const imgConfig = (stepLlmImg ? { ...opts.llmConfig, ...stepLlmImg } : opts.llmConfig) as LLMConfig;
@@ -570,10 +576,15 @@ async function executeStep(
   if (node.step.type === 'video') {
     node.agentName = node.step.name || '文生视频';
     node.agentEmoji = node.step.emoji || '🎬';
-    const prompt = renderTemplate(node.step.task, opts.context);
+    let prompt = renderTemplate(node.step.task, opts.context);
     if (!prompt.trim()) {
       // 空提示词发出去只会拿回厂商的 400（"prompt is required"），或更糟：真出一条空片。上游变量为空就在这里说清。
       throw new Error(`${node.step.id}：提示词为空——上游步骤没有产出（检查 task 里引用的变量是否来自失败/空输出的步骤）`);
+    }
+    if (opts.feedback && opts.feedback.stepId === node.step.id && opts.feedback.text.trim()) {
+      // 同 image：意见 → 提示词末尾硬约束。视频按秒真钱，用户点了重出就是明示要再付一条
+      prompt = buildImageReworkPrompt(prompt, [{ criterion: opts.feedback.text.trim(), why: '' }]);
+      process.stderr.write(`  ✎ ${node.step.id} 带着你的意见重出：${opts.feedback.text.trim().slice(0, 60)}\n`);
     }
     const stepLlmVid = node.step.llm;
     const vidConfig = (stepLlmVid ? { ...opts.llmConfig, ...stepLlmVid } : opts.llmConfig) as LLMConfig;

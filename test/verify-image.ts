@@ -160,5 +160,35 @@ console.log('\n─── 端到端：看不了图的供应商 → 跳过验收�
   }
 }
 
+console.log('\n─── 端到端：--feedback 打在图片步骤上 → 意见进提示词重出（此前静默丢掉）───');
+{
+  const imagePrompts: string[] = [];
+  const srv = http.createServer((req, res) => {
+    let b = ''; req.on('data', (d) => (b += d));
+    req.on('end', () => {
+      if (/images\/generations/.test(String(req.url))) {
+        imagePrompts.push(String((JSON.parse(b) as { prompt?: string }).prompt));
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        return res.end(JSON.stringify({ data: [{ b64_json: PNG_A }] }));
+      }
+      res.writeHead(404); res.end('{}');
+    });
+  });
+  const port = await listen(srv);
+  const dir = mkdtempSync(join(tmpdir(), 'ao-vimg-fb-'));
+  const wf = join(dir, 'w.yaml');
+  writeFileSync(wf, ['name: "图意见"', 'llm:', '  provider: "lanox"', '  model: "m"', `  base_url: "http://127.0.0.1:${port}/v1"`, 'steps:', '  - id: pic', '    type: image', '    task: "一只猫"', '    image:', '      model: "gpt-image-2"'].join('\n'), 'utf-8');
+  const saved = process.env.LANOX_API_KEY; process.env.LANOX_API_KEY = 'sk-e2e';
+  try {
+    const r1 = await run(wf, {}, { quiet: true, outputDir: join(dir, 'out') });
+    assert(r1.success && imagePrompts[0] === '一只猫', '首跑：原提示词原样发出');
+    const r2 = await run(wf, {}, { quiet: true, outputDir: join(dir, 'out'), resume: 'last', fromStep: 'pic', feedback: '猫要是橘色的' });
+    assert(r2.success && imagePrompts.length === 2 && imagePrompts[1].startsWith('一只猫') && imagePrompts[1].includes('猫要是橘色的'), `带意见重出：提示词 = 原文 + 意见硬约束（实际：${imagePrompts[1]}）`);
+  } finally {
+    if (saved === undefined) delete process.env.LANOX_API_KEY; else process.env.LANOX_API_KEY = saved;
+    srv.close(); rmSync(dir, { recursive: true, force: true });
+  }
+}
+
 console.log(`\n  结果: ${passed} 通过, ${failed} 失败\n`);
 process.exit(failed > 0 ? 1 : 0);

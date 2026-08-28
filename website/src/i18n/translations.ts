@@ -656,6 +656,7 @@ const zh = {
       cancel: "取消",
       feedbackSubmit: "交给 Ta 重做",
       verifyUnmet: "🔍 验收核验：以下条目未满足",
+      verifyReworkBtn: "按未满足项重做这一步",
     },
     demo: {
       bannerTitle: "演示模式",
@@ -1445,6 +1446,7 @@ const en: typeof zh = {
       cancel: "Cancel",
       feedbackSubmit: "Send back for revision",
       verifyUnmet: "🔍 Acceptance check: unmet items",
+      verifyReworkBtn: "Redo this step against the unmet items",
     },
     demo: {
       bannerTitle: "Demo mode",
