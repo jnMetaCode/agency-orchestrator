@@ -5,10 +5,12 @@
   "type": "module",
   "description": "Official marketing site for Agency Orchestrator (ao)",
   "scripts": {
+    "predev": "node ../scripts/split-creative-extra.mjs",
     "dev": "vite",
     "gen:experts": "node scripts/gen-experts.mjs",
     "gen:workflows": "node scripts/gen-workflows.mjs",
     "sync:video-prompts": "node scripts/sync-video-prompts.mjs",
+    "prebuild": "node ../scripts/split-creative-extra.mjs",
     "build": "vite build && node scripts/gen-seo-pages.mjs",
     "typecheck": "tsc --noEmit",
     "preview": "vite preview",

@@ -17,3 +17,6 @@ web/demos/
 demo.gif
 serve.json
 eval-output/
+
+# 派生：扩充池按分类切片（scripts/split-creative-extra.mjs 在 website dev/build 前生成）
+website/src/content/creative-extra/

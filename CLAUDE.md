@@ -285,8 +285,10 @@ stays empty until generated — never ship a placeholder pretending to be a samp
 - **Image prompts**: `website/src/content/creative-prompts.json` — 229 curated items (CC BY 4.0,
   per-item author, **the only ones with SEO static pages**) plus `creative-prompts-extra.json` —
   1,282 more (CC BY 4.0 + MIT, regenerate with `scripts/import-creative-extra.mjs`). The extra pool
-  is **lazy-loaded on an explicit click** (2MB raw, ~640KB gzipped) and is deliberately kept out of
-  the sitemap.
+  is **lazy-loaded per category** — `scripts/split-creative-extra.mjs` (auto-run by website `predev`/`prebuild`,
+  output `website/src/content/creative-extra/` is gitignored) slices it into 11 category chunks; clicking a
+  category chip loads only that chunk, "load all" pulls every chunk (2MB raw, ~640KB gzipped). The pool is
+  deliberately kept out of the sitemap.
   Browsable at `/creative` with one-click generation via `POST /api/image/generate`.
 - **Video prompts** live in the **sister repo** `ai-shortfilm-prompts` (22 genre templates + 6 reusable
   building blocks, its own site at prompts.aiolaola.com). AO only *consumes* them: run

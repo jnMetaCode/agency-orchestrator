@@ -1,6 +1,10 @@
 // 创意提示词库：图像生成（Nano Banana / Gemini）提示词,独立于专家库,方便直接取用。
 // 内容来自 CC BY 4.0 开源库,UI 标注出处与作者署名（见底部 + 每张卡片）。
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import EXTRA_INDEX_JSON from "@/content/creative-extra/index.json";
+// 扩充池切片：按分类懒加载（见 scripts/split-creative-extra.mjs）。glob 惰性导入，点到才拉那一片。
+const EXTRA_INDEX = EXTRA_INDEX_JSON as { total: number; chunks: { category: string; file: string; count: number }[] };
+const EXTRA_CHUNKS = import.meta.glob("/src/content/creative-extra/cat-*.json") as Record<string, () => Promise<unknown>>;
 import { Check, ChevronLeft, ChevronRight, Copy, ExternalLink, Search, Download, Loader2, Sparkles } from "lucide-react";
 import { SiteFooter } from "@/components/layout/SiteFooter";
 import { useLanguage } from "@/i18n/LanguageProvider";
@@ -442,20 +446,42 @@ export default function CreativeLibrary() {
   // 图片扩充池（MIT 源，1100 条）：**不默认加载**。/creative 是公开 SEO 页，
   // 默认那 229 条是带中文标题与作者署名的策展集、也是有静态页的那批；扩充池 1.9MB，
   // 让每个只是来复制一条提示词的访客都下载它不合理——点了才拉。
-  const [extra, setExtra] = useState<CreativePrompt[] | null>(null);
-  const [extraLoading, setExtraLoading] = useState(false);
-  const loadExtra = useCallback(() => {
-    if (extra || extraLoading) return;
-    setExtraLoading(true);
-    import("@/content/creative-prompts-extra.json")
+  // 扩充池按分类切片（scripts/split-creative-extra.mjs 生成 creative-extra/*.json，dev/build 前自动跑）：
+  // 点某个分类只拉那一类（几十 KB 到 0.5MB），「全部加载」才拉满 11 片。extra = 已加载片的合集。
+  const [loadedChunks, setLoadedChunks] = useState<Record<string, CreativePrompt[]>>({});
+  const [loadingChunks, setLoadingChunks] = useState<Set<string>>(new Set());
+  const [extraAll, setExtraAll] = useState(false);
+  const extra = useMemo(() => {
+    const files = Object.keys(loadedChunks);
+    return files.length ? files.flatMap((f) => loadedChunks[f]) : null;
+  }, [loadedChunks]);
+  const extraLoading = loadingChunks.size > 0;
+  const chunkFor = (c: string) => EXTRA_INDEX.chunks.find((x) => x.category === c);
+  const loadChunk = useCallback((file: string) => {
+    if (loadedChunks[file] || loadingChunks.has(file)) return Promise.resolve();
+    setLoadingChunks((s) => new Set(s).add(file));
+    const loader = EXTRA_CHUNKS[`/src/content/creative-extra/${file}`];
+    return (loader ? loader() : Promise.reject(new Error("chunk missing")))
       .then((m) => {
-        const d = (m.default ?? m) as unknown as { prompts: CreativePrompt[] };
-        setExtra(d.prompts ?? []);
-        track("creative_extra_load", { count: (d.prompts ?? []).length });
+        const d = ((m as { default?: unknown }).default ?? m) as { prompts: CreativePrompt[] };
+        setLoadedChunks((prev) => ({ ...prev, [file]: d.prompts ?? [] }));
       })
-      .catch(() => setExtra([]))
-      .finally(() => setExtraLoading(false));
-  }, [extra, extraLoading]);
+      .catch(() => setLoadedChunks((prev) => ({ ...prev, [file]: [] })))
+      .finally(() => setLoadingChunks((s) => { const n = new Set(s); n.delete(file); return n; }));
+  }, [loadedChunks, loadingChunks]);
+  const loadExtra = useCallback(() => {
+    if (extraAll) return;
+    setExtraAll(true);
+    track("creative_extra_load", { count: EXTRA_INDEX.total });
+    void Promise.all(EXTRA_INDEX.chunks.map((c) => loadChunk(c.file)));
+  }, [extraAll, loadChunk]);
+  // 点分类：那一类的扩充片还没拉就顺手拉（访客只想看「海报」时，不必为此下载整池）
+  const pickCat = useCallback((c: string) => {
+    setCat(c);
+    if (media !== "image" || c === "all") return;
+    const ch = chunkFor(c);
+    if (ch && !loadedChunks[ch.file]) { track("creative_extra_chunk", { category: c, count: ch.count }); void loadChunk(ch.file); }
+  }, [media, loadedChunks, loadChunk]);
   // 精选置顶：首屏第一眼决定要不要往下翻。这几条是画面最抓人的（作者拍板 2026-08-28），
   // 只在默认视图（全部分类、没搜索）置顶；搜索/筛选时按原顺序，不打乱结果。
   const FEATURED_FIRST = ["ym-7", "ym-8", "ym-9"];
@@ -543,6 +569,8 @@ export default function CreativeLibrary() {
   const categories = useMemo(() => {
     const set = new Map<string, number>();
     for (const p of imagePrompts) set.set(p.category, (set.get(p.category) ?? 0) + 1);
+    // 只存在于扩充池的分类（美食 / UI / 游戏…）也要露出来，否则用户不知道点了能拉到——计数 0，chip 上显示 +N
+    for (const c of EXTRA_INDEX.chunks) if (!set.has(c.category)) set.set(c.category, 0);
     return [...set.entries()].sort((a, b) => b[1] - a[1]);
   }, [imagePrompts]);
 
@@ -614,19 +642,24 @@ export default function CreativeLibrary() {
             >
               {lang === "en" ? "All" : "全部"}
             </button>
-            {(media === "image" ? categories : videoCategories).map(([c, n]) => (
-              <button
-                key={c}
-                onClick={() => setCat(c)}
-                className={cn("rounded-full px-3 py-1.5 text-xs font-medium transition-colors", cat === c ? "bg-primary text-primary-foreground" : "bg-muted/60 text-muted-foreground hover:text-foreground")}
-              >
-                {c} <span className="opacity-60">{n}</span>
-              </button>
-            ))}
+            {(media === "image" ? categories : videoCategories).map(([c, n]) => {
+              const ch = media === "image" ? chunkFor(c) : undefined;
+              const pending = ch && !loadedChunks[ch.file] ? ch.count : 0;
+              return (
+                <button
+                  key={c}
+                  onClick={() => (media === "image" ? pickCat(c) : setCat(c))}
+                  title={pending ? (lang === "en" ? `Click to load ${pending} more from the extra pool` : `点击再加载扩充池的 ${pending} 条`) : undefined}
+                  className={cn("rounded-full px-3 py-1.5 text-xs font-medium transition-colors", cat === c ? "bg-primary text-primary-foreground" : "bg-muted/60 text-muted-foreground hover:text-foreground")}
+                >
+                  {c} <span className="opacity-60">{n === 0 && pending ? `+${pending}` : `${n}${pending ? `+${pending}` : ""}`}</span>
+                </button>
+              );
+            })}
           </div>
 
           {/* 扩充池入口：默认不加载，点了才拉（见上面的说明） */}
-          {media === "image" && !extra && (
+          {media === "image" && !extraAll && (
             <button
               onClick={loadExtra}
               disabled={extraLoading}
@@ -634,7 +667,7 @@ export default function CreativeLibrary() {
             >
               {extraLoading
                 ? <><Loader2 className="size-3.5 animate-spin" />{lang === "en" ? "Loading…" : "加载中…"}</>
-                : <><Sparkles className="size-3.5" />{lang === "en" ? "Load 1,349 more prompts (~2MB)" : "再加载 1349 条提示词（约 2MB）"}</>}
+                : <><Sparkles className="size-3.5" />{lang === "en" ? `Load all ${EXTRA_INDEX.total.toLocaleString()} extra prompts (~2MB) — or click a category to load just that one` : `再加载全部 ${EXTRA_INDEX.total} 条扩充池（约 2MB）——点某个分类则只拉那一类`}</>}
             </button>
           )}
 
