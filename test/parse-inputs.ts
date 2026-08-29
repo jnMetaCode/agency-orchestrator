@@ -3,7 +3,7 @@
  * 回归：网页 Studio 设置 AO_NO_AT_FILE=1 后，-i k=@/path 不得读取本机文件。
  */
 import { resolve } from 'node:path';
-import { writeFileSync, mkdtempSync, rmSync } from 'node:fs';
+import { writeFileSync, mkdirSync, mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { parseInputPairs } from '../src/cli/parse-inputs.js';
 
@@ -50,6 +50,51 @@ test('value 里含 = 只在第一个 = 处分割', () => {
 test('默认放行 @file：读取文件内容（CLI 行为不变）', () => {
   const out = parseInputPairs(argv(`k=@${secretPath}`), fail);
   assert(out.k === SECRET, `@file 应读取文件内容，实际: ${out.k}`);
+});
+
+test('@目录 → 知识源：按相对路径拼成分节文本，跳过二进制 / 隐藏 / 需转换的 pdf，并说明原因', () => {
+  const d = resolve(dir, 'docs');
+  mkdirSync(resolve(d, 'sub'), { recursive: true });
+  mkdirSync(resolve(d, '.hidden'), { recursive: true });
+  writeFileSync(resolve(d, 'b.md'), '# B\n第二份');
+  writeFileSync(resolve(d, 'a.txt'), '第一份');
+  writeFileSync(resolve(d, 'sub', 'c.csv'), 'x,y\n1,2');
+  writeFileSync(resolve(d, 'bin.dat'), Buffer.from([0, 1, 2, 3]));
+  writeFileSync(resolve(d, 'report.pdf'), 'fake');
+  writeFileSync(resolve(d, '.hidden', 'z.md'), 'should not appear');
+  const errs: string[] = [];
+  const orig = process.stderr.write.bind(process.stderr);
+  (process.stderr as unknown as { write: (s: string) => boolean }).write = (x: string) => { errs.push(String(x)); return true; };
+  let out: Record<string, string>;
+  try { out = parseInputPairs(argv(`docs=@${d}`), fail); } finally { (process.stderr as unknown as { write: typeof orig }).write = orig; }
+  const v = out.docs;
+  assert(v.indexOf('## 文件: a.txt') < v.indexOf('## 文件: b.md') && v.includes('## 文件: sub/c.csv'), `按路径排序分节，实际：${v.slice(0, 120)}`);
+  assert(v.includes('第一份') && v.includes('第二份') && v.includes('1,2'), '内容进来了');
+  assert(!v.includes('should not appear') && !v.includes('bin.dat'), '隐藏目录与二进制不进正文');
+  const log = errs.join('');
+  assert(/装入 3 个文件/.test(log) && /report\.pdf（\.pdf 需先转成/.test(log) && /bin\.dat（非文本）/.test(log), `stderr 说明装入/跳过与原因，实际：${log.slice(0, 200)}`);
+});
+
+test('@目录 超过总量上限 → 截断并告警，模型只看得到装进去的', () => {
+  const d = resolve(dir, 'big');
+  mkdirSync(d, { recursive: true });
+  for (let i = 0; i < 6; i++) writeFileSync(resolve(d, `f${i}.txt`), 'x'.repeat(90 * 1024));
+  const errs: string[] = [];
+  const orig = process.stderr.write.bind(process.stderr);
+  (process.stderr as unknown as { write: (s: string) => boolean }).write = (x: string) => { errs.push(String(x)); return true; };
+  let out: Record<string, string>;
+  try { out = parseInputPairs(argv(`docs=@${d}`), fail); } finally { (process.stderr as unknown as { write: typeof orig }).write = orig; }
+  const n = (out.docs.match(/## 文件: /g) || []).length;
+  assert(n === 4 && /超过总量上限/.test(errs.join('')), `400KB 上限应装 4 个 90KB 文件并告警，实际装 ${n}`);
+});
+
+test('@目录 里没有文本文件 → 明确报错', () => {
+  const d = resolve(dir, 'empty');
+  mkdirSync(d, { recursive: true });
+  writeFileSync(resolve(d, 'x.pdf'), 'fake');
+  let msg = '';
+  try { parseInputPairs(argv(`docs=@${d}`), fail); } catch (e) { msg = (e as Error).message; }
+  assert(/没有可读的文本文件/.test(msg) && /x\.pdf/.test(msg), `实际：${msg}`);
 });
 
 test('AO_NO_AT_FILE=1 时 @ 按字面处理，不读文件（网页安全开关）', () => {

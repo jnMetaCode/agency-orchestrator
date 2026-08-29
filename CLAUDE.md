@@ -23,6 +23,7 @@ ao report [dir|last]                  # Render a run into a shareable single-fil
 ao run <wf> --notify <webhook>        # Push result to DingTalk/Feishu/WeCom/generic webhook when done (AO_NOTIFY_URL also works; cron-friendly)
 ao run <wf> --export pptx             # Export outputs as PPTX (also docx/pdf/xlsx/skill/plan); pandoc preferred, pptxgenjs fallback
 ao run <wf> -i photo=@img.png         # Image inputs auto-become vision input (data-URI protocol, src/utils/vision.ts); needs a vision-capable API model; CLI providers strip+warn
+ao run <wf> -i docs=@./materials     # Directory input = knowledge source: text files (md/txt/csv/json/yaml/html/code) concatenated as `## 文件: <path>` sections (src/utils/docs-dir.ts); skips binaries/hidden/node_modules; pdf/docx are skipped WITH a warning (convert via pandoc first); 400KB total / 200KB per-file cap, truncation is announced. Studio never expands @ (AO_NO_AT_FILE=1)
 ```
 
 ## Community Templates (remote manifest)

@@ -1,4 +1,5 @@
-import { readFileSync } from 'node:fs';
+import { readFileSync, statSync } from 'node:fs';
+import { readDocsDir } from '../utils/docs-dir.js';
 import { resolve } from 'node:path';
 
 /**
@@ -30,6 +31,20 @@ export function parseInputPairs(
 
       if (value.startsWith('@') && allowAtFile) {
         const filePath = resolve(value.slice(1));
+        // 目录 → 知识源：把里面的文本文件拼成一份输入（见 utils/docs-dir.ts），跳过/截断的都在 stderr 说清。
+        // 放在 try 之外：onError 会抛，不能被下面"无法读取文件"的兜底吞掉
+        let isDir = false;
+        try { isDir = statSync(filePath).isDirectory(); } catch { /* 不存在 → 走下面的读文件报错 */ }
+        if (isDir) {
+          const r = readDocsDir(filePath);
+          if (!r.files.length) onError(`目录里没有可读的文本文件: ${filePath}${r.skipped.length ? `\n  跳过：${r.skipped.slice(0, 5).join('；')}` : ''}`);
+          process.stderr.write(`  📚 ${key} ← ${filePath}：装入 ${r.files.length} 个文件（${(Buffer.byteLength(r.text) / 1024).toFixed(0)}KB）${r.skipped.length ? `，跳过 ${r.skipped.length} 个` : ''}\n`);
+          for (const sk of r.skipped.slice(0, 8)) process.stderr.write(`     · ${sk}\n`);
+          if (r.skipped.length > 8) process.stderr.write(`     · …还有 ${r.skipped.length - 8} 个\n`);
+          if (r.truncated) process.stderr.write(`  ⚠️  ${key} 超过总量上限（400KB），后面的文件没装进去——模型只看得到列出的那些\n`);
+          inputs[key] = r.text;
+          continue;
+        }
         try {
           // 图片文件 → data URI 字符串（vision 输入协议，见 src/utils/vision.ts）。
           // 上限 4MB：base64 后 ~5.3MB，再大既超模型限制也拖垮请求。
