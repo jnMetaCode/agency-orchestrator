@@ -16,6 +16,10 @@ import type { RunRequest } from "./RunManager";
 // 热门分类优先级（用户反馈：公司经营和常用的放前面）；不在表里的排后、保持原序
 const CATEGORY_PRIORITY = ["company", "marketing", "engineering", "design", "product", "sales", "finance", "hr", "project-management", "strategy", "support", "testing", "security", "specialized"];
 const catRank = (c: string) => { const i = CATEGORY_PRIORITY.indexOf(c); return i < 0 ? 99 : i; };
+// 公司经营部按成建制排：一把手在前，幕僚长收尾。目录序是按文件名（executive 排在 financial 后面），
+// 结果 CEO 落到最后一张——真机反馈"为什么 CEO 不在前面"。其他分类保持目录序。
+const ROLE_PRIORITY = ["chief-executive-officer", "chief-technology-officer", "chief-financial-officer", "chief-operating-officer", "chief-marketing-officer", "chief-product-officer", "chief-of-staff"];
+const roleRank = (r: { id: string }) => { const base = r.id.split("/").pop() ?? r.id; const i = ROLE_PRIORITY.indexOf(base); return i < 0 ? 99 : i; };
 
 function roleKey(r: Role) {
   return `${r.category}/${r.id}`;
@@ -232,7 +236,7 @@ export function RolesPicker({
       return (r.name + r.description + r.categoryName).toLowerCase().includes(needle);
     });
     // ⭐ 常用置顶（与工作流列表同规），其余「全部」视图按分类热度排（公司经营的高管排最前），分类内保持目录序
-    return [...list].sort((a, b) => ((favs.has(roleKey(b)) ? 1 : 0) - (favs.has(roleKey(a)) ? 1 : 0)) || (cat === "all" ? catRank(a.category) - catRank(b.category) : 0));
+    return [...list].sort((a, b) => ((favs.has(roleKey(b)) ? 1 : 0) - (favs.has(roleKey(a)) ? 1 : 0)) || (cat === "all" ? catRank(a.category) - catRank(b.category) : 0) || roleRank(a) - roleRank(b));
   }, [roles, q, cat, favs]);
 
   const selectedList = Object.values(selected);
