@@ -71,7 +71,21 @@ export function dims(resolution?: string, ratio?: string): { w: number; h: numbe
 /** 帧数取最近的 17k+5 网格（本地不按秒计费，就近比向上取更省时间）；最少 5 帧 */
 export function frames(durationSec?: number): number { const want = Math.max(1, Math.round((durationSec ?? 2) * 24)); const k = Math.max(0, Math.round((want - 5) / 17)); return 17 * k + 5; }
 
-export async function generateLocalVideo(prompt: string, opts: { model?: string; resolution?: string; ratio?: string; duration?: number; image_bytes?: Buffer; steps?: number; timeout?: number }, onNotice?: (m: string) => void): Promise<{ buffer: Buffer; mime: 'video/mp4'; taskId: string; seconds: number; url?: string }> {
+// 同一时间只跑一个 sd-cli：每个进程要 ~27 GB 统一内存，AO 默认并发 2 会把两个一起拉起来——
+// 真机（2026-08-30）：两路并行时交换区用到 39 GB/剩 0.9 GB，整机卡死。串行是唯一正确答案，不看并发设置。
+let localChain: Promise<unknown> = Promise.resolve();
+export function generateLocalVideo(prompt: string, opts: Parameters<typeof generateLocalVideoUnlocked>[1], onNotice?: (m: string) => void): ReturnType<typeof generateLocalVideoUnlocked> {
+  const queued = Date.now();
+  const next = localChain.then(async () => {
+    const waited = Date.now() - queued;
+    if (waited > 2000) onNotice?.(`🖥 本地出片排队等待 ${Math.round(waited / 1000)} s（本机同一时间只跑一条，内存放不下两条）`);
+    return generateLocalVideoUnlocked(prompt, opts, onNotice);
+  });
+  localChain = next.catch(() => undefined);
+  return next;
+}
+
+async function generateLocalVideoUnlocked(prompt: string, opts: { model?: string; resolution?: string; ratio?: string; duration?: number; image_bytes?: Buffer; steps?: number; timeout?: number }, onNotice?: (m: string) => void): Promise<{ buffer: Buffer; mime: 'video/mp4'; taskId: string; seconds: number; url?: string }> {
   const st = localSdcppStatus();
   const m = LOCAL_MODELS.find((x) => x.id === (opts.model || 'minimax-h3-q2'));
   if (!m) throw new Error(`local-sdcpp 不认识模型 "${opts.model}"，可选：${LOCAL_MODELS.map((x) => x.id).join(' / ')}`);

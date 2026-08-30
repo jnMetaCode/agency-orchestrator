@@ -65,6 +65,28 @@ ffmpeg -v error -y -f lavfi -i "color=c=red:size=\${w}x\${h}:rate=24:d=$(echo "$
   } finally { process.env.AO_SD_CLI = saved.c as string; process.env.AO_SD_MODELS = saved.m as string; for (const k of ['AO_SD_CLI', 'AO_SD_MODELS']) if (process.env[k] === 'undefined') delete process.env[k]; rmSync(home, { recursive: true, force: true }); }
 }
 
+console.log('\n─── 串行：两条同时请求，sd-cli 绝不重叠 ───');
+if (hasFfmpeg) {
+  const home = mkdtempSync(join(tmpdir(), 'ao-sdcpp-serial-'));
+  const models = join(home, 'models'); mkdirSync(models, { recursive: true }); mkdirSync(join(home, 'bin'));
+  for (const f of ['minimax_h3_fl2va_pruned-UD-Q2_K_XL.gguf', 'qwen3vl_32b_minimax_h3-Q2_K_M.gguf', 'minimax_h3_video_vae_fp16.safetensors', 'minimax_h3_audio_vae_fp32.safetensors']) writeFileSync(join(models, f), 'stub');
+  const cli = join(home, 'bin', 'sd-cli'); const lock = join(home, 'running');
+  writeFileSync(cli, `#!/bin/sh
+if [ -e "${lock}" ]; then echo OVERLAP >> "${join(home, 'overlap.txt')}"; fi
+touch "${lock}"; sleep 1
+out=""; while [ $# -gt 0 ]; do case "$1" in -o) out=$2; shift;; esac; shift; done
+ffmpeg -v error -y -f lavfi -i "color=c=blue:size=64x64:rate=24:d=0.3" -c:v libvpx "$out"
+rm -f "${lock}"
+`); chmodSync(cli, 0o755);
+  const saved = { c: process.env.AO_SD_CLI, m: process.env.AO_SD_MODELS }; process.env.AO_SD_CLI = cli; process.env.AO_SD_MODELS = models;
+  try {
+    const notices: string[] = [];
+    await Promise.all([generateVideo(cfg, 'a', { model: 'minimax-h3-q2', duration: 0.2 }), generateVideo(cfg, 'b', { model: 'minimax-h3-q2', duration: 0.2 }, (m) => notices.push(m))]);
+    const { existsSync: ex } = await import('node:fs');
+    assert(!ex(join(home, 'overlap.txt')), '两个请求串行执行，没有重叠');
+  } finally { process.env.AO_SD_CLI = saved.c as string; process.env.AO_SD_MODELS = saved.m as string; for (const k of ['AO_SD_CLI', 'AO_SD_MODELS']) if (process.env[k] === 'undefined') delete process.env[k]; rmSync(home, { recursive: true, force: true }); }
+}
+
 console.log('\n─── 花费预览：本地出片不进"按秒计费"合计 ───');
 {
   const d = mkdtempSync(join(tmpdir(), 'ao-sdcpp-wf-')); const f = join(d, 'w.yaml');
