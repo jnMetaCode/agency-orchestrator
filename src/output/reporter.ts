@@ -356,23 +356,35 @@ export function getCompletedStepIds(outputDir: string): string[] {
  * @throws fromStep 不在任何层级时抛错
  */
 export function computeResumeSkipIds(
-  dag: { levels: string[][] },
+  dag: { levels: string[][]; nodes?: Map<string, { step: { depends_on?: string[] } }> },
   completedIds: string[],
   fromStep?: string,
 ): Set<string> {
   if (!fromStep) return new Set(completedIds);
-
   const fromLevel = dag.levels.findIndex(l => l.includes(fromStep));
   if (fromLevel < 0) {
     throw new Error(`--from 指定的步骤 "${fromStep}" 不存在`);
   }
+  // 语义：重跑 fromStep 及其**下游**，其余已完成的一律复用——按依赖算，不按层级。
+  // 此前按层级跳过（只跳 fromStep 那层之前的），同层兄弟会被一起重跑：短剧流水线 --from shot3
+  // 会把 shot1/shot2 重新出片——云端是白花两条片的钱，本地是白等 8 分钟。真机 2026-08-30 撞到。
   const completed = new Set(completedIds);
-  const skip = new Set<string>();
-  for (let li = 0; li < fromLevel; li++) {
-    for (const id of dag.levels[li]) {
-      if (completed.has(id)) skip.add(id);
+  const rerun = new Set<string>([fromStep]);
+  if (dag.nodes) {
+    let grew = true;
+    while (grew) {
+      grew = false;
+      for (const [id, node] of dag.nodes) {
+        if (rerun.has(id)) continue;
+        if ((node.step.depends_on ?? []).some((d) => rerun.has(d))) { rerun.add(id); grew = true; }
+      }
     }
+  } else {
+    // 没有依赖信息（旧调用方只给 levels）时退回层级语义
+    for (let li = fromLevel; li < dag.levels.length; li++) for (const id of dag.levels[li]) rerun.add(id);
   }
+  const skip = new Set<string>();
+  for (const id of completed) if (!rerun.has(id)) skip.add(id);
   return skip;
 }
 

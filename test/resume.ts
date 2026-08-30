@@ -76,10 +76,20 @@ await test('--from final_summary：跳过 L0+L1，重跑 L2', () => {
   assert(!skip.has('final_summary'), 'final_summary 不应被跳过（要重跑）');
 });
 
-await test('--from design_review：只跳 L0（同层 tech_review 一起重跑）', () => {
+await test('--from design_review：跳过 analyze 与同层的 tech_review（按依赖，不按层级），重跑 design_review 及下游', () => {
   const skip = computeResumeSkipIds(dag, allDone, 'design_review');
-  assert(skip.size === 1 && skip.has('analyze'), `应只跳 analyze，实际: ${[...skip]}`);
-  assert(!skip.has('tech_review'), '同层 tech_review 按层级语义应重跑');
+  assert(skip.has('analyze') && skip.has('tech_review'), `上游与不相关的同层兄弟都该复用，实际: ${[...skip]}`);
+  assert(!skip.has('design_review') && !skip.has('final_summary'), 'design_review 及其下游 final_summary 要重跑');
+});
+
+await test('短剧流水线 --from shot3：shot1/shot2/定妆图/剧本全部复用，只重跑 shot3 与合成', async () => {
+  const { parseWorkflow: pw } = await import('../src/core/parser.js');
+  const { buildDAG: bd } = await import('../src/core/dag.js');
+  const d = bd(pw('workflows/短剧流水线.yaml'));
+  const done = ['script', 'character_prompt', 'shot1_prompt', 'shot2_prompt', 'shot3_prompt', 'character', 'shot1', 'shot2', 'shot3', 'film', 'pack'];
+  const skip = computeResumeSkipIds(d, done, 'shot3');
+  assert(skip.has('shot1') && skip.has('shot2') && skip.has('character') && skip.has('script'), `应复用 shot1/shot2，实际跳过: ${[...skip]}`);
+  assert(!skip.has('shot3') && !skip.has('film') && !skip.has('pack'), 'shot3 与下游 film/pack 要重跑');
 });
 
 await test('--from analyze：什么都不跳（全部重跑）', () => {
