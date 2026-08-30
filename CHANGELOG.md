@@ -4,6 +4,9 @@
 
 ## [Unreleased]
 
+### Fixed
+- `ao plan` 忽略 `-i` 输入，永远按模板默认的供应商/档位估花费——换成本地或别家也看不出来。现在默认值打底、`-i` 覆盖。
+
 ### Added
 - **本地视频供应商 `local-sdcpp`**：用本机 stable-diffusion.cpp 的 `sd-cli` 跑 MiniMax-H3 GGUF 出片（`minimax-h3-q2 / q3 / q4`，按统一内存 24 / 32 / 64 GB 分档），不联网、不要 key、不花钱——花费预览标「本机 sd.cpp，不花钱」且不计入按秒合计。定位是**草稿档**（M2 Max 32 GB 实测 640×384 / 39 帧 / 4 步 216 s，2-bit 画质），成片仍走云端。引擎不自动下 27 GB 权重：缺文件时报确切的 `curl -C -` 命令和许可证提醒；`ao doctor` 报就绪状态；Studio 的视频供应商列表把它当"已配置"的条件是 sd-cli 在 + 一档模型齐全。帧数就近对齐 H3 的 `17k+5` 网格、宽高对齐 32、`--cfg-scale 1.0` 固定；有首帧图走 `--init-img`。`test/local-sdcpp.ts` 12 条（假 sd-cli 走通 webm→mp4 主流程）。来由：OpenShorts · 开片的"本地草稿 / 云端成片"两档，见其 docs/v2 ADR-004。
 

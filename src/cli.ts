@@ -401,8 +401,10 @@ function handlePlan(): void {
     console.log(`\n  ${workflow.name}\n`);
     console.log(formatDAG(dag));
     // 媒体花费预览：plan 不带 -i，按输入默认值估；条件引用输入的当场判，其余标"视条件"
+    // 默认值打底，再盖上 -i 给的输入——否则 plan 永远按模板默认的供应商/档位估，换了本地/别家也看不出来
     const defaults = new Map<string, string>();
     for (const d of workflow.inputs ?? []) defaults.set(d.name, d.default ?? '');
+    for (const [k, v] of Object.entries(parseInputPairs(process.argv.slice(2), (m) => { console.error(m); process.exit(1); }))) defaults.set(k, v);
     const spend = summarizeMediaSpend(workflow, defaults);
     if (spend.lines.length) {
       console.log('\n  本次媒体花费（按输入默认值估算，实际以运行时输入为准）：');
