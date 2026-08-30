@@ -775,7 +775,12 @@ async function handleDoctor(): Promise<void> {
   } else {
     console.log(`  ·  ffmpeg 未找到：type: concat（多段视频合成 / 配音 / 字幕 / BGM）不可用。macOS: brew install ffmpeg；Ubuntu: apt install ffmpeg；或设 AO_FFMPEG=/path`);
   }
-  const videoKeyed = VIDEO_PROVIDERS.filter((p) => process.env[p.envKey] || studioKeys[p.id]?.apiKey).map((p) => p.id);
+  const { localSdcppStatus } = await import('./connectors/local-sdcpp.js');
+  const lst = localSdcppStatus();
+  console.log(lst.ok
+    ? `  🖥 本地出片可用（local-sdcpp）：sd-cli ${lst.cli}，可用档位 ${lst.models.filter((m) => m.usable && m.present).map((m) => m.id).join(' / ')}（草稿档、不花钱、每条几分钟）`
+    : `  ·  本地出片（local-sdcpp）未就绪：${!lst.cliFound ? `没有 sd-cli（${lst.cli}）` : `模型未齐（${lst.modelsDir}）`}；本机 ${lst.memGB} GB 内存${lst.memGB < 24 ? '，低于 24 GB 不提供 H3 本地档' : `，可跑 ${lst.models.filter((m) => m.usable).map((m) => m.id).join(' / ')}`}`);
+  const videoKeyed = VIDEO_PROVIDERS.filter((p) => p.shape !== 'local' && (process.env[p.envKey] || studioKeys[p.id]?.apiKey)).map((p) => p.id);
   console.log(videoKeyed.length
     ? `  🎬 文生视频可用（type: video）：${videoKeyed.join(', ')}（余额与计费需在服务商控制台自查，doctor 不探）`
     : `  ·  文生视频暂不可用：内置视频供应商 ${VIDEO_PROVIDERS.map((p) => p.id).join(' / ')} 都没配 key（env ${VIDEO_PROVIDERS.map((p) => p.envKey).join(' / ')}）`);

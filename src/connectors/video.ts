@@ -11,6 +11,7 @@
  */
 import { API_PROVIDER_MAP, VIDEO_PROVIDER_MAP, type VideoProviderSpec } from './api-providers.js';
 import type { LLMConfig } from '../types.js';
+import { generateLocalVideo, LOCAL_SDCPP_ID } from './local-sdcpp.js';
 
 export interface VideoStepOptions {
   /** 视频供应商 id（缺省用 llm.provider） */
@@ -363,6 +364,10 @@ export async function generateVideo(
       '  各家视频模型编码互不通用，引擎不猜——猜错就是等几分钟再收到"模型不存在"。\n' +
       '  提示词不会写？21 个题材模板与在线生成器：https://prompts.aiolaola.com/build.html'
     );
+  }
+  // 本地 sd.cpp：不走 HTTP、不要 key，直接分派（放在 resolveVideoAccess 之前，否则会被"缺少 API key"拦下）
+  if ((opts.provider || config.provider) === LOCAL_SDCPP_ID) {
+    return generateLocalVideo(prompt, opts, onNotice);
   }
   const { spec, baseUrl, apiKey } = resolveVideoAccess(config, opts);
   // 供应商 id 统一从解析结果来：调用方只在 config.provider 里给（脚本就是这么调的）时，

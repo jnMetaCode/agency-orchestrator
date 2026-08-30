@@ -100,7 +100,8 @@ export function summarizeMediaSpend(workflow: WorkflowDefinition, inputs: Map<st
   const images = items.filter((i) => i.kind === 'image' && willRun(i));
   const tts = items.filter((i) => i.kind === 'tts' && willRun(i));
   const concat = items.filter((i) => i.kind === 'concat' && willRun(i));
-  const videoSeconds = videos.reduce((n, v) => n + (v.seconds ?? 0), 0);
+  // 本地 sd.cpp 不按秒计费，不进"钱在这一步花出去"的合计
+  const videoSeconds = videos.filter((v) => v.provider !== 'local-sdcpp').reduce((n, v) => n + (v.seconds ?? 0), 0);
 
   const lines: string[] = [];
   if (videos.length) {
@@ -116,10 +117,12 @@ export function summarizeMediaSpend(workflow: WorkflowDefinition, inputs: Map<st
       const rw = g.filter((x) => x.rework).length;
       const judged = g.filter((x) => x.verified && !x.rework).length;
       const note = rw ? `（${rw} 条挂了验收且开了重出，不过会再出一条，最多 +${rw}）` : judged ? `（${judged} 条挂了验收，只审不重出）` : '';
-      lines.push(`🎬 出片 ${g.length} 条 × ${v.spec || '档位未填'}  ${v.provider}${v.model ? ` / ${v.model}` : ''}${cond}${note}`);
+      const local = v.provider === 'local-sdcpp' ? '（本机 sd.cpp，不花钱，草稿档，每条几分钟）' : '';
+      lines.push(`🎬 出片 ${g.length} 条 × ${v.spec || '档位未填'}  ${v.provider}${v.model ? ` / ${v.model}` : ''}${cond}${note}${local}`);
     }
-    const unknownSec = videos.some((v) => v.seconds === undefined);
-    lines.push(`   合计 ${videoSeconds}${unknownSec ? '+' : ''} 秒——按秒计费，钱在这一步花出去`);
+    const paid = videos.filter((v) => v.provider !== 'local-sdcpp');
+    const unknownSec = paid.some((v) => v.seconds === undefined);
+    if (paid.length) lines.push(`   合计 ${videoSeconds}${unknownSec ? '+' : ''} 秒——按秒计费，钱在这一步花出去`);
   }
   if (images.length) {
     const v = images[0];

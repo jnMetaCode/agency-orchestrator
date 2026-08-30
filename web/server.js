@@ -17,6 +17,7 @@ import yaml from 'js-yaml';
 import { resolveDataDir, migrateLegacyData } from './data-dir.js';
 import { detectInstalledCliProviders, detectUsableCliProviders } from '../dist/providers/detect.js';
 import { API_PROVIDERS, API_PROVIDER_MAP, ANTHROPIC_PROVIDERS, ANTHROPIC_PROVIDER_MAP, VIDEO_PROVIDERS, VIDEO_PROVIDER_MAP } from '../dist/connectors/api-providers.js';
+import { localSdcppStatus } from '../dist/connectors/local-sdcpp.js';
 import { STYLE_PRESETS } from '../dist/media/styles.js';
 import { probeVideoEndpoints } from '../dist/media/probe-video.js';
 // base_url 规整 / 跳转保持 POST / 少写多写 /v1 兜底 —— 与运行时连接器同一份实现，
@@ -1956,7 +1957,8 @@ app.get('/api/config', async (_req, res) => {
       const uniq = (xs) => [...new Set(xs)];
       return {
         id: v.id,
-        hasKey: !!providers[v.id]?.hasKey,
+        // 本地 sd.cpp 没有 key："已配置" = sd-cli 在 + 有一档模型齐全
+        hasKey: v.shape === 'local' ? localSdcppStatus().ok : !!providers[v.id]?.hasKey,
         models: models.map((m) => m.id),
         // 档位按模型（同一网关上 sora 只有 720p、veo 固定 8 秒）；provider 级是并集，给没选模型时兜底
         tiers: Object.fromEntries(models.map((m) => [m.id, { resolutions: m.resolutions || [], durations: m.durations || [], ratios: m.ratios || [] }])),

@@ -187,7 +187,7 @@ export interface VideoProviderSpec {
    * **接第二家时才知道这层抽象立不立得住**：秘塔与 APIMart 从路径到字段名到状态词
    * 没有一处相同，加 APIMart 只新增了一个 adapter，主流程一行没动。
    */
-  shape: 'minimax' | 'apimart' | 'openai-videos' | 'ark';
+  shape: 'minimax' | 'apimart' | 'openai-videos' | 'ark' | 'local';
   /** 建任务时额外固定字段（如 Agnes 的 openai-videos 变体要求 mode:"text"）；有首帧图时用 createExtraWithImage */
   createExtra?: Record<string, unknown>;
   createExtraWithImage?: Record<string, unknown>;
@@ -303,6 +303,22 @@ VIDEO_PROVIDERS.push({
   models: [
     { id: 'doubao-seedance-1-0-pro-fast-251015', resolutions: ['480p', '720p', '1080p'], durations: [5], ratios: ['16:9'] },
     { id: 'doubao-seedance-1-0-pro-250528', resolutions: ['480p', '720p', '1080p'], durations: [5], ratios: ['16:9'] },
+  ],
+});
+
+// 本地 sd.cpp（不联网、不花钱、草稿档）——shape 'local' 不走 HTTP，video.ts 直接分派到 connectors/local-sdcpp.ts。
+// envKey 借用来指向 sd-cli 路径（没有 key 这回事）；"已配置" = sd-cli 在 + 有一档模型文件齐全（见 localSdcppStatus）。
+// 档位/耗时/画质的实测数字见 OpenShorts docs/v2/04-决策记录-ADR.md ADR-004。
+VIDEO_PROVIDERS.push({
+  id: 'local-sdcpp',
+  envKey: 'AO_SD_CLI',
+  envBase: 'AO_SD_MODELS',
+  defaultBaseUrl: '',
+  shape: 'local',
+  models: [
+    { id: 'minimax-h3-q2', resolutions: ['640x384', '384x640', '512x512'], durations: [1, 2, 3, 4], ratios: ['16:9', '9:16', '1:1'] },
+    { id: 'minimax-h3-q3', resolutions: ['640x384', '384x640', '768x432', '512x512'], durations: [1, 2, 3, 4, 5], ratios: ['16:9', '9:16', '1:1'] },
+    { id: 'minimax-h3-q4', resolutions: ['640x384', '768x432', '960x544', '544x960'], durations: [2, 3, 4, 5, 6], ratios: ['16:9', '9:16', '1:1'] },
   ],
 });
 
