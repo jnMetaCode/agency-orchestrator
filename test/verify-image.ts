@@ -10,7 +10,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { run } from '../src/index.js';
 import { parseWorkflow, validateWorkflow } from '../src/core/parser.js';
-import { buildImageReworkPrompt, canSeeImages } from '../src/core/verify.js';
+import { buildImageReworkPrompt, canSeeImages, verifyVisualAcceptance } from '../src/core/verify.js';
 import { summarizeMediaSpend } from '../src/media/preflight.js';
 
 let passed = 0, failed = 0;
@@ -27,6 +27,32 @@ console.log('\n─── 单元：canSeeImages / buildImageReworkPrompt ──�
 assert(canSeeImages('deepseek') && canSeeImages('claude') && !canSeeImages('claude-code') && !canSeeImages('gemini-cli') && !canSeeImages('ollama'), 'CLI / ollama 连接器会剥图 → 不做图片验收；API 供应商可以');
 const rp = buildImageReworkPrompt('一张海报', [{ criterion: '画面里有一只猫', why: '只有沙发，没有动物' }]);
 assert(rp.startsWith('一张海报') && rp.includes('画面里有一只猫') && rp.includes('上一版：只有沙发'), '重出提示词 = 原提示词 + 未满足项作为硬约束（不改正文）');
+
+console.log('\n─── 单元：视觉核验的瞬时失败要重试、跳过要带原因、预算够推理模型烧 ───');
+// 真机短剧线：验收员是 agnes（限速 6 次/分 + 推理先烧思考 token），shot1/shot3 的验收
+// 一炮 429 就被"核验出错"静默跳过——而视觉验收看守的是按秒计费的产出，值得多试一次。
+{
+  process.env.AO_VERIFY_BACKOFF_MS = '0';
+  const okRes = { content: '{"pass": true, "failed": []}', usage: { input_tokens: 10, output_tokens: 5 } };
+  const cfg = { provider: 'lanox', model: 'm', timeout: 5000 } as never;
+  const uri = ['data:image/png;base64,x'];
+
+  let aCalls = 0;
+  const a = { chat: async () => { aCalls++; if (aCalls === 1) throw new Error('429 Too Many Requests'); return okRes; } };
+  const ra = await verifyVisualAcceptance(a as never, cfg, 'p', uri, '1. 有猫', 'video');
+  assert(ra.verdict?.pass === true && aCalls === 2, `限速类异常退避后重试一次而不是直接跳过（calls=${aCalls}）`);
+
+  let bCalls = 0;
+  const b = { chat: async () => { bCalls++; throw new Error('ECONNRESET'); } };
+  const rb = await verifyVisualAcceptance(b as never, cfg, 'p', uri, '1. 有猫', 'video');
+  assert(rb.verdict === null && bCalls === 2 && /ECONNRESET/.test(rb.reason ?? ''), `两次都失败才放弃，且原因带给调用方（reason=${rb.reason}）`);
+
+  let seenMax = 0;
+  const c = { chat: async (_s: string, _u: string, o: { max_tokens?: number }) => { seenMax = o.max_tokens ?? 0; return okRes; } };
+  await verifyVisualAcceptance(c as never, cfg, 'p', uri, '1. 有猫', 'image');
+  assert(seenMax >= 1500, `预算下限 ≥1500（实际 ${seenMax}）——推理模型先烧思考 token，500 会"只想不写"`);
+  delete process.env.AO_VERIFY_BACKOFF_MS;
+}
 
 console.log('\n─── 解析期：image 步骤允许 acceptance，仍拦 assert ───');
 {

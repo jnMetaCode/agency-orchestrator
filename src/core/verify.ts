@@ -196,7 +196,7 @@ export async function verifyVisualAcceptance(
   imageDataUris: string[],
   acceptance: string,
   kind: 'image' | 'video' = 'image',
-): Promise<{ verdict: VerifyVerdict | null; tokens: { input: number; output: number } }> {
+): Promise<{ verdict: VerifyVerdict | null; tokens: { input: number; output: number }; reason?: string }> {
   const zh = /[一-鿿]/.test(acceptance);
   const many = imageDataUris.length;
   const frames = imageDataUris.map((u, i) => (kind === 'video' ? (zh ? `第 ${i + 1}/${many} 帧：` : `Frame ${i + 1}/${many}: `) : '') + u).join('\n');
@@ -233,7 +233,11 @@ export async function verifyVisualAcceptance(
       ].join('\n');
 
   const tokens = { input: 0, output: 0 };
-  const maxTokens = Math.min(2000, 500 + Math.ceil(acceptance.length * 1.2));
+  // 预算要按"推理模型会先烧思考 token"给：agnes-2.0-flash 这类先吐几百上千 token 思考，
+  // 500–2000 的预算常常全花在思考上、可见内容 0 字符——真机短剧线 shot1/shot3 的验收
+  // 就这么被"核验出错"跳过了，而验收看守的是按秒计费的产出
+  const maxTokens = Math.min(4000, 1500 + Math.ceil(acceptance.length * 1.2));
+  let reason: string | undefined;
   for (let attempt = 0; attempt < 2; attempt++) {
     const sys = attempt === 0
       ? (zh ? '你是严格客观的视觉验收员，只输出 JSON。' : 'You are a strict, objective visual reviewer. Output JSON only.')
@@ -248,19 +252,26 @@ export async function verifyVisualAcceptance(
       tokens.output += res.usage.output_tokens;
       const verdict = parseVerify(res.content);
       if (verdict) return { verdict, tokens };
+      reason = zh ? '模型没有输出可解析的 JSON 结论' : 'model returned no parseable JSON verdict';
     } catch (err) {
-      // 网络/超时/模型不支持 vision（服务端 4xx）：核验不可用 → null，由调用方告警跳过
-      if (process.env.AO_DEBUG) process.stderr.write(`  [verify-visual] ${err instanceof Error ? err.message : String(err)}\n`);
-      return { verdict: null, tokens };
+      // 与文本核验"失败不重试"不同：视觉验收看守的是花了真钱的图/片，且真机最常见的失败是
+      // 限速（Agnes 6 次/分）这类等一下就好的瞬时错——限速退避 12s 重试一次，其余立即重试一次。
+      // 两次都失败才放弃，并把原因带给调用方（以前只有一句"核验出错"，什么都查不了）。
+      const msg = err instanceof Error ? err.message : String(err);
+      reason = msg.split('\n')[0].slice(0, 200);
+      if (process.env.AO_DEBUG) process.stderr.write(`  [verify-visual] ${msg}\n`);
+      if (attempt === 0 && /429|rate|too many|quota|限速|频率|频繁/i.test(msg)) {
+        await new Promise((r) => setTimeout(r, Number(process.env.AO_VERIFY_BACKOFF_MS ?? 12_000)));
+      }
     }
   }
-  return { verdict: null, tokens };
+  return { verdict: null, tokens, reason };
 }
 
 /** 单图便捷入口（图片步骤用）。 */
 export function verifyImageAcceptance(
   connector: LLMConnector, llm: LLMConfig, imagePrompt: string, imageDataUri: string, acceptance: string,
-): Promise<{ verdict: VerifyVerdict | null; tokens: { input: number; output: number } }> {
+): Promise<{ verdict: VerifyVerdict | null; tokens: { input: number; output: number }; reason?: string }> {
   return verifyVisualAcceptance(connector, llm, imagePrompt, [imageDataUri], acceptance, 'image');
 }
 

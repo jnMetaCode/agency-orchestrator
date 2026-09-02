@@ -557,7 +557,7 @@ async function executeStep(
           const c1 = await verifyImageAcceptance(judge, judgeCfg, prompt, dataUri(img.buffer), node.acceptance);
           add(c1.tokens);
           if (!c1.verdict) {
-            process.stderr.write(`  ⚠️  ${node.step.id} 图片验收不可用（模型不支持看图或核验出错），已跳过验收\n`);
+            process.stderr.write(`  ⚠️  ${node.step.id} 图片验收不可用，已跳过验收${c1.reason ? `：${c1.reason}` : '（模型不支持看图或核验出错）'}\n`);
           } else if (c1.verdict.pass) {
             node.verification = { pass: true, failed: [], reworked: false };
           } else {
@@ -682,7 +682,7 @@ async function executeStep(
           if (c1) {
             add(c1.tokens);
             if (!c1.verdict) {
-              process.stderr.write(`  ⚠️  ${node.step.id} 视频验收不可用（模型不支持看图或核验出错），已跳过验收\n`);
+              process.stderr.write(`  ⚠️  ${node.step.id} 视频验收不可用，已跳过验收${c1.reason ? `：${c1.reason}` : '（模型不支持看图或核验出错）'}\n`);
             } else if (c1.verdict.pass) {
               node.verification = { pass: true, failed: [], reworked: false };
             } else {
