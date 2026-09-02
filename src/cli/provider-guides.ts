@@ -70,6 +70,14 @@ export function getProviderGuide(provider: string, ctx: GuideContext): string {
         `   → 模型默认 auto；要指定就用 codebuddy --help 里列出的 id（如 glm-5.1、kimi-k2.5）`,
       ].join('\n');
 
+    case 'cline-cli':
+      return [
+        `📋 首次使用 Cline CLI:`,
+        `   → npm install -g cline`,
+        `   → 配一次供应商: cline auth -p <provider> -k <key> [-b <base_url>] [-m <model>]（或直接 cline auth 交互选）`,
+        `   → AO 用的就是这份配置；YAML 里 model 留空用它的默认模型`,
+      ].join('\n');
+
     case 'ollama': {
       const model = ctx.model || '<model>';
       return [

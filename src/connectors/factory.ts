@@ -11,6 +11,7 @@ import { CodexCLIConnector } from './codex-cli.js';
 import { OpenClawCLIConnector } from './openclaw-cli.js';
 import { HermesCLIConnector } from './hermes-cli.js';
 import { CodeBuddyCLIConnector } from './codebuddy-cli.js';
+import { ClineCLIConnector } from './cline-cli.js';
 import { OllamaConnector } from './ollama.js';
 import { OpenAICompatibleConnector } from './openai-compatible.js';
 import { API_PROVIDER_MAP, ANTHROPIC_PROVIDER_MAP } from './api-providers.js';
@@ -39,6 +40,9 @@ export function createConnector(config: LLMConfig): LLMConnector {
     // 腾讯 CodeBuddy CLI（WorkBuddy 桌面版内置同一个二进制）：会员额度，免 key
     case 'codebuddy-cli':
       return new CodeBuddyCLIConnector();
+    // Cline CLI：用它 `cline auth` 配好的供应商/账号，AO 不另配 key
+    case 'cline-cli':
+      return new ClineCLIConnector();
     case 'ollama':
       return new OllamaConnector(config.base_url);
 
@@ -92,7 +96,7 @@ export function createConnector(config: LLMConfig): LLMConnector {
         '    api_key: "your-key"\n' +
         '    model: "model-name"\n\n' +
         '内置 provider:\n' +
-        '  免 API key: claude-code / antigravity-cli / gemini-cli / copilot-cli / codex-cli / openclaw-cli / hermes-cli / codebuddy-cli / ollama\n' +
+        '  免 API key: claude-code / antigravity-cli / gemini-cli / copilot-cli / codex-cli / openclaw-cli / hermes-cli / codebuddy-cli / cline-cli / ollama\n' +
         '  需 API key: claude / deepseek / openai'
       );
     }

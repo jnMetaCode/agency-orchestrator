@@ -18,7 +18,7 @@ export interface WorkflowDefinition {
 }
 
 export interface LLMConfig {
-  provider: 'claude' | 'openai' | 'ollama' | 'deepseek' | 'claude-code' | 'antigravity-cli' | 'gemini-cli' | 'copilot-cli' | 'codex-cli' | 'openclaw-cli' | 'hermes-cli' | 'codebuddy-cli' | (string & {});
+  provider: 'claude' | 'openai' | 'ollama' | 'deepseek' | 'claude-code' | 'antigravity-cli' | 'gemini-cli' | 'copilot-cli' | 'codex-cli' | 'openclaw-cli' | 'hermes-cli' | 'codebuddy-cli' | 'cline-cli' | (string & {});
   base_url?: string;          // 自定义 API 地址（DeepSeek、智谱等）
   api_key?: string;           // 可在 YAML 中配置，也可用环境变量
   model?: string;              // CLI providers 可省略（使用 CLI 默认模型）

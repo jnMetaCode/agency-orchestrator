@@ -19,7 +19,7 @@ import { CLI_PROVIDER_BINS, isOnPath } from '../providers/detect.js';
 // ─── Types ───
 
 export interface DetectedLLM {
-  provider: 'deepseek' | 'claude' | 'openai' | 'ollama' | 'claude-code' | 'antigravity-cli' | 'gemini-cli' | 'copilot-cli' | 'codex-cli' | 'openclaw-cli' | 'hermes-cli' | 'codebuddy-cli';
+  provider: 'deepseek' | 'claude' | 'openai' | 'ollama' | 'claude-code' | 'antigravity-cli' | 'gemini-cli' | 'copilot-cli' | 'codex-cli' | 'openclaw-cli' | 'hermes-cli' | 'codebuddy-cli' | 'cline-cli';
   name: string;
   available: boolean;
   envVar?: string;
@@ -41,6 +41,7 @@ export async function detectAvailableLLMs(): Promise<DetectedLLM[]> {
     { provider: 'openclaw-cli', name: 'OpenClaw CLI' },
     { provider: 'hermes-cli', name: 'Hermes Agent' },
     { provider: 'codebuddy-cli', name: 'CodeBuddy / WorkBuddy CLI (腾讯会员)' },
+    { provider: 'cline-cli', name: 'Cline CLI (用它配好的供应商)' },
     { provider: 'gemini-cli', name: 'Gemini CLI (已停服，仅存量企业许可)' },
   ];
 
