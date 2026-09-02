@@ -109,7 +109,7 @@ test('antigravity-cli → 给额度提示（质量不弱，额度受限）', () 
 });
 
 test('没证据的 CLI（copilot/hermes/openclaw）→ 不猜不提示', () => {
-  for (const p of ['copilot-cli', 'hermes-cli', 'openclaw-cli', 'codex-cli']) {
+  for (const p of ['copilot-cli', 'hermes-cli', 'openclaw-cli', 'codex-cli', 'codebuddy-cli']) {
     assert(modelCapabilityHint(p) === null, `${p} 不该提示`);
   }
 });

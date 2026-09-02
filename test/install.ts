@@ -55,6 +55,25 @@ test('cursor 目标用 .mdc 扩展名 + 项目级目录', () => {
   rmSync(cwd, { recursive: true, force: true });
 });
 
+test('workbuddy / codebuddy 目标：用户级 agents 目录，与 claude-code 同格式', () => {
+  const dest = mkdtempSync(join(tmpdir(), 'ao-install-wb-'));
+  const wb = installRoles(src, INSTALL_TARGETS['workbuddy'], { home: dest, cwd: dest });
+  assert(wb.destDir === join(dest, '.workbuddy', 'agents'), `workbuddy 应写 ~/.workbuddy/agents, 实际 ${wb.destDir}`);
+  assert(existsSync(join(wb.destDir, 'engineering-coder.md')), 'workbuddy 应写 .md');
+  const saved = process.env.CODEBUDDY_CONFIG_DIR;
+  delete process.env.CODEBUDDY_CONFIG_DIR;
+  try {
+    const cb = installRoles(src, INSTALL_TARGETS['codebuddy'], { home: dest, cwd: dest, dryRun: true });
+    assert(cb.destDir === join(dest, '.codebuddy', 'agents'), `codebuddy 应写 ~/.codebuddy/agents, 实际 ${cb.destDir}`);
+    process.env.CODEBUDDY_CONFIG_DIR = join(dest, 'custom-cb');
+    const cb2 = installRoles(src, INSTALL_TARGETS['codebuddy'], { home: dest, cwd: dest, dryRun: true });
+    assert(cb2.destDir === join(dest, 'custom-cb', 'agents'), `codebuddy 应尊重 CODEBUDDY_CONFIG_DIR, 实际 ${cb2.destDir}`);
+  } finally {
+    if (saved === undefined) delete process.env.CODEBUDDY_CONFIG_DIR; else process.env.CODEBUDDY_CONFIG_DIR = saved;
+  }
+  rmSync(dest, { recursive: true, force: true });
+});
+
 test('--category 过滤 + dry-run 不写文件', () => {
   const dest = mkdtempSync(join(tmpdir(), 'ao-install-dry-'));
   const res = installRoles(src, INSTALL_TARGETS['claude-code'], { home: dest, cwd: dest, category: 'design', dryRun: true });

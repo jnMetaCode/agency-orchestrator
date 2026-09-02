@@ -19,7 +19,61 @@ import type { LLMConnector, LLMResult, LLMConfig } from '../types.js';
 
 const NOT_FOUND_PATTERN = /not recognized as an internal or external command|不是内部或外部命令|command not found|不是可运行的程序/i;
 
+/**
+ * "Claude Code 形态"的 CLI 都能复用这套调用方式：`-p -` 读 stdin、`--output-format json`、
+ * `--system-prompt-file`、`--tools ""` 关工具。腾讯 CodeBuddy（WorkBuddy 内置的就是它）
+ * 命令行参数与 Claude Code 逐项对齐，只是命令名、安装方式和个别专属开关不同，
+ * 所以这里把差异抽成配置，而不是复制一份 200 行的连接器。
+ */
+export interface ClaudeShapedCLIOptions {
+  /** 可执行文件名（spawn-cli 负责 PATH + 已知安装目录的解析） */
+  command: string;
+  /** 用于报错文案 */
+  displayName: string;
+  /** ENOENT 时的安装提示 */
+  installHint: string;
+  /** provider id：YAML 里 model 等于它时视为"未指定模型"，不往 CLI 传 */
+  providerId: string;
+  /** 该 CLI 独有的附加参数（如 claude 的 --no-session-persistence，别的 CLI 不认） */
+  extraArgs?: string[];
+}
+
+const CLAUDE_CODE: ClaudeShapedCLIOptions = {
+  command: 'claude',
+  displayName: 'Claude Code CLI',
+  installHint: 'npm install -g @anthropic-ai/claude-code',
+  providerId: 'claude-code',
+  extraArgs: ['--no-session-persistence'],
+};
+
+/**
+ * 取出 `--output-format json` 里的最终结果对象。
+ * Claude Code 打印单个 `{type:"result", result, usage}`；CodeBuddy 打印整段对话的**数组**
+ * （user/assistant 消息 + 文件快照 + 最后一个 `type:"result"`，实测 2.103.3），
+ * 直接当对象读会拿到 undefined → 误报"返回空内容"。
+ */
+export function parseResultJson(stdout: string): any {
+  const json = JSON.parse(stdout);
+  if (Array.isArray(json)) {
+    const result = [...json].reverse().find((m) => m && m.type === 'result');
+    if (result) return result;
+    // 没有 result 元素：退而取最后一条 assistant 文本，别把整个数组当空
+    const assistant = [...json].reverse().find((m) => m && m.role === 'assistant');
+    const text = Array.isArray(assistant?.content)
+      ? assistant.content.filter((c: any) => typeof c?.text === 'string').map((c: any) => c.text).join('\n')
+      : '';
+    return { result: text, usage: {} };
+  }
+  return json;
+}
+
 export class ClaudeCodeConnector implements LLMConnector {
+  protected readonly opts: ClaudeShapedCLIOptions;
+
+  constructor(opts: ClaudeShapedCLIOptions = CLAUDE_CODE) {
+    this.opts = opts;
+  }
+
   async chat(systemPrompt: string, userMessage: string, config: LLMConfig): Promise<LLMResult> {
     const timeout = config.timeout || 600_000;  // 默认 10 分钟
 
@@ -32,11 +86,11 @@ export class ClaudeCodeConnector implements LLMConnector {
     }
 
     // 使用 json 格式：text 格式在管道中会缓冲挂起
-    const args = ['-p', '-', '--output-format', 'json', '--tools', '', '--effort', 'low', '--no-session-persistence'];
+    const args = ['-p', '-', '--output-format', 'json', '--tools', '', '--effort', 'low', ...(this.opts.extraArgs ?? [])];
     if (systemPromptFile) {
       args.push('--system-prompt-file', systemPromptFile);
     }
-    if (config.model && config.model !== 'claude-code') {
+    if (config.model && config.model !== this.opts.providerId) {
       args.push('--model', config.model);
     }
 
@@ -53,10 +107,16 @@ export class ClaudeCodeConnector implements LLMConnector {
     return new Promise<LLMResult>((resolve, reject) => {
       // 不走 shell：Windows 下 shell:true 会把参数裸拼给 cmd.exe，空串参数会被直接吃掉
       // （`--tools ""` 变成 `--tools --effort`，等于禁用工具的开关失效）—— 见 issue #102
-      const child = spawnCLI('claude', args, {
+      const { command, displayName, installHint } = this.opts;
+      const notFoundError = () => new Error(
+        `找不到 ${command} 命令，请先安装 ${displayName}\n` +
+        `安装: ${installHint}\n` +
+        '参考: https://github.com/jnMetaCode/agency-orchestrator#llm-配置'
+      );
+      const child = spawnCLI(command, args, {
         env: { ...process.env },
         stdio: ['pipe', 'pipe', 'pipe'],
-      }, 'Claude Code CLI');
+      }, displayName);
 
       const stdoutChunks: Buffer[] = [];
       const stderrChunks: Buffer[] = [];
@@ -89,13 +149,9 @@ export class ClaudeCodeConnector implements LLMConnector {
       child.on('error', (err: NodeJS.ErrnoException) => {
         clearTimeout(timer);
         if (err.code === 'ENOENT') {
-          reject(new Error(
-            '找不到 claude 命令，请先安装 Claude Code CLI\n' +
-            '安装: npm install -g @anthropic-ai/claude-code\n' +
-            '参考: https://github.com/jnMetaCode/agency-orchestrator#llm-配置'
-          ));
+          reject(notFoundError());
         } else {
-          reject(new Error(`Claude Code CLI 调用失败: ${err.message}`));
+          reject(new Error(`${displayName} 调用失败: ${err.message}`));
         }
       });
 
@@ -103,7 +159,7 @@ export class ClaudeCodeConnector implements LLMConnector {
         clearTimeout(timer);
 
         if (killed) {
-          reject(new Error(`Claude Code CLI 超时 (${timeout / 1000}s)，可在 YAML 中设置 timeout 增加等待时间`));
+          reject(new Error(`${displayName} 超时 (${timeout / 1000}s)，可在 YAML 中设置 timeout 增加等待时间`));
           return;
         }
 
@@ -114,29 +170,25 @@ export class ClaudeCodeConnector implements LLMConnector {
           // 兜底识别"命令未安装"：spawn-cli 落到 cmd.exe 兜底路径时，命令不存在
           // Node 收不到 ENOENT（cmd.exe 自己吞了、改成打印错误 + 非零退出）
           if (NOT_FOUND_PATTERN.test(stderr)) {
-            reject(new Error(
-              '找不到 claude 命令，请先安装 Claude Code CLI\n' +
-              '安装: npm install -g @anthropic-ai/claude-code\n' +
-              '参考: https://github.com/jnMetaCode/agency-orchestrator#llm-配置'
-            ));
+            reject(notFoundError());
             return;
           }
-          reject(new Error(`Claude Code CLI 调用失败 (exit ${code}): ${stderr.slice(0, 500)}`));
+          reject(new Error(`${displayName} 调用失败 (exit ${code}): ${stderr.slice(0, 500)}`));
           return;
         }
 
         // 解析 JSON 响应
         try {
-          const json = JSON.parse(stdout);
+          const json = parseResultJson(stdout);
 
           if (json.is_error) {
-            reject(new Error(`Claude Code CLI 错误: ${json.result?.slice(0, 300) || 'unknown error'}`));
+            reject(new Error(`${displayName} 错误: ${json.result?.slice(0, 300) || 'unknown error'}`));
             return;
           }
 
           const content = (json.result || '').trim();
           if (!content) {
-            reject(new Error(`Claude Code CLI 返回空内容`));
+            reject(new Error(`${displayName} 返回空内容`));
             return;
           }
 
@@ -153,7 +205,7 @@ export class ClaudeCodeConnector implements LLMConnector {
           // JSON 解析失败，回退到原始文本
           const content = stdout.trim();
           if (!content) {
-            reject(new Error(`Claude Code CLI 返回空内容，stderr: ${stderr.slice(0, 500)}`));
+            reject(new Error(`${displayName} 返回空内容，stderr: ${stderr.slice(0, 500)}`));
             return;
           }
 
@@ -161,7 +213,7 @@ export class ClaudeCodeConnector implements LLMConnector {
           if (content.length < 500) {
             const apiErrorPattern = /^API Error:|^ECONNRESET|^ETIMEDOUT|^ECONNREFUSED|^Unable to connect|^socket hang up/im;
             if (apiErrorPattern.test(content)) {
-              reject(new Error(`Claude Code CLI API 错误: ${content.slice(0, 300)}`));
+              reject(new Error(`${displayName} API 错误: ${content.slice(0, 300)}`));
               return;
             }
           }

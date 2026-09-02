@@ -25,6 +25,11 @@ export const INSTALL_TARGETS: Record<string, ToolTarget> = {
   'qwen':        { id: 'qwen',        label: 'Qwen Code', dest: (h) => join(h, '.qwen', 'agents'), ext: '.md', scope: 'user' },
   'cursor':      { id: 'cursor',      label: 'Cursor', dest: (_h, cwd) => join(cwd, '.cursor', 'rules'), ext: '.mdc', scope: 'project' },
   'opencode':    { id: 'opencode',    label: 'opencode', dest: (_h, cwd) => join(cwd, '.opencode', 'agents'), ext: '.md', scope: 'project' },
+  // 腾讯 WorkBuddy 桌面版：内置的 CodeBuddy CLI 在产品态下把配置目录切成 ~/.workbuddy，子智能体读
+  // <配置目录>/agents/*.md（frontmatter 只要 name/description，与 Claude Code 同格式，逐字复制即可）。
+  'workbuddy':   { id: 'workbuddy',   label: 'WorkBuddy', dest: (h) => join(h, '.workbuddy', 'agents'), ext: '.md', scope: 'user' },
+  // 独立安装的 CodeBuddy CLI（npm -g）：~/.codebuddy/agents，CODEBUDDY_CONFIG_DIR 可整体改位置
+  'codebuddy':   { id: 'codebuddy',   label: 'CodeBuddy CLI', dest: (h) => join(process.env.CODEBUDDY_CONFIG_DIR || join(h, '.codebuddy'), 'agents'), ext: '.md', scope: 'user' },
 };
 
 const SKIP_DIRS = new Set(['node_modules', 'scripts', 'integrations', 'examples', '.git']);

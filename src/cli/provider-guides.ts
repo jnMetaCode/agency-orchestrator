@@ -62,6 +62,14 @@ export function getProviderGuide(provider: string, ctx: GuideContext): string {
         `   → 支持多模型，在 YAML 里用 model 字段指定 (如 anthropic/claude-sonnet-4、openai/gpt-4o)`,
       ].join('\n');
 
+    case 'codebuddy-cli':
+      return [
+        `📋 首次使用 CodeBuddy / WorkBuddy CLI:`,
+        `   → 装了 WorkBuddy 桌面版（macOS）且已登录：直接可用，AO 会自动找到它内置的 codebuddy`,
+        `   → 否则: npm install -g @tencent-ai/codebuddy-code，然后终端跑一次 codebuddy 完成登录`,
+        `   → 模型默认 auto；要指定就用 codebuddy --help 里列出的 id（如 glm-5.1、kimi-k2.5）`,
+      ].join('\n');
+
     case 'ollama': {
       const model = ctx.model || '<model>';
       return [

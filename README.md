@@ -11,7 +11,7 @@
 [![License: Apache-2.0](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](./LICENSE)
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](./CONTRIBUTING.md)
 
-**一句话出结果 · 276 个专业 AI 角色 · YAML 零代码 · 11 种大模型 · 支持 key（推荐 DeepSeek），也有 7 种免 key 方式**
+**一句话出结果 · 276 个专业 AI 角色 · YAML 零代码 · 12 种大模型 · 支持 key（推荐 DeepSeek），也有 8 种免 key 方式**
 
 > 📖 [完整上手教程](https://mp.weixin.qq.com/s/XcGbkMb6TM6NLQiL7ICwbw)（从安装到实战，10 分钟上手）&nbsp;·&nbsp; 🎓 **官方配套课程**：[AI 专家团队实战](https://aiolaola.com/course/ai-agency?utm_source=github&utm_campaign=orchestrator)（33 节免费，桌面端零代码：单兵点名→自动组队→一人公司全流程，含官方评测的诚实用法边界）· 另有 [AI 内容流水线](https://aiolaola.com/course/ai-pipeline?utm_source=github&utm_campaign=orchestrator)（31 节免费——**用 AO 产线真实生产两门课的全过程留档**：蒸馏、换角色审核、机械闸门、断点续跑，含七类翻车现场）＋ [从零学会 AI 编程](https://aiolaola.com/?utm_source=github&utm_campaign=orchestrator)（180 节）＋ [从零构建 AI 智能体](https://aiolaola.com/course/ai-agent?utm_source=github&utm_campaign=orchestrator)（40 节）
 
@@ -127,7 +127,7 @@ ao compose "设计一个 SaaS 产品的定价策略" --run                   # �
 |---|--------|-----------|---------------------|
 | 角色数 | 1 个通用 | 自己写 | **276 个专业角色** |
 | 使用方式 | 对话 | 写 Python | **一句话 / YAML** |
-| API key | — | 必须 | **支持 key，也有 7 种免 key 方式** |
+| API key | — | 必须 | **支持 key，也有 8 种免 key 方式** |
 | 依赖 | — | pip + 几十个包 | **npm + 2 个依赖** |
 | 并行 | — | 手动建图 | **DAG 自动检测** |
 | 中文角色 | — | 无 | **276 个** |
@@ -177,7 +177,7 @@ ao run workflows/story-creation.yaml -i premise="一个程序员发现AI开始�
 # ① 多专家把需求想清楚（澄清 → 计划 → 项目脚手架），代码块直接落盘成真实文件
 ao run workflows/需求转项目脚手架.yaml -i idea="一个自动记账的命令行小工具"   --materialize ./my-app
 
-# ② 把 276 个专家角色装进你的编程工具（claude-code / cursor / copilot…共 14 个）
+# ② 把 276 个专家角色装进你的编程工具（claude-code / cursor / copilot / workbuddy…）
 ao install --tool claude-code --lang zh
 
 # ③ 交给编程 Agent 接着干——脚手架和专家角色都已就位
@@ -217,7 +217,7 @@ name: "产品需求评审"
 agents_dir: "agency-agents-zh"
 
 llm:
-  provider: "deepseek"          # 免 API key: claude-code / antigravity-cli / copilot-cli / codex-cli / openclaw-cli / hermes-cli / ollama
+  provider: "deepseek"          # 免 API key: claude-code / antigravity-cli / copilot-cli / codex-cli / openclaw-cli / hermes-cli / codebuddy-cli / ollama
   model: "deepseek-chat"
 
 concurrency: 2
@@ -272,7 +272,7 @@ analyze ──→ tech_review  ──→ summary
           (并行)
 ```
 
-## 11 种 LLM — 7 种不需要 API key
+## 12 种 LLM — 8 种不需要 API key
 
 **你已经有这些会员了吧？直接就能跑：**
 
@@ -285,6 +285,7 @@ analyze ──→ tech_review  ──→ summary
 | Antigravity 账号（Google，Gemini CLI 继任者） | `provider: "antigravity-cli"` | [install.sh](https://antigravity.google/docs/cli/install)（二进制 `agy`） | **不花钱**（免费档约 20 次/天） |
 | OpenClaw 账号 | `provider: "openclaw-cli"` | `npm i -g openclaw` | **不花钱** |
 | Hermes Agent（🔥 NousResearch 热门开源） | `provider: "hermes-cli"` | [安装指南](https://github.com/NousResearch/hermes-agent) | **免费** |
+| 腾讯 WorkBuddy / CodeBuddy 会员 | `provider: "codebuddy-cli"` | WorkBuddy 桌面版自带（macOS 免装）；或 `npm i -g @tencent-ai/codebuddy-code` | **不花钱**（[集成指南](./integrations/workbuddy/)） |
 | 一台电脑 | `provider: "ollama"` | [ollama.ai](https://ollama.ai) | **免费**（本地模型，见下方提示） |
 
 > ⚠️ **模型能力决定多智能体的价值**：我们用质量评测验证过（见 [EVAL_FINDINGS.md](EVAL_FINDINGS.md)，网页版：[中文](https://ao.aiolaola.com/evals/) / [English](https://ao.aiolaola.com/en/evals/)）——**DeepSeek 这一档（够强又不贵）上，多智能体产出明显优于单次 prompt**；但**本地小模型（如 llama3 8B 级）能力不足时，多角色交接反而会放大漂移、产出不如单次**。追求质量请用 DeepSeek/Claude/Gemini 等有能力的模型；本地 Ollama 建议用 70B+ 模型。
@@ -570,7 +571,7 @@ ao serve --verbose    # 带调试日志
 |------|------|------|------|
 | `name` | string | 是 | 工作流名称 |
 | `agents_dir` | string | 是 | 角色目录路径 |
-| `llm.provider` | string | 是 | `claude-code` / `gemini-cli` / `copilot-cli` / `codex-cli` / `openclaw-cli` / `hermes-cli` / `ollama` / `claude` / `deepseek` / `openai` |
+| `llm.provider` | string | 是 | `claude-code` / `gemini-cli` / `copilot-cli` / `codex-cli` / `openclaw-cli` / `hermes-cli` / `codebuddy-cli` / `ollama` / `claude` / `deepseek` / `openai` |
 | `llm.model` | string | 是 | 模型名称 |
 | `llm.max_tokens` | number | 否 | 默认 4096 |
 | `llm.timeout` | number | 否 | 步骤超时毫秒数（默认 API 120000 / CLI/ollama 600000）。因超时重试时自动 x1.5 递增，上限 3600000。`0` 表示不限时 |

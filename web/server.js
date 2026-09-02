@@ -142,7 +142,7 @@ const ALLOWED_WORKFLOW_DIRS = [WORKFLOWS_DIR, WORKFLOWS_DIR_EN, USER_WORKFLOWS_D
 // 沿革：deepseek → apinebula → duoyuanx（2026-07-17）→ apinebula（2026-08-17，
 // 多元探索赞助到期下架）。AO_PROVIDER 环境变量永远优先于它。
 const DEFAULT_PROVIDER_ID = 'apinebula';
-const CLI_PROVIDERS = ['claude-code', 'antigravity-cli', 'gemini-cli', 'copilot-cli', 'codex-cli', 'openclaw-cli', 'hermes-cli'];
+const CLI_PROVIDERS = ['claude-code', 'antigravity-cli', 'gemini-cli', 'copilot-cli', 'codex-cli', 'openclaw-cli', 'hermes-cli', 'codebuddy-cli'];
 // LLM config: provider + (model/base_url where the runtime needs them). Reads any
 // per-provider overrides the user saved in the Studio (model name, custom base_url).
 // Already YAML-safe (no undefined fields) — used for compose, run args and run-role.

@@ -19,6 +19,13 @@ const EXTRA_BIN_DIRS: Record<string, (env: NodeJS.ProcessEnv) => string[]> = {
     join(homedir(), '.local', 'bin'),
     ...(env.LOCALAPPDATA ? [join(env.LOCALAPPDATA, 'agy', 'bin')] : []),
   ],
+  // 腾讯 CodeBuddy CLI：npm 全局装的在 PATH 上；WorkBuddy 桌面版（macOS）把同一个 CLI 打包在
+  // app 内部、不进 PATH（实测 WorkBuddy 5.1.7 / codebuddy 2.103.3）。Windows/Linux 的打包位置
+  // 没有实证，不猜——那两端请 npm 全局安装。
+  codebuddy: () => [
+    '/Applications/WorkBuddy.app/Contents/Resources/app.asar.unpacked/cli/bin',
+    join(homedir(), 'Applications', 'WorkBuddy.app', 'Contents', 'Resources', 'app.asar.unpacked', 'cli', 'bin'),
+  ],
 };
 
 /** 该命令有没有额外的已知安装目录（有的话，PATH 为空也值得再查一遍）。 */

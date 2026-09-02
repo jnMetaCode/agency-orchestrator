@@ -11,7 +11,7 @@ ao validate <workflow.yaml>           # Validate without running
 ao plan <workflow.yaml>               # Show DAG execution plan + media spend preview (N clips × seconds × tier × vendor; estimated from input defaults)
 ao doctor [--fix] [--no-probe] [--media-probe]  # Self-check provider/creds/endpoint reachability/CLI/system Claude Code; --fix repairs a hijacked ~/.claude (fake token / relay base_url); --no-probe skips the live endpoint probe (a 1-token request); --media-probe (old alias: --video-probe) checks every keyed OpenAI-compatible relay for **video / image / speech** endpoints at zero cost (invalid probe body + a control path; see src/media/probe-video.ts) — speech matters because `type: tts` otherwise fails only after the paid image/video steps already ran
 ao roles                              # List all 276 available roles
-ao install --tool claude-code         # Install bundled roles into a coding tool (claude-code/cursor/copilot/gemini-cli/qwen/opencode); --lang zh|en, --category, --dry-run
+ao install --tool claude-code         # Install bundled roles into a coding tool (claude-code/cursor/copilot/gemini-cli/qwen/opencode/workbuddy/codebuddy); --lang zh|en, --category, --dry-run
 ao run <workflow.yaml> --compare      # Run workflow + single-shot baseline + blind judge → side-by-side verdict (productized eval)
 ao team save <workflow.yaml>          # Save a role line-up as a reusable team (Loadout)
 ao team list / show / rm              # Manage saved teams (stored in ~/.ao/teams)

@@ -18,6 +18,8 @@ export const CLI_PROVIDER_BINS: Record<string, string> = {
   'codex-cli': 'codex',
   'openclaw-cli': 'openclaw',
   'hermes-cli': 'hermes',
+  // 腾讯 CodeBuddy CLI；WorkBuddy 桌面版内置的就是它（macOS 安装位置见 utils/bin-lookup.ts）
+  'codebuddy-cli': 'codebuddy',
   // 已停服的排最后：装了仍探测得到（存量用户还能显式使用），但绝不被自动选中
   'gemini-cli': 'gemini',
 };

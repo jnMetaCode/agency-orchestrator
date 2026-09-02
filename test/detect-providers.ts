@@ -6,6 +6,7 @@ import { mkdtempSync, writeFileSync, chmodSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, delimiter } from 'node:path';
 import { isOnPath, detectInstalledCliProviders, CLI_PROVIDER_BINS } from '../src/providers/detect.js';
+import { hasExtraBinDirs } from '../src/utils/bin-lookup.js';
 
 let passed = 0, failed = 0;
 function assert(c: boolean, m: string): void { if (c) { console.log(`  ✅ ${m}`); passed++; } else { console.log(`  ❌ ${m}`); failed++; } }
@@ -29,7 +30,10 @@ try {
 
   const detected = detectInstalledCliProviders(envWith);
   assert(detected.includes('claude-code'), '探测到 claude → claude-code provider');
-  assert(detectInstalledCliProviders(envEmpty).length === 0, '无任何 CLI 时返回空');
+  // 有「固定安装位置」的 CLI（bin-lookup.ts 登记过的，如 WorkBuddy 内置的 codebuddy）不看 PATH，
+  // 装了就会被探到——这是刻意的（否则 doctor 说没装、其实能跑），所以这里只断言 PATH 类的为空
+  const offPath = detectInstalledCliProviders(envEmpty).filter((p) => !hasExtraBinDirs(CLI_PROVIDER_BINS[p]));
+  assert(offPath.length === 0, `无任何 CLI 时返回空（固定安装位置的除外），实际 ${offPath.join(',')}`);
 
   // 偏好顺序：claude-code 在映射里排第一
   assert(Object.keys(CLI_PROVIDER_BINS)[0] === 'claude-code', 'claude-code 为首选');
