@@ -1,0 +1,235 @@
+name: "高管会：重大决策"
+description: "一个议题 → CEO 框定并点名谁上会 → 分管高管并行出本职意见 → 幕僚长收敛分歧 → CEO 拍板。不相关的高管自动缺席，不花冤枉钱"
+category: "公司经营"
+
+agents_dir: "agency-agents-zh"
+
+llm:
+  provider: deepseek
+  model: deepseek-chat
+
+concurrency: 3
+
+inputs:
+  - name: topic
+    description: "要决策的议题（如：要不要把主力产品从买断改成订阅制）"
+    required: true
+  - name: context
+    description: "公司背景（阶段、规模、现金状况、已知约束）"
+    required: false
+    default: "初创公司，团队 20 人，账上现金可支撑 14 个月"
+  - name: deadline
+    description: "决策时限（什么时候必须定下来）"
+    required: false
+    default: "两周内必须定"
+
+steps:
+  # ── 第 1 层：CEO 把议题变成一道可裁决的题，并点名 ──
+  - id: framing
+    role: "company/chief-executive-officer"
+    name: "CEO 开场"
+    emoji: "👔"
+    task: |
+      你是 CEO，现在开高管会。你的开场不是发表意见，是**把一个模糊议题变成一道能被裁决的题**，并决定谁必须上会。
+
+      议题：{{topic}}
+      公司背景：{{context}}
+      时限：{{deadline}}
+
+      按这个格式输出：
+
+      ## 决策命题
+      一句话，形式必须是"我们要不要 X / 我们在 A 和 B 之间选哪个"，不能是开放式讨论题。
+
+      ## 可逆性
+      这是可逆决策还是不可逆决策？说清楚做错了要付多大代价、多久能掉头。可逆的就别开成不可逆的规格。
+
+      ## 成功判据
+      3 个月后拿什么数字判断这个决定对不对。要可观测，不要"用户更满意"。
+
+      ## 出席名单
+      从 CFO / CMO / COO / CPO / CTO 中**只点必要的人**。每位写一行，行首的标签必须是下面这种纯英文形式，
+      逐字照抄、不要加空格、不要改成中文标点（这行标签是给程序读的，写错了这个人就来不了）：
+      ATTEND-CFO —— 我要他回答的具体问题是……
+      不必要的人写：
+      SKIP-CMO —— 这个议题跟渠道无关，不占用他的时间
+
+      判断标准：这位高管对这道题有没有**本职范围内的一手判断**。凑人数是渎职。
+
+      ## 硬约束
+      不管谁怎么说，都不能突破的边界（钱、时间、法律、已承诺的事）。
+
+      语气像 CEO 在会议室开口，短句，不要套话。
+    assert:
+      contains: ["ATTEND-"]
+    output: framing
+
+  # ── 第 2 层：被点名的分管高管并行出意见 ──
+  - id: cfo
+    role: "company/chief-financial-officer"
+    name: "CFO"
+    emoji: "💼"
+    condition: "{{framing}} contains ATTEND-CFO"
+    depends_on: [framing]
+    task: |
+      CEO 的会议框定：{{framing}}
+
+      背景：{{context}}
+
+      作为 CFO，只说你本职范围内的一手判断，不要复述别人也能说的话。按这个格式：
+
+      **立场**（支持 / 反对 / 有条件支持；有条件就写清条件）——第一行就表态，不许骑墙
+      **算账**（现金流、毛利、回本周期各自会怎么变；给数，并把假设写明白）
+      **最大的财务风险**（只写一条，并写明它在什么情况下会发生）
+      **我的红线**（突破这条我会在会上明确反对）
+    output: cfo_view
+
+  - id: cto
+    role: "company/chief-technology-officer"
+    name: "CTO"
+    emoji: "🛠️"
+    condition: "{{framing}} contains ATTEND-CTO"
+    depends_on: [framing]
+    task: |
+      CEO 的会议框定：{{framing}}
+
+      背景：{{context}}
+
+      作为 CTO，只说技术侧的一手判断。按这个格式：
+
+      **立场**（支持 / 反对 / 有条件支持；有条件就写清条件）——第一行就表态，不许骑墙
+      **技术代价**（要改什么、要欠什么债、几个人几周；给区间和依据，不要单点估计）
+      **最大的技术风险**（只写一条，并写明触发条件）
+      **我的红线**（什么情况下我认为工程上不该做）
+    output: cto_view
+
+  - id: cpo
+    role: "company/chief-product-officer"
+    name: "CPO"
+    emoji: "🧭"
+    condition: "{{framing}} contains ATTEND-CPO"
+    depends_on: [framing]
+    task: |
+      CEO 的会议框定：{{framing}}
+
+      背景：{{context}}
+
+      作为 CPO，只说产品侧的一手判断。按这个格式：
+
+      **立场**（支持 / 反对 / 有条件支持；有条件就写清条件）——第一行就表态，不许骑墙
+      **对用户意味着什么**（谁受益、谁受损，受损的那批人有多重要）
+      **顺序主张**（先做什么、砍掉什么——你砍的东西比你加的更能说明问题）
+      **最大的产品风险**（只写一条，并写明触发条件）
+      **我的红线**（突破它我会在会上明确反对）
+    output: cpo_view
+
+  - id: cmo
+    role: "company/chief-marketing-officer"
+    name: "CMO"
+    emoji: "📣"
+    condition: "{{framing}} contains ATTEND-CMO"
+    depends_on: [framing]
+    task: |
+      CEO 的会议框定：{{framing}}
+
+      背景：{{context}}
+
+      作为 CMO，分清两本账：增长是季度的账，品牌是十年的账，不要拿一个掩护另一个。按这个格式：
+
+      **立场**（支持 / 反对 / 有条件支持；有条件就写清条件）——第一行就表态，不许骑墙
+      **增长账**（获客成本、转化、渠道适配会怎么变）
+      **品牌账**（对老用户的信任和品牌叙事是加分还是消耗，为什么）
+      **最大的市场风险**（只写一条，并写明触发条件）
+      **我的红线**（突破它我会在会上明确反对）
+    output: cmo_view
+
+  - id: coo
+    role: "company/chief-operating-officer"
+    name: "COO"
+    emoji: "⚙️"
+    condition: "{{framing}} contains ATTEND-COO"
+    depends_on: [framing]
+    task: |
+      CEO 的会议框定：{{framing}}
+
+      背景：{{context}}
+
+      作为 COO，你负责回答"这件事在现实里到底怎么落地"。按这个格式：
+
+      **立场**（支持 / 反对 / 有条件支持；有条件就写清条件）——第一行就表态，不许骑墙
+      **落地路径**（要新增或改动哪些流程、谁来干、检查节奏是什么）
+      **组织摩擦**（哪个环节会卡住，为什么会卡住）
+      **最大的执行风险**（只写一条，并写明触发条件）
+      **我的红线**（什么条件下这事在执行层面根本跑不起来）
+    output: coo_view
+
+  # ── 第 3 层：幕僚长收敛（谁缺席就少一段，不影响会开完）──
+  - id: synthesis
+    role: "company/chief-of-staff"
+    name: "幕僚长"
+    emoji: "🗂️"
+    depends_on: [cfo, cto, cpo, cmo, coo]
+    depends_on_mode: any_completed
+    task: |
+      会议框定：{{framing}}
+
+      各高管发言（缺席者对应段落为空，直接忽略，不要为此评论）：
+
+      **CFO**：{{cfo_view}}
+      **CTO**：{{cto_view}}
+      **CPO**：{{cpo_view}}
+      **CMO**：{{cmo_view}}
+      **COO**：{{coo_view}}
+
+      作为幕僚长，把这场会压成 CEO 能在三分钟内拍板的一页纸。你不发表自己的立场，你的价值在于**让分歧无处可藏**。
+
+      ## 立场速览
+      一张表：谁 / 立场 / 他的条件是什么。
+
+      ## 真分歧
+      只列**互相冲突**的点：谁和谁、在哪一点上不兼容、冲突的根子是事实分歧还是价值取舍。
+      注意区分：口径不同不算分歧，只有"照 A 说的做就做不了 B 说的"才算。
+
+      ## 假分歧
+      看起来在吵、其实是同一件事换了说法的，点破它，别浪费 CEO 的时间。
+
+      ## 待补事实
+      分歧中有哪些是"再查一个数就能解决"的。写清楚查什么、找谁查、多久能有。
+
+      ## 给 CEO 的选项
+      2–3 个互斥选项，每个写：这么选等于接受了谁的红线被突破、放弃了什么。不要给推荐。
+    output: brief
+
+  # ── 第 4 层：CEO 拍板 ──
+  - id: decision
+    role: "company/chief-executive-officer"
+    name: "CEO 拍板"
+    emoji: "👔"
+    depends_on: [synthesis]
+    task: |
+      会议框定：{{framing}}
+      幕僚长简报：{{brief}}
+      时限：{{deadline}}
+
+      作为 CEO，现在拍板。你对结果负最终责任，模棱两可等于没开这场会。
+
+      ## 决议
+      Go / No-Go / 有条件 Go —— 三选一，第一行就写。然后用三句话说理由。
+
+      ## 我否掉了谁，为什么
+      点名说明你没采纳哪位高管的意见，理由是什么。被否的人有权知道自己输在哪。
+
+      ## 首周动作
+      逐条列，每条写清楚：做什么、谁负责（写角色，如 COO）、什么算做完。
+
+      ## 资源与节奏
+      钱和人往哪投，什么时候检查一次。
+
+      ## 会让我推翻这个决定的信号
+      2–3 条具体的、可观测的信号。看到它们就重开这场会。
+    acceptance: |
+      1. 第一行明确给出 Go / No-Go / 有条件 Go 之一
+      2. 明确点名了至少一位未被采纳意见的高管及理由
+      3. 首周动作每条都有责任角色和完成判据
+      4. 给出了会推翻决定的具体可观测信号
+    output: resolution
