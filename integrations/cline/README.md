@@ -27,6 +27,7 @@ llm:
 - `-p` 是 **plan 模式**，不是 print，别按 Claude Code 的习惯理解。
 - 认证与默认模型在 `~/.cline/data`（`CLINE_DATA_DIR` 可改）；`-P openai` 配合 `-b` 能接任何 OpenAI 兼容端点，真机用一家中转跑通。
 - 装的是 Node 22.14 时 stderr 会多一行 trust store 警告，无害。
+- 它会在后台留一个 `cline --cline-hub-daemon` 常驻进程（本机 127.0.0.1 随机端口），这是 Cline 自己的 hub，AO 不管它；不想要就 `cline hub stop`。
 
 ## 注意
 

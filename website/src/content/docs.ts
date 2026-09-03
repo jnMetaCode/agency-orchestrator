@@ -42,8 +42,8 @@ export const docGroups: DocGroup[] = [
           {
             heading: { zh: "解决什么问题", en: "What problems it solves" },
             body: {
-              zh: "- **让 agency-agents 的专家真正协作起来**：单个专家只解决一个环节，AO 让多位专家按 DAG 分工、并行、交接\n- 单次 prompt 难以覆盖复杂任务，多专家分工 + 收口质量更高\n- 不想写编排代码：用 YAML 声明依赖，引擎自动并行；或一句话 `compose` 自动选专家、生成并运行\n- 276 位专家覆盖营销、工程、设计、产品、财务、法律、销售、学术等领域\n- 32 个 provider（云端 API + 编码 CLI + 本地模型），其中 10 个免 API key",
-              en: "- **Make agency-agents' experts actually collaborate**: one expert handles one step; AO has many experts divide work, run in parallel, and hand off via a DAG\n- A single prompt struggles with complex tasks; multi-expert division + a finalizer yields higher quality\n- No orchestration code: declare dependencies in YAML, or `compose` from one sentence to auto-pick experts, generate and run\n- 276 experts across marketing, engineering, design, product, finance, legal, sales, academic, and more\n- 32 providers (cloud APIs + coding CLIs + local models), 10 of which need no API key",
+              zh: "- **让 agency-agents 的专家真正协作起来**：单个专家只解决一个环节，AO 让多位专家按 DAG 分工、并行、交接\n- 单次 prompt 难以覆盖复杂任务，多专家分工 + 收口质量更高\n- 不想写编排代码：用 YAML 声明依赖，引擎自动并行；或一句话 `compose` 自动选专家、生成并运行\n- 276 位专家覆盖营销、工程、设计、产品、财务、法律、销售、学术等领域\n- 34 个 provider（云端 API + 编码 CLI + 本地模型），其中 12 个免 API key",
+              en: "- **Make agency-agents' experts actually collaborate**: one expert handles one step; AO has many experts divide work, run in parallel, and hand off via a DAG\n- A single prompt struggles with complex tasks; multi-expert division + a finalizer yields higher quality\n- No orchestration code: declare dependencies in YAML, or `compose` from one sentence to auto-pick experts, generate and run\n- 276 experts across marketing, engineering, design, product, finance, legal, sales, academic, and more\n- 34 providers (cloud APIs + coding CLIs + local models), 12 of which need no API key",
             },
           },
           {
@@ -511,8 +511,8 @@ steps:
           {
             heading: { zh: "支持哪些 provider", en: "Supported providers" },
             body: {
-              zh: "顶层 `llm` 指定 provider 与 model，或用 `--provider` 临时覆盖。三类都支持：**云端 API**（第一方官方 API：DeepSeek / Claude / OpenAI / Gemini / xAI Grok / Moonshot Kimi / 智谱 GLM / 通义千问；以及火山引擎、LanoX、胜算云、Cubence、优云智算、AICodeMirror 等聚合与中转商）、**本地编码 CLI**（claude-code / gemini-cli / codex-cli / copilot-cli / openclaw-cli / hermes-cli / codebuddy-cli / cline-cli，走已登录的订阅，免 key）、**本地模型**（Ollama）。完整清单以 Studio「供应商」面板为准——那里是唯一的注册表，新增一家两边同时生效。",
-              en: "Set provider/model at top-level `llm`, or override with `--provider`. Three families are supported: **cloud APIs** (first-party: DeepSeek / Claude / OpenAI / Gemini / xAI Grok / Moonshot Kimi / Zhipu GLM / Qwen; plus aggregators and relays like Volcengine, LanoX, ShengSuanYun, Cubence, CompShare and AICodeMirror), **local coding CLIs** (claude-code / gemini-cli / codex-cli / copilot-cli / openclaw-cli / hermes-cli / codebuddy-cli / cline-cli — they use your existing subscription, no key needed), and **local models** (Ollama). The Studio Providers panel is the single source of truth for the full list.",
+              zh: "顶层 `llm` 指定 provider 与 model，或用 `--provider` 临时覆盖。三类都支持：**云端 API**（第一方官方 API：DeepSeek / Claude / OpenAI / Gemini / xAI Grok / Moonshot Kimi / 智谱 GLM / 通义千问；以及火山引擎、LanoX、胜算云、Cubence、优云智算、AICodeMirror 等聚合与中转商）、**本地编码 CLI**（claude-code / gemini-cli / codex-cli / copilot-cli / openclaw-cli / hermes-cli / codebuddy-cli / cline-cli / opencode-cli / dsh-cli，走已登录的订阅，免 key）、**本地模型**（Ollama）。完整清单以 Studio「供应商」面板为准——那里是唯一的注册表，新增一家两边同时生效。",
+              en: "Set provider/model at top-level `llm`, or override with `--provider`. Three families are supported: **cloud APIs** (first-party: DeepSeek / Claude / OpenAI / Gemini / xAI Grok / Moonshot Kimi / Zhipu GLM / Qwen; plus aggregators and relays like Volcengine, LanoX, ShengSuanYun, Cubence, CompShare and AICodeMirror), **local coding CLIs** (claude-code / gemini-cli / codex-cli / copilot-cli / openclaw-cli / hermes-cli / codebuddy-cli / cline-cli / opencode-cli / dsh-cli — they use your existing subscription, no key needed), and **local models** (Ollama). The Studio Providers panel is the single source of truth for the full list.",
             },
             code: `llm:
   provider: "deepseek"
@@ -549,8 +549,8 @@ llm:
           {
             heading: { zh: "7 种免 key 方式", en: "7 key-free options" },
             body: {
-              zh: "想零成本起步，不必配 API key：claude-code、**Antigravity CLI**（`agy`，Gemini CLI 的继任者）、copilot-cli、codex-cli、openclaw-cli、hermes-cli、codebuddy-cli（腾讯 CodeBuddy，WorkBuddy 桌面版自带）、cline-cli 八个订阅制 CLI，加上 Ollama 本地模型，共 9 种。gemini-cli 已于 2026-06-18 被 Google 停服（仅存量企业许可可用）；LM Studio 等本地服务可作为 OpenAI 兼容端点接入（base_url 指向本地）。装好对应 CLI / 本地模型后用 `--provider` 指定即可。",
-              en: "To start at zero cost without an API key: six subscription CLIs — claude-code, **Antigravity CLI** (`agy`, the Gemini CLI's successor), copilot-cli, codex-cli, openclaw-cli, hermes-cli, codebuddy-cli (Tencent CodeBuddy, bundled with the WorkBuddy desktop app), cline-cli — plus local Ollama: 9 options in total. gemini-cli was retired by Google on 2026-06-18 (existing enterprise licenses only); LM Studio and similar local servers plug in as OpenAI-compatible endpoints (point base_url at localhost). Install the CLI / local model, then point to it with `--provider`.",
+              zh: "想零成本起步，不必配 API key：claude-code、**Antigravity CLI**（`agy`，Gemini CLI 的继任者）、copilot-cli、codex-cli、openclaw-cli、hermes-cli、codebuddy-cli（腾讯 CodeBuddy，WorkBuddy 桌面版自带）、cline-cli、opencode-cli、dsh-cli（DeepSeek Harness，开发者预览）十个订阅制 CLI，加上 Ollama 本地模型，共 11 种。gemini-cli 已于 2026-06-18 被 Google 停服（仅存量企业许可可用）；LM Studio 等本地服务可作为 OpenAI 兼容端点接入（base_url 指向本地）。装好对应 CLI / 本地模型后用 `--provider` 指定即可。",
+              en: "To start at zero cost without an API key: six subscription CLIs — claude-code, **Antigravity CLI** (`agy`, the Gemini CLI's successor), copilot-cli, codex-cli, openclaw-cli, hermes-cli, codebuddy-cli (Tencent CodeBuddy, bundled with the WorkBuddy desktop app), cline-cli, opencode-cli, dsh-cli (DeepSeek Harness, developer preview) — plus local Ollama: 11 options in total. gemini-cli was retired by Google on 2026-06-18 (existing enterprise licenses only); LM Studio and similar local servers plug in as OpenAI-compatible endpoints (point base_url at localhost). Install the CLI / local model, then point to it with `--provider`.",
             },
             code: "ao run workflow.yaml --provider claude-code",
           },

@@ -643,7 +643,7 @@ console.log('\n─── 省钱模式（budget）───');
 
 await test('降档表的键都是引擎真认识的 provider（写错=永远静默 no-op）', async () => {
   const { API_PROVIDERS } = await import('../src/connectors/api-providers.js');
-  const known = new Set([...API_PROVIDERS.map((x) => x.id), 'claude', 'claude-code', 'antigravity-cli', 'gemini-cli', 'copilot-cli', 'codex-cli', 'openclaw-cli', 'hermes-cli', 'codebuddy-cli', 'cline-cli', 'ollama']);
+  const known = new Set([...API_PROVIDERS.map((x) => x.id), 'claude', 'claude-code', 'antigravity-cli', 'gemini-cli', 'copilot-cli', 'codex-cli', 'openclaw-cli', 'hermes-cli', 'codebuddy-cli', 'cline-cli', 'opencode-cli', 'dsh-cli', 'ollama']);
   for (const k of BUDGET_CAPABLE_PROVIDERS) {
     assert(known.has(k), `降档表里的 "${k}" 不是已注册 provider`);
   }

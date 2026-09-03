@@ -1158,12 +1158,13 @@ export const CLI_RELAY_PRESETS: CliRelayPreset[] = [
 
 // CLI 列表必须和后端 web/server.js 的 CLI_PROVIDERS 对齐——之前漏了 codex/copilot/hermes,
 // 导致面板里能看到、顶部下拉却选不了(用户实测 codex 已检测到但无法切换)
-export const CLI_PROVIDER_IDS = new Set(["claude-code", "antigravity-cli", "gemini-cli", "codex-cli", "copilot-cli", "openclaw-cli", "hermes-cli", "codebuddy-cli", "cline-cli"]);
+export const CLI_PROVIDER_IDS = new Set(["claude-code", "antigravity-cli", "gemini-cli", "codex-cli", "copilot-cli", "openclaw-cli", "hermes-cli", "codebuddy-cli", "cline-cli", "opencode-cli", "dsh-cli"]);
 
 // 已停服的 CLI provider（与引擎 src/providers/detect.ts 的 DEPRECATED_CLI_PROVIDERS 对齐）：
 // 卡片保留（存量用户显式可用），但要带停服标注，且永不出现在「一键切换」推荐里
 // 有证据的 CLI 额度/能力备注（与引擎 modelCapabilityHint 同一口径：没证据不猜）
 export const CLI_PROVIDER_NOTES: Record<string, { zh: string; en: string }> = {
+  "dsh-cli": { zh: "开发者预览，官方明说会有破坏性变更；需要 Node ≥ 22.15", en: "Developer preview — breaking changes expected; needs Node ≥ 22.15" },
   "antigravity-cli": { zh: "免费档约 20 次/天，多步工作流消耗较快", en: "Free tier ~20 req/day — multi-step workflows burn it fast" },
 };
 
@@ -1187,5 +1188,7 @@ export const PROVIDER_LABELS: Record<string, string> = {
   "hermes-cli": "Hermes CLI",
   "codebuddy-cli": "WorkBuddy / CodeBuddy CLI",
   "cline-cli": "Cline CLI",
+  "opencode-cli": "OpenCode CLI",
+  "dsh-cli": "DeepSeek Harness",
   ollama: "Ollama",
 };

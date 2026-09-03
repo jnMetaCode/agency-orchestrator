@@ -53,7 +53,27 @@ OpenCode 会根据 `.opencode/instructions.md` 中的 workflow-runner 指令：
 用叙事学家设计结构，心理学家塑造人物，内容创作者执笔，帮我写一个关于时间旅行的故事
 ```
 
-### 方式三：CLI 模式
+### 方式三：CLI 模式（用 OpenCode 已配好的供应商跑 AO，免另配 key）
+
+```bash
+npm install -g agency-orchestrator
+ao doctor                                                  # 应显示「已装 CLI：… opencode-cli」
+ao run workflows/story-creation.yaml --provider opencode-cli -i premise="时间旅行的故事"
+```
+
+YAML：
+
+```yaml
+llm:
+  provider: "opencode-cli"
+  # model 留空 = 用 opencode 配置里的默认；指定要写成 provider/model（如 anthropic/claude-sonnet-5）
+```
+
+已验证（opencode 1.18.27，2026-09-03，macOS）：`opencode run --format json` 输出 NDJSON，答案取 `text` 事件；
+stdin 写完必须关闭，否则它一直等（AO 已处理）；AO 每次把它的工作目录 `--dir` 指到空临时目录，模型想写文件也落不到你的项目。
+供应商配置在 `~/.config/opencode/opencode.json`（`OPENCODE_CONFIG` 可换路径），`opencode auth login` 也行。
+
+### 方式四：直连 API
 
 ```bash
 npm install -g agency-orchestrator

@@ -11,7 +11,7 @@
 [![License: Apache-2.0](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](./LICENSE)
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](./CONTRIBUTING.md)
 
-**One sentence → full plan · 276 expert AI roles · Zero-code YAML · 13 LLM providers · key supported (DeepSeek recommended), plus 9 key-free options**
+**One sentence → full plan · 276 expert AI roles · Zero-code YAML · 15 LLM providers · key supported (DeepSeek recommended), plus 11 key-free options**
 
 > **Note:** `ao compose --run` auto-detects your language. Both 276 Chinese roles and 191 English roles (184 from [agency-agents](https://github.com/msitarzewski/agency-agents), MIT, plus 7 added here — the C-suite and a video prompt engineer, see `agency-agents/company/NOTICE.md`) are **bundled in the npm package — no extra download needed**. **11 English workflow templates** are ready in `workflows/en/`.
 
@@ -128,7 +128,7 @@ Chatting with one AI gives you one perspective. But any real decision needs prod
 |---|--------|-----------|---------------------|
 | Roles | 1 generalist | Write your own | **276 expert roles** |
 | Usage | Chat | Write Python | **One sentence / YAML** |
-| API key | — | Required | **Key supported; 9 key-free options too** |
+| API key | — | Required | **Key supported; 11 key-free options too** |
 | Dependencies | — | pip + dozens of packages | **npm + 2 deps** |
 | Parallelism | — | Manual graph | **Auto DAG detection** |
 | Price | Subscription | Open-source + API fees | **DeepSeek sweet spot is dirt cheap; key-free to start** |
@@ -222,7 +222,7 @@ name: "Product Requirements Review"
 agents_dir: "agency-agents"      # or "agency-agents-zh" for Chinese roles
 
 llm:
-  provider: "deepseek"          # No API key: claude-code / gemini-cli / copilot-cli / codex-cli / hermes-cli / codebuddy-cli / cline-cli / ollama
+  provider: "deepseek"          # No API key: claude-code / gemini-cli / copilot-cli / codex-cli / hermes-cli / codebuddy-cli / cline-cli / opencode-cli / dsh-cli / ollama
   model: "deepseek-chat"
 
 concurrency: 2
@@ -271,7 +271,7 @@ analyze ──→ tech_review  ──→ summary
           (parallel)
 ```
 
-## 13 LLM Providers — 9 Need No API Key
+## 15 LLM Providers — 11 Need No API Key
 
 **Already paying for one of these? You're ready to go:**
 
@@ -286,6 +286,8 @@ analyze ──→ tech_review  ──→ summary
 | Hermes Agent (NousResearch open-source 🔥) | `provider: "hermes-cli"` | [Install guide](https://github.com/NousResearch/hermes-agent) | **Free** |
 | Tencent WorkBuddy / CodeBuddy subscription | `provider: "codebuddy-cli"` | Bundled with the WorkBuddy desktop app (macOS); or `npm i -g @tencent-ai/codebuddy-code` | **Free** ([guide](./integrations/workbuddy/)) |
 | Whatever provider/account Cline is signed into | `provider: "cline-cli"` | `npm i -g cline` + `cline auth` | **No extra key** ([guide](./integrations/cline/)) |
+| Whatever provider/account OpenCode is signed into | `provider: "opencode-cli"` | `npm i -g opencode-ai` + `opencode auth login` | **No extra key** ([guide](./integrations/opencode/)) |
+| DeepSeek Harness (dsh, developer preview) | `provider: "dsh-cli"` | `npm i -g @deepseek-ai/dsh` (Node ≥ 22.15) + `DEEPSEEK_API_KEY` | **No extra key** ([guide](./integrations/deepseek-harness/)) |
 | A computer | `provider: "ollama"` | [ollama.ai](https://ollama.ai) | **Free** (local models, see note below) |
 
 > ⚠️ **Model capability drives the value of multi-agent.** We verified this with a quality eval (see [EVAL_FINDINGS.md](EVAL_FINDINGS.md); web version: [English](https://ao.aiolaola.com/en/evals/)): on the **DeepSeek tier (capable yet cheap), multi-agent output clearly beats a single prompt**; but with **weak local models (e.g. llama3 8B), the role hand-offs amplify drift and can do worse than a single call**. For quality, use a capable model (DeepSeek/Claude/Gemini); for local Ollama, prefer 70B+ models.
@@ -489,7 +491,7 @@ Cursor (`.cursor/mcp.json`):
 |-------|------|----------|-------------|
 | `name` | string | Yes | Workflow name |
 | `agents_dir` | string | Yes | Path to role definitions directory |
-| `llm.provider` | string | Yes | `claude-code` / `gemini-cli` / `copilot-cli` / `codex-cli` / `openclaw-cli` / `hermes-cli` / `codebuddy-cli` / `cline-cli` / `ollama` / `claude` / `deepseek` / `openai` |
+| `llm.provider` | string | Yes | `claude-code` / `gemini-cli` / `copilot-cli` / `codex-cli` / `openclaw-cli` / `hermes-cli` / `codebuddy-cli` / `cline-cli` / `opencode-cli` / `dsh-cli` / `ollama` / `claude` / `deepseek` / `openai` |
 | `llm.model` | string | Yes | Model name |
 | `llm.max_tokens` | number | No | Default 4096 |
 | `llm.timeout` | number | No | Step timeout in ms (default API 120000 / CLI/ollama 600000). Automatically extends x1.5 on timeout retry up to 3600000. `0` means no timeout |

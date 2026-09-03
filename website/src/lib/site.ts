@@ -14,5 +14,5 @@ export const SITE = {
   sponsorEmail: "jnMetaCode@qq.com",
   sponsorContact: "mailto:jnMetaCode@qq.com?subject=Sponsorship%20-%20agency-agents",
   providersKeyed: ["DeepSeek", "Claude", "OpenAI", "Gemini", "Ollama", "Moonshot", "硅基流动", "OpenRouter"],
-  providersKeyfree: ["claude-code CLI", "Antigravity CLI", "copilot-cli", "codex-cli", "openclaw-cli", "hermes-cli", "codebuddy-cli", "cline-cli", "Ollama 本地"],
+  providersKeyfree: ["claude-code CLI", "Antigravity CLI", "copilot-cli", "codex-cli", "openclaw-cli", "hermes-cli", "codebuddy-cli", "cline-cli", "opencode-cli", "dsh-cli", "Ollama 本地"],
 };

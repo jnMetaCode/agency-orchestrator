@@ -22,6 +22,10 @@ export const CLI_PROVIDER_BINS: Record<string, string> = {
   'codebuddy-cli': 'codebuddy',
   // Cline CLI（npm install -g cline）
   'cline-cli': 'cline',
+  // OpenCode CLI（npm install -g opencode-ai）
+  'opencode-cli': 'opencode',
+  // DeepSeek Harness（npm install -g @deepseek-ai/dsh，需要 Node ≥ 22.15）
+  'dsh-cli': 'dsh',
   // 已停服的排最后：装了仍探测得到（存量用户还能显式使用），但绝不被自动选中
   'gemini-cli': 'gemini',
 };

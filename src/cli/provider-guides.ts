@@ -78,6 +78,22 @@ export function getProviderGuide(provider: string, ctx: GuideContext): string {
         `   → AO 用的就是这份配置；YAML 里 model 留空用它的默认模型`,
       ].join('\n');
 
+    case 'opencode-cli':
+      return [
+        `📋 首次使用 OpenCode CLI:`,
+        `   → npm install -g opencode-ai`,
+        `   → 配一次供应商: opencode auth login（或写 ~/.config/opencode/opencode.json）`,
+        `   → AO 用的就是这份配置；YAML 里 model 留空用它的默认，指定要写成 provider/model`,
+      ].join('\n');
+
+    case 'dsh-cli':
+      return [
+        `📋 首次使用 DeepSeek Harness (dsh)——开发者预览，接口会变:`,
+        `   → 需要 Node ≥ 22.15；npm install -g @deepseek-ai/dsh`,
+        `   → export DEEPSEEK_API_KEY=…（默认 deepseek-official/deepseek-v4-flash）`,
+        `   → 接别家 OpenAI 兼容端点：在 $DSH_HOME/settings.yaml 的 llm-pi-ai.providers 里声明，YAML 里 model 写 provider/model`,
+      ].join('\n');
+
     case 'ollama': {
       const model = ctx.model || '<model>';
       return [

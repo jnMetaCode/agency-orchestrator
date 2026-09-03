@@ -53,8 +53,8 @@ export function parseWorkflow(
   if (!llm.provider) {
     fail(t('parse.missing_provider'));
   }
-  // CLI providers（claude-code / antigravity-cli / gemini-cli / copilot-cli / codex-cli / openclaw-cli / hermes-cli / codebuddy-cli / cline-cli）和 ollama 不需要 model
-  const cliProviders = ['claude-code', 'antigravity-cli', 'gemini-cli', 'copilot-cli', 'codex-cli', 'openclaw-cli', 'hermes-cli', 'codebuddy-cli', 'cline-cli', 'ollama'];
+  // CLI providers（claude-code / antigravity-cli / gemini-cli / copilot-cli / codex-cli / openclaw-cli / hermes-cli / codebuddy-cli / cline-cli / opencode-cli / dsh-cli）和 ollama 不需要 model
+  const cliProviders = ['claude-code', 'antigravity-cli', 'gemini-cli', 'copilot-cli', 'codex-cli', 'openclaw-cli', 'hermes-cli', 'codebuddy-cli', 'cline-cli', 'opencode-cli', 'dsh-cli', 'ollama'];
   // 纯出图/出视频的工作流也不需要顶层 model：那一步的模型写在 image.model / video.model 里，
   // 顶层 llm.model 只是文本步骤要用的。逼用户随手填一个用不上的文本模型，等于教他写谎话
   // （与 agents_dir 那条同一个道理：一个角色都不用的工作流不该被"找不到角色库"挡在门外）。

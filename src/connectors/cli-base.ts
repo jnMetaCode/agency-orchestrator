@@ -106,6 +106,16 @@ export interface CLIConnectorConfig {
    * （如 Antigravity 在等工具调用的人工审批），说清楚才省得用户去猜。
    */
   emptyOutputHint?: string;
+  /**
+   * 子进程的工作目录。agentic CLI（dsh 等）把"当前目录"当工作区且没有关工具的开关，
+   * 指到一个空临时目录就是最省事的沙箱：模型想写文件也落不到用户项目里。
+   */
+  spawnCwd?: (config: LLMConfig) => string | undefined;
+  /**
+   * 非零退出时，从 stderr 里识别该 CLI 特有的失败原因并给一句人话（追加在报错末尾）。
+   * 通用报错只截 stderr 前 500 字，像"Node 版本太旧"这种关键信息往往埋在堆栈第 30 行。
+   */
+  stderrHint?: (stderr: string) => string | undefined;
 }
 
 export class CLIBaseConnector implements LLMConnector {
@@ -143,9 +153,11 @@ export class CLIBaseConnector implements LLMConnector {
     return new Promise<LLMResult>((resolve, reject) => {
       // Windows 下不能走 shell:true —— Node 会把参数裸拼给 cmd.exe，prompt 里的
       // `<system>`/换行会被当成重定向和命令分隔符（issue #102）。spawnCLI 负责绕开。
+      const spawnCwd = this.cfg.spawnCwd?.(config);
       const child = spawnCLI(this.cfg.command, args, {
         env: { ...process.env },
         stdio: [useStdin ? 'pipe' : 'ignore', 'pipe', 'pipe'],
+        ...(spawnCwd ? { cwd: spawnCwd } : {}),
       }, this.cfg.displayName);
 
       const stdoutChunks: Buffer[] = [];
@@ -223,9 +235,12 @@ export class CLIBaseConnector implements LLMConnector {
           // 启发式识别"首次未认证"类错误（各 CLI 工具首次运行时都要求登录），给中文引导
           const authPattern = /auth method|not authenticated|not logged in|please (login|sign[\s-]*in)|unauthorized|credentials|_API_KEY/i;
           const looksLikeAuth = authPattern.test(stderr);
-          const hint = looksLikeAuth
-            ? `\n  提示: 首次使用 ${this.cfg.displayName} 需要先在终端跑一次 \`${this.cfg.command}\` 完成账号登录，或设置对应的 API KEY 环境变量`
-            : '';
+          const specific = this.cfg.stderrHint?.(stderr);
+          const hint = specific
+            ? `\n  提示: ${specific}`
+            : looksLikeAuth
+              ? `\n  提示: 首次使用 ${this.cfg.displayName} 需要先在终端跑一次 \`${this.cfg.command}\` 完成账号登录，或设置对应的 API KEY 环境变量`
+              : '';
           reject(new Error(`${this.cfg.displayName} 调用失败 (exit ${code}): ${stderr.slice(0, 500)}${hint}`));
           return;
         }
