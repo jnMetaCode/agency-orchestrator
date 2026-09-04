@@ -167,7 +167,7 @@ ao run workflows/dev/pr-review.yaml --input code=@src/main.ts
 ao run workflows/story-creation.yaml -i premise="一个程序员发现AI开始回复不该知道的事情"
 ```
 
-也可以在 Cursor / Claude Code 中直接说"帮我跑一个工作流"——支持 **14 个 AI 编程工具**（[集成指南](./integrations/)）。
+也可以在 Cursor / Claude Code 中直接说"帮我跑一个工作流"——支持 **18 个 AI 工具**（[集成指南](./integrations/)）。
 
 ## 从方案到执行：AO × 编程 Agent 组合拳
 
@@ -682,7 +682,7 @@ ao-output/产品需求评审-2026-03-22/
                      │                  (276 中文 + 191 英文 + 5 语种)
     ┌────────────────┼────────────────┐
     ▼                ▼                ▼
-  14 个 AI 编程工具    CLI 模式         MCP Server
+  18 个 AI 工具        CLI 模式         MCP Server
   (Cursor/Claude     (自动化/CI/CD)   (Claude Code/
    Code/Copilot...)                   Cursor 直接调用)
 ```

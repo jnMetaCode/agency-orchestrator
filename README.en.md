@@ -161,7 +161,7 @@ ao run workflows/en/pr-review.yaml -i pr_diff=@mypr.diff -i pr_description="Add 
 ao run workflows/en/business-plan.yaml -i idea="B2B SaaS for remote-team project tracking"
 ```
 
-Also works inside Cursor / Claude Code — just say "run a workflow." Supports **14 AI coding tools** ([integration guides](./integrations/)).
+Also works inside Cursor / Claude Code — just say "run a workflow." Supports **18 AI tools** ([integration guides](./integrations/)).
 
 ## From Plan to Execution: AO × Coding-Agent Combo
 
@@ -557,6 +557,16 @@ Works with **14 AI coding tools** — install with one command:
 | **Antigravity** | `AGENTS.md` | `--tool antigravity` | [Guide](./integrations/antigravity/) |
 | **OpenClaw** | Skill mode | `--tool openclaw` | [Guide](./integrations/openclaw/) |
 
+Four more tools plug in the other way round — AO runs **on the tool's own subscription** (`--provider …`), and some also take the 276 roles as sub-agents (`ao install --tool …`):
+
+| Tool | Run AO on its account | Roles as sub-agents | Docs |
+|------|----------------------|---------------------|------|
+| **WorkBuddy / CodeBuddy** (Tencent) | `--provider codebuddy-cli` | `ao install --tool workbuddy` / `codebuddy` | [Guide](./integrations/workbuddy/) |
+| **Cline** | `--provider cline-cli` | — (`.clinerules` are global rules, not agents) | [Guide](./integrations/cline/) |
+| **Hermes Agent** | `--provider hermes-cli` | — | [Guide](./integrations/hermes/) |
+| **DeepSeek Harness** (dsh, developer preview) | `--provider dsh-cli` | — | [Guide](./integrations/deepseek-harness/) |
+| **Cherry Studio** | its API gateway as an OpenAI-compatible endpoint | — | [Guide](./integrations/cherry-studio/) |
+
 ## English Workflow Templates (6)
 
 Ready to run with `agency-agents` English roles:
@@ -659,7 +669,7 @@ Your AI subscription ──→ agency-orchestrator ──→ 400+ expert roles c
                               │                  (276 Chinese + 184 English + 5 languages)
              ┌────────────────┼────────────────┐
              ▼                ▼                ▼
-      14 AI Coding Tools    CLI Mode        MCP Server
+      18 AI Tools           CLI Mode        MCP Server
       (Cursor/Claude Code   (automation/    (Claude Code/
        /Copilot/...)        CI/CD)          Cursor direct)
 ```
