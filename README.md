@@ -210,6 +210,9 @@ $ ao compose "帮我分析抖音短视频赛道的创业机会" --run
 
 6 个角色中，市场调研员和用户研究员**自动并行执行**（从 DAG 依赖关系检测）。
 
+> **用 AO 造出来的完整产品**：[开片 OpenShorts](https://github.com/jnMetaCode/openshorts) —— 本地优先的短视频生产线
+>（口播科普 + AI 短剧两条线，复用 AO 的角色、工作流与视频供应商），[官网看真实成片 ↗](https://jnmetacode.github.io/openshorts/)。
+
 ## 工作原理
 
 ```yaml
