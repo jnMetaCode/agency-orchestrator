@@ -161,7 +161,7 @@ ao run workflows/en/pr-review.yaml -i pr_diff=@mypr.diff -i pr_description="Add 
 ao run workflows/en/business-plan.yaml -i idea="B2B SaaS for remote-team project tracking"
 ```
 
-Also works inside Cursor / Claude Code — just say "run a workflow." Supports **18 AI tools** ([integration guides](./integrations/)).
+Also works inside Cursor / Claude Code — just say "run a workflow." Supports **19 AI tools** ([integration guides](./integrations/)).
 
 ## From Plan to Execution: AO × Coding-Agent Combo
 

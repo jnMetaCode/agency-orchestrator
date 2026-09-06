@@ -6,6 +6,21 @@
 
 ## [0.19.2] - 2026-09-02
 
+### Added
+- **DeepSeek Harness 接入 `dsh-cli`**（开发者预览，官方明说会有破坏性变更，Studio 卡片带此标注）：`dsh --profile headless "<任务>"`，stdout 就是答案、推理在 stderr。真机（@deepseek-ai/dsh 0.1.1-rc.2）：**不读 stdin**，整段提示词走位置参数（23KB 可）；需要 **Node ≥ 22.15**，22.14 会在加载插件时崩、报错埋在堆栈里，AO 从 stderr 识别后翻译成人话；`model` 写 `provider/model` 时用 `--patch` 临时覆盖默认模型；每次在空临时目录里跑（它把当前目录当工作区且没有关工具开关）。基类新增 `spawnCwd` / `stderrHint` 两个通用口子。新增 `integrations/deepseek-harness/`。
+- **OpenCode CLI 接入 `opencode-cli`**：用 OpenCode 里配好的供应商（`opencode auth login` / opencode.json）跑工作流。真机（opencode 1.18.27）：`opencode run --format json` 是 NDJSON、答案是 text 事件拼接；**stdin 写完必须关**——管道不关它会一直等（4 分钟都不退），写入并 end() 后它把内容并进消息，长角色提示词走 stdin 可行；`-m` 要写 `provider/model`；没有关工具开关，AO 用 `--dir` 指空临时目录兜底。OpenCode 至此三个维度齐全（供应商 / 角色安装目标 / 指南）。
+- **Cline CLI 接入 `cline-cli`**：用 Cline 里 `cline auth` 配好的供应商/账号跑工作流，AO 不另配 key。真机（cline 3.0.61）钉住三件事：`--json` 是 NDJSON、只有 `run_result.text` 是答案；它**不读 AO 送进 stdin 的内容**（只认真 FIFO，Node 的管道是 socket），所以角色走 `-s`、任务走位置参数，超命令行上限明确报错；纯中文无空格的提示词会被它当"未知命令"拒绝，AO 自动补空格。它是 agentic 工具且没有关工具的开关，AO 每次把它的工作目录指到空临时目录、跑完即删，模型想写文件也落不到用户项目；`-t` 与 AO 单步超时对齐。角色**不**装进 Cline（`.clinerules` 是全局注入不是可选角色）。新增 `integrations/cline/`。
+- **Cherry Studio 接入指南** `integrations/cherry-studio/`：它没有 CLI，不做连接器；其 API 网关把 Cherry 里配好的模型服务转成本机 OpenAI 兼容接口，AO 按自定义 OpenAI 兼容供应商接入即可。事实来自官方文档，本机没装、未真机跑，指南里写明。
+- **腾讯 WorkBuddy / CodeBuddy 接入（两条线）**。① 免 key 供应商 `codebuddy-cli`：直接用 WorkBuddy / CodeBuddy 会员额度跑工作流；macOS 装了 WorkBuddy 桌面版就自带（CLI 埋在 app 内不进 PATH，AO 自动到那里找，`ao doctor` 与真跑用同一份路径表），否则 `npm i -g @tencent-ai/codebuddy-code`。命令行形态与 Claude Code 逐项对齐，复用同一连接器；唯一差异是 JSON 输出是整段对话的数组、末元素才是 result——按单对象读会误报"返回空内容"，已兼容并钉了测试。② `ao install --tool workbuddy`（`~/.workbuddy/agents`）/ `--tool codebuddy`（`~/.codebuddy/agents`，尊重 `CODEBUDDY_CONFIG_DIR`）把 276 个角色装成子智能体，frontmatter 同格式零转换，按 `name` 点名即用（实测装完不用重启）。真机验证：WorkBuddy 5.1.7 / codebuddy 2.103.3，两步工作流跑通。新增 `integrations/workbuddy/`。Windows / Linux 桌面版打包位置没实证，不猜，走 npm 安装。
+- **本地视频供应商 `local-sdcpp`**：用本机 stable-diffusion.cpp 的 `sd-cli` 跑 MiniMax-H3 GGUF 出片（`minimax-h3-q2 / q3 / q4`，按统一内存 24 / 32 / 64 GB 分档），不联网、不要 key、不花钱——花费预览标「本机 sd.cpp，不花钱」且不计入按秒合计。定位是**草稿档**（M2 Max 32 GB 实测 640×384 / 39 帧 / 4 步 216 s，2-bit 画质），成片仍走云端。引擎不自动下 27 GB 权重：缺文件时报确切的 `curl -C -` 命令和许可证提醒；`ao doctor` 报就绪状态；Studio 的视频供应商列表把它当"已配置"的条件是 sd-cli 在 + 一档模型齐全。帧数就近对齐 H3 的 `17k+5` 网格、宽高对齐 32、`--cfg-scale 1.0` 固定；有首帧图走 `--init-img`。`test/local-sdcpp.ts` 12 条（假 sd-cli 走通 webm→mp4 主流程）。来由：OpenShorts · 开片的"本地草稿 / 云端成片"两档，见其 docs/v2 ADR-004。
+
+- **`-i docs=@目录`：目录当知识源**。此前 `@` 只能指向单个文件，要给专家喂一叠资料得自己先拼。现在指向目录即可：文本类文件（md / txt / csv / json / yaml / html / 常见源码）按相对路径排序、每个文件一节 `## 文件: <路径>`，模型能按文件引用；跳过 .git / node_modules / 隐藏目录 / 二进制；pdf / docx 这类需要转换的**明确列出并告警**（先 `pandoc -t markdown` 转成 md），不是静默漏掉；总量 400KB / 单文件 200KB 上限，超了按顺序截断并告警列出没装下的——把 5MB 塞进 prompt 只会换来一次超长失败，而且用户会以为模型"读过了"。Studio 一如既往不展开 `@`（安全开关不变）。
+
+- **新增工作流模板「高管会：重大决策」**（`workflows/strategy/exec-committee.yaml`）：CEO 先把议题压成可裁决的命题（含可逆性与可观测判据）并**点名谁上会**，未被点名的高管由 `condition` 跳过、一个 token 都不花；出席者第一行强制表态并写明红线；幕僚长只做收敛（真分歧 / 假分歧 / 待补事实 / 互斥选项，**不给推荐**，否则 CEO 那步退化成复读）；CEO 拍板必须写出「我否掉了谁、为什么」。来由是同议题同模型的对照实验：把同一道题原样发给 7 个角色再汇总要 72,614 token，7 人里只有 2 人明确表态、最终纪要 0 人被否，且 CMO 在自陈「这不是增长账」之后仍写了 2400 字成本分析（成本类词频排第二）——角色提示词约束语气不约束信息源；点名版 47,922 token（少 34%），出席者全部表态、CEO 明确否掉 COO 并给出理由。出席标签用纯 ASCII `ATTEND-<角色>` 且匹配不带括号：最初的 `[上会:CFO]` 在全角冒号 / 全角方括号 / 多一个空格三种写法下都会让全员跳过（framing 上的 `assert` 会让它响亮失败而非开一场没人的会）。收敛步用 `depends_on_mode: any_completed`——默认「任一依赖跳过则自己跳过」会让缺席一人就散会。
+
+### Changed
+- **创意库扩充池按分类懒加载**：此前「再加载」一次拉整池 1282 条（2MB，gzip 后 ~640KB），只想看「海报」的访客也得全下。现在构建前按分类切成 11 片（`scripts/split-creative-extra.mjs`，派生文件不进仓库），点分类 chip 只拉那一类（几十 KB 到 0.5MB），chip 上标 `+N` 提示可加载数量；只存在于扩充池的分类（美食 / UI / 游戏…）也提前露出；「全部加载」仍在。默认视图置顶三张精选卡。
+
 ### Fixed
 - **视觉验收一炮失败不再直接跳过**。验收员是 agnes-2.0-flash 这类模型时（限速 6 次/分 +
   推理先烧思考 token），一次 429 就被"核验出错"静默跳过——同一次短剧运行里 shot2 验收 ✓、
@@ -18,21 +33,6 @@
 - 短剧流水线定妆图：`{{style}}` 是「霓虹赛博电影」时提示词把街道/霓虹/雨搬进了定妆图，看图验收两次判"背景不是干净单色"——任务现在明说风格只取色调与镜头语言，背景必须棚拍单色。
 - `ao plan` 忽略 `-i` 输入，永远按模板默认的供应商/档位估花费——换成本地或别家也看不出来。现在默认值打底、`-i` 覆盖。
 
-### Added
-- **DeepSeek Harness 接入 `dsh-cli`**（开发者预览，官方明说会有破坏性变更，Studio 卡片带此标注）：`dsh --profile headless "<任务>"`，stdout 就是答案、推理在 stderr。真机（@deepseek-ai/dsh 0.1.1-rc.2）：**不读 stdin**，整段提示词走位置参数（23KB 可）；需要 **Node ≥ 22.15**，22.14 会在加载插件时崩、报错埋在堆栈里，AO 从 stderr 识别后翻译成人话；`model` 写 `provider/model` 时用 `--patch` 临时覆盖默认模型；每次在空临时目录里跑（它把当前目录当工作区且没有关工具开关）。基类新增 `spawnCwd` / `stderrHint` 两个通用口子。新增 `integrations/deepseek-harness/`。
-- **OpenCode CLI 接入 `opencode-cli`**：用 OpenCode 里配好的供应商（`opencode auth login` / opencode.json）跑工作流。真机（opencode 1.18.27）：`opencode run --format json` 是 NDJSON、答案是 text 事件拼接；**stdin 写完必须关**——管道不关它会一直等（4 分钟都不退），写入并 end() 后它把内容并进消息，长角色提示词走 stdin 可行；`-m` 要写 `provider/model`；没有关工具开关，AO 用 `--dir` 指空临时目录兜底。OpenCode 至此三个维度齐全（供应商 / 角色安装目标 / 指南）。
-- **Cline CLI 接入 `cline-cli`**：用 Cline 里 `cline auth` 配好的供应商/账号跑工作流，AO 不另配 key。真机（cline 3.0.61）钉住三件事：`--json` 是 NDJSON、只有 `run_result.text` 是答案；它**不读 AO 送进 stdin 的内容**（只认真 FIFO，Node 的管道是 socket），所以角色走 `-s`、任务走位置参数，超命令行上限明确报错；纯中文无空格的提示词会被它当"未知命令"拒绝，AO 自动补空格。它是 agentic 工具且没有关工具的开关，AO 每次把它的工作目录指到空临时目录、跑完即删，模型想写文件也落不到用户项目；`-t` 与 AO 单步超时对齐。角色**不**装进 Cline（`.clinerules` 是全局注入不是可选角色）。新增 `integrations/cline/`。
-- **Cherry Studio 接入指南** `integrations/cherry-studio/`：它没有 CLI，不做连接器；其 API 网关把 Cherry 里配好的模型服务转成本机 OpenAI 兼容接口，AO 按自定义 OpenAI 兼容供应商接入即可。事实来自官方文档，本机没装、未真机跑，指南里写明。
-- **腾讯 WorkBuddy / CodeBuddy 接入（两条线）**。① 免 key 供应商 `codebuddy-cli`：直接用 WorkBuddy / CodeBuddy 会员额度跑工作流；macOS 装了 WorkBuddy 桌面版就自带（CLI 埋在 app 内不进 PATH，AO 自动到那里找，`ao doctor` 与真跑用同一份路径表），否则 `npm i -g @tencent-ai/codebuddy-code`。命令行形态与 Claude Code 逐项对齐，复用同一连接器；唯一差异是 JSON 输出是整段对话的数组、末元素才是 result——按单对象读会误报"返回空内容"，已兼容并钉了测试。② `ao install --tool workbuddy`（`~/.workbuddy/agents`）/ `--tool codebuddy`（`~/.codebuddy/agents`，尊重 `CODEBUDDY_CONFIG_DIR`）把 276 个角色装成子智能体，frontmatter 同格式零转换，按 `name` 点名即用（实测装完不用重启）。真机验证：WorkBuddy 5.1.7 / codebuddy 2.103.3，两步工作流跑通。新增 `integrations/workbuddy/`。Windows / Linux 桌面版打包位置没实证，不猜，走 npm 安装。
-- **本地视频供应商 `local-sdcpp`**：用本机 stable-diffusion.cpp 的 `sd-cli` 跑 MiniMax-H3 GGUF 出片（`minimax-h3-q2 / q3 / q4`，按统一内存 24 / 32 / 64 GB 分档），不联网、不要 key、不花钱——花费预览标「本机 sd.cpp，不花钱」且不计入按秒合计。定位是**草稿档**（M2 Max 32 GB 实测 640×384 / 39 帧 / 4 步 216 s，2-bit 画质），成片仍走云端。引擎不自动下 27 GB 权重：缺文件时报确切的 `curl -C -` 命令和许可证提醒；`ao doctor` 报就绪状态；Studio 的视频供应商列表把它当"已配置"的条件是 sd-cli 在 + 一档模型齐全。帧数就近对齐 H3 的 `17k+5` 网格、宽高对齐 32、`--cfg-scale 1.0` 固定；有首帧图走 `--init-img`。`test/local-sdcpp.ts` 12 条（假 sd-cli 走通 webm→mp4 主流程）。来由：OpenShorts · 开片的"本地草稿 / 云端成片"两档，见其 docs/v2 ADR-004。
-
-### Added
-- **`-i docs=@目录`：目录当知识源**。此前 `@` 只能指向单个文件，要给专家喂一叠资料得自己先拼。现在指向目录即可：文本类文件（md / txt / csv / json / yaml / html / 常见源码）按相对路径排序、每个文件一节 `## 文件: <路径>`，模型能按文件引用；跳过 .git / node_modules / 隐藏目录 / 二进制；pdf / docx 这类需要转换的**明确列出并告警**（先 `pandoc -t markdown` 转成 md），不是静默漏掉；总量 400KB / 单文件 200KB 上限，超了按顺序截断并告警列出没装下的——把 5MB 塞进 prompt 只会换来一次超长失败，而且用户会以为模型"读过了"。Studio 一如既往不展开 `@`（安全开关不变）。
-
-### Changed
-- **创意库扩充池按分类懒加载**：此前「再加载」一次拉整池 1282 条（2MB，gzip 后 ~640KB），只想看「海报」的访客也得全下。现在构建前按分类切成 11 片（`scripts/split-creative-extra.mjs`，派生文件不进仓库），点分类 chip 只拉那一类（几十 KB 到 0.5MB），chip 上标 `+N` 提示可加载数量；只存在于扩充池的分类（美食 / UI / 游戏…）也提前露出；「全部加载」仍在。默认视图置顶三张精选卡。
-
-### Fixed
 - Studio「创意出片」页把用户从画布保存的副本和内置原版平铺在一起，出现两张同名卡（一张带删除键），看起来像重复。现在筛选视图也分「我的工作流 / 内置模板」两区。
 
 ## [0.19.1] - 2026-08-28
