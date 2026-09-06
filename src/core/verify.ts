@@ -237,9 +237,16 @@ export async function verifyVisualAcceptance(
   // 500–2000 的预算常常全花在思考上、可见内容 0 字符——真机短剧线 shot1/shot3 的验收
   // 就这么被"核验出错"跳过了，而验收看守的是按秒计费的产出
   const maxTokens = Math.min(4000, 1500 + Math.ceil(acceptance.length * 1.2));
+  // 两条互不相干的重试策略，各自只表述一次（合在一个 attempt 计数器里的话，
+  // 一次 429 会把"逼纯 JSON"的升级重试吃掉，还让模型无辜挨一遍训话提示词）：
+  // ① 瞬时错误（限速/网络）：同一套提示词重试一次，限速类先退避——模型没做错什么；
+  // ② 解析失败：升级为"只输出纯 JSON"的系统提示词再试一次——这才是训话的对象。
+  // 与文本核验"失败不重试"不同：视觉验收看守的是花了真钱的图/片，值得多试。
   let reason: string | undefined;
-  for (let attempt = 0; attempt < 2; attempt++) {
-    const sys = attempt === 0
+  let escalate = false;          // 解析失败后置真：换严厉系统提示词
+  let transientRetried = false;  // 瞬时错误只多试一次
+  for (let attempt = 0; attempt < 3; attempt++) {   // 上限 3 = 最多 1 次瞬时重试 + 1 次升级重试
+    const sys = !escalate
       ? (zh ? '你是严格客观的视觉验收员，只输出 JSON。' : 'You are a strict, objective visual reviewer. Output JSON only.')
       : (zh ? '你必须只输出一行纯 JSON，绝对不要代码块标记、前言或任何解释文字。'
             : 'You MUST output exactly one line of raw JSON. No code fences, no preamble, no explanation.');
@@ -253,14 +260,15 @@ export async function verifyVisualAcceptance(
       const verdict = parseVerify(res.content);
       if (verdict) return { verdict, tokens };
       reason = zh ? '模型没有输出可解析的 JSON 结论' : 'model returned no parseable JSON verdict';
+      if (escalate) break;       // 训话过还写不出 JSON → 放弃
+      escalate = true;
     } catch (err) {
-      // 与文本核验"失败不重试"不同：视觉验收看守的是花了真钱的图/片，且真机最常见的失败是
-      // 限速（Agnes 6 次/分）这类等一下就好的瞬时错——限速退避 12s 重试一次，其余立即重试一次。
-      // 两次都失败才放弃，并把原因带给调用方（以前只有一句"核验出错"，什么都查不了）。
       const msg = err instanceof Error ? err.message : String(err);
       reason = msg.split('\n')[0].slice(0, 200);
       if (process.env.AO_DEBUG) process.stderr.write(`  [verify-visual] ${msg}\n`);
-      if (attempt === 0 && /429|rate|too many|quota|限速|频率|频繁/i.test(msg)) {
+      if (transientRetried) break;
+      transientRetried = true;
+      if (/429|rate|too many|quota|限速|频率|频繁/i.test(msg)) {
         await new Promise((r) => setTimeout(r, Number(process.env.AO_VERIFY_BACKOFF_MS ?? 12_000)));
       }
     }

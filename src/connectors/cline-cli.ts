@@ -51,9 +51,12 @@ export function ensureWhitespace(prompt: string): string {
 export function checkArgBudget(systemPrompt: string, userMessage: string, platform: NodeJS.Platform = process.platform): void {
   const units = (s: string) => (platform === 'win32' ? s.length : Buffer.byteLength(s, 'utf-8'));
   const hard = platform === 'win32' ? ARG_HARD_LIMIT_WIN : ARG_HARD_LIMIT_POSIX;
-  const biggest = Math.max(units(systemPrompt), units(userMessage));
-  if (biggest > hard) {
-    const kb = (Buffer.byteLength(systemPrompt.length > userMessage.length ? systemPrompt : userMessage, 'utf-8') / 1024).toFixed(1);
+  // 超限判定和报错描述必须用同一把尺量同一段：之前判定按平台单位、报错却按 .length
+  // 重新挑段再量字节——中英混排时真正超限的是字节多的那段，报出来的却可能是另一段的体积，
+  // 用户照着裁了半天 KB 数纹丝不动
+  const seg = units(systemPrompt) >= units(userMessage) ? systemPrompt : userMessage;
+  if (units(seg) > hard) {
+    const kb = (Buffer.byteLength(seg, 'utf-8') / 1024).toFixed(1);
     throw new Error(
       `Cline CLI 只能从命令行参数接收提示词（它不读 AO 送进 stdin 的内容），而本步有一段提示词 ${kb}KB，超过了系统命令行长度上限。\n` +
       `  解决办法（任选其一）：\n` +

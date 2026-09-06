@@ -47,6 +47,14 @@ test('两段提示词都走命令行参数：超过系统上限明确报错，�
   assert(threw, 'Windows 按 UTF-16 字符数算，4 万字应报错');
 });
 
+test('判定与报错用同一把尺：中英混排时报的是真正超限那段的体积', () => {
+  // 中文段 5 万字 = 150KB 字节（超限）；ASCII 段 9 万字符 = 90KB（没超但字符数更多）。
+  // 修之前按 .length 挑段去报：报出 ASCII 段的 87.9KB——一个没超限的数字，用户照着裁不动
+  let msg = '';
+  try { checkArgBudget('中'.repeat(50_000), 'a'.repeat(90_000), 'darwin'); } catch (e) { msg = String(e); }
+  assert(/146\.5KB/.test(msg), `报错应给中文段的 146.5KB（实际：${msg.match(/[\d.]+KB/)?.[0] ?? '无'}）`);
+});
+
 test('工厂 + 探测表', () => {
   assert(createConnector({ provider: 'cline-cli' } as any) instanceof ClineCLIConnector, '工厂应返回 ClineCLIConnector');
   assert(CLI_PROVIDER_BINS['cline-cli'] === 'cline', `二进制名实际 ${CLI_PROVIDER_BINS['cline-cli']}`);
