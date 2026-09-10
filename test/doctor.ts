@@ -113,7 +113,12 @@ try {
     JSON.stringify({ deepseek: { apiKey: 'sk-studio', baseUrl: `http://127.0.0.1:${upPort}/v1`, model: 'deepseek-chat' } }),
     'utf-8',
   );
-  const studio = await doctor({});
+  const studio = await doctor({
+    // 显式清空 deepseek 的 env key：CLI 启动时会自动加载仓库根的 ./.env（loadEnvFile），
+    // 仓库里只要有 .env 就会把 DEEPSEEK_API_KEY 注入进来，导致 studioOnly 变空、这句提示不输出。
+    // 本场景测的是「key 只存在 Studio 里」，必须自己保证这个前提，不能依赖开发机环境。
+    DEEPSEEK_API_KEY: '',
+  });
   assert(/Studio 里已配 key：deepseek/.test(studio), 'Studio 里配的 key 被 doctor 看见');
   assert(/命令行不会读/.test(studio), '说清 Studio 的 key 命令行读不到（界面能跑≠命令行能跑）');
   assert(/端点可达/.test(studio), '用 Studio 保存的配置也能完成端点探测');
