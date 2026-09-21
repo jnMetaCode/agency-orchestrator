@@ -9,7 +9,7 @@
  * text 格式在管道模式下有缓冲问题，长输出（>1000 字）会导致子进程挂起
  * json 格式一次性输出完整结果，包含 usage 等元数据
  */
-import { writeFileSync, unlinkSync } from 'node:fs';
+import { writeFileSync, unlinkSync, mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { t } from '../i18n.js';
@@ -36,6 +36,14 @@ export interface ClaudeShapedCLIOptions {
   providerId: string;
   /** 该 CLI 独有的附加参数（如 claude 的 --no-session-persistence，别的 CLI 不认） */
   extraArgs?: string[];
+  /**
+   * 用 `--output-format stream-json --verbose` 取全部分段。单段输出超过 CLI 的输出上限时，claude 会自动续写成
+   * 多轮，而 `--output-format json` 的 `result` **只装最后一段**——真机（claude 2.1.271, 2026-09-15）：
+   * 让它从 1 写到 400 并把输出上限压到 300 token，json 的 result 是 301–400、subtype 仍是 success；
+   * stream-json 三条 assistant 消息拼起来是完整的 1–400。实际工作流里一步 8.9 万 token 的代码丢了约三分之二。
+   * 只给实测过的 CLI 打开（CodeBuddy 未实测，仍用 json）。
+   */
+  streamJson?: boolean;
 }
 
 const CLAUDE_CODE: ClaudeShapedCLIOptions = {
@@ -44,6 +52,7 @@ const CLAUDE_CODE: ClaudeShapedCLIOptions = {
   installHint: 'npm install -g @anthropic-ai/claude-code',
   providerId: 'claude-code',
   extraArgs: ['--no-session-persistence'],
+  streamJson: true,
 };
 
 /**
@@ -67,18 +76,54 @@ export function stripStrayControlTags(text: string): string {
 }
 
 export function parseResultJson(stdout: string): any {
-  const json = JSON.parse(stdout);
-  if (Array.isArray(json)) {
-    const result = [...json].reverse().find((m) => m && m.type === 'result');
-    if (result) return result;
-    // 没有 result 元素：退而取最后一条 assistant 文本，别把整个数组当空
-    const assistant = [...json].reverse().find((m) => m && m.role === 'assistant');
-    const text = Array.isArray(assistant?.content)
-      ? assistant.content.filter((c: any) => typeof c?.text === 'string').map((c: any) => c.text).join('\n')
-      : '';
-    return { result: text, usage: {} };
+  const trimmed = stdout.trim();
+  let json: any;
+  try {
+    json = JSON.parse(trimmed);
+  } catch (err) {
+    // stream-json：一行一个事件。解析不了就把原错误抛回去，走调用方的纯文本兜底
+    const events = parseJsonLines(trimmed);
+    if (!events) throw err;
+    return fromConversation(events);
   }
+  if (Array.isArray(json)) return fromConversation(json);
   return json;
+}
+
+function parseJsonLines(text: string): any[] | null {
+  const lines = text.split('\n').map((l) => l.trim()).filter(Boolean);
+  if (lines.length < 2) return null;
+  const events: any[] = [];
+  for (const line of lines) {
+    try { events.push(JSON.parse(line)); } catch { return null; }
+  }
+  return events;
+}
+
+/** 一条 assistant 消息里的文本：stream-json 是 {type:'assistant', message:{content}}，CodeBuddy 数组是 {role:'assistant', content} */
+function assistantText(m: any): string {
+  const content = m?.message?.content ?? m?.content;
+  return Array.isArray(content)
+    ? content.filter((c: any) => typeof c?.text === 'string').map((c: any) => c.text).join('\n')
+    : '';
+}
+
+/**
+ * 整段对话（stream-json 事件或 CodeBuddy 数组）→ 结果对象。
+ * 续写成多轮时 result 只装最后一段，所以有多条 assistant 文本就按顺序拼起来当正文；
+ * usage / is_error 仍取 result 事件。
+ */
+function fromConversation(events: any[]): any {
+  const result = [...events].reverse().find((m) => m && m.type === 'result');
+  const texts = events
+    .filter((m) => m && (m.type === 'assistant' || m.role === 'assistant'))
+    .map(assistantText)
+    .filter(Boolean);
+  if (result) {
+    return texts.length > 1 && !result.is_error ? { ...result, result: texts.join('') } : result;
+  }
+  // 没有 result 元素：退而取 assistant 文本，别把整段对话当空
+  return { result: texts.join('\n'), usage: {} };
 }
 
 export class ClaudeCodeConnector implements LLMConnector {
@@ -100,7 +145,8 @@ export class ClaudeCodeConnector implements LLMConnector {
     }
 
     // 使用 json 格式：text 格式在管道中会缓冲挂起
-    const args = ['-p', '-', '--output-format', 'json', '--tools', '', '--effort', 'low', ...(this.opts.extraArgs ?? [])];
+    const format = this.opts.streamJson ? ['--output-format', 'stream-json', '--verbose'] : ['--output-format', 'json'];
+    const args = ['-p', '-', ...format, '--tools', '', '--effort', 'low', ...(this.opts.extraArgs ?? [])];
     if (systemPromptFile) {
       args.push('--system-prompt-file', systemPromptFile);
     }
@@ -108,16 +154,25 @@ export class ClaudeCodeConnector implements LLMConnector {
       args.push('--model', config.model);
     }
 
+    // 在空临时目录里启动：claude 会按启动目录自动加载项目记忆（~/.claude/projects/<cwd>/memory）
+    // 和 CLAUDE.md。关了工具也照样注入——真机（2026-09-15）：在 AO 仓库里跑「一人公司」模板，
+    // 用户私有记忆里的项目名写进了启动包，别人复现不了，分享报告还会带出私有信息。
+    // 不用 --bare：它不读钥匙串 / OAuth，订阅登录用户会直接不可用。要沿用旧行为设 AO_CLI_INHERIT_CWD=1。
+    const sandbox = process.env.AO_CLI_INHERIT_CWD === '1' ? undefined : mkdtempSync(join(tmpdir(), 'ao-claude-'));
+
     try {
-      return await this._exec(args, userMessage, timeout);
+      return await this._exec(args, userMessage, timeout, sandbox);
     } finally {
       if (systemPromptFile) {
         try { unlinkSync(systemPromptFile); } catch {}
       }
+      if (sandbox) {
+        try { rmSync(sandbox, { recursive: true, force: true }); } catch {}
+      }
     }
   }
 
-  private _exec(args: string[], stdinData: string, timeout: number): Promise<LLMResult> {
+  private _exec(args: string[], stdinData: string, timeout: number, cwd?: string): Promise<LLMResult> {
     return new Promise<LLMResult>((resolve, reject) => {
       // 不走 shell：Windows 下 shell:true 会把参数裸拼给 cmd.exe，空串参数会被直接吃掉
       // （`--tools ""` 变成 `--tools --effort`，等于禁用工具的开关失效）—— 见 issue #102
@@ -130,6 +185,7 @@ export class ClaudeCodeConnector implements LLMConnector {
       const child = spawnCLI(command, args, {
         env: { ...process.env },
         stdio: ['pipe', 'pipe', 'pipe'],
+        ...(cwd ? { cwd } : {}),
       }, displayName);
 
       const stdoutChunks: Buffer[] = [];
