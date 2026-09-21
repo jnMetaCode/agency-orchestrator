@@ -175,7 +175,9 @@ async function handleRun(): Promise<void> {
   // 否则会把空模型名发出去（真机：--provider agnes 报 "Model name not specified"）。CLI 类 provider 允许空模型。
   const model = getArgValue('--model') || process.env.AO_MODEL || (provider ? API_PROVIDER_MAP[provider]?.defaultModel : undefined);
   const baseUrl = getArgValue('--base-url') || getArgValue('--baseurl');
-  const apiKey = getArgValue('--api-key') || getArgValue('--apikey');
+  // AO_API_KEY：与 --api-key 同义的环境变量。Studio 起 `ao run` 子进程时用它传 key——
+  // argv 会进日志、进 `ps`、进界面上显示的命令行，env 不会。
+  const apiKey = getArgValue('--api-key') || getArgValue('--apikey') || process.env.AO_API_KEY?.trim() || undefined;
   const timeoutRaw = getArgValue('--timeout');
   let timeoutMs: number | undefined;
   if (timeoutRaw !== undefined) {

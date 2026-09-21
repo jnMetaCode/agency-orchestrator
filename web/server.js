@@ -8,7 +8,7 @@
  */
 import express from 'express';
 import { spawn, execFileSync , spawnSync } from 'node:child_process';
-import { readFileSync, readdirSync, existsSync, statSync, writeFileSync, unlinkSync, mkdirSync, rmSync, accessSync, constants as fsConstants } from 'node:fs';
+import { readFileSync, readdirSync, existsSync, statSync, writeFileSync, unlinkSync, mkdirSync, rmSync, chmodSync, accessSync, constants as fsConstants } from 'node:fs';
 import { resolve, join, dirname, basename, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createHash } from 'node:crypto';
@@ -39,6 +39,7 @@ import { BUDGET_CAPABLE_PROVIDERS } from '../dist/cli/compose.js';
 // 环境里配了代理就接管全局 dispatcher（Node 的 fetch 默认不读 HTTP(S)_PROXY）。
 // 清单拉取、测试连接、获取模型列表都要用它;没配代理时什么都不做。
 // 真正的安装在下面 DATA_DIR 定下来之后：要先读 Studio 里保存的「网络代理」设置（#105）。
+import { checkRequestSource, parseAllowedHosts } from './request-guard.js';
 import { installEnvProxy, reinstallEnvProxy, envProxyStatus, maskProxyUrl } from '../dist/utils/env-proxy.js';
 import { normalizeProxyInput, readProxySetting, writeProxySetting, snapshotProxyEnv, applyProxySetting } from '../dist/utils/proxy-setting.js';
 
@@ -402,7 +403,10 @@ async function modelsDevList(provider) {
 getRemoteManifest(); // 启动预热,不阻塞
 function writeKeys(obj) {
   mkdirSync(dirname(KEYS_FILE), { recursive: true });
-  writeFileSync(KEYS_FILE, JSON.stringify(obj, null, 2), 'utf-8');
+  // 这个文件装着所有 API key：只给本人读写。`mode` 只在**新建**时生效，老文件是 0644 建的，
+  // 所以再补一次 chmod（Windows 上是空操作，失败不该挡住保存）。
+  writeFileSync(KEYS_FILE, JSON.stringify(obj, null, 2), { encoding: 'utf-8', mode: 0o600 });
+  try { chmodSync(KEYS_FILE, 0o600); } catch { /* 不支持权限位的文件系统 */ }
 }
 // Claude Code 的模型映射 env（对齐 cc-switch 的成熟做法）：把 CLI 的 Sonnet/Opus/
 // Haiku 档位映射到中转商实际上架的模型名。只影响 AO spawn 出的 CLI 子进程。
@@ -453,6 +457,18 @@ const WEBSITE_DIST = join(ROOT, 'website', 'dist');
 const HAS_NEW_UI = existsSync(join(WEBSITE_DIST, 'index.html'));
 
 const app = express();
+// 来源守卫：挡 DNS 重绑定（Host 是别人的域名）和跨站表单 POST（Origin 是别人的站）。
+// 只管 /api/——静态页被别的源拿去没有任何价值。规则与取舍见 web/request-guard.js。
+const ALLOWED_HOSTS = parseAllowedHosts(process.env.AO_ALLOWED_HOSTS);
+app.use('/api', (req, res, next) => {
+  const verdict = checkRequestSource({ host: req.headers.host, origin: req.headers.origin, boundHost: HOST, allowedHosts: ALLOWED_HOSTS });
+  if (verdict.ok) return next();
+  res.status(403).json({
+    error: verdict.reason === 'host'
+      ? `拒绝来自主机名「${verdict.detail}」的请求：Studio 默认只接受 localhost / 127.0.0.1。通过域名或反向代理访问时，启动前设置 AO_ALLOWED_HOSTS=${verdict.detail}（多个用逗号分隔）`
+      : `拒绝来自其它站点（${verdict.detail}）的跨站请求`,
+  });
+});
 app.use(express.json({ limit: '5mb' }));
 // 请求体不是合法 JSON / 超过大小限制时，express.json 会把错误交给 Express 默认处理器，
 // 回一整页 HTML 错误页（还带栈）。前端 `res.json()` 解析它必然再抛一次，用户看到的是
@@ -766,9 +782,10 @@ app.delete('/api/runs/:id', (req, res) => {
 
 // ── History: get single run details ──
 app.get('/api/runs/:id', (req, res) => {
-  const runDir = join(OUTPUT_DIR, req.params.id);
+  // 与 assets / report 两个兄弟端点同一条守卫：`..%2F..%2Fx` 这类 id 不许逃出输出目录
+  const runDir = resolve(join(OUTPUT_DIR, req.params.id));
   const metaPath = join(runDir, 'metadata.json');
-  if (!existsSync(metaPath)) return res.status(404).json({ error: 'run not found' });
+  if (!isInside(runDir, OUTPUT_DIR) || !existsSync(metaPath)) return res.status(404).json({ error: 'run not found' });
 
   try {
     const meta = JSON.parse(readFileSync(metaPath, 'utf-8'));
@@ -877,6 +894,7 @@ app.post('/api/run', (req, res) => {
   };
 
   const args = [CLI, 'run', resolvedFile];
+  let childApiKey = '';
   if (provider) {
     args.push('--provider', provider);
     // A bare --provider override clears the YAML model/base → supply them so
@@ -884,9 +902,10 @@ app.post('/api/run', (req, res) => {
     const llm = cleanLLMConfig(provider);
     if (llm.model) args.push('--model', llm.model);
     if (llm.base_url) args.push('--base-url', llm.base_url);
-    // 自定义供应商没有注册的 env 变量名，key 只能这样带过去（本机单用户工具，
-    // 跟 --base-url/--model 走的是同一条"CLI 参数"路径，一致的取舍）。
-    if (llm.api_key) args.push('--api-key', llm.api_key);
+    // key 走子进程的环境变量 AO_API_KEY，**不进 argv**：argv 会被下面的 [run] 日志打出来
+    // （桌面版把它追加进 engine.log，用户贴日志报 bug 时就把 key 贴出去了）、会随 SSE start 事件
+    // 显示在界面上、`ps` 也看得见。只放进这个子进程的 env，不写 process.env。
+    if (llm.api_key) childApiKey = llm.api_key;
   }
   if (resume) {
     let resumeArg = resume === true ? 'last' : String(resume);
@@ -930,7 +949,7 @@ app.post('/api/run', (req, res) => {
     cwd: DATA_DIR,
     // AO_WEB_INPUT=1 → 引擎遇到 human_input/approval 会发机器标记而非在终端等输入
     // AO_NO_AT_FILE=1 → 关闭 -i k=@file 文件展开，防止网页请求读取本机任意文件（如 API key）
-    env: { ...process.env, FORCE_COLOR: '0', AO_WEB_INPUT: '1', AO_NO_AT_FILE: '1' },
+    env: { ...process.env, FORCE_COLOR: '0', AO_WEB_INPUT: '1', AO_NO_AT_FILE: '1', ...(childApiKey ? { AO_API_KEY: childApiKey } : {}) },
   });
   activeRuns.set(runId, child);
 
@@ -1254,9 +1273,8 @@ app.post('/api/run-role', (req, res) => {
   // Don't pass --provider here: the saved workflow already bakes a full llm block
   // (provider + model). A bare --provider override would drop the model and the
   // API call would 400 with "missing field model".
-  // 自定义供应商的 key 不在 env 也不进 yaml,单独经 CLI 参数传给引擎。
+  // 自定义供应商的 key 不在 env 也不进 yaml,经子进程环境变量 AO_API_KEY 传给引擎(不进 argv,见 /api/run)。
   const args = [CLI, 'run', consultFile];
-  if (consultKey) args.push('--api-key', consultKey);
 
   send('start', { cmd: `ao run (${role})`, task });
   // 告知前端本次咨询已落盘为可复用工作流（未知事件前端安全忽略）
@@ -1298,7 +1316,7 @@ app.post('/api/run-role', (req, res) => {
 
   console.log('[run-role]', role, task.slice(0, 60));
   // AO_NO_RESUME_HINT=1 → 单角色咨询是一次性问答,终端的 --resume 提示对网页用户是噪音
-  const child = spawn(NODE_BIN, args, { cwd: DATA_DIR, env: { ...process.env, FORCE_COLOR: '0', AO_NO_AT_FILE: '1', AO_NO_RESUME_HINT: '1' } });
+  const child = spawn(NODE_BIN, args, { cwd: DATA_DIR, env: { ...process.env, FORCE_COLOR: '0', AO_NO_AT_FILE: '1', AO_NO_RESUME_HINT: '1', ...(consultKey ? { AO_API_KEY: consultKey } : {}) } });
 
   child.stdout.on('data', chunk => {
     const text = chunk.toString();

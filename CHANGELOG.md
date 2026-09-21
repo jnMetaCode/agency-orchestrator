@@ -4,6 +4,23 @@
 
 ## [Unreleased]
 
+### Security
+- **Studio 服务端加请求来源守卫：别的网页再也碰不到 `/api`**。服务端默认只听 `127.0.0.1`，但「只听回环」挡不住浏览器——
+  用户开着 Studio 时访问的任何网页都能往回环端口发请求。两条真实攻击面：① **DNS 重绑定**——恶意页把自己的域名改指到
+  127.0.0.1，就和 Studio「同源」、能读响应；`/api/test-provider` 会把**已保存的 key** 发到请求里给的 baseUrl（合法用法：
+  改了地址不用重填 key 就能测），于是等于把 key 寄给对方，`/api/claude/apply` 还能改写 `~/.claude/settings.json`。
+  ② **跨站表单 POST**——`/api/claude/repair` / `restore` / `proxy/clear` 这类不需要请求体的端点，一个自动提交的 `<form>`
+  就能触发，连预检都不需要。现在 `/api` 前挂一层守卫（`web/request-guard.js`，纯函数）：回环绑定下 Host 必须是回环名或在
+  `AO_ALLOWED_HOSTS` 里；`Origin` 头存在时必须与 Host 同主机、或本身是回环（vite dev 代理）、或在白名单里；`Origin: null`
+  拒绝。**非回环绑定（Docker / NAS）不强制 Host**——那里的用户常用 `nas.local`、反代域名访问，升级后全员 403 是更糟的结果；
+  配了 `AO_ALLOWED_HOSTS` 才按白名单收紧。403 文案直接告诉合法用户该设哪个变量。
+- **API key 不再出现在命令行参数里**。Studio 起 `ao run` 时把已保存的 key 作为 `--api-key sk-…` 传过去，于是它被
+  `[run]` 日志原样打出（桌面版追加进 `engine.log`——用户贴日志报 bug 就把 key 贴出去了）、随 SSE `start` 事件显示在界面
+  上、`ps` 也看得见。现在经子进程环境变量 `AO_API_KEY` 传（`ao run` 认它，与 `--api-key` 同义），只放进那个子进程的
+  env。测试同时钉两头：整条 SSE 流里没有 key，而上游**照样收到**了 `Bearer <key>`。
+- `GET /api/runs/:id` 补上与 assets / report 兄弟端点同一条路径守卫（`..%2F` 逃不出输出目录）；`web-keys.json`
+  写成 0600，老的 0644 文件在下次保存时一并收紧。`test/request-guard.ts` 36 条。
+
 ### Added
 - **Studio「网络代理」设置**（#105）：供应商页新增一张卡，填一个 http/https 代理地址，保存即生效、重启仍在
   （`<数据目录>/.local/web-network.json`）。来由：AO 早就会走 `HTTP(S)_PROXY`，但那只对从终端启动的人有用——桌面版从

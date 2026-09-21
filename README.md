@@ -146,6 +146,7 @@ npm install -g agency-orchestrator
 > - 用 `--provider claude-code`（或 `gemini-cli` / `codex-cli` 等）时，需要**本机已安装并登录对应 CLI**；AO 会自动探测已装的，零配置直接用。用 API key 类（deepseek/openai…）则配好 key 即可，无需装任何 CLI。
 > - **自定义目录**：产物 / 数据目录用 `AO_DATA_DIR`（桌面端默认指向 userData），角色库用 `AO_AGENTS_DIR`，统一工作区用 `AO_HOME`。
 > - **Docker / NAS 部署**（amd64/arm64）：`docker run -d -p 8088:8088 -v ao-data:/data ghcr.io/jnmetacode/agency-orchestrator:latest`，打开 `http://主机IP:8088`，密钥在页面「供应商」里配（存进挂载卷，重启不丢）。也可用仓库根的 [docker-compose.yml](./docker-compose.yml) 一键起。
+> - **通过域名 / 反向代理访问网页版**：本机启动的 Studio 只接受 `localhost` / `127.0.0.1` 的请求（防 DNS 重绑定，别的网页借此偷不到你存的 key）。要用自己的域名访问时，启动前设 `AO_ALLOWED_HOSTS=studio.example.com`（多个用逗号分隔）。Docker 镜像监听 `0.0.0.0`、没有登录鉴权——只放在可信内网，别直接暴露到公网。
 
 ### 第 2 步：一句话跑起来
 
