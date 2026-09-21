@@ -630,6 +630,19 @@ export interface ClaudeProxyStatus {
   reachable?: boolean;  // 配了代理时探测是否可连（false = Clash 没开?）
 }
 
+/** AO 自己的网络代理（#105）。地址一律是脱敏后的 scheme://host:port。 */
+export interface NetworkProxyStatus {
+  saved: string | null;         // Studio 里保存的
+  savedHasAuth: boolean;
+  shell: { name: string; url: string } | null; // 启动环境里原本的代理变量
+  source: "studio" | "shell" | "none";
+  active: string | null;        // 此刻真正接管请求的代理
+  reason: "installed" | "no-env" | "disabled" | "unavailable";
+  detail?: string;
+  reachable?: boolean;          // 只对 Studio 保存的那个探测
+  system: string | null;        // 探到的系统代理（macOS / Windows）
+}
+
 // 从模型 id 推断所属厂商，给「获取模型列表」的大列表分组用（对齐 cc-switch 的按 vendor 分组）。
 // 聚合商 /models 常有上百个还混各家，扁平一堆没法扫；按厂商分组后一眼定位。
 // 优先用带命名空间的前缀（如 "deepseek-ai/DeepSeek-V3.2" → deepseek-ai），否则按关键词猜。
@@ -783,6 +796,8 @@ export const api = {
   claudeProxy: () => getJSON<ClaudeProxyStatus>("/claude/proxy"),
   syncClaudeProxy: () => postJSON<{ ok: boolean; configured: boolean; changed: boolean; proxyUrl?: string }>("/claude/proxy/sync", {}),
   clearClaudeProxy: () => postJSON<{ ok: boolean; changed: boolean }>("/claude/proxy/clear", {}),
+  networkProxy: () => getJSON<NetworkProxyStatus>("/network/proxy"),
+  setNetworkProxy: (proxy: string) => postJSON<NetworkProxyStatus & { ok: boolean }>("/network/proxy", { proxy }),
   prompts: () => getJSON<{ prompts: PromptRecord[] }>("/prompts").then((r) => r.prompts),
   savePrompt: (body: { name: string; mode: PromptMode; versions: PromptVersion[]; favorite?: boolean }) =>
     postJSON<{ ok: boolean; slug: string }>("/prompts", body),

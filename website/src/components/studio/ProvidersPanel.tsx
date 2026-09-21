@@ -5,6 +5,7 @@ import { useLanguage } from "@/i18n/LanguageProvider";
 import { api, API_PROVIDERS, CLI_PROVIDER_NOTES, CLI_RELAY_GLOBAL_WRITE, CLI_RELAY_PRESETS, CLI_RELAY_SUPPORT, DEFAULT_PROVIDER, DEPRECATED_CLI_PROVIDERS, PROVIDER_LABELS, providerLogo, relayPresetClis, type CliRelayPreset, type ConfigResponse } from "@/lib/studio";
 import { cn } from "@/lib/utils";
 import { ClaudeHealthCard } from "./ClaudeHealthCard";
+import { NetworkProxyCard } from "./NetworkProxyCard";
 import { ProviderConfigView, type ConfigTarget } from "./ProviderConfigView";
 
 // provider 列表/模型建议的唯一来源是 lib/studio.ts 的 API_PROVIDERS —— 新增一家 provider 只用改那一处。
@@ -277,6 +278,9 @@ export function ProvidersPanel({ active, onSetActive, offline = false }: { activ
 
       {/* 系统 Claude Code 体检/急救：被别的软件或手动写坏时一键恢复官方登录 */}
       <ClaudeHealthCard />
+
+      {/* AO 自己的网络代理（#105）：桌面版拿不到 shell 里的 HTTPS_PROXY，只能在这里配 */}
+      <NetworkProxyCard />
 
       {/* 零配置推荐：探测到本机已装订阅制 CLI 时，引导一键切换，绕开 key 墙 */}
       {showRecommend && (

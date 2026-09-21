@@ -5,6 +5,16 @@
 ## [Unreleased]
 
 ### Added
+- **Studio「网络代理」设置**（#105）：供应商页新增一张卡，填一个 http/https 代理地址，保存即生效、重启仍在
+  （`<数据目录>/.local/web-network.json`）。来由：AO 早就会走 `HTTP(S)_PROXY`，但那只对从终端启动的人有用——桌面版从
+  Dock / 开始菜单点开，进程拿不到 shell 里 export 的变量，对那批用户「支持代理」等于不支持。保存的地址写进服务端进程的
+  代理变量，三层一起生效：Studio 自己的请求（运行中重装 dispatcher，`reinstallEnvProxy`）、spawn 出的 `ao run`、再往下的
+  编码 CLI。探到系统代理（macOS scutil / Windows 注册表，复用体检卡那套探测）时给「用这个」一键采用；配了但端口连不上
+  （Clash 没开）时卡片自动展开报红，免得用户去挨个怀疑 key。只收 http / https：undici 的 ProxyAgent 不说 SOCKS，
+  拒绝时指路「Clash / V2RayN 的混合端口就是 HTTP 代理」。地址里的账号密码只存本机文件（0600），任何回显都脱敏。
+  启动环境里原本的代理变量：Studio 没配时照用、配了让位、清除后还原（不是变直连）。`test/proxy-setting.ts` 26 条
+  （含变异验证过的「清掉代理后请求照常能发」——只清记忆化不换 dispatcher 会让 Studio 全线断网）、
+  `test/web-network-proxy.ts` 14 条（起真服务端：重启仍在、脱敏、环境变量让位与还原）。
 - **新模板「一人公司·方案到代码」**（`workflows/一人公司-方案到代码.yaml`）：老板简报 → PRD（带「不做清单」）→ 技术方案
   （受 `constraints` 输入约束）→ 按 PRD 和技术方案写代码（配 `--materialize`）→ 范围审查（逐项对照不做清单、功能、
   技术栈、数据模型，结论行「【范围一致】/【有偏差：N 项】」）。来由：真机演练把「一人公司·做产品」和「需求转项目脚手架」

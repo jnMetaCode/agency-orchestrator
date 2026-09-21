@@ -170,6 +170,39 @@ export async function installEnvProxy(env: NodeJS.ProcessEnv = process.env): Pro
   return cached;
 }
 
+/**
+ * 运行中改了代理（Studio 的「网络代理」设置）后重新判定并接管。
+ *
+ * `installEnvProxy` 是幂等的——进程里第一次判定之后就不再看环境，所以用户在 Studio 里填了/清了
+ * 代理必须走这里。两个方向都要管：
+ *  - 新配了代理 → 换上新的分流 dispatcher；
+ *  - **清掉了代理** → 必须把全局 dispatcher 换回直连。只清记忆化不换 dispatcher 的话，
+ *    界面显示"未配置"、请求却还在走旧代理，正是文件头说的那类最难查的故障。
+ * 旧 dispatcher 用 close()（等在途请求走完）而不是 destroy()，别把正在跑的步骤请求掐断。
+ */
+export async function reinstallEnvProxy(env: NodeJS.ProcessEnv = process.env): Promise<EnvProxyResult> {
+  const wasInstalled = last.installed;
+  cached = null;
+  last = { installed: false, reason: 'no-env' };
+  if (!wasInstalled) return installEnvProxy(env);
+  try {
+    const undici = await import('undici');
+    const { Agent, setGlobalDispatcher, getGlobalDispatcher } = undici as unknown as {
+      Agent: new () => Dispatcherish;
+      setGlobalDispatcher: (d: unknown) => void;
+      getGlobalDispatcher: () => Dispatcherish;
+    };
+    const old = getGlobalDispatcher();
+    const result = await installEnvProxy(env);
+    if (!result.installed) setGlobalDispatcher(new Agent());
+    void old?.close?.().catch(() => undefined);
+    return result;
+  } catch {
+    // undici 起不来时当初也装不上代理，走不到这里；留着只为不让"恢复直连"反过来抛错
+    return installEnvProxy(env);
+  }
+}
+
 /** 仅测试用：清掉记忆化，让下一次调用重新判定。 */
 export function resetEnvProxyForTest(): void {
   cached = null;

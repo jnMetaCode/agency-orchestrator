@@ -37,9 +37,10 @@ import { queryNewApiUsage } from '../dist/utils/newapi-usage.js';
 import { probeClaudeCliViaRelay } from '../dist/utils/claude-cli-probe.js';
 import { BUDGET_CAPABLE_PROVIDERS } from '../dist/cli/compose.js';
 // 环境里配了代理就接管全局 dispatcher（Node 的 fetch 默认不读 HTTP(S)_PROXY）。
-// 放在最前面:清单拉取、测试连接、获取模型列表都要用它;没配代理时什么都不做。
-import { installEnvProxy } from '../dist/utils/env-proxy.js';
-await installEnvProxy();
+// 清单拉取、测试连接、获取模型列表都要用它;没配代理时什么都不做。
+// 真正的安装在下面 DATA_DIR 定下来之后：要先读 Studio 里保存的「网络代理」设置（#105）。
+import { installEnvProxy, reinstallEnvProxy, envProxyStatus, maskProxyUrl } from '../dist/utils/env-proxy.js';
+import { normalizeProxyInput, readProxySetting, writeProxySetting, snapshotProxyEnv, applyProxySetting } from '../dist/utils/proxy-setting.js';
 
 // Codex 没有环境变量覆盖机制，中转配置写在 ~/.codex/config.toml + auth.json 里，
 // 用固定的内部 provider id（不管用户填的是哪家中转商），避免还要在 UI 里加个
@@ -206,6 +207,17 @@ function ffmpegAvailable() {
   return _ffmpegOk;
 }
 const KEYS_FILE = join(DATA_DIR, '.local', 'web-keys.json');
+// Studio 的「网络代理」设置（#105）：桌面版从 Dock/开始菜单启动，拿不到用户 shell 里 export 的
+// 代理变量，只能在界面里配。存下来的地址写进本进程 env —— Studio 自己的请求、spawn 出的
+// `ao run`、再往下的编码 CLI 三层一起生效（见 src/utils/proxy-setting.ts）。
+// 必须先拍 shell 原样的快照再 apply：清除设置时要还原成它，而不是把用户 export 的也删了。
+const NETWORK_FILE = join(DATA_DIR, '.local', 'web-network.json');
+const SHELL_PROXY_SNAPSHOT = Object.freeze(snapshotProxyEnv());
+{
+  const savedProxy = readProxySetting(NETWORK_FILE);
+  if (savedProxy) applyProxySetting(savedProxy, SHELL_PROXY_SNAPSHOT);
+}
+await installEnvProxy();
 // 自定义供应商的展示元数据（名称/备注/官网）；连接信息（key/base_url/model）复用
 // web-keys.json，跟内置 provider 存法一样，用 provider id 当 key。
 const CUSTOM_PROVIDERS_FILE = join(DATA_DIR, '.local', 'custom-providers.json');
@@ -2098,6 +2110,50 @@ app.post('/api/claude/proxy/sync', (_req, res) => {
 app.post('/api/claude/proxy/clear', (_req, res) => {
   try {
     res.json({ ok: true, ...clearClaudeProxy() });
+  } catch (err) {
+    res.status(500).json({ error: err?.message || String(err) });
+  }
+});
+
+// ── AO 自己的网络代理（#105）──────────────────────────────────────────────────
+// 和上面 /api/claude/proxy 不是一回事：那组管的是写进 ~/.claude/settings.json、只影响用户
+// 全局 Claude Code 的代理；这组管 AO 引擎自己发请求走不走代理。
+// 回显一律脱敏（代理地址里常带账号密码）。
+async function networkProxyStatus() {
+  const saved = readProxySetting(NETWORK_FILE);
+  const eff = envProxyStatus();
+  const shellName = Object.keys(SHELL_PROXY_SNAPSHOT)[0];
+  let system = null;
+  try { system = detectSystemProxy() || null; } catch { system = null; }
+  return {
+    saved: saved ? maskProxyUrl(saved) : null,
+    savedHasAuth: !!saved && /\/\/[^/@]+@/.test(saved),
+    shell: shellName ? { name: shellName, url: maskProxyUrl(SHELL_PROXY_SNAPSHOT[shellName]) } : null,
+    source: saved ? 'studio' : shellName ? 'shell' : 'none',
+    active: eff.installed ? eff.via : null,
+    reason: eff.reason,
+    detail: eff.detail,
+    reachable: saved ? await probeProxyReachable(saved) : undefined,
+    system,
+  };
+}
+app.get('/api/network/proxy', async (_req, res) => {
+  try { res.json(await networkProxyStatus()); }
+  catch (err) { res.status(500).json({ error: err?.message || String(err) }); }
+});
+app.post('/api/network/proxy', async (req, res) => {
+  try {
+    const raw = typeof req.body?.proxy === 'string' ? req.body.proxy.trim() : '';
+    let url = '';
+    if (raw) {
+      const r = normalizeProxyInput(raw);
+      if (!r.ok) return res.status(400).json({ error: r.error });
+      url = r.url;
+    }
+    writeProxySetting(NETWORK_FILE, url);
+    applyProxySetting(url, SHELL_PROXY_SNAPSHOT);
+    await reinstallEnvProxy();
+    res.json({ ok: true, ...(await networkProxyStatus()) });
   } catch (err) {
     res.status(500).json({ error: err?.message || String(err) });
   }
