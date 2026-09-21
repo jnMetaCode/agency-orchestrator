@@ -31,6 +31,19 @@ export const CLI_PROVIDER_BINS: Record<string, string> = {
 };
 
 /**
+ * 全部 CLI provider 的 id——「这个 provider 是不是走本机 CLI」的**唯一**判据。
+ * 此前同一个数组在 cli.ts（6 处）、parser.ts、mcp/server.ts、web/server.js 里各抄了一份，
+ * 每接一家新 CLI 就要改 9 个地方，漏一处的表现各不相同（超时按 API 的 300s 算、被要求填 model、
+ * Studio 里当成要 key 的供应商…）。顺序是 Studio 供应商页的展示顺序，别按字母重排。
+ * test/detect-providers.ts 钉住它与 CLI_PROVIDER_BINS 的键集合一致。
+ */
+export const CLI_PROVIDER_IDS: readonly string[] = ['claude-code', 'antigravity-cli', 'gemini-cli', 'copilot-cli', 'codex-cli', 'openclaw-cli', 'hermes-cli', 'codebuddy-cli', 'cline-cli', 'opencode-cli', 'dsh-cli'];
+
+export function isCliProvider(provider: string | undefined): boolean {
+  return !!provider && CLI_PROVIDER_IDS.includes(provider);
+}
+
+/**
  * 已停服/弃用的 CLI provider → 用户可读的原因。
  * 这些 provider 保留可用（存量用户显式指定仍能跑），但：
  * - 零配置自动选择（autoProvider / Studio recommended）永远跳过它们

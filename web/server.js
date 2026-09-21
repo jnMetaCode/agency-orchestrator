@@ -16,7 +16,7 @@ import { tmpdir, homedir } from 'node:os';
 import yaml from 'js-yaml';
 import { resolveDataDir, migrateLegacyData } from './data-dir.js';
 import { createRunOutputParser, matchStepFailed, matchRunSummary } from './run-output-parser.js';
-import { detectInstalledCliProviders, detectUsableCliProviders } from '../dist/providers/detect.js';
+import { detectInstalledCliProviders, detectUsableCliProviders, CLI_PROVIDER_IDS } from '../dist/providers/detect.js';
 import { API_PROVIDERS, API_PROVIDER_MAP, ANTHROPIC_PROVIDERS, ANTHROPIC_PROVIDER_MAP, VIDEO_PROVIDERS, VIDEO_PROVIDER_MAP } from '../dist/connectors/api-providers.js';
 import { localSdcppStatus } from '../dist/connectors/local-sdcpp.js';
 import { STYLE_PRESETS } from '../dist/media/styles.js';
@@ -147,7 +147,7 @@ const ALLOWED_WORKFLOW_DIRS = [WORKFLOWS_DIR, WORKFLOWS_DIR_EN, USER_WORKFLOWS_D
 // 沿革：deepseek → apinebula → duoyuanx（2026-07-17）→ apinebula（2026-08-17，
 // 多元探索赞助到期下架）。AO_PROVIDER 环境变量永远优先于它。
 const DEFAULT_PROVIDER_ID = 'apinebula';
-const CLI_PROVIDERS = ['claude-code', 'antigravity-cli', 'gemini-cli', 'copilot-cli', 'codex-cli', 'openclaw-cli', 'hermes-cli', 'codebuddy-cli', 'cline-cli', 'opencode-cli', 'dsh-cli'];
+const CLI_PROVIDERS = CLI_PROVIDER_IDS; // 唯一来源：src/providers/detect.ts
 // LLM config: provider + (model/base_url where the runtime needs them). Reads any
 // per-provider overrides the user saved in the Studio (model name, custom base_url).
 // Already YAML-safe (no undefined fields) — used for compose, run args and run-role.
@@ -822,14 +822,18 @@ app.get('/api/runs/:id/assets/:file', (req, res) => {
   if (!isInside(filePath, join(runDir, 'assets')) || !existsSync(filePath)) {
     return res.status(404).json({ error: 'asset not found' });
   }
-  // 图片步骤产 png，视频步骤（type: video）产 mp4；其余扩展名兜底成通用二进制。
-  // mp4 必须给对 Content-Type，否则 <video> 标签在部分浏览器里直接不播（当成下载）。
-  const mime = /\.png$/i.test(filePath) ? 'image/png'
-    : /\.mp4$/i.test(filePath) ? 'video/mp4'
-    : 'application/octet-stream';
-  res.setHeader('Content-Type', mime);
-  res.setHeader('Cache-Control', 'private, max-age=86400');   // 产物不可变，放心缓存
-  res.send(readFileSync(filePath));
+  // 交给 sendFile：① 支持 Range——没有它 Safari 的 <video> 直接不播，Chrome 里也拖不动进度条；
+  // ② Content-Type 按扩展名查表（此前只认 png / mp4，配音的 mp3、jpg / webp 都成了 octet-stream）；
+  // ③ 流式发送，不再每次请求把几十 MB 的 mp4 同步读进内存、卡住单进程服务。
+  // 必须用 root + 文件名：直接给绝对路径的话，路径里**任何一段**以点开头都会被当成 dotfile 拒掉，
+  // 而默认数据目录正是 ~/.ao/…。
+  res.sendFile(basename(filePath), {
+    root: dirname(filePath),
+    dotfiles: 'allow',
+    headers: { 'Cache-Control': 'private, max-age=86400' },   // 产物不可变，放心缓存
+  }, (err) => {
+    if (err && !res.headersSent) res.status(err.status || 500).json({ error: 'asset not readable' });
+  });
 });
 
 // 可分享运行报告：与 CLI 的 `ao report` 同一渲染器（dist/cli/share-report.js）。

@@ -5,7 +5,8 @@
 import { mkdtempSync, writeFileSync, chmodSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, delimiter } from 'node:path';
-import { isOnPath, detectInstalledCliProviders, CLI_PROVIDER_BINS } from '../src/providers/detect.js';
+import { isOnPath, detectInstalledCliProviders, CLI_PROVIDER_BINS, CLI_PROVIDER_IDS, isCliProvider } from '../src/providers/detect.js';
+import { readFileSync } from 'node:fs';
 import { hasExtraBinDirs } from '../src/utils/bin-lookup.js';
 
 let passed = 0, failed = 0;
@@ -40,6 +41,19 @@ try {
   assert(CLI_PROVIDER_BINS['gemini-cli'] === 'gemini', 'gemini-cli → gemini 二进制名正确');
 } finally {
   rmSync(dir, { recursive: true, force: true });
+}
+
+console.log('\n─── CLI provider 名单只有一份 ───');
+{
+  // 这份名单曾在 9 个地方各抄一份。钉两件事：它和二进制表对得上；别处没有再长出手抄的副本。
+  const ids = [...CLI_PROVIDER_IDS].sort().join();
+  const bins = Object.keys(CLI_PROVIDER_BINS).sort().join();
+  assert(ids === bins, `CLI_PROVIDER_IDS 与 CLI_PROVIDER_BINS 的键一致（ids=${ids} bins=${bins}）`);
+  assert(isCliProvider('claude-code') && !isCliProvider('deepseek') && !isCliProvider(undefined), 'isCliProvider');
+  for (const f of ['src/cli.ts', 'src/core/parser.ts', 'src/mcp/server.ts', 'web/server.js']) {
+    const copies = (readFileSync(f, 'utf-8').match(/'claude-code',\s*'antigravity-cli'/g) || []).length;
+    assert(copies === 0, `${f} 里没有手抄的 CLI 名单（发现 ${copies} 处）——请 import CLI_PROVIDER_IDS`);
+  }
 }
 
 console.log(`\n  结果: ${passed} 通过, ${failed} 失败\n`);

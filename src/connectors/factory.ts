@@ -16,7 +16,8 @@ import { OpenCodeCLIConnector } from './opencode-cli.js';
 import { DshCLIConnector } from './dsh-cli.js';
 import { OllamaConnector } from './ollama.js';
 import { OpenAICompatibleConnector } from './openai-compatible.js';
-import { API_PROVIDER_MAP, ANTHROPIC_PROVIDER_MAP } from './api-providers.js';
+import { API_PROVIDER_MAP, ANTHROPIC_PROVIDER_MAP, API_PROVIDERS, ANTHROPIC_PROVIDERS } from './api-providers.js';
+import { CLI_PROVIDER_IDS } from '../providers/detect.js';
 
 export function createConnector(config: LLMConfig): LLMConnector {
   switch (config.provider) {
@@ -104,8 +105,10 @@ export function createConnector(config: LLMConfig): LLMConnector {
         '    api_key: "your-key"\n' +
         '    model: "model-name"\n\n' +
         '内置 provider:\n' +
-        '  免 API key: claude-code / antigravity-cli / gemini-cli / copilot-cli / codex-cli / openclaw-cli / hermes-cli / codebuddy-cli / cline-cli / opencode-cli / dsh-cli / ollama\n' +
-        '  需 API key: claude / deepseek / openai'
+        // 两行都从注册表现取：手写的那版停在「claude / deepseek / openai」，把后来接的二十来家全漏了，
+        // 用户拼错一个 provider 名时看到的「内置列表」里偏偏没有他想写的那家
+        `  本机 CLI / 本地: ${[...CLI_PROVIDER_IDS, 'ollama'].join(' / ')}\n` +
+        `  需 API key: ${['claude', ...API_PROVIDERS.map((p) => p.id), ...ANTHROPIC_PROVIDERS.map((p) => p.id)].join(' / ')}`
       );
     }
   }

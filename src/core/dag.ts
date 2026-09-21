@@ -51,6 +51,20 @@ export function buildDAG(workflow: WorkflowDefinition): DAG {
       if (backToLevel >= currentLevel) {
         throw new Error(`step "${step.id}" 的 loop.back_to "${step.loop.back_to}" 必须在其之前的层级（当前层 ${currentLevel + 1}，back_to 层 ${backToLevel + 1}）`);
       }
+      // 光在更早的层级还不够，必须真的是**依赖链上的祖先**。回跳只重置「back_to 的后代 ∩ 循环节点的祖先」，
+      // back_to 是不相干的旁支时这个交集是空的：什么都不重跑，循环空转到 max_iterations，最后报一句
+      // 「循环达上限」——用户看到的是"审了 3 轮都没过"，实际一轮都没改。
+      const ancestors = new Set<string>();
+      const stack = [...(nodes.get(step.id)?.dependencies ?? [])];
+      while (stack.length) {
+        const cur = stack.pop()!;
+        if (ancestors.has(cur)) continue;
+        ancestors.add(cur);
+        stack.push(...(nodes.get(cur)?.dependencies ?? []));
+      }
+      if (!ancestors.has(step.loop.back_to)) {
+        throw new Error(`step "${step.id}" 的 loop.back_to "${step.loop.back_to}" 不在它的依赖链上——回跳只会重跑两者之间的步骤，所以 back_to 必须是 "${step.id}" 直接或间接 depends_on 的步骤`);
+      }
     }
   }
 

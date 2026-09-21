@@ -20,6 +20,18 @@ import { parseWorkflow, validateWorkflow } from '../core/parser.js';
 import { buildDAG, formatDAG } from '../core/dag.js';
 import { listAgents } from '../agents/loader.js';
 import { composeWorkflow } from '../cli/compose.js';
+import { CLI_PROVIDER_IDS, isCliProvider } from '../providers/detect.js';
+import { API_PROVIDERS, API_PROVIDER_MAP, ANTHROPIC_PROVIDERS } from '../connectors/api-providers.js';
+
+/**
+ * run_workflow 可选的 provider。此前是手抄的一份：CLI 那半和别处一样，API 那半却只有
+ * deepseek / claude / openai 三家——引擎支持的其余二十来家，经 MCP 一律被参数校验拒掉。
+ * 现在从注册表生成，新接一家不用再记得来改这里。
+ */
+const MCP_PROVIDER_IDS = [...new Set([
+  ...CLI_PROVIDER_IDS, 'claude', 'ollama',
+  ...API_PROVIDERS.map((p) => p.id), ...ANTHROPIC_PROVIDERS.map((p) => p.id),
+])] as [string, ...string[]];
 
 /** 自动查找 agents 目录 */
 function findAgentsDir(hint?: string): string {
@@ -118,7 +130,7 @@ export async function startServer(verbose = false): Promise<void> {
     {
       path: z.string().describe('Path to workflow YAML file'),
       inputs: z.record(z.string(), z.string()).optional().describe('Key-value input variables'),
-      provider: z.enum(['claude-code', 'antigravity-cli', 'gemini-cli', 'copilot-cli', 'codex-cli', 'openclaw-cli', 'hermes-cli', 'codebuddy-cli', 'cline-cli', 'opencode-cli', 'dsh-cli', 'deepseek', 'claude', 'openai', 'ollama']).optional().describe('Override LLM provider'),
+      provider: z.enum(MCP_PROVIDER_IDS).optional().describe('Override LLM provider'),
       model: z.string().optional().describe('Override model name'),
     },
     async ({ path: workflowPath, inputs, provider, model }) => {
@@ -131,6 +143,12 @@ export async function startServer(verbose = false): Promise<void> {
         const llmOverride: Record<string, string> = {};
         if (provider) llmOverride.provider = provider;
         if (model) llmOverride.model = model;
+        // 只换 provider 没给 model：YAML 里的 model 是另一家的编码，不能沿用（deepseek-chat 会被原样递给
+        // claude CLI）。与 `ao run --provider` 同一规则：CLI 类清空，API 类回退到该家注册表里的默认模型。
+        else if (provider) {
+          const fallback = isCliProvider(provider) ? '' : API_PROVIDER_MAP[provider]?.defaultModel;
+          if (fallback !== undefined) llmOverride.model = fallback;
+        }
 
         const result = await silentCall(() =>
           run(absPath, (inputs || {}) as Record<string, string>, {

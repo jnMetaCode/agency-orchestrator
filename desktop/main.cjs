@@ -113,12 +113,44 @@ function findFreePort(start, tries = 20) {
   });
 }
 
+// ── pure helpers（test/desktop-helpers.ts 按这两行标记把它们抠出来单测；打包只带 main.cjs，所以不拆文件）──
+// >>> pure-helpers
+/**
+ * 只有 http(s) / mailto 才交给系统打开。模型产出和社区模板里的链接是不可信输入：
+ * `file:///…`、`smb://…`、各种自定义协议（`vscode://`、`ms-msdt:` 这类有过真实漏洞）点一下就会
+ * 调起本机的处理程序。
+ */
+function isSafeExternalUrl(raw) {
+  try {
+    const u = new URL(String(raw));
+    return u.protocol === "https:" || u.protocol === "http:" || u.protocol === "mailto:";
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * engine.log 只追加、从不清理——常驻开着的桌面版会把它写到几百 MB。启动时超过上限就轮转成
+ * engine.log.1（只留一份旧的），正在排查的那次运行的日志不会因此丢。
+ */
+function rotateLogIfLarge(fsMod, file, maxBytes) {
+  try {
+    if (fsMod.statSync(file).size <= maxBytes) return false;
+    fsMod.renameSync(file, file + ".1");
+    return true;
+  } catch {
+    return false; // 文件还不存在 / 改名失败：都不该挡住启动
+  }
+}
+// <<< pure-helpers
+
 function startBackend() {
   const serverPath = path.join(ROOT, "web", "server.js");
   try {
     const dir = path.join(app.getPath("userData"), "logs");
     fs.mkdirSync(dir, { recursive: true });
     logPath = path.join(dir, "engine.log");
+    rotateLogIfLarge(fs, logPath, 5 * 1024 * 1024);
     try { logStream && logStream.end(); } catch { /* noop */ }
     logStream = fs.createWriteStream(logPath, { flags: "a" });
     logStream.write(`\n===== boot ${new Date().toISOString()} port=${port} =====\n`);
@@ -233,7 +265,7 @@ async function checkForUpdate(win) {
       cancelId: 1,
       noLink: true,
     });
-    if (response === 0) shell.openExternal(latest.html_url);
+    if (response === 0 && isSafeExternalUrl(latest.html_url)) shell.openExternal(latest.html_url);
   } catch {
     /* 离线/被墙/接口限流 → 静默跳过，绝不打扰启动 */
   }
@@ -321,8 +353,15 @@ function createWindow() {
   });
   // Open external links in the system browser, not inside the app window.
   win.webContents.setWindowOpenHandler(({ url }) => {
-    shell.openExternal(url);
+    if (isSafeExternalUrl(url)) shell.openExternal(url);
     return { action: "deny" };
+  });
+  // 没带 target=_blank 的外链会让**应用窗口自己**跳走：Studio 没了，用户也回不来（没有地址栏）。
+  // 站内导航照常；站外的拦下，安全的交给系统浏览器。
+  win.webContents.on("will-navigate", (event, url) => {
+    if (url.startsWith(base()) || url.startsWith("data:text/html")) return; // data: = 启动/报错用的 splash 页
+    event.preventDefault();
+    if (isSafeExternalUrl(url)) shell.openExternal(url);
   });
   // Studio 加载失败（偶发：引擎刚好还没就绪）→ 短暂重试几次再放弃。
   let reloadTries = 0;

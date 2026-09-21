@@ -1,7 +1,7 @@
 /**
  * DAG 执行引擎 — 核心调度器
  */
-import { existsSync, readFileSync, readdirSync } from 'node:fs';
+import { existsSync, readFileSync, readdirSync, mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import type {
   WorkflowDefinition,
@@ -67,31 +67,52 @@ export interface ExecutorOptions {
    * 由 run() 从旧 metadata 读出传入——续跑产生的新档案才不丢被复用步骤的验收记录。
    */
   restoredStepMeta?: Map<string, Partial<StepResult>>;
+  /** 本次运行的媒体登记表（run() 建好传入，带暂存目录）；不传则用一份不落盘的，仍然是每次运行独立 */
+  media?: MediaRegistry;
 }
 
-/** 本次运行里图片步骤的产物（文件名 → 字节）。图生视频步骤在运行中引用上游图片时从这里取。 */
-const producedAssets = new Map<string, Buffer>();
-/** 本次运行里视频步骤 / concat 步骤的产物（文件名 → 字节）。concat 在运行中引用上游视频时从这里取。 */
-const producedVideos = new Map<string, Buffer>();
-
-/** 本次运行里配音步骤（type: tts）的产物。concat 的 voiceover / bgm 在运行中引用它时从这里取。 */
-const producedAudios = new Map<string, Buffer>();
-
-/** 每次 run() 开始前清空登记表：同进程连跑两条工作流时，别把上一条的 cover.png 当成这一条的 */
-export function resetProducedMedia(): void {
-  producedAssets.clear();
-  producedVideos.clear();
-  producedAudios.clear();
+/**
+ * 一次运行的媒体产物登记表（文件名 → 字节）：图生视频引用上游图片、concat 引用上游视频 / 配音时从这里取——
+ * 产物要到运行结束才进 `<run>/assets/`，运行中磁盘上还没有。
+ *
+ * **每次运行一份**，不是模块级全局。以前是全局 Map + run() 开头清空：同一进程里两条运行并发
+ * （MCP 的并行工具调用）时，后开始的那条一清空，先开始的那条的 concat 就报「找不到视频」——片子已经付过钱了。
+ *
+ * `spoolDir`：设了就**产物一生成立刻写盘**。付费产物此前只活在内存里，直到整条运行结束才落盘；
+ * 中途进程被杀（OOM / SIGKILL / 断电 / 合盖）就全没了，而按秒计费的视频是要不回来的。
+ */
+export interface MediaRegistry {
+  images: Map<string, Buffer>;
+  videos: Map<string, Buffer>;
+  audios: Map<string, Buffer>;
+  spoolDir?: string;
 }
+
+export function createMediaRegistry(spoolDir?: string): MediaRegistry {
+  return { images: new Map(), videos: new Map(), audios: new Map(), spoolDir };
+}
+
+function registerMedia(reg: MediaRegistry, kind: 'images' | 'videos' | 'audios', filename: string, bytes: Buffer): void {
+  reg[kind].set(filename, bytes);
+  if (!reg.spoolDir) return;
+  try {
+    mkdirSync(reg.spoolDir, { recursive: true });
+    writeFileSync(join(reg.spoolDir, filename), bytes);
+  } catch (err) {
+    // 暂存失败不能反过来搞挂已经成功（且已付费）的步骤；但要说出来——此时这份产物只在内存里
+    process.stderr.write(`  ⚠️  ${filename} 暂存到 ${reg.spoolDir} 失败（${err instanceof Error ? err.message.slice(0, 80) : err}），产物暂时只在内存里\n`);
+  }
+}
+
 /** --resume：上一轮的产物已经在磁盘上（assets/），被跳过的图片/视频步骤不会再产出，先把它们读进登记表 */
-export function preloadProducedMedia(assetsDir: string): number {
+export function preloadProducedMedia(assetsDir: string, reg: MediaRegistry): number {
   if (!existsSync(assetsDir)) return 0;
   let n = 0;
   for (const f of readdirSync(assetsDir)) {
     const p = join(assetsDir, f);
-    if (/\.(png|jpe?g|webp|gif)$/i.test(f)) { producedAssets.set(f, readFileSync(p)); n++; }
-    else if (/\.(mp4|mov|webm)$/i.test(f)) { producedVideos.set(f, readFileSync(p)); n++; }
-    else if (/\.(mp3|wav|aac|opus|flac|m4a)$/i.test(f)) { producedAudios.set(f, readFileSync(p)); n++; }
+    if (/\.(png|jpe?g|webp|gif)$/i.test(f)) { reg.images.set(f, readFileSync(p)); n++; }
+    else if (/\.(mp4|mov|webm)$/i.test(f)) { reg.videos.set(f, readFileSync(p)); n++; }
+    else if (/\.(mp3|wav|aac|opus|flac|m4a)$/i.test(f)) { reg.audios.set(f, readFileSync(p)); n++; }
   }
   return n;
 }
@@ -106,6 +127,7 @@ export async function executeDAG(dag: DAG, options: ExecutorOptions): Promise<Wo
     onStepComplete,
     onStepStart,
   } = options;
+  const media = options.media ?? createMediaRegistry();
 
   // 变量上下文：inputs + 每步的 output
   const context = new Map(inputs);
@@ -228,6 +250,7 @@ export async function executeDAG(dag: DAG, options: ExecutorOptions): Promise<Wo
           feedback: options.feedback,
           verify: options.verify,
           verifyLlm: options.verifyLlm,
+          media,
         }).then(value => {
           // 中断兜底：settle 即写入 sink 一份最小记录，不等整批屏障——否则并行批次里
           // 先完成的步骤在 SIGTERM 时会被当作"未完成"丢弃（产出和 token 白花）。
@@ -383,8 +406,9 @@ export async function executeDAG(dag: DAG, options: ExecutorOptions): Promise<Wo
             const loopResult = stepResults.find(s => s.id === id);
             if (loopResult) loopResult.loopExhausted = true;
           }
-          // 循环结束，清理 _loop_iteration
-          context.delete('_loop_iteration');
+          // 循环结束：复位成 '1' 而不是删掉。validate 处处放行 {{_loop_iteration}}，删掉之后
+          // 第二个循环的首轮、或循环之后任何引用它的步骤，都会在运行期报「模板变量未定义」
+          context.set('_loop_iteration', '1');
         }
       }
     }
@@ -507,6 +531,7 @@ async function executeStep(
     feedback?: { stepId: string; text: string; previousOutput?: string };
     verify?: boolean;
     verifyLlm?: Partial<LLMConfig>;
+    media: MediaRegistry;
   }
 ): Promise<string> {
   node.status = 'running';
@@ -624,7 +649,7 @@ async function executeStep(
     node.imageAsset = { filename, base64: img.buffer.toString('base64') };
     // 登记本次运行产出的图片：图生视频步骤用 {{cover_img}}（markdown 引用 assets/<id>.png）时从这里拿字节——
     // 产物要到运行结束才落盘，运行中磁盘上还没有
-    producedAssets.set(filename, img.buffer);
+    registerMedia(opts.media, 'images', filename, img.buffer);
     const kb = (img.buffer.length / 1024).toFixed(0);
     process.stderr.write(`  🎨 ${node.step.id} 生成图片 ${filename}（${kb}KB，${img.via === 'images-api' ? 'Images API' : 'Responses 工具'}）\n`);
     return `![${node.step.id}](assets/${filename})`;
@@ -665,7 +690,7 @@ async function executeStep(
         const m = ref.match(/!\[[^\]]*\]\(([^)]+)\)/);
         const target = (m ? m[1] : ref).trim();
         const name = target.split('/').pop() || target;
-        const bytes = producedAssets.get(name) ?? (existsSync(target) ? readFileSync(target) : undefined);
+        const bytes = opts.media.images.get(name) ?? (existsSync(target) ? readFileSync(target) : undefined);
         if (!bytes) throw new Error(`video.image 找不到图片：${ref.slice(0, 120)}（上游图片步骤没产出？或本地路径不存在）`);
         videoOpts.image_bytes = bytes;
         videoOpts.image_name = name;
@@ -751,7 +776,7 @@ async function executeStep(
 
     const filename = `${node.step.id}.mp4`;
     node.videoAsset = { filename, base64: vid.buffer.toString('base64'), ...(vid.seconds ? { seconds: vid.seconds } : {}) };
-    producedVideos.set(filename, vid.buffer);
+    registerMedia(opts.media, 'videos', filename, vid.buffer);
     const mb = (vid.buffer.length / 1024 / 1024).toFixed(1);
     process.stderr.write(`  🎬 ${node.step.id} 生成视频 ${filename}（${mb}MB${vid.seconds ? `，计费 ${vid.seconds}s` : ''}）\n`);
     return `[▶ ${node.step.id}.mp4](assets/${filename})`;
@@ -787,7 +812,7 @@ async function executeStep(
     const speech = await generateSpeech(ttsConfig, text, ttsOpts, (m: string) => process.stderr.write(`  ${m}\n`));
     const filename = `${node.step.id}.${speech.ext}`;
     node.audioAsset = { filename, base64: speech.buffer.toString('base64') };
-    producedAudios.set(filename, speech.buffer);
+    registerMedia(opts.media, 'audios', filename, speech.buffer);
     const kb = (speech.buffer.length / 1024).toFixed(0);
     process.stderr.write(`  🎙 ${node.step.id} 生成配音 ${filename}（${kb}KB，${ttsOpts.voice}）\n`);
     return `[🔊 ${filename}](assets/${filename})`;
@@ -812,7 +837,7 @@ async function executeStep(
       const m = ref.match(/\[[^\]]*\]\(([^)]+)\)/);
       const target = (m ? m[1] : ref).trim();
       const name = target.split('/').pop() || target;
-      const buffer = producedVideos.get(name) ?? (existsSync(target) ? readFileSync(target) : undefined);
+      const buffer = opts.media.videos.get(name) ?? (existsSync(target) ? readFileSync(target) : undefined);
       if (!buffer) throw new Error(`concat 找不到视频：${ref.slice(0, 120)}（上游视频步骤没产出？或本地路径不存在）`);
       return { name, buffer };
     });
@@ -823,7 +848,7 @@ async function executeStep(
       const m = t.match(/\[[^\]]*\]\(([^)]+)\)/);
       const target = (m ? m[1] : t).trim();
       const name = target.split('/').pop() || target;
-      const buffer = producedAudios.get(name) ?? (existsSync(target) ? readFileSync(target) : undefined);
+      const buffer = opts.media.audios.get(name) ?? (existsSync(target) ? readFileSync(target) : undefined);
       if (!buffer) throw new Error(`concat.${what} 找不到音频：${t.slice(0, 120)}（上游 tts 步骤没产出？或本地路径不存在）`);
       return { name, buffer };
     };
@@ -847,7 +872,7 @@ async function executeStep(
     }, (m: string) => process.stderr.write(`  ${m}\n`));
     const filename = `${node.step.id}.mp4`;
     node.videoAsset = { filename, base64: out.toString('base64') };
-    producedVideos.set(filename, out);
+    registerMedia(opts.media, 'videos', filename, out);
     process.stderr.write(`  🎞 ${node.step.id} 合成 ${inputs.length} 段 → ${filename}（${(out.length / 1024 / 1024).toFixed(1)}MB）\n`);
     return `[▶ ${node.step.id}.mp4](assets/${filename})`;
   }
@@ -1290,14 +1315,35 @@ function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
 }
 
 /** 错误分级：不同错误类型使用不同退避策略（借鉴 Claude Code 架构） */
-function classifyError(error: Error): 'rate_limit' | 'server_error' | 'connection' | 'non_retryable' {
+/**
+ * 从报错里取**明说的** HTTP 状态码。只认紧跟在 error / HTTP / status / 错误 后面的三位数——
+ * 「API error 401: …」「API Error: 401 {…}」「HTTP 503」这类；正文里散落的数字（"500ms"、
+ * "max 512 tokens"）不算。取不到返回 undefined，交给下面的关键词启发式。
+ */
+export function explicitHttpStatus(message: string): number | undefined {
+  const m = message.match(/(?:error|http|status(?:\s*code)?|错误)[\s:：(]*([1-5]\d\d)\b(?!\s*(?:ms|毫秒|s\b|秒|tokens?|字))/i);
+  return m ? Number(m[1]) : undefined;
+}
+
+export function classifyError(error: Error): 'rate_limit' | 'server_error' | 'connection' | 'non_retryable' {
   const msg = error.message.toLowerCase();
   // 中转网关明说「该分组下没有这个模型的可用渠道」：状态码是 503，但属于账号配置问题，重试无用。
   // 必须排在 5xx 判定之前（与 connectors/endpoint.ts 的 isModelUnavailable 同一口径）
   if (/model_not_found|无可用渠道|no available channel/.test(msg))
     return 'non_retryable';
+  // 报错里**明说了状态码**就按状态码判，不再猜关键词。此前两种误判都出在这：
+  //  · claude-code 的鉴权失败是「… API 错误: API Error: 401 …」，被 `includes('api 错误')` 一律当成
+  //    服务端故障，按 CLI 退避 5/10/20/40/80s 重试五次——两分半钟之后才告诉用户 key 不对；
+  //  · 任何 400 只要正文里带 generate / moderate / separate（都含 "rate"）就被当成限速重试。
+  const status = explicitHttpStatus(error.message);
+  if (status !== undefined) {
+    if (status === 429) return 'rate_limit';
+    if (status === 408) return 'connection';
+    if (status >= 500) return 'server_error';
+    if (status >= 400) return 'non_retryable';   // 400 / 401 / 402 / 403 / 404 / 422：重试不会变好
+  }
   // 限速：需要更长退避。用 \b 边界匹配，避免 "1429ms" / "429 ids" 等子串误判
-  if (/\b429\b/.test(msg) || msg.includes('rate'))
+  if (/\b429\b/.test(msg) || /rate.?limit|rate exceeded|too many requests|throttl|限流|限速|请求过于频繁/.test(msg))
     return 'rate_limit';
   // 服务端错误：短退避即可。5xx 状态码用 \b 边界匹配，避免 "500ms" / "450000ms" 等误判
   if (/\b5\d\d\b/.test(msg) || msg.includes('api 错误'))

@@ -167,10 +167,44 @@ export function spawnCLI(
     ? { ...(options.env ?? process.env), ELECTRON_RUN_AS_NODE: '1' }
     : options.env;
 
-  return spawn(plan.file, plan.args, {
+  const child = spawn(plan.file, plan.args, {
     ...options,
     ...(env ? { env } : {}),
     shell: false,
     ...(plan.viaCmd ? { windowsVerbatimArguments: true } : {}),
   });
+  trackChild(child);
+  return child;
+}
+
+/**
+ * 还活着的 CLI 子进程。引擎退出时必须带走它们：Studio 里点「停止」/ 关掉页面 / 终端 Ctrl-C，
+ * 引擎进程存档后就 process.exit 了，但 `claude -p` 这类子进程**不会跟着死**（真机复现：
+ * `kill -TERM <ao>` 之后假 claude 仍在跑）——它会把这一步跑完，最长十分钟，白烧订阅额度，
+ * 而用户以为已经停了。
+ */
+const liveChildren = new Set<ChildProcess>();
+let exitHookInstalled = false;
+
+function trackChild(child: ChildProcess): void {
+  liveChildren.add(child);
+  const forget = () => liveChildren.delete(child);
+  child.once('exit', forget);
+  child.once('error', forget);
+  if (!exitHookInstalled) {
+    exitHookInstalled = true;
+    // 'exit' 回调里只能做同步的事——kill() 是同步发信号，够用。覆盖 process.exit() 和自然退出两条路；
+    // 被信号直接打死的路径由 run() 的中断处理先调 killSpawnedCLIs()。
+    process.once('exit', () => killSpawnedCLIs());
+  }
+}
+
+/** 给所有还活着的 CLI 子进程发终止信号，返回发了几个。幂等。 */
+export function killSpawnedCLIs(signal: NodeJS.Signals = 'SIGTERM'): number {
+  let n = 0;
+  for (const child of liveChildren) {
+    try { if (child.kill(signal)) n++; } catch { /* 已经没了 */ }
+  }
+  liveChildren.clear();
+  return n;
 }

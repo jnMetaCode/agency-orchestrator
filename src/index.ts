@@ -36,7 +36,8 @@ export type {
 } from './types.js';
 import type { InputDefinition } from './types.js';
 import { expandStyle } from './media/styles.js';
-import { resetProducedMedia, preloadProducedMedia } from './core/executor.js';
+import { createMediaRegistry, preloadProducedMedia } from './core/executor.js';
+import { killSpawnedCLIs } from './connectors/spawn-cli.js';
 
 /**
  * 计算真正缺失的必填输入：required 且未提供且**无默认值**。
@@ -92,7 +93,7 @@ import { createConnector } from './connectors/factory.js';
 import { describePendingVideoTasks } from './connectors/video.js';
 import { loadAgent } from './agents/loader.js';
 import { saveResults, printStepResult, printStepRunning, clearRunningLine, printSummary, loadPreviousContext, getCompletedStepIds, findLatestOutput, computeResumeSkipIds, loadStepOutput } from './output/reporter.js';
-import { existsSync, readFileSync, copyFileSync, mkdirSync } from 'node:fs';
+import { existsSync, readFileSync, copyFileSync, mkdirSync, readdirSync, rmSync } from 'node:fs';
 import { resolve, dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { defaultOutputDir } from './utils/paths.js';
@@ -100,6 +101,30 @@ import { defaultOutputDir } from './utils/paths.js';
 /**
  * 一行运行工作流（高级 API）
  */
+/**
+ * 上一次运行没走到存档就没了（被杀 / 断电 / 崩溃）时，它已经生成的媒体还躺在暂存目录里。
+ * 那是付过钱的东西，必须让用户知道它们在哪——只在跑带媒体步骤的工作流时提示，不打扰别人。
+ */
+function reportOrphanedMedia(spoolRoot: string): void {
+  try {
+    if (!existsSync(spoolRoot)) return;
+    const orphans = readdirSync(spoolRoot)
+      .map((d) => ({ d, files: readdirSync(join(spoolRoot, d)) }))
+      // 目录名末两段是 pid-时间戳：pid 还活着的是另一条正在跑的运行，不是遗留
+      .filter(({ d, files }) => files.length > 0 && !isPidAlive(Number(d.split('-').at(-2))));
+    if (orphans.length === 0) return;
+    const n = orphans.reduce((a, o) => a + o.files.length, 0);
+    console.log(`\n  📦 发现 ${n} 个上次运行没来得及存档的媒体产物（运行中途被终止），仍保留在：`);
+    for (const o of orphans.slice(0, 5)) console.log(`     ${join(spoolRoot, o.d)}  （${o.files.slice(0, 4).join('、')}${o.files.length > 4 ? ' …' : ''}）`);
+    console.log('     需要就取走，不需要可以直接删掉这个目录。\n');
+  } catch { /* 提示而已，出错不影响运行 */ }
+}
+
+function isPidAlive(pid: number): boolean {
+  if (!Number.isInteger(pid) || pid <= 0) return false;
+  try { process.kill(pid, 0); return true; } catch (e) { return (e as NodeJS.ErrnoException).code === 'EPERM'; }
+}
+
 export async function run(
   workflowPath: string,
   inputs: Record<string, string>,
@@ -185,8 +210,29 @@ export async function run(
     ? createConnector(workflow.llm)
     : (undefined as unknown as ReturnType<typeof createConnector>);
 
+  // 媒体产物登记表：每次运行一份 + 一生成就暂存到盘上（为什么，见 executor.ts 的 MediaRegistry）。
+  // 暂存目录是点目录：findLatestOutput / Studio 的运行列表都不会把它当成一次运行。
+  const hasMediaSteps = workflow.steps.some((s) => s.type === 'image' || s.type === 'video' || s.type === 'tts' || s.type === 'concat');
+  const spoolRoot = join(options?.outputDir || defaultOutputDir(), '.inflight-media');
+  const spoolDir = hasMediaSteps
+    ? join(spoolRoot, `${workflow.name.replace(/[^\w\u4e00-\u9fa5-]+/g, '_').slice(0, 40)}-${process.pid}-${Date.now()}`)
+    : undefined;
+  if (hasMediaSteps && !options?.quiet) reportOrphanedMedia(spoolRoot);
+  const media = createMediaRegistry(spoolDir);
+  /** 存档之后：暂存里有、档案 assets/ 里没有的补进去（中断存档时步骤记录可能还没带上字节），然后清掉暂存 */
+  const settleSpool = (savedDir: string): void => {
+    if (!spoolDir || !existsSync(spoolDir)) return;
+    try {
+      for (const f of readdirSync(spoolDir)) {
+        const dst = join(savedDir, 'assets', f);
+        if (!existsSync(dst)) { mkdirSync(join(savedDir, 'assets'), { recursive: true }); copyFileSync(join(spoolDir, f), dst); }
+      }
+      rmSync(spoolDir, { recursive: true, force: true });
+      if (existsSync(spoolRoot) && readdirSync(spoolRoot).length === 0) rmSync(spoolRoot, { recursive: true, force: true });
+    } catch { /* 清不掉就留着：宁可多占点盘，也别让收尾把已存好的运行搞挂 */ }
+  };
+
   // 构建输入
-  resetProducedMedia();
   const inputMap = new Map(Object.entries(inputs));
 
   // Resume: 先把上一次运行的原始输入 + 步骤输出恢复到 inputMap，
@@ -253,7 +299,7 @@ export async function run(
 
     skipStepIds = computeResumeSkipIds(dag, getCompletedStepIds(resumeDir), fromStep);
     // 被跳过的图片/视频步骤的产物在上一轮的 assets/ 里：读进登记表，下游图生视频 / concat 才拿得到字节
-    preloadProducedMedia(join(resumeDir, 'assets'));
+    preloadProducedMedia(join(resumeDir, 'assets'), media);
 
     // 被复用步骤的展示字段（角色名/验收标准/核验结果）从旧档案带回新档案，
     // 否则续跑产生的 metadata 里这些步骤全是裸 id、验收记录凭空消失
@@ -345,6 +391,8 @@ export async function run(
   let flushHandler: ((signal: NodeJS.Signals) => void) | undefined;
   if (options?.signalFlush) {
     const flushAndExit = (signal: NodeJS.Signals) => {
+      // 先停掉还在跑的 CLI 子进程：它们不会因为我们退出而停，会把这一步跑完、白烧订阅额度
+      killSpawnedCLIs();
       try {
         const doneById = new Map(partialSteps.map(s => [s.id, s]));
         const interrupted: import('./types.js').WorkflowResult = {
@@ -374,6 +422,7 @@ export async function run(
           ),
         };
         const dir = saveResults(interrupted, options?.outputDir || defaultOutputDir());
+        settleSpool(dir);
         if (!options?.quiet) {
           const done = partialSteps.filter(s => s.status === 'completed').length;
           console.log(`\n⚠️  运行被中断 (${signal})，已完成 ${done} 步已存档: ${dir}`);
@@ -395,6 +444,7 @@ export async function run(
     llmConfig: workflow.llm,
     concurrency: workflow.concurrency || 2,
     inputs: inputMap,
+    media,
     skipStepIds,
     restoredStepMeta,
     feedback: feedbackOption,
@@ -445,6 +495,7 @@ export async function run(
   // 保存结果（默认目录支持 AO_HOME / AO_OUTPUT_DIR，见 utils/paths）
   const outputDir = options?.outputDir || defaultOutputDir();
   const outputPath = saveResults(result, outputDir);
+  settleSpool(outputPath);
   // --resume 复用的媒体步骤没有 base64（它们没重跑），reporter 写不出文件——从上一轮目录复制过来，
   // 否则新目录里 `![cover](assets/cover.png)` 是断链，分享报告和 Studio 都显示不出来
   if (resumeDir) {

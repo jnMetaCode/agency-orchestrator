@@ -382,6 +382,84 @@ steps:
   assert(sidebarCalls === 1, `sidebar 是并行旁支，循环回跳不应重跑，应为 1 次，实际: ${sidebarCalls}`);
 });
 
+// back_to 光在更早的层级还不够，必须是依赖链上的祖先。回跳只重置「back_to 的后代 ∩ 循环节点的祖先」，
+// 不相干的旁支会让这个交集为空：什么都不重跑，循环空转到上限，最后报一句「循环达上限」。
+await test('loop.back_to 指向不在依赖链上的旁支 → 构建 DAG 时就拒绝，而不是空转到上限', async () => {
+  const yamlPath = resolve(tmpDir, 'loop-non-ancestor.yaml');
+  writeFileSync(yamlPath, `
+name: 旁支回跳
+agents_dir: ${agentsDir}
+${baseLlm}
+steps:
+  - id: unrelated
+    role: product/product-manager
+    task: "不相干的一步"
+    output: other
+  - id: draft
+    role: product/product-manager
+    task: "写稿"
+    output: copy
+  - id: review
+    role: product/product-manager
+    task: "审 {{copy}}"
+    output: verdict
+    depends_on: [draft]
+    loop:
+      back_to: unrelated
+      max_iterations: 3
+      exit_condition: "{{verdict}} contains APPROVED"
+`);
+  let msg = '';
+  try { buildDAG(parseWorkflow(yamlPath)); } catch (e) { msg = e instanceof Error ? e.message : String(e); }
+  assert(/依赖链/.test(msg) && msg.includes('unrelated'), `应报 back_to 不在依赖链上（实际：${msg || '没报错'}）`);
+});
+
+// 循环结束时曾把 _loop_iteration 删掉，而 validate 处处放行这个变量——于是第二个循环的首轮、
+// 或循环之后任何引用它的步骤，运行期才报「模板变量未定义」。
+await test('两个先后的循环：第二个循环首轮和循环后的步骤都读得到 _loop_iteration', async () => {
+  const yamlPath = resolve(tmpDir, 'loop-twice.yaml');
+  writeFileSync(yamlPath, `
+name: 两个循环
+agents_dir: ${agentsDir}
+${baseLlm}
+steps:
+  - id: a
+    role: product/product-manager
+    task: "A 第 {{_loop_iteration}} 轮"
+    output: a_out
+  - id: a_review
+    role: product/product-manager
+    task: "审A {{a_out}}"
+    output: a_verdict
+    depends_on: [a]
+    loop: { back_to: a, max_iterations: 2, exit_condition: "{{a_verdict}} contains NEVER" }
+  - id: b
+    role: product/product-manager
+    task: "B 第 {{_loop_iteration}} 轮"
+    output: b_out
+    depends_on: [a_review]
+  - id: b_review
+    role: product/product-manager
+    task: "审B {{b_out}}"
+    output: b_verdict
+    depends_on: [b]
+    loop: { back_to: b, max_iterations: 2, exit_condition: "{{b_verdict}} contains NEVER" }
+`);
+  const seen: string[] = [];
+  const conn: LLMConnector = {
+    async chat(_s: string, user: string): Promise<LLMResult> {
+      const m = user.match(/[AB] 第 \d+ 轮/);
+      if (m) seen.push(m[0]);
+      return { content: 'x', usage: { input_tokens: 1, output_tokens: 1 } };
+    },
+  };
+  const wf = parseWorkflow(yamlPath);
+  const result = await executeDAG(buildDAG(wf), { connector: conn, agentsDir, llmConfig: wf.llm, concurrency: 1, inputs: new Map() });
+  const bad = result.steps.filter((x) => x.status !== 'completed').map((x) => `${x.id}: ${x.error}`);
+  assert(bad.length === 0, `所有步骤都应完成（实际失败：${bad.join(' | ')}）`);
+  assert(seen.join(' → ') === 'A 第 1 轮 → A 第 2 轮 → B 第 1 轮 → B 第 2 轮', `第二个循环从 1 重新计（实际 ${seen.join(' → ')}）`);
+});
+
 // 清理临时目录
 rmSync(tmpDir, { recursive: true });
 

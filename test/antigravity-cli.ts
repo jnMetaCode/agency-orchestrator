@@ -141,11 +141,14 @@ await test('没装就是没装（不能反过来永远报已安装）', () => {
   }
 });
 
-await test('各处 provider 清单都登记了（漏一处 = 能选不能跑 / 能跑选不了）', () => {
+await test('各处 provider 清单都登记了（漏一处 = 能选不能跑 / 能跑选不了）', async () => {
   const files: [string, RegExp][] = [
-    ['src/core/parser.ts', /antigravity-cli/],           // 不写 model 也能跑
-    ['src/cli.ts', /antigravity-cli/],                    // CLI 的 provider 白名单与引导
-    ['web/server.js', /antigravity-cli/],                 // Studio 后端把它当 CLI provider
+    // parser / cli / Studio 后端 / MCP 不再各抄一份名单，统一 import CLI_PROVIDER_IDS——
+    // 所以这几处要钉的是「确实在用那一份」，名单本身在 detect.ts 里查（下一行）
+    ['src/core/parser.ts', /CLI_PROVIDER_IDS/],           // 不写 model 也能跑
+    ['src/cli.ts', /CLI_PROVIDER_IDS/],                   // CLI 的 provider 白名单与引导
+    ['web/server.js', /CLI_PROVIDER_IDS/],                // Studio 后端把它当 CLI provider
+    ['src/mcp/server.ts', /CLI_PROVIDER_IDS/],            // MCP run_workflow 的 provider 枚举
     ['website/src/lib/studio.ts', /antigravity-cli/],     // 前端下拉与标签
     ['src/connectors/factory.ts', /antigravity-cli/],     // 连接器路由
     ['src/providers/detect.ts', /antigravity-cli/],       // 安装探测
@@ -153,6 +156,8 @@ await test('各处 provider 清单都登记了（漏一处 = 能选不能跑 / �
   for (const [f, re] of files) {
     assert(re.test(readFileSync(f, 'utf-8')), `${f} 里没登记 antigravity-cli`);
   }
+  const { CLI_PROVIDER_IDS } = await import('../src/providers/detect.js');
+  assert(CLI_PROVIDER_IDS.includes('antigravity-cli'), 'CLI_PROVIDER_IDS 里没有 antigravity-cli');
 });
 
 await test('探测说"已安装"，就必须真的跑得起来（两边共用同一份"装在哪"）', async () => {

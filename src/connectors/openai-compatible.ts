@@ -373,9 +373,41 @@ export class OpenAICompatibleConnector implements LLMConnector {
     let lastProgressTime = 0;
 
     try {
+      // SSE 规范里 `data:` 后面的空格是**可选**的：有的网关发 `data:{…}`。只认 `data: ` 的话这些行全被
+      // 丢掉，调用明明成功却报「模型返回了空正文」。
+      const handleLine = (line: string): void => {
+        const trimmed = line.trim();
+        if (!trimmed.startsWith('data:')) return;
+
+        const data = trimmed.slice(5).trimStart();
+        if (!data || data === '[DONE]') return;
+
+        try {
+          const chunk = JSON.parse(data);
+          // 检查流式错误响应
+          if (chunk.error) {
+            throw new Error(`API stream error: ${chunk.error.message || JSON.stringify(chunk.error)}`);
+          }
+          const delta = chunk.choices?.[0]?.delta?.content;
+          if (delta) content += delta;
+          const rd = chunk.choices?.[0]?.delta?.reasoning_content ?? chunk.choices?.[0]?.delta?.reasoning;
+          if (typeof rd === 'string') reasoningChars += rd.length;
+          const fr = chunk.choices?.[0]?.finish_reason;
+          if (fr) finishReason = fr;
+        } catch (e) {
+          // 重新抛出 API 错误，忽略 JSON 解析失败
+          if (e instanceof Error && e.message.startsWith('API stream error')) throw e;
+        }
+      };
+
       while (true) {
         const { done, value } = await reader.read();
-        if (done) break;
+        if (done) {
+          // 最后一行没有换行结尾时还躺在 buffer 里：不处理就丢掉最后一个 chunk（常常正是带 finish_reason 的那条）
+          buffer += decoder.decode();
+          if (buffer.trim()) handleLine(buffer);
+          break;
+        }
         opts?.onData?.();  // 连接还在产出字节，重置外层停顿计时
 
         buffer += decoder.decode(value, { stream: true });
@@ -391,30 +423,7 @@ export class OpenAICompatibleConnector implements LLMConnector {
         const lines = buffer.split('\n');
         buffer = lines.pop() || '';  // 最后一行可能不完整，留到下次
 
-        for (const line of lines) {
-          const trimmed = line.trim();
-          if (!trimmed || !trimmed.startsWith('data: ')) continue;
-
-          const data = trimmed.slice(6);  // 去掉 "data: "
-          if (data === '[DONE]') continue;
-
-          try {
-            const chunk = JSON.parse(data);
-            // 检查流式错误响应
-            if (chunk.error) {
-              throw new Error(`API stream error: ${chunk.error.message || JSON.stringify(chunk.error)}`);
-            }
-            const delta = chunk.choices?.[0]?.delta?.content;
-            if (delta) content += delta;
-            const rd = chunk.choices?.[0]?.delta?.reasoning_content ?? chunk.choices?.[0]?.delta?.reasoning;
-            if (typeof rd === 'string') reasoningChars += rd.length;
-            const fr = chunk.choices?.[0]?.finish_reason;
-            if (fr) finishReason = fr;
-          } catch (e) {
-            // 重新抛出 API 错误，忽略 JSON 解析失败
-            if (e instanceof Error && e.message.startsWith('API stream error')) throw e;
-          }
-        }
+        for (const line of lines) handleLine(line);
       }
     } catch (err) {
       reader.cancel().catch(() => {});  // 释放连接资源
