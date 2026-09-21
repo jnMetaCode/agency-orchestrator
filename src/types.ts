@@ -266,6 +266,8 @@ export interface StepResult {
   duration: number;
   tokens: { input: number; output: number };
   iterations?: number;          // 该步骤实际执行次数（循环场景 > 1）
+  reused?: boolean;             // resume / feedback 复用了上次运行的产出，本次没有执行（ao ledger 不计入）
+  loopExhausted?: boolean;      // 循环轮数用完、退出条件仍未满足（产出是最后一轮，不代表通过）
   verification?: StepVerification; // acceptance 自动核验结果（进 metadata，查看器/summary 展示）
   /** type: image 的产物。base64 仅在 saveResults 落盘前存在，metadata 里只留 filename */
   imageAsset?: { filename: string; base64?: string };

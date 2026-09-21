@@ -173,6 +173,9 @@ await test('--from final_summary：仅重跑 1 步，上游复用旧输出', asy
   assert(byId.get('analyze')!.output === ctx.get('requirements'), '跳过步骤应沿用旧 output');
   assert(byId.get('final_summary')!.status === 'completed', 'final_summary 应重跑完成');
   assert(byId.get('final_summary')!.output!.startsWith('OUT#1'), 'final_summary 应是本次新生成的输出');
+  // 复用步骤要带 reused：ao ledger 靠它避免把上次的工作再算一遍
+  assert(byId.get('analyze')!.reused === true, `analyze 是复用的，应标 reused，实际 ${byId.get('analyze')!.reused}`);
+  assert(byId.get('final_summary')!.reused === undefined, 'final_summary 是本次执行的，不应标 reused');
 });
 
 await test('清理临时输出', () => {

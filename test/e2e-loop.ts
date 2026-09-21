@@ -139,15 +139,26 @@ await test('multi-round: 1次循环后通过', async () => {
 
   const wf = parseWorkflow(yamlPath);
   const dag = buildDAG(wf);
-  const result = await executeDAG(dag, {
-    connector: mock,
-    agentsDir,
-    llmConfig: wf.llm,
-    concurrency: 1,
-    inputs: new Map([['topic', '产品发布']]),
-  });
+  // 条件满足而退出的循环不应出现「已达上限」警告
+  let stderrText = '';
+  const origWrite = process.stderr.write.bind(process.stderr);
+  (process.stderr as any).write = (chunk: unknown) => { stderrText += String(chunk); return true; };
+  let result;
+  try {
+    result = await executeDAG(dag, {
+      connector: mock,
+      agentsDir,
+      llmConfig: wf.llm,
+      concurrency: 1,
+      inputs: new Map([['topic', '产品发布']]),
+    });
+  } finally {
+    (process.stderr as any).write = origWrite;
+  }
 
   assert(result.success, '工作流应成功');
+  assert(!stderrText.includes('循环已达上限'), `条件满足退出不应警告，实际 stderr: ${stderrText.slice(0, 200)}`);
+  assert(!result.steps.some(s => s.loopExhausted), '条件满足退出不应标 loopExhausted');
   // draft(1) + review(1) + revise(1) + review(2) + revise(2) = 5
   assert(callCount === 5, `应有 5 次 LLM 调用，实际: ${callCount}`);
   // upsert 策略：结果仍为 3 步
@@ -177,15 +188,39 @@ await test('max_iterations: 强制退出', async () => {
 
   const wf = parseWorkflow(yamlPath);
   const dag = buildDAG(wf);
-  const result = await executeDAG(dag, {
-    connector: mock,
-    agentsDir,
-    llmConfig: wf.llm,
-    concurrency: 1,
-    inputs: new Map([['topic', '产品发布']]),
-  });
+  // 捕获 stderr：轮数用完而条件未满足，必须明说「没有通过」，不能静默报成功
+  let stderrText = '';
+  const origWrite = process.stderr.write.bind(process.stderr);
+  (process.stderr as any).write = (chunk: unknown) => { stderrText += String(chunk); return true; };
+  let result;
+  try {
+    result = await executeDAG(dag, {
+      connector: mock,
+      agentsDir,
+      llmConfig: wf.llm,
+      concurrency: 1,
+      inputs: new Map([['topic', '产品发布']]),
+    });
+  } finally {
+    (process.stderr as any).write = origWrite;
+  }
 
   assert(result.success, '工作流应成功（max_iterations 不算失败）');
+  assert(stderrText.includes('revise 循环已达上限 2 轮') && stderrText.includes('没有通过该条件'),
+    `轮数用完应打出未通过警告，实际 stderr: ${stderrText.slice(0, 200)}`);
+  // back_to 被拉回重跑的 review 也要记真实次数，不只是带 loop 的 revise
+  const draftStep = result.steps.find(s => s.id === 'draft')!;
+  const reviewStep = result.steps.find(s => s.id === 'review')!;
+  const reviseStep = result.steps.find(s => s.id === 'revise')!;
+  assert(draftStep.iterations === undefined, `draft 只跑 1 次，iterations 应为空，实际: ${draftStep.iterations}`);
+  assert(reviewStep.iterations === 2, `review 跑了 2 次，实际: ${reviewStep.iterations}`);
+  assert(reviseStep.iterations === 2, `revise 跑了 2 次，实际: ${reviseStep.iterations}`);
+  // 5 次调用 × (10 in + 10 out)：前几轮的 token 不能被最后一轮覆盖掉
+  assert(reviewStep.tokens.input === 20 && reviewStep.tokens.output === 20, `review 两轮 token 应累计为 20/20，实际: ${JSON.stringify(reviewStep.tokens)}`);
+  assert(result.totalTokens.input === 50 && result.totalTokens.output === 50, `总 token 应为 50/50，实际: ${JSON.stringify(result.totalTokens)}`);
+  // 警告不能只在终端：结果里要带标记，metadata / summary / Studio 才看得到
+  assert(reviseStep.loopExhausted === true, `上限退出应标 loopExhausted，实际: ${reviseStep.loopExhausted}`);
+  assert(reviewStep.loopExhausted === undefined, 'loopExhausted 只标在带 loop 的步骤上');
   // draft(1) + review(1) + revise(1) + review(2) + revise(2) = 5
   assert(callCount === 5, `应有 5 次 LLM 调用 (max_iterations=2)，实际: ${callCount}`);
 });

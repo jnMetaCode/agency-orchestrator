@@ -121,6 +121,14 @@ export async function executeDAG(dag: DAG, options: ExecutorOptions): Promise<Wo
   const effectiveConcurrency = isCLI ? 1 : concurrency;
 
   const loopIterations = new Map<string, number>();
+  // 每步真实执行次数与累计 token：循环回跳会重跑 back_to 到循环节点之间的所有步骤，
+  // 结果按 id 覆盖——只记最后一轮会把前几轮的次数和 token 丢掉（成本少报、账本少计）
+  const execCounts = new Map<string, number>();
+  const tokenTotals = new Map<string, { input: number; output: number }>();
+  const withPriorTokens = (id: string, current?: { input: number; output: number }) => {
+    const prev = tokenTotals.get(id) || { input: 0, output: 0 };
+    return { input: prev.input + (current?.input || 0), output: prev.output + (current?.output || 0) };
+  };
   const hasLoops = Array.from(dag.nodes.values()).some(n => n.step.loop);
   if (hasLoops) {
     context.set('_loop_iteration', '1');
@@ -137,14 +145,15 @@ export async function executeDAG(dag: DAG, options: ExecutorOptions): Promise<Wo
       if (node.status === 'skipped') {
         node.endTime = Date.now();
         node.startTime = node.endTime;
-        const iterCount = loopIterations.get(node.step.id) || 0;
+        const runs = execCounts.get(node.step.id) || 0;
         upsertStepResult(stepResults, {
           id: node.step.id,
           role: node.step.role,
           status: 'skipped',
           duration: 0,
-          tokens: { input: 0, output: 0 },
-          iterations: iterCount > 0 ? iterCount + 1 : undefined,
+          // 本轮跳过，但前几轮真实花掉的 token 仍要算
+          tokens: tokenTotals.get(node.step.id) || { input: 0, output: 0 },
+          iterations: runs > 1 ? runs : undefined,
         });
         onStepComplete?.(node);
         return false;
@@ -174,6 +183,7 @@ export async function executeDAG(dag: DAG, options: ExecutorOptions): Promise<Wo
           output_var: node.step.output,
           duration: 0,
           tokens: { input: 0, output: 0 },
+          reused: true,
         });
         onStepComplete?.(node);
         return false;
@@ -233,7 +243,7 @@ export async function executeDAG(dag: DAG, options: ExecutorOptions): Promise<Wo
               acceptance: node.acceptance ?? node.step.acceptance,
               verification: node.verification,
               duration: Date.now() - (node.startTime || Date.now()),
-              tokens: node.tokenUsage || { input: 0, output: 0 },
+              tokens: withPriorTokens(node.step.id, node.tokenUsage),
               imageAsset: node.imageAsset,
               videoAsset: node.videoAsset,
               audioAsset: node.audioAsset,
@@ -270,7 +280,11 @@ export async function executeDAG(dag: DAG, options: ExecutorOptions): Promise<Wo
 
         node.endTime = Date.now();
 
-        const iterCount = loopIterations.get(node.step.id) || 0;
+        if (node.status === 'completed' || node.status === 'failed') {
+          execCounts.set(node.step.id, (execCounts.get(node.step.id) || 0) + 1);
+          tokenTotals.set(node.step.id, withPriorTokens(node.step.id, node.tokenUsage));
+        }
+        const runs = execCounts.get(node.step.id) || 0;
         upsertStepResult(stepResults, {
           id: node.step.id,
           role: node.step.role,
@@ -283,8 +297,8 @@ export async function executeDAG(dag: DAG, options: ExecutorOptions): Promise<Wo
           verification: node.verification,
           error: node.error,
           duration: (node.endTime || 0) - (node.startTime || 0),
-          tokens: node.tokenUsage || { input: 0, output: 0 },
-          iterations: iterCount > 0 ? iterCount + 1 : undefined,
+          tokens: tokenTotals.get(node.step.id) || { input: 0, output: 0 },
+          iterations: runs > 1 ? runs : undefined,
           imageAsset: node.imageAsset,
           videoAsset: node.videoAsset,
           audioAsset: node.audioAsset,
@@ -356,6 +370,14 @@ export async function executeDAG(dag: DAG, options: ExecutorOptions): Promise<Wo
           loopTriggered = true;
           break; // 只处理第一个循环触发
         } else {
+          // 轮数用完而退出条件仍不满足：产出是最后一轮的，不代表「通过」——必须说出来，
+          // 否则运行照样报成功，用户会把没过审的稿子当成过审的
+          if (!shouldExit) {
+            process.stderr.write(`\n  ⚠️  ${id} 循环已达上限 ${maxIter} 轮，退出条件仍未满足（${loop.exit_condition}）——产出是最后一轮的结果，没有通过该条件\n`);
+            // 终端警告会被刷走、Studio 看不到：同时记进结果，随 metadata / summary 存档
+            const loopResult = stepResults.find(s => s.id === id);
+            if (loopResult) loopResult.loopExhausted = true;
+          }
           // 循环结束，清理 _loop_iteration
           context.delete('_loop_iteration');
         }

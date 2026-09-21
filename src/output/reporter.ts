@@ -127,7 +127,9 @@ export function saveResults(result: WorkflowResult, outputDir: string): string {
     const duration = step.duration ? ` | ${(step.duration / 1000).toFixed(1)}s` : '';
 
     const verifBadge = formatVerification(step.verification, !/[一-鿿]/.test(`${name}${step.output || ''}`));
-    summaryLines.push(`${status} **[${filename}](steps/${filename})**${isFinal ? ' ⭐ 最终成品' : ''}${verifBadge ? ` · ${verifBadge}` : ''}  `);
+    const loopBadge = step.loopExhausted ? ' · ⚠️ 循环达上限，退出条件未满足' : '';
+    const reusedBadge = step.reused ? ' · ♻️ 复用上次产出' : '';
+    summaryLines.push(`${status} **[${filename}](steps/${filename})**${isFinal ? ' ⭐ 最终成品' : ''}${verifBadge ? ` · ${verifBadge}` : ''}${loopBadge}${reusedBadge}  `);
     summaryLines.push(`  ${emoji} ${name}${duration}  `);
     if (step.status === 'failed' && step.error) {
       summaryLines.push(`  失败原因: ${step.error}  `);
@@ -177,6 +179,10 @@ export function saveResults(result: WorkflowResult, outputDir: string): string {
       error: s.error,
       duration: `${(s.duration / 1000).toFixed(1)}s`,
       tokens: s.tokens,
+      // 循环重跑时的真实执行次数（只跑一次不写）；tokens 已是各轮累计。ao ledger 据此按次数计 AI 步骤
+      iterations: s.iterations,
+      reused: s.reused,
+      loopExhausted: s.loopExhausted,
       // 图片/视频步骤只留 filename（base64 在上面落盘时已摘掉）——Studio 据此渲染图与播放器
       imageAsset: s.imageAsset,
       videoAsset: s.videoAsset,

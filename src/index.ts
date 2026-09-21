@@ -19,6 +19,7 @@ export { saveResults, loadPreviousContext, findLatestOutput, computeResumeSkipId
 export { composeWorkflow, buildRoleCatalog, extractYamlFromResponse } from './cli/compose.js';
 import { buildBaselineTask, runBaseline, finalOutput, compareOutputs, type CompareVerdict } from './core/compare.js';
 import { evaluateCondition } from './core/condition.js';
+import { mergeLlmOverride } from './core/llm-override.js';
 export { buildBaselineTask, runBaseline, finalOutput, compareOutputs, aggregateVerdict } from './core/compare.js';
 export type { CompareVerdict } from './core/compare.js';
 
@@ -171,7 +172,7 @@ export async function run(
 
   // Apply LLM override (e.g., from ao demo)
   if (options?.llmOverride) {
-    Object.assign(workflow.llm, options.llmOverride);
+    mergeLlmOverride(workflow.llm, options.llmOverride);
   }
 
   // 创建 connector。**纯媒体工作流（每步都是 type: image / video）没有文本调用**，
@@ -512,7 +513,9 @@ export async function compareWorkflowVsBaseline(
   const multiOutput = finalOutput(result);
 
   // 2) 跑单次基线（同生成模型）
-  const genLlm = { ...workflow.llm, ...options?.genOverride } as import('./types.js').LLMConfig;
+  const genLlm = options?.genOverride
+    ? mergeLlmOverride({ ...workflow.llm }, options.genOverride)
+    : { ...workflow.llm } as import('./types.js').LLMConfig;
   const baselineTask = buildBaselineTask(workflow.name, workflow.description, effInputs);
   const baselineOutput = await runBaseline(genLlm, baselineTask);
 
