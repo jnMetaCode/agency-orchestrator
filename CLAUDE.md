@@ -20,6 +20,10 @@ ao prompt optimize "<prompt>"         # AI-optimize a prompt (--mode system|user
 ao prompt test / list / show / rm / garden  # Prompt Lab: test / manage / starter templates
 ao skills [name]                      # List / view methodology skills (superpowers-zh) for step `skill:`
 ao report [dir|last]                  # Render a run into a shareable single-file HTML (default: latest run → <run>/report.html)
+ao ledger add "<what>" --reason <r>   # Human-intervention ledger (src/cli/ledger.ts): log manual work outside workflows; reasons unsupported|quality|judgment|external; JSONL at <ao-output>/ledger.jsonl (AO_LEDGER_FILE)
+# claude-code MUST use `--output-format stream-json --verbose` (src/connectors/claude-code.ts `streamJson`): when one answer exceeds the CLI's output cap it auto-continues, and plain `json` keeps only the LAST segment in `result` (silently, subtype success). parseResultJson joins all assistant segments. Don't revert to json. test/claude-code-stream.ts pins it
+AO_CLI_INHERIT_CWD=1 ao run <wf>      # claude-code/codebuddy spawn in an empty temp dir by default (src/connectors/claude-code.ts) so the user's Claude Code project memory / CLAUDE.md never leak into role outputs; set this to spawn in cwd (old behavior). Don't switch to --bare: it disables OAuth/keychain
+ao ledger report [--since D] [--until D] [--out f.md]  # Daily table: runs, AI steps, approval/human_input nodes (auto-counted), manual entries → AI autonomy rate (counts, not effort; never prices)
 ao run <wf> --notify <webhook>        # Push result to DingTalk/Feishu/WeCom/generic webhook when done (AO_NOTIFY_URL also works; cron-friendly)
 ao run <wf> --export pptx             # Export outputs as PPTX (also docx/pdf/xlsx/skill/plan); pandoc preferred, pptxgenjs fallback
 ao run <wf> -i photo=@img.png         # Image inputs auto-become vision input (data-URI protocol, src/utils/vision.ts); needs a vision-capable API model; CLI providers strip+warn

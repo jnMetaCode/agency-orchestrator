@@ -98,6 +98,9 @@ async function main(): Promise<void> {
     case 'team':
       await handleTeam();
       break;
+    case 'ledger':
+      await handleLedger();
+      break;
     case 'prompt':
       await handlePrompt();
       break;
@@ -123,7 +126,7 @@ async function main(): Promise<void> {
       break;
     default: {
       // 容错：用户可能漏了空格，如 "planworkflows/x.yaml"
-      const knownCmds = ['run', 'validate', 'plan', 'explain', 'compose', 'doctor', 'report', 'team', 'prompt', 'skills', 'demo', 'roles', 'install', 'init', 'serve', 'web', 'upgrade'];
+      const knownCmds = ['run', 'validate', 'plan', 'explain', 'compose', 'doctor', 'report', 'team', 'ledger', 'prompt', 'skills', 'demo', 'roles', 'install', 'init', 'serve', 'web', 'upgrade'];
       const match = knownCmds.find(c => command.startsWith(c) && command.length > c.length);
       if (match) {
         console.error(`看起来少了个空格？试试:\n  ao ${match} ${command.slice(match.length)}\n`);
@@ -206,7 +209,7 @@ async function handleRun(): Promise<void> {
         llmOverride.provider = provider;
         // CLI provider 不指定 model 时清空（避免 YAML 里的 deepseek-chat 传给 claude CLI）
         llmOverride.model = model || (cliProviders.includes(provider) ? '' : undefined);
-        if (cliProviders.includes(provider)) llmOverride.timeout = 600_000;
+        // CLI provider 的 600s 是下限而不是覆盖：YAML 显式写了更长的超时就用 YAML 的（见 core/llm-override.ts）
       } else if (model) {
         llmOverride.model = model;
       }
@@ -939,7 +942,8 @@ async function handleDoctor(): Promise<void> {
   // 4) 系统 Claude Code 健康（复用 claude-repair 的诊断）
   const diag = diagnoseClaudeConfig();
   if (diag.healthy) {
-    console.log(`  ✅ 系统 Claude Code：正常（~/.claude 未被劫持）`);
+    const mode = diag.cloudProvider ? '走 Bedrock/Vertex 网关，模型名配置已按正当配置保留' : '~/.claude 未被劫持';
+    console.log(`  ✅ 系统 Claude Code：正常（${mode}）`);
   } else {
     problems++;
     const where = diag.baseUrl ? `（请求被改道到 ${diag.baseUrl}）` : '';
@@ -1268,6 +1272,102 @@ async function handleTeam(): Promise<void> {
       }
       default:
         console.error(`未知子命令: team ${sub}\n用 \`ao team\` 查看用法`);
+        process.exit(1);
+    }
+  } catch (err) {
+    console.error(`\n错误: ${err instanceof Error ? err.message : err}`);
+    process.exit(1);
+  }
+}
+
+/** ao ledger — 人工介入账本（add / list / report）：AI 自己做了多少，人插手了多少。 */
+async function handleLedger(): Promise<void> {
+  const sub = args[1];
+  const ledger = await import('./cli/ledger.js');
+  const fileArg = getArgValue('--file');
+  const file = fileArg ? resolve(fileArg) : ledger.ledgerFile();
+
+  if (!sub || sub === '--help' || sub === '-h') {
+    const reasons = Object.entries(ledger.LEDGER_REASONS).map(([k, v]) => `${k}（${v}）`).join(' / ');
+    console.log(`
+  ao ledger — 人工介入账本：AI 自己做了多少，人插手了多少
+
+  ao ledger add "做了什么" --reason <原因> [--minutes 分钟] [--step 步骤id] [--run 目录名|last]
+                                  手记一次工作流之外的人工介入
+  ao ledger list [--since YYYY-MM-DD] [--until YYYY-MM-DD]
+                                  列出手记
+  ao ledger report [--since …] [--until …] [--out 文件.md]
+                                  按天汇总运行记录 + 人工节点 + 手记，算出 AI 自主率（markdown）
+
+  原因: ${reasons}
+  工作流里的 approval / human_input 节点自动计为人工，不用手记。
+  账本文件: ${file}（--file 或 AO_LEDGER_FILE 可改）
+`);
+    return;
+  }
+
+  try {
+    switch (sub) {
+      case 'add': {
+        const action = args[2] && !args[2].startsWith('--') ? args[2] : undefined;
+        let run = getArgValue('--run');
+        if (run === 'last') {
+          const { findLatestOutput } = await import('./output/reporter.js');
+          const latest = findLatestOutput(getArgValue('--output') || defaultOutputDir());
+          if (!latest) throw new Error('找不到运行输出，--run last 无法解析');
+          run = basename(latest);
+        }
+        const entry = ledger.makeEntry({
+          action,
+          reason: getArgValue('--reason'),
+          minutes: getArgValue('--minutes'),
+          step: getArgValue('--step'),
+          run,
+        });
+        ledger.appendEntry(file, entry);
+        console.log(`\n  📒 已记账：${entry.action}（${ledger.LEDGER_REASONS[entry.reason]}${entry.minutes ? `，${entry.minutes} 分钟` : ''}）`);
+        console.log(`     ${file}\n`);
+        break;
+      }
+      case 'list': {
+        const since = ledger.assertDay(getArgValue('--since'), '--since');
+        const until = ledger.assertDay(getArgValue('--until'), '--until');
+        const { entries, skipped } = ledger.readEntries(file);
+        const kept = entries.filter((e) => {
+          const day = ledger.localDay(e.at);
+          return (!since || day >= since) && (!until || day <= until);
+        });
+        if (kept.length === 0) {
+          console.log(`\n  账本里还没有记录。先记一条：ao ledger add "人工部署到服务器" --reason unsupported --minutes 20\n`);
+        } else {
+          console.log(`\n  共 ${kept.length} 条手记 (${file}):\n`);
+          for (const e of kept) {
+            const link = [e.run, e.step].filter(Boolean).join(' / ');
+            console.log(`  ${ledger.localDay(e.at)} ${new Date(e.at).toTimeString().slice(0, 5)}  [${ledger.LEDGER_REASONS[e.reason]}]  ${e.action}${e.minutes ? `  (${e.minutes} 分钟)` : ''}${link ? `  ${link}` : ''}`);
+          }
+          console.log('');
+        }
+        if (skipped) console.error(`  ⚠️  账本里有 ${skipped} 行无法解析，已跳过：${file}`);
+        break;
+      }
+      case 'report': {
+        const since = ledger.assertDay(getArgValue('--since'), '--since');
+        const until = ledger.assertDay(getArgValue('--until'), '--until');
+        const outputDir = getArgValue('--output') || defaultOutputDir();
+        const { entries, skipped } = ledger.readEntries(file);
+        const md = ledger.formatReport(ledger.summarize(entries, ledger.readRuns(outputDir), { since, until }));
+        const outFile = getArgValue('--out');
+        if (outFile) {
+          writeFileSync(resolve(outFile), md, 'utf-8');
+          console.log(`\n  📊 账本报告已写入：${resolve(outFile)}\n`);
+        } else {
+          console.log('\n' + md);
+        }
+        if (skipped) console.error(`  ⚠️  账本里有 ${skipped} 行无法解析，已跳过：${file}`);
+        break;
+      }
+      default:
+        console.error(`未知子命令: ledger ${sub}\n用 \`ao ledger\` 查看用法`);
         process.exit(1);
     }
   } catch (err) {

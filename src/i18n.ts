@@ -203,6 +203,7 @@ const dict: Dict = {
     team save <workflow.yaml>         把角色阵容存成可复用团队 (Loadout)
     team list / show / rm             管理已保存的团队
     run --team <名字> "任务"           用已保存的团队跑新任务（锁定阵容）
+    ledger add / list / report        人工介入账本：手记人工操作，按天汇总出 AI 自主率
     prompt optimize "提示词"          AI 优化提示词（--mode system|user，--save 存下来）
     prompt test / list / show / garden  测试 / 管理 / 起手模板（提示词沉淀）
     skills                            列出可挂到步骤的方法论 skill（来自 superpowers-zh）
@@ -276,6 +277,7 @@ const dict: Dict = {
     team save <workflow.yaml>         Save a role line-up as a reusable team (Loadout)
     team list / show / rm             Manage saved teams
     run --team <name> "task"          Run a new task with a saved team (locked line-up)
+    ledger add / list / report        Human-intervention ledger: log manual work, get a daily AI autonomy rate
     prompt optimize "<prompt>"        AI-optimize a prompt (--mode system|user, --save to keep)
     prompt test / list / show / garden  Test / manage / starter templates (prompt library)
     skills [name]                     List / view methodology skills (from superpowers-zh) to attach to steps

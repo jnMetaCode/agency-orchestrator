@@ -5,6 +5,18 @@
 ## [Unreleased]
 
 ### Added
+- **新模板「一人公司·方案到代码」**（`workflows/一人公司-方案到代码.yaml`）：老板简报 → PRD（带「不做清单」）→ 技术方案
+  （受 `constraints` 输入约束）→ 按 PRD 和技术方案写代码（配 `--materialize`）→ 范围审查（逐项对照不做清单、功能、
+  技术栈、数据模型，结论行「【范围一致】/【有偏差：N 项】」）。来由：真机演练把「一人公司·做产品」和「需求转项目脚手架」
+  串着跑，后者只收一句话 idea、读不到前者的方案，结果形态、存储、状态都不同，还实现了 PRD 砍掉的功能。
+- **`ao ledger`（人工介入账本）**：回答「这件事 AI 自己做了多少、人插手了多少」。`ao ledger add "做了什么"
+  --reason unsupported|quality|judgment|external [--minutes N] [--step id] [--run 目录|last]` 手记工作流之外的
+  人工操作（JSONL，默认 `<ao-output>/ledger.jsonl`，`AO_LEDGER_FILE` / `--file` 可改）；工作流里的
+  `approval` / `human_input` 节点自动计为人工，不用手记。`ao ledger report [--since] [--until] [--out]` 按天汇总
+  运行数、AI 完成步骤、人工节点、手记、人工分钟与 token，给出 AI 自主率 =
+  AI 完成步骤 ÷（AI 完成步骤 + 人工节点 + 手记）——**按次数、不按工作量，不折算金额**，口径随报告输出。
+  metadata 不记步骤 type：工作流文件还在时按文件认人工节点，不在时按「无角色且无产物」回退。`--resume` / `--feedback` 复用的步骤不计入（引擎给复用步骤写
+  `reused: true`；旧档案按「0.0s + 0 token」识别），否则同一份工作会被算两遍、自主率虚高。`test/ledger.ts` 10 条。
 - **工作流顶层 `deliverables: [step_id, …]`（交付物步骤）**。多步工作流里前几步往往是施工图（大纲 / 人设 /
   审读意见），只有最后一两步是用户要拿走的；此前 `--export docx`、Studio「导出 / 复制 / 下载 .md」把全部
   步骤按顺序拼进去，小说的 Word 前大半是创作笔记、正文排在最后。现在声明了就只取交付物：CLI `--export`、
@@ -30,6 +42,13 @@
   章标题用 `## Chapter N: Title`；审校多一条"大纲自身的矛盾要指出并给出正文该怎么处理"（中文版真跑时审校自己挑出过这类问题）。
 
 ### Changed
+- **「一人公司·做产品」加 `team`（团队规模）与 `timeline`（交付周期）输入**。默认「创始人 1 人 + AI 团队」「4 周」，
+  老用法产出不变。真机演练里模板不知道只有一个人，启动包凭空写出工程师、PM，还要「暂停其他产品线」；现在简报、
+  排期、启动包都受团队与周期约束，启动包验收加一条「负责人不超出团队范围」。周期 14 天以内按天排。
+- **对外数字按源码统一**：README（中 / 英）与 `package.json` 描述改为「20+ 家 API · 10 种免 key 方式」，并写明口径——
+  免 key = 9 个复用登录订阅的编码 CLI + 本地 Ollama，不含已停服的 Gemini CLI，DeepSeek Harness 需要 `DEEPSEEK_API_KEY`
+  不计入。此前 README 写 15 / 11、`package.json` 与官网写 11 / 7，示例注释还把 gemini-cli、dsh-cli 列为免 key。
+  `package.json` 角色数更正为 276 中文 + 191 英文（按角色库实数）。官网 `translations.ts` 的数字与卡片列表未改，待同步。
 - **AICodeMirror 赞助下架（2026-09-14）**：摘掉官网赞助商卡片、Studio 赞助标识与置顶位、推广链接（返利参数
   `invitecode`）、编码 CLI 中转预设，以及 CLI 引导横幅轮换位（池子 7 → 6 家，每家份额回到 2/6）；远程清单同步
   `removedProviders`，老版本免升级生效。**保留为可用供应商**（Anthropic 协议，退到末位的已下架组）——已配过它
@@ -47,6 +66,44 @@
   新增「氛围锁定」规则与「按类型的默认运镜与节拍」表（剧情短剧 / 产品广告片 / 治愈日常 / 悬疑惊悚 /
   搞笑段子 / 科幻 / 古风武侠 / 纪实 Vlog），来源是上游的 genre-camera-sop 与各题材范例。
 ### Fixed
+- **Bedrock / Vertex 用户不再被体检误判成「被劫持」，`ao doctor --fix` 也不会删掉他们的模型配置**。走 AWS Bedrock /
+  Google Vertex 的 Claude Code 用户没有 API key，模型 ID 就填在 `ANTHROPIC_MODEL` / `ANTHROPIC_SMALL_FAST_MODEL`
+  这几个键里；而这几个键此前被一律当成「中转劫持」，导致体检报红、`--fix` 把用户配置删了（有备份，但要手动恢复）。
+  现在只要检测到 `CLAUDE_CODE_USE_BEDROCK` / `CLAUDE_CODE_USE_VERTEX`（shell 或任一 settings 文件里），模型名键就按
+  正当配置放行；凭据类键（`ANTHROPIC_AUTH_TOKEN` / `API_KEY` / `BASE_URL`）在任何模式下仍照查照删。豁免有边界：一旦
+  存在 `ANTHROPIC_BASE_URL`（说明当前指着中转，Bedrock/Vertex 不用这个键），模型名键照旧清除，免得中转写进来的模型名
+  在切回官方后继续生效。来由：用户留言问 Bedrock 模式怎么用 AO —— 答案是"直接用 `provider: claude-code`，环境变量原样
+  透传"，但顺手发现体检会误伤他们
+- **`--provider` 换成 CLI 类时不再把 YAML 的长超时压回 600s**。此前 `ao run --provider claude-code` 一律把超时写死成
+  600s，YAML 里显式写的 `timeout` 被悄悄覆盖。真机：「一人公司·方案到代码」写代码一步要生成约 40 分钟，模板写了
+  `timeout: 2700000`，仍在 600s、900s、1350s 连续超时重试，每次都从头生成。现在 600s 是下限：YAML 写得更长就用 YAML 的，
+  写 0（不限时）保持 0，显式 `--timeout` 仍然优先，换成 API provider 行为不变。`run` 与 `--compare` 共用
+  `src/core/llm-override.ts`。`test/llm-override.ts` 7 条。
+- **claude-code 长输出不再只剩最后一段**（静默丢数据）。单段输出超过 Claude Code 的输出上限时，CLI 会自动续写成多轮，
+  而 `--output-format json` 的 `result` 只装最后一段、`subtype` 仍是 `success`。真机：在「一人公司·方案到代码」里，
+  写代码一步 89,221 个输出 token 只存下 58KB（正常步骤约 2 字节 / token，这一步 0.65），`package.json`、核心模块、
+  服务端全部丢失，运行照样报成功。对照实验：把上限压到 300 token 让它从 1 写到 400——json 的 result 是 301–400，
+  `stream-json --verbose` 三条 assistant 消息拼起来是完整的 1–400。现在 claude-code 走 `stream-json --verbose`，
+  按顺序拼接全部 assistant 分段，usage / is_error 取 result 事件；CodeBuddy 的整段对话数组有多条 assistant 文本时
+  同样拼接（CodeBuddy 仍用 json，未实测）。修复后用真实 claude 重跑同一实验：拿到连续的 1–400；在真实工作流里
+  重跑写代码一步：100,632 个输出 token 一次跑完，落盘 50 个文件，生成项目 `npm test` 96/96、`npm run build` 通过。
+  `test/claude-code-stream.ts` 6 条（含假 CLI 端到端）。
+- **循环轮数用完、退出条件仍未满足时不再静默**。此前 `loop.max_iterations` 耗尽后运行照样报「成功」，产出是最后一轮的
+  结果却看不出没过条件——「写 → 审 → 改」流水线里，没过审的稿子会被当成过审的。现在结束时 stderr 打出
+  `⚠️ <step> 循环已达上限 N 轮，退出条件仍未满足（…）——产出是最后一轮的结果，没有通过该条件`；条件满足而退出时不打。
+  运行状态不变（上限退出仍不算失败）。终端警告会被刷走、Studio 看不到，所以同时在该步结果上标 `loopExhausted: true`，
+  写入 `metadata.json`，summary 里加「⚠️ 循环达上限，退出条件未满足」。`test/e2e-loop.ts` 补正反断言。
+- **循环重跑的 token 与执行次数不再被最后一轮覆盖**。步骤结果按 id upsert，循环回跳重跑 `back_to` 到循环节点之间的
+  步骤时，前几轮的 token 被覆盖丢掉——`totalTokens`、summary、MCP 返回、Studio 用量统计全部**少报**；`iterations`
+  也只记在带 `loop` 的那一步，被拉回重跑的步骤显示为 1 次。现在执行器按步骤累计真实执行次数与 token：
+  `StepResult.tokens` 为各轮合计，`iterations` 为真实次数（>1 才写），并写进 `metadata.json`；`ao ledger` 按次数计 AI 步骤
+  （旧档案无该字段按 1 次）。`test/e2e-loop.ts` 断言回跳步骤次数与 token 累计。
+- **claude-code / codebuddy 不再把用户本机的项目记忆带进角色产出**。`claude -p` 按启动目录自动加载
+  `~/.claude/projects/<cwd>/memory` 和 CLAUDE.md，`--tools ""` 关不掉它。真机：在 AO 仓库里跑「一人公司·做产品」，
+  用户私有记忆里的项目名写进了启动包——别人复现不了，`ao report` 分享页还会带出私有信息。金丝雀验证：
+  临时项目的 CLAUDE.md 放一个随机暗号，在该目录启动（旧行为）原样说出暗号，在空临时目录启动回答 NONE。现在每次调用在空临时目录里启动、跑完删除；需要旧行为设
+  `AO_CLI_INHERIT_CWD=1`。没用 `--bare`：它不读钥匙串 / OAuth，订阅登录用户会不可用。`test/claude-code-cwd.ts`
+  用假 CLI 钉住。其他 CLI provider（codex / gemini 等，会读 AGENTS.md / GEMINI.md）未改，待验证。
 - **中转网关「分组下无可用渠道」被当成上游故障白白重试**。new-api 系网关（PackyCode 等）对令牌分组里没开的模型回
   `503 + model_not_found`「分组 default 下模型 X 无可用渠道」——状态码像临时故障，其实是账号配置问题。此前按 5xx
   重试 5 次（真 key 实测白等 43 秒），提示还叫人"稍后重试或换一家"。现在不重试、立即失败（2 秒），提示直接说清：

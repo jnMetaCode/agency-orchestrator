@@ -11,7 +11,7 @@
 [![License: Apache-2.0](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](./LICENSE)
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](./CONTRIBUTING.md)
 
-**一句话出结果 · 276 个专业 AI 角色 · YAML 零代码 · 15 种大模型 · 支持 key（推荐 DeepSeek），也有 11 种免 key 方式**
+**一句话出结果 · 276 个专业 AI 角色 · YAML 零代码 · 20+ 家 API（推荐 DeepSeek）· 10 种免 key 方式**
 
 > 📖 [完整上手教程](https://mp.weixin.qq.com/s/XcGbkMb6TM6NLQiL7ICwbw)（从安装到实战，10 分钟上手）&nbsp;·&nbsp; 🎓 **官方配套课程**：[AI 专家团队实战](https://aiolaola.com/course/ai-agency?utm_source=github&utm_campaign=orchestrator)（35 节免费，桌面端零代码：单兵点名→自动组队→一人公司全流程，含官方评测的诚实用法边界）· 另有 [AI 内容流水线](https://aiolaola.com/course/ai-pipeline?utm_source=github&utm_campaign=orchestrator)（31 节免费——**用 AO 产线真实生产两门课的全过程留档**：蒸馏、换角色审核、机械闸门、断点续跑，含七类翻车现场）＋ [从零学会 AI 编程](https://aiolaola.com/?utm_source=github&utm_campaign=orchestrator)（182 节）＋ [从零构建 AI 智能体](https://aiolaola.com/course/ai-agent?utm_source=github&utm_campaign=orchestrator)（40 节）（站上共 13 门课、648 节，**全部 ¥0**——另有 AI 绘画 / 写小说 / 漫剧 / 量化 / DeepSeek / 深度专注 等）
 
@@ -32,7 +32,7 @@
 
 - **零配置首跑** —— 本机已登录 Claude Code / Gemini CLI 等？AO 自动探测并直接用，连 API key 都不用配
 - **AI 自动组队** —— 不知道选哪些专家？角色页一句话、不选角色，AI 从全部专家里挑人组队并运行
-- **「一人公司」系列模板** —— 做产品 / 做内容 / 做投研 + 全员大会；关键步骤带验收标准（`acceptance`），投研含老板签字闸门，交付的是可验收的工作成果，不承诺奇迹
+- **「一人公司」系列模板** —— 做产品 / 做内容 / 做投研 / 方案到代码 + 全员大会；关键步骤带验收标准（`acceptance`），投研含老板签字闸门，交付的是可验收的工作成果，不承诺奇迹
 
 **改成你要的样子**
 
@@ -127,7 +127,7 @@ ao compose "设计一个 SaaS 产品的定价策略" --run                   # �
 |---|--------|-----------|---------------------|
 | 角色数 | 1 个通用 | 自己写 | **276 个专业角色** |
 | 使用方式 | 对话 | 写 Python | **一句话 / YAML** |
-| API key | — | 必须 | **支持 key，也有 11 种免 key 方式** |
+| API key | — | 必须 | **支持 key，也有 10 种免 key 方式** |
 | 依赖 | — | pip + 几十个包 | **npm + 2 个依赖** |
 | 并行 | — | 手动建图 | **DAG 自动检测** |
 | 中文角色 | — | 无 | **276 个** |
@@ -184,6 +184,13 @@ ao install --tool claude-code --lang zh
 cd my-app && claude "按计划把项目补全到可运行，并跑通测试"
 ```
 
+想让方案和代码对得上，用一条流水线从想法走到代码——PRD 和技术方案直接喂给写代码的步骤，最后一步对照「不做清单」查偏差：
+
+```bash
+ao run workflows/一人公司-方案到代码.yaml -i idea="一个自动记账的命令行小工具" \
+  -i constraints="Node.js CLI，数据存本地 JSON" --materialize ./my-app
+```
+
 每一步产物都在 `ao-output/` 与你的项目目录里：可复跑（`--resume`）、可带意见返工（`--feedback`）、可出分享报告（`ao report`）。**方案错了改方案、代码错了改代码，永远知道错在哪一层。**
 
 ## 更多真实演示
@@ -220,7 +227,7 @@ name: "产品需求评审"
 agents_dir: "agency-agents-zh"
 
 llm:
-  provider: "deepseek"          # 免 API key: claude-code / antigravity-cli / copilot-cli / codex-cli / openclaw-cli / hermes-cli / codebuddy-cli / cline-cli / opencode-cli / dsh-cli / ollama
+  provider: "deepseek"          # 免 API key: claude-code / antigravity-cli / copilot-cli / codex-cli / openclaw-cli / hermes-cli / codebuddy-cli / cline-cli / opencode-cli / ollama
   model: "deepseek-chat"
 
 concurrency: 2
@@ -275,7 +282,9 @@ analyze ──→ tech_review  ──→ summary
           (并行)
 ```
 
-## 15 种 LLM — 11 种不需要 API key
+## 20+ 家 API — 10 种不需要 API key
+
+> 统计口径（以源码为准）：**免 key** = 复用已登录订阅的 9 个编码 CLI（Claude Code / Antigravity / Copilot / Codex / OpenClaw / Hermes / CodeBuddy / Cline / OpenCode）+ 本地 Ollama；不含已停服的 Gemini CLI；DeepSeek Harness 需要 `DEEPSEEK_API_KEY`，不计入免 key。**API** = 下方官方直连 + 赞助商 / 聚合中转平台（见 `src/connectors/api-providers.ts`），另支持任意 OpenAI 兼容接口。
 
 **你已经有这些会员了吧？直接就能跑：**
 
@@ -291,8 +300,15 @@ analyze ──→ tech_review  ──→ summary
 | 腾讯 WorkBuddy / CodeBuddy 会员 | `provider: "codebuddy-cli"` | WorkBuddy 桌面版自带（macOS 免装）；或 `npm i -g @tencent-ai/codebuddy-code` | **不花钱**（[集成指南](./integrations/workbuddy/)） |
 | Cline 里已配好的供应商 / 账号 | `provider: "cline-cli"` | `npm i -g cline` + `cline auth` | **不另配 key**（[集成指南](./integrations/cline/)） |
 | OpenCode 里已配好的供应商 / 账号 | `provider: "opencode-cli"` | `npm i -g opencode-ai` + `opencode auth login` | **不另配 key**（[集成指南](./integrations/opencode/)） |
-| DeepSeek Harness（dsh，开发者预览） | `provider: "dsh-cli"` | `npm i -g @deepseek-ai/dsh`（Node ≥ 22.15）+ `DEEPSEEK_API_KEY` | **不另配 key**（[集成指南](./integrations/deepseek-harness/)） |
+| DeepSeek Harness（dsh，开发者预览） | `provider: "dsh-cli"` | `npm i -g @deepseek-ai/dsh`（Node ≥ 22.15）+ `DEEPSEEK_API_KEY` | 需要 DeepSeek API key，按 API 计费（[集成指南](./integrations/deepseek-harness/)） |
 | 一台电脑 | `provider: "ollama"` | [ollama.ai](https://ollama.ai) | **免费**（本地模型，见下方提示） |
+
+> 💡 **用 AWS Bedrock / Google Vertex 跑 Claude Code 的（没有 API key，走云凭证）**：照样用 `provider: "claude-code"`，
+> 不用额外配置 —— AO 调的就是你本机的 `claude` 命令，`CLAUDE_CODE_USE_BEDROCK` / `AWS_*` 等环境变量会原样传给它。
+> 只要 `claude -p "你好"` 能跑通就行。两个注意点：
+> ① AO 默认在空临时目录里启动 `claude`（避免你项目的 CLAUDE.md、记忆混进角色输出），所以这些配置要放在**全局**
+> —— shell 环境变量或 `~/.claude/settings.json`，别只放在某个项目的 `.claude/settings.json` 里；
+> ② `model` 留空或写 `claude-code` 即可沿用你在 Claude Code 里配的模型；要指定就填 Bedrock/Vertex 的模型 ID。
 
 > ⚠️ **模型能力决定多智能体的价值**：我们用质量评测验证过（见 [EVAL_FINDINGS.md](EVAL_FINDINGS.md)，网页版：[中文](https://ao.aiolaola.com/evals/) / [English](https://ao.aiolaola.com/en/evals/)）——**DeepSeek 这一档（够强又不贵）上，多智能体产出明显优于单次 prompt**；但**本地小模型（如 llama3 8B 级）能力不足时，多角色交接反而会放大漂移、产出不如单次**。追求质量请用 DeepSeek/Claude/Gemini 等有能力的模型；本地 Ollama 建议用 70B+ 模型。
 
@@ -519,6 +535,20 @@ ao report <dir>    # 渲染指定运行目录
 
 网页 Studio 的运行详情里也有「分享页」按钮，一样的效果。
 
+### 人工介入账本（Ledger）
+
+「AI 帮我做完了」——到底做了多少，人插手了多少？账本把这笔账算清楚：
+
+```bash
+# 工作流之外的人工操作，手记一条（原因四选一：unsupported / quality / judgment / external）
+ao ledger add "人工部署到服务器" --reason unsupported --minutes 20 --run last
+
+# 按天汇总：运行数、AI 完成步骤、人工节点、手记、人工耗时、token → AI 自主率（markdown，可直接贴进复盘）
+ao ledger report --since 2026-09-22 --out 复盘-账本.md
+```
+
+工作流里的 `approval` / `human_input` 节点自动计为人工，不用手记；`--resume` / `--feedback` 复用的旧步骤不重复计入。账本默认读命令行的运行目录（`ao-output`）；网页 Studio 的运行记录在 Studio 数据目录下的 `ao-output`，用 `ao ledger report --output <该目录>` 指过去。AI 自主率 = AI 完成步骤 ÷（AI 完成步骤 + 人工节点 + 手记介入），**按次数算、不按工作量，不折算金额**——口径随报告一起输出，不藏。
+
 ## 编程 API
 
 ```typescript
@@ -693,14 +723,15 @@ ao-output/产品需求评审-2026-03-22/
 
 | 项目 | 定位 | 一句话 |
 |------|------|-------|
-| **本项目**（agency-orchestrator） | 🚀 编排引擎 | 一句话 → 276 专家协作，**几分钟出方案**（11 家 LLM / 7 免费） |
+| **本项目**（agency-orchestrator） | 🚀 编排引擎 | 一句话 → 276 专家协作，**几分钟出方案**（20+ 家 API / 10 种免 key） |
 | [agency-agents-zh](https://github.com/jnMetaCode/agency-agents-zh) ![](https://img.shields.io/github/stars/jnMetaCode/agency-agents-zh?style=flat&label=⭐) | 🎭 中文角色库 | 276 个**即插即用** AI 专家，含 52 中国原创（小红书 / 抖音 / 飞书 / 钉钉） |
 | [agency-agents](https://github.com/msitarzewski/agency-agents) | 🎭 英文角色库 | 191 个英文 AI 角色（184 个来自 [@msitarzewski](https://github.com/msitarzewski)，MIT；另 7 个是本项目补的高管层与视频提示词工程师，见 `agency-agents/company/NOTICE.md`）——**已随 npm 包内置**，英文任务 `ao compose` 自动启用，无需单独安装 |
 | [ko](https://github.com/jnMetaCode/agency-agents-ko) · [ru](https://github.com/jnMetaCode/agency-agents-ru) · [pt-BR](https://github.com/jnMetaCode/agency-agents-pt-BR) · [id](https://github.com/jnMetaCode/agency-agents-id) · [ar](https://github.com/jnMetaCode/agency-agents-ar) | 🌍 多语言角色库 | 各 187 个（184 上游翻译 + 3 本地市场原创），`npm i agency-agents-<lang>` 后 Studio「角色库」下拉切换 |
 | [superpowers-zh](https://github.com/jnMetaCode/superpowers-zh) ![](https://img.shields.io/github/stars/jnMetaCode/superpowers-zh?style=flat&label=⭐) | 🧠 工作方法论 | 20 个 skills 教 AI 怎么干活（TDD / 调试 / 代码审查等） |
-| [ai-coding-guide](https://github.com/jnMetaCode/ai-coding-guide) | 📖 实战教程 | 66 个 Claude Code 技巧 + 9 款工具最佳实践 + 配置模板 |
-| [shellward](https://github.com/jnMetaCode/shellward) | 🛡️ 安全中间件 | 8 层防御 + DLP 数据流 + 注入检测，**零依赖**（含 MCP Server） |
-| 🆕 [ai-shortfilm-prompts](https://github.com/jnMetaCode/ai-shortfilm-prompts) | 🎬 视频提示词 | Mx-Shell《丧尸清道夫》5 段式方法论 + Skill，Seedance / 小云雀 / Sora / 可灵 / 即梦通用 |
+| [ai-coding-guide](https://github.com/jnMetaCode/ai-coding-guide) ![](https://img.shields.io/github/stars/jnMetaCode/ai-coding-guide?style=flat&label=⭐) | 📖 实战教程 | 66 个 Claude Code 技巧 + 10 款工具最佳实践 + 可复制配置模板 |
+| [ai-coding-trilogy](https://github.com/jnMetaCode/ai-coding-trilogy) ![](https://img.shields.io/github/stars/jnMetaCode/ai-coding-trilogy?style=flat&label=⭐) | 📚 三卷书 | AI 编程实战三卷书（入门 / 工作流 / 架构），中英双语 PDF，个人免费阅读 |
+| [shellward](https://github.com/jnMetaCode/shellward) ![](https://img.shields.io/github/stars/jnMetaCode/shellward?style=flat&label=⭐) | 🛡️ 安全中间件 | 8 层防御 + DLP 数据流 + 注入检测，**零依赖**（含 MCP Server） |
+| 🆕 [ai-shortfilm-prompts](https://github.com/jnMetaCode/ai-shortfilm-prompts) ![](https://img.shields.io/github/stars/jnMetaCode/ai-shortfilm-prompts?style=flat&label=⭐) | 🎬 视频提示词 | Mx-Shell《丧尸清道夫》5 段式方法论 + Skill，Seedance / 小云雀 / Sora / 可灵 / 即梦通用 |
 | 🆕 [codepet](https://github.com/jnMetaCode/codepet) ![](https://img.shields.io/github/stars/jnMetaCode/codepet?style=flat&label=⭐) | 🐾 桌面宠物 | 挂在桌面的桌宠，你写代码 / 用 Claude Code 它就涨经验、升级、换状态、冒话（Electron · 仅读元数据，本地优先） |
 
 ### 交流

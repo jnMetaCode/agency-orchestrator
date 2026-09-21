@@ -11,7 +11,7 @@
 [![License: Apache-2.0](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](./LICENSE)
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](./CONTRIBUTING.md)
 
-**One sentence → full plan · 276 expert AI roles · Zero-code YAML · 15 LLM providers · key supported (DeepSeek recommended), plus 11 key-free options**
+**One sentence → full plan · 276 expert AI roles · Zero-code YAML · 20+ API providers (DeepSeek recommended) · 10 key-free options**
 
 > **Note:** `ao compose --run` auto-detects your language. Both 276 Chinese roles and 191 English roles (184 from [agency-agents](https://github.com/msitarzewski/agency-agents), MIT, plus 7 added here — the C-suite and a video prompt engineer, see `agency-agents/company/NOTICE.md`) are **bundled in the npm package — no extra download needed**. **11 English workflow templates** are ready in `workflows/en/`.
 
@@ -128,7 +128,7 @@ Chatting with one AI gives you one perspective. But any real decision needs prod
 |---|--------|-----------|---------------------|
 | Roles | 1 generalist | Write your own | **276 expert roles** |
 | Usage | Chat | Write Python | **One sentence / YAML** |
-| API key | — | Required | **Key supported; 11 key-free options too** |
+| API key | — | Required | **Key supported; 10 key-free options too** |
 | Dependencies | — | pip + dozens of packages | **npm + 2 deps** |
 | Parallelism | — | Manual graph | **Auto DAG detection** |
 | Price | Subscription | Open-source + API fees | **DeepSeek sweet spot is dirt cheap; key-free to start** |
@@ -222,7 +222,7 @@ name: "Product Requirements Review"
 agents_dir: "agency-agents"      # or "agency-agents-zh" for Chinese roles
 
 llm:
-  provider: "deepseek"          # No API key: claude-code / gemini-cli / copilot-cli / codex-cli / hermes-cli / codebuddy-cli / cline-cli / opencode-cli / dsh-cli / ollama
+  provider: "deepseek"          # No API key: claude-code / antigravity-cli / copilot-cli / codex-cli / openclaw-cli / hermes-cli / codebuddy-cli / cline-cli / opencode-cli / ollama
   model: "deepseek-chat"
 
 concurrency: 2
@@ -271,7 +271,9 @@ analyze ──→ tech_review  ──→ summary
           (parallel)
 ```
 
-## 15 LLM Providers — 11 Need No API Key
+## 20+ API Providers — 10 Need No API Key
+
+> How we count (source of truth: the code): **key-free** = 9 coding CLIs that reuse a logged-in subscription (Claude Code / Antigravity / Copilot / Codex / OpenClaw / Hermes / CodeBuddy / Cline / OpenCode) + local Ollama. The discontinued Gemini CLI is excluded; DeepSeek Harness needs `DEEPSEEK_API_KEY`, so it is not counted as key-free. **API** = the official providers below plus sponsor / aggregator relays (see `src/connectors/api-providers.ts`); any OpenAI-compatible endpoint also works.
 
 **Already paying for one of these? You're ready to go:**
 
@@ -287,7 +289,7 @@ analyze ──→ tech_review  ──→ summary
 | Tencent WorkBuddy / CodeBuddy subscription | `provider: "codebuddy-cli"` | Bundled with the WorkBuddy desktop app (macOS); or `npm i -g @tencent-ai/codebuddy-code` | **Free** ([guide](./integrations/workbuddy/)) |
 | Whatever provider/account Cline is signed into | `provider: "cline-cli"` | `npm i -g cline` + `cline auth` | **No extra key** ([guide](./integrations/cline/)) |
 | Whatever provider/account OpenCode is signed into | `provider: "opencode-cli"` | `npm i -g opencode-ai` + `opencode auth login` | **No extra key** ([guide](./integrations/opencode/)) |
-| DeepSeek Harness (dsh, developer preview) | `provider: "dsh-cli"` | `npm i -g @deepseek-ai/dsh` (Node ≥ 22.15) + `DEEPSEEK_API_KEY` | **No extra key** ([guide](./integrations/deepseek-harness/)) |
+| DeepSeek Harness (dsh, developer preview) | `provider: "dsh-cli"` | `npm i -g @deepseek-ai/dsh` (Node ≥ 22.15) + `DEEPSEEK_API_KEY` | Needs a DeepSeek API key, billed via the API ([guide](./integrations/deepseek-harness/)) |
 | A computer | `provider: "ollama"` | [ollama.ai](https://ollama.ai) | **Free** (local models, see note below) |
 
 > ⚠️ **Model capability drives the value of multi-agent.** We verified this with a quality eval (see [EVAL_FINDINGS.md](EVAL_FINDINGS.md); web version: [English](https://ao.aiolaola.com/en/evals/)): on the **DeepSeek tier (capable yet cheap), multi-agent output clearly beats a single prompt**; but with **weak local models (e.g. llama3 8B), the role hand-offs amplify drift and can do worse than a single call**. For quality, use a capable model (DeepSeek/Claude/Gemini); for local Ollama, prefer 70B+ models.
@@ -677,13 +679,15 @@ Your AI subscription ──→ agency-orchestrator ──→ 400+ expert roles c
 
 | Project | Description |
 |---------|-------------|
-| [agency-agents](https://github.com/msitarzewski/agency-agents) | 184 English AI roles by [@msitarzewski](https://github.com/msitarzewski) (MIT) — **bundled in the npm package**, auto-selected for English tasks by `ao compose`, no separate install needed |
-| [agency-agents-zh](https://github.com/jnMetaCode/agency-agents-zh) | 276 Chinese AI role definitions (Chinese) — the Chinese role library for this engine |
+| [agency-agents](https://github.com/msitarzewski/agency-agents) | 191 English AI roles (184 from [@msitarzewski](https://github.com/msitarzewski), MIT; 7 added here — C-suite + video prompt engineer, see `agency-agents/company/NOTICE.md`) — **bundled in the npm package**, auto-selected for English tasks by `ao compose`, no separate install needed |
+| [agency-agents-zh](https://github.com/jnMetaCode/agency-agents-zh) ![](https://img.shields.io/github/stars/jnMetaCode/agency-agents-zh?style=flat&label=⭐) | 276 Chinese AI role definitions (Chinese) — the Chinese role library for this engine |
 | [ko](https://github.com/jnMetaCode/agency-agents-ko) · [ru](https://github.com/jnMetaCode/agency-agents-ru) · [pt-BR](https://github.com/jnMetaCode/agency-agents-pt-BR) · [id](https://github.com/jnMetaCode/agency-agents-id) · [ar](https://github.com/jnMetaCode/agency-agents-ar) | 187 roles each (184 upstream translations + 3 local-market originals) — `npm i agency-agents-<lang>`, then switch via the Studio role-library dropdown |
-| [ai-coding-guide](https://github.com/jnMetaCode/ai-coding-guide) | AI coding tools field guide (Chinese) — 66 Claude Code tips + 9 tools best practices |
-| [superpowers-zh](https://github.com/jnMetaCode/superpowers-zh) | AI coding superpowers (Chinese) — 20 skills for Claude Code / Cursor |
-| [shellward](https://github.com/jnMetaCode/shellward) | AI agent security middleware — prompt injection detection, DLP, command safety |
-| [codepet](https://github.com/jnMetaCode/codepet) | Desktop pet that levels up as you code / use Claude Code — Electron, reads metadata only, local-first |
+| [ai-coding-guide](https://github.com/jnMetaCode/ai-coding-guide) ![](https://img.shields.io/github/stars/jnMetaCode/ai-coding-guide?style=flat&label=⭐) | AI coding tools field guide (Chinese) — 66 Claude Code tips + 10 tools best practices + copy-paste configs |
+| [ai-coding-trilogy](https://github.com/jnMetaCode/ai-coding-trilogy) ![](https://img.shields.io/github/stars/jnMetaCode/ai-coding-trilogy?style=flat&label=⭐) | The Complete Guide to AI Coding — Vol. I Basics / II Workflow / III Architecture, bilingual PDF, free for personal use |
+| [ai-shortfilm-prompts](https://github.com/jnMetaCode/ai-shortfilm-prompts) ![](https://img.shields.io/github/stars/jnMetaCode/ai-shortfilm-prompts?style=flat&label=⭐) | Claude Code Skill that turns an idea into a model-ready cinematic video prompt — Sora / Kling / Veo / Seedance, 21 genre templates |
+| [superpowers-zh](https://github.com/jnMetaCode/superpowers-zh) ![](https://img.shields.io/github/stars/jnMetaCode/superpowers-zh?style=flat&label=⭐) | AI coding superpowers (Chinese) — 20 skills for Claude Code / Cursor |
+| [shellward](https://github.com/jnMetaCode/shellward) ![](https://img.shields.io/github/stars/jnMetaCode/shellward?style=flat&label=⭐) | AI agent security middleware — prompt injection detection, DLP, command safety |
+| [codepet](https://github.com/jnMetaCode/codepet) ![](https://img.shields.io/github/stars/jnMetaCode/codepet?style=flat&label=⭐) | Desktop pet that levels up as you code / use Claude Code — Electron, reads metadata only, local-first |
 
 ## Roadmap
 
