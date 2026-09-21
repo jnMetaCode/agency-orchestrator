@@ -487,6 +487,13 @@ Cursor (`.cursor/mcp.json`):
 
 ## YAML Schema
 
+> **Editor autocompletion and live validation**: put
+> `# yaml-language-server: $schema=https://ao.aiolaola.com/schemas/workflow.schema.json`
+> on the first line of a workflow file. VS Code (YAML extension) / JetBrains / Neovim then offer field completion, hover docs and
+> typo detection — `depend_on` or `type: vidoe` is flagged as you type instead of at run time. Offline, point it at the copy shipped
+> in the package: `node_modules/agency-orchestrator/schemas/workflow.schema.json`. Cross-field checks (dependency cycles, undefined
+> variables, missing roles) remain `ao validate`'s job.
+
 ### Workflow
 
 | Field | Type | Required | Description |

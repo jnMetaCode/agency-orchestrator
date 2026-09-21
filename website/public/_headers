@@ -15,3 +15,8 @@
 /assets/*
   ! Cache-Control
   Cache-Control: public, max-age=31536000, immutable
+
+# 工作流 YAML 的 JSON Schema（编辑器补全用，见仓库根 schemas/）。浏览器里的编辑器（vscode.dev 等）
+# 要跨源取它，所以放开 CORS；内容会随版本更新，走兜底的 must-revalidate，不做长缓存。
+/schemas/*
+  Access-Control-Allow-Origin: *

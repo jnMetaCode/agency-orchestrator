@@ -20,3 +20,5 @@ eval-output/
 
 # 派生：扩充池按分类切片（scripts/split-creative-extra.mjs 在 website dev/build 前生成）
 website/src/content/creative-extra/
+# 派生：schemas/*.json 的发布副本（scripts/publish-schema.mjs），源文件只有仓库根的 schemas/
+website/public/schemas/

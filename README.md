@@ -602,6 +602,12 @@ ao serve --verbose    # 带调试日志
 
 ## YAML Schema
 
+> **编辑器补全与即时校验**：在工作流文件第一行加上
+> `# yaml-language-server: $schema=https://ao.aiolaola.com/schemas/workflow.schema.json`
+> ，VS Code（装 YAML 扩展）/ JetBrains / Neovim 里就有字段补全、悬停说明和拼写检查——`depend_on`、`type: vidoe`
+> 这类手误写下去就标红，不用等到运行。离线可指向随包发布的 `node_modules/agency-orchestrator/schemas/workflow.schema.json`。
+> 依赖成环、变量未定义、角色不存在这类跨字段检查仍由 `ao validate` 负责。
+
 ### 工作流
 
 | 字段 | 类型 | 必填 | 说明 |

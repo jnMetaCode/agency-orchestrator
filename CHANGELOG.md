@@ -27,6 +27,15 @@
   AO 只在 `src/export/convert.ts` 里**写** xlsx、从不解析，暴露面小）。
 
 ### Added
+- **工作流 YAML 的 JSON Schema**（`schemas/workflow.schema.json`，随 npm 包发布，并经官网构建发布到
+  `https://ao.aiolaola.com/schemas/workflow.schema.json`）：文件首行写
+  `# yaml-language-server: $schema=…`，VS Code / JetBrains / Neovim 里就有字段补全、悬停说明和即时校验。来由：
+  `depend_on`、`type: vidoe` 这类手误此前要么运行期才报、要么被**静默忽略**（多出来的键引擎根本不看）；同类项目里
+  Kestra 靠这个把「写 YAML」的门槛降下来，而它是借鉴清单里成本最低的一项。按步骤类型分支校验（image / video / tts
+  必填 model、tts 必填 voice、concat 必填 inputs、普通步骤必填 role + task），可模板化的数值字段（`video.duration`、
+  `tts.speed`、`assert.min_chars`）同时接受 `"{{变量}}"`；`provider` 是开放字符串 + 候选（自定义中转不被标红）。
+  `test/workflow-schema.ts` 钉三件事：43 个内置模板全部通过（schema 不比引擎更严）、引擎会拒的 13 种写法 schema
+  也拒、provider 候选与注册表一致（新接供应商后跑 `node scripts/sync-schema-providers.mjs`）。
 - **Studio「网络代理」设置**（#105）：供应商页新增一张卡，填一个 http/https 代理地址，保存即生效、重启仍在
   （`<数据目录>/.local/web-network.json`）。来由：AO 早就会走 `HTTP(S)_PROXY`，但那只对从终端启动的人有用——桌面版从
   Dock / 开始菜单点开，进程拿不到 shell 里 export 的变量，对那批用户「支持代理」等于不支持。保存的地址写进服务端进程的

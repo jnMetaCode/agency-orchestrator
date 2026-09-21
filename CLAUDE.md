@@ -134,6 +134,12 @@ Before suggesting changes, read the actual outputs:
 
 ## Workflow YAML Format
 
+`schemas/workflow.schema.json` is the editor-facing JSON Schema (published at ao.aiolaola.com/schemas/ via `scripts/publish-schema.mjs`,
+run by website predev/prebuild; also shipped in the npm package). **When you add a YAML field, add it there too** — it uses
+`additionalProperties: false` on purpose (typos like `depend_on` must be flagged), so a forgotten field red-lines valid workflows.
+`test/workflow-schema.ts` pins: all built-in templates pass, parser-rejected shapes are rejected, provider suggestions match the
+registries (re-sync with `npm run build && node scripts/sync-schema-providers.mjs` after adding a provider).
+
 ```yaml
 name: "Workflow Name"
 agents_dir: "agency-agents-zh"

@@ -1,0 +1,883 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://ao.aiolaola.com/schemas/workflow.schema.json",
+  "title": "Agency Orchestrator workflow",
+  "description": "ao 工作流 YAML。在文件第一行写 `# yaml-language-server: $schema=https://ao.aiolaola.com/schemas/workflow.schema.json` 即可在 VS Code（YAML 扩展）等编辑器里获得补全与即时校验。结构校验之外的检查（依赖成环、变量未定义、角色不存在）仍由 `ao validate` 负责。",
+  "type": "object",
+  "required": [
+    "name",
+    "steps"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "name": {
+      "type": "string"
+    },
+    "description": {
+      "type": "string"
+    },
+    "agents_dir": {
+      "type": "string",
+      "description": "角色库目录，通常是 \"agency-agents-zh\"（英文库 \"agency-agents\"）。全是媒体步骤的工作流可省略。"
+    },
+    "llm": {
+      "type": "object",
+      "properties": {
+        "provider": {
+          "type": "string",
+          "description": "模型供应商。本机 CLI（免 key）、本地 ollama、或 API 供应商；不在列表里的名字配上 base_url 即按 OpenAI 兼容端点处理。`ao doctor` 可自检。",
+          "examples": [
+            "claude-code",
+            "antigravity-cli",
+            "gemini-cli",
+            "copilot-cli",
+            "codex-cli",
+            "openclaw-cli",
+            "hermes-cli",
+            "codebuddy-cli",
+            "cline-cli",
+            "opencode-cli",
+            "dsh-cli",
+            "ollama",
+            "claude",
+            "deepseek",
+            "openai",
+            "compshare",
+            "apinebula",
+            "agnes",
+            "rootflowai",
+            "cubence",
+            "ccsub",
+            "volcengine",
+            "volcengine-plan",
+            "duoyuanx",
+            "lanox",
+            "shengsuanyun",
+            "apimart",
+            "packycode",
+            "gemini",
+            "xai",
+            "moonshot",
+            "zhipu",
+            "qwen",
+            "aicodemirror"
+          ]
+        },
+        "model": {
+          "type": "string",
+          "description": "模型名。CLI 类 provider 与 ollama 可省略；模型 id 各家互不通用，别猜。"
+        },
+        "base_url": {
+          "type": "string",
+          "description": "自定义端点。provider: claude 时指向 Anthropic 协议中转，**不要带 /v1**。"
+        },
+        "api_key": {
+          "type": "string",
+          "description": "不建议写进 YAML（会进 git）；优先用环境变量或 Studio 里保存。"
+        },
+        "agent": {
+          "type": "string",
+          "description": "openclaw-cli 专用：agent ID（默认 main）"
+        },
+        "max_tokens": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "默认 4096"
+        },
+        "temperature": {
+          "type": "number",
+          "minimum": 0,
+          "description": "未设置 = provider 默认；0 = 近确定性"
+        },
+        "params": {
+          "type": "object",
+          "description": "供应商专有参数，原样并入请求体；核心字段（model/messages/stream）不可被覆盖"
+        },
+        "timeout": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "单步超时，毫秒。0 = 不限时。未设置：API 120000 / CLI·ollama 600000，并按输入规模动态抬高"
+        },
+        "retry": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "失败重试次数，默认 3"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "provider"
+      ]
+    },
+    "concurrency": {
+      "type": "integer",
+      "minimum": 1,
+      "description": "最大并行步骤数，默认 2（CLI 类 provider 恒为 1）"
+    },
+    "verify": {
+      "type": "boolean",
+      "description": "false = 整个工作流关闭 acceptance 自动核验"
+    },
+    "verify_llm": {
+      "type": "object",
+      "properties": {
+        "provider": {
+          "type": "string",
+          "description": "模型供应商。本机 CLI（免 key）、本地 ollama、或 API 供应商；不在列表里的名字配上 base_url 即按 OpenAI 兼容端点处理。`ao doctor` 可自检。",
+          "examples": [
+            "claude-code",
+            "antigravity-cli",
+            "gemini-cli",
+            "copilot-cli",
+            "codex-cli",
+            "openclaw-cli",
+            "hermes-cli",
+            "codebuddy-cli",
+            "cline-cli",
+            "opencode-cli",
+            "dsh-cli",
+            "ollama",
+            "claude",
+            "deepseek",
+            "openai",
+            "compshare",
+            "apinebula",
+            "agnes",
+            "rootflowai",
+            "cubence",
+            "ccsub",
+            "volcengine",
+            "volcengine-plan",
+            "duoyuanx",
+            "lanox",
+            "shengsuanyun",
+            "apimart",
+            "packycode",
+            "gemini",
+            "xai",
+            "moonshot",
+            "zhipu",
+            "qwen",
+            "aicodemirror"
+          ]
+        },
+        "model": {
+          "type": "string",
+          "description": "模型名。CLI 类 provider 与 ollama 可省略；模型 id 各家互不通用，别猜。"
+        },
+        "base_url": {
+          "type": "string",
+          "description": "自定义端点。provider: claude 时指向 Anthropic 协议中转，**不要带 /v1**。"
+        },
+        "api_key": {
+          "type": "string",
+          "description": "不建议写进 YAML（会进 git）；优先用环境变量或 Studio 里保存。"
+        },
+        "agent": {
+          "type": "string",
+          "description": "openclaw-cli 专用：agent ID（默认 main）"
+        },
+        "max_tokens": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "默认 4096"
+        },
+        "temperature": {
+          "type": "number",
+          "minimum": 0,
+          "description": "未设置 = provider 默认；0 = 近确定性"
+        },
+        "params": {
+          "type": "object",
+          "description": "供应商专有参数，原样并入请求体；核心字段（model/messages/stream）不可被覆盖"
+        },
+        "timeout": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "单步超时，毫秒。0 = 不限时。未设置：API 120000 / CLI·ollama 600000，并按输入规模动态抬高"
+        },
+        "retry": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "失败重试次数，默认 3"
+        }
+      },
+      "additionalProperties": false,
+      "description": "谁来当验收员（默认文本 provider）。图片 / 视频验收需要能看图的 API 模型"
+    },
+    "deliverables": {
+      "type": [
+        "array",
+        "string"
+      ],
+      "items": {
+        "type": "string"
+      },
+      "description": "哪些步骤是交付物（步骤 id）。导出 / ⭐ / --compare 只取它们；省略 = 最后一个完成的步骤"
+    },
+    "category": {
+      "type": "string",
+      "description": "Studio 列表分组"
+    },
+    "featured": {
+      "type": "boolean",
+      "description": "Studio 列表置顶推荐"
+    },
+    "inputs": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "name"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "name": {
+            "type": "string",
+            "pattern": "^\\w+$"
+          },
+          "label": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "required": {
+            "type": "boolean"
+          },
+          "default": {
+            "type": [
+              "string",
+              "number",
+              "boolean"
+            ]
+          },
+          "format": {
+            "enum": [
+              "text",
+              "url"
+            ]
+          },
+          "options": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Studio 里渲染成下拉"
+          },
+          "source": {
+            "enum": [
+              "image_providers",
+              "video_providers",
+              "tts_providers",
+              "models",
+              "video_resolutions",
+              "video_durations",
+              "video_ratios",
+              "styles"
+            ],
+            "description": "由引擎提供选项的下拉"
+          },
+          "source_from": {
+            "type": "string",
+            "description": "source 依赖的另一个输入（如按所选 provider 列模型）"
+          },
+          "show_when": {
+            "type": "string",
+            "description": "同 condition 语法，只能引用其它输入。不成立 → Studio 隐藏、CLI 不算缺失必填"
+          }
+        }
+      }
+    },
+    "steps": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": [
+          "id"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^[^/\\\\:*?\"<>|]+$",
+            "description": "步骤 id。会用作产物文件名，别含路径字符。`depends_on` / `loop.back_to` / `--from` 引用的就是它（**不是** output 变量名）。"
+          },
+          "type": {
+            "enum": [
+              "normal",
+              "approval",
+              "human_input",
+              "image",
+              "video",
+              "tts",
+              "concat"
+            ],
+            "description": "节点类型，默认 normal（角色执行任务）。image / video / tts：task 即提示词或要念的文案，不需要 role；concat：本地 ffmpeg 合成，不需要 role / task；approval / human_input：暂停等人。"
+          },
+          "role": {
+            "type": "string",
+            "description": "角色路径，如 \"marketing/marketing-content-creator\"；自建角色写 \"my/<id>\"。`ao roles` 列出全部。"
+          },
+          "name": {
+            "type": "string",
+            "description": "自定义显示名（覆盖角色文件的 name）"
+          },
+          "emoji": {
+            "type": "string"
+          },
+          "task": {
+            "type": "string",
+            "description": "任务描述，支持 {{变量}}。image / video 步骤里它就是提示词，tts 步骤里它就是要念的文案。"
+          },
+          "prompt": {
+            "type": "string",
+            "description": "approval / human_input 节点给人看的提示"
+          },
+          "acceptance": {
+            "type": "string",
+            "description": "验收标准：注入 prompt 末尾；产出后自动核验，未过自动返工一轮。image / video 步骤上是**看图验收**（需能看图的 API 模型）。"
+          },
+          "verify": {
+            "type": "boolean",
+            "description": "false = 本步关闭 acceptance 自动核验"
+          },
+          "assert": {
+            "type": "object",
+            "description": "机械断言：不过模型、不过网络、不花 token。未过 → 定向返工一次，仍不过则该步**失败**。image 步骤不支持。",
+            "additionalProperties": false,
+            "properties": {
+              "emits_files": {
+                "type": "integer",
+                "minimum": 0,
+                "description": "产出里的文件块数量必须恰好等于此值"
+              },
+              "min_bytes": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "max_bytes": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "min_chars": {
+                "type": [
+                  "integer",
+                  "string"
+                ],
+                "description": "非空白字符数下限；可写 \"{{length}} * 0.7\""
+              },
+              "max_chars": {
+                "type": [
+                  "integer",
+                  "string"
+                ],
+                "description": "非空白字符数上限；可写 \"{{length}} * 1.3\""
+              },
+              "contains": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                },
+                "description": "必须出现的字面串"
+              },
+              "matches": {
+                "type": "object",
+                "additionalProperties": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "description": "正则 → 必须命中的次数"
+              }
+            }
+          },
+          "output": {
+            "type": "string",
+            "pattern": "^\\w+$",
+            "description": "输出变量名，下游用 {{变量名}} 引用。image / video / tts 的输出是 markdown 引用，文件在 <run>/assets/。"
+          },
+          "skill": {
+            "type": "string",
+            "description": "给本步挂一个方法论 skill（`ao skills` 列出）"
+          },
+          "skills": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "depends_on": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "依赖的**步骤 id**"
+          },
+          "depends_on_mode": {
+            "enum": [
+              "all",
+              "any_completed"
+            ],
+            "description": "all（默认）：任一依赖被跳过 → 本步也跳过。any_completed：只要有一个完成就执行——可选配音接 concat 时必须用它。"
+          },
+          "condition": {
+            "type": "string",
+            "description": "条件分支，如 \"{{category}} contains bug\"。不满足 → 跳过"
+          },
+          "llm": {
+            "type": "object",
+            "properties": {
+              "provider": {
+                "type": "string",
+                "description": "模型供应商。本机 CLI（免 key）、本地 ollama、或 API 供应商；不在列表里的名字配上 base_url 即按 OpenAI 兼容端点处理。`ao doctor` 可自检。",
+                "examples": [
+                  "claude-code",
+                  "antigravity-cli",
+                  "gemini-cli",
+                  "copilot-cli",
+                  "codex-cli",
+                  "openclaw-cli",
+                  "hermes-cli",
+                  "codebuddy-cli",
+                  "cline-cli",
+                  "opencode-cli",
+                  "dsh-cli",
+                  "ollama",
+                  "claude",
+                  "deepseek",
+                  "openai",
+                  "compshare",
+                  "apinebula",
+                  "agnes",
+                  "rootflowai",
+                  "cubence",
+                  "ccsub",
+                  "volcengine",
+                  "volcengine-plan",
+                  "duoyuanx",
+                  "lanox",
+                  "shengsuanyun",
+                  "apimart",
+                  "packycode",
+                  "gemini",
+                  "xai",
+                  "moonshot",
+                  "zhipu",
+                  "qwen",
+                  "aicodemirror"
+                ]
+              },
+              "model": {
+                "type": "string",
+                "description": "模型名。CLI 类 provider 与 ollama 可省略；模型 id 各家互不通用，别猜。"
+              },
+              "base_url": {
+                "type": "string",
+                "description": "自定义端点。provider: claude 时指向 Anthropic 协议中转，**不要带 /v1**。"
+              },
+              "api_key": {
+                "type": "string",
+                "description": "不建议写进 YAML（会进 git）；优先用环境变量或 Studio 里保存。"
+              },
+              "agent": {
+                "type": "string",
+                "description": "openclaw-cli 专用：agent ID（默认 main）"
+              },
+              "max_tokens": {
+                "type": "integer",
+                "minimum": 1,
+                "description": "默认 4096"
+              },
+              "temperature": {
+                "type": "number",
+                "minimum": 0,
+                "description": "未设置 = provider 默认；0 = 近确定性"
+              },
+              "params": {
+                "type": "object",
+                "description": "供应商专有参数，原样并入请求体；核心字段（model/messages/stream）不可被覆盖"
+              },
+              "timeout": {
+                "type": "integer",
+                "minimum": 0,
+                "description": "单步超时，毫秒。0 = 不限时。未设置：API 120000 / CLI·ollama 600000，并按输入规模动态抬高"
+              },
+              "retry": {
+                "type": "integer",
+                "minimum": 0,
+                "description": "失败重试次数，默认 3"
+              }
+            },
+            "additionalProperties": false,
+            "description": "步骤级 LLM 配置，覆盖顶层 llm"
+          },
+          "loop": {
+            "type": "object",
+            "required": [
+              "back_to",
+              "max_iterations",
+              "exit_condition"
+            ],
+            "additionalProperties": false,
+            "properties": {
+              "back_to": {
+                "type": "string",
+                "description": "跳回的步骤 id，必须是本步依赖链上的祖先"
+              },
+              "max_iterations": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 50
+              },
+              "exit_condition": {
+                "type": "string",
+                "description": "退出条件，同 condition 语法"
+              }
+            }
+          },
+          "image": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "provider": {
+                "type": "string",
+                "description": "图片供应商，缺省取 llm.provider"
+              },
+              "model": {
+                "type": "string",
+                "description": "必填。图片模型 id 各家不同，从不猜"
+              },
+              "size": {
+                "type": "string",
+                "description": "支持 {{变量}} 模板"
+              },
+              "quality": {
+                "type": "string",
+                "description": "支持 {{变量}} 模板"
+              },
+              "background": {
+                "type": "string",
+                "description": "支持 {{变量}} 模板"
+              }
+            }
+          },
+          "video": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "provider": {
+                "type": "string",
+                "description": "视频供应商，缺省取 llm.provider"
+              },
+              "model": {
+                "type": "string",
+                "description": "必填，从不猜"
+              },
+              "resolution": {
+                "type": "string",
+                "description": "原样透传，各家档位名不同（768P / 1080P / 2K …）"
+              },
+              "duration": {
+                "type": [
+                  "number",
+                  "string"
+                ],
+                "description": "秒。按秒计费，引擎从不擅自加长（可写成 \"{{变量}}\"，运行期按实际输入解析）"
+              },
+              "image": {
+                "type": "string",
+                "description": "图生视频首帧：公网 URL、上游图片步骤的输出、或本地路径"
+              },
+              "ratio": {
+                "type": "string",
+                "description": "支持 {{变量}} 模板"
+              },
+              "timeout": {
+                "type": "integer",
+                "minimum": 0,
+                "description": "整个任务（建 + 轮询 + 下载）的上限毫秒，默认 10 分钟"
+              },
+              "poll_interval": {
+                "type": "integer",
+                "minimum": 1
+              },
+              "rework": {
+                "type": "boolean",
+                "description": "验收不过时重出一次（默认 false：视频按秒计费，默认只标 ⚠️）"
+              }
+            }
+          },
+          "tts": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "provider": {
+                "type": "string",
+                "description": "支持 {{变量}} 模板"
+              },
+              "model": {
+                "type": "string",
+                "description": "必填，从不猜"
+              },
+              "voice": {
+                "type": "string",
+                "description": "必填。音色 id 各家互不通用"
+              },
+              "speed": {
+                "type": [
+                  "number",
+                  "string"
+                ],
+                "description": "语速（可写成 \"{{变量}}\"，运行期按实际输入解析）"
+              },
+              "format": {
+                "type": "string",
+                "description": "支持 {{变量}} 模板"
+              },
+              "instructions": {
+                "type": "string",
+                "description": "支持 {{变量}} 模板"
+              }
+            }
+          },
+          "concat": {
+            "type": "object",
+            "required": [
+              "inputs"
+            ],
+            "additionalProperties": false,
+            "properties": {
+              "inputs": {
+                "type": "array",
+                "minItems": 1,
+                "items": {
+                  "type": "string"
+                },
+                "description": "上游视频步骤的输出变量，按顺序"
+              },
+              "size": {
+                "type": "string"
+              },
+              "fps": {
+                "type": "number"
+              },
+              "voiceover": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                },
+                "description": "与 inputs 一一对应，\"\" = 该段不配音。混在片子原声**之上**，不替换"
+              },
+              "voice_volume": {
+                "type": "number"
+              },
+              "clip_volume": {
+                "type": "number",
+                "description": "片子**自带**音轨的音量。有配音时默认 0.3，否则 1.0"
+              },
+              "subtitles": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                },
+                "description": "与 inputs 一一对应"
+              },
+              "subtitle_style": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "font": {
+                    "type": "string"
+                  },
+                  "size": {
+                    "type": "number"
+                  },
+                  "color": {
+                    "type": "string"
+                  },
+                  "outline": {
+                    "type": "number"
+                  },
+                  "margin": {
+                    "type": "number"
+                  }
+                }
+              },
+              "bgm": {
+                "type": "string"
+              },
+              "bgm_volume": {
+                "type": "number",
+                "description": "默认 0.25"
+              }
+            }
+          }
+        },
+        "allOf": [
+          {
+            "if": {
+              "anyOf": [
+                {
+                  "not": {
+                    "required": [
+                      "type"
+                    ]
+                  }
+                },
+                {
+                  "properties": {
+                    "type": {
+                      "const": "normal"
+                    }
+                  }
+                }
+              ]
+            },
+            "then": {
+              "required": [
+                "role",
+                "task"
+              ]
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "type": {
+                  "const": "image"
+                }
+              },
+              "required": [
+                "type"
+              ]
+            },
+            "then": {
+              "required": [
+                "task",
+                "image"
+              ]
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "type": {
+                  "const": "video"
+                }
+              },
+              "required": [
+                "type"
+              ]
+            },
+            "then": {
+              "required": [
+                "task",
+                "video"
+              ]
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "type": {
+                  "const": "tts"
+                }
+              },
+              "required": [
+                "type"
+              ]
+            },
+            "then": {
+              "required": [
+                "task",
+                "tts"
+              ]
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "type": {
+                  "const": "concat"
+                }
+              },
+              "required": [
+                "type"
+              ]
+            },
+            "then": {
+              "required": [
+                "concat"
+              ]
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "type": {
+                  "const": "image"
+                }
+              },
+              "required": [
+                "type"
+              ]
+            },
+            "then": {
+              "properties": {
+                "image": {
+                  "required": [
+                    "model"
+                  ]
+                }
+              }
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "type": {
+                  "const": "video"
+                }
+              },
+              "required": [
+                "type"
+              ]
+            },
+            "then": {
+              "properties": {
+                "video": {
+                  "required": [
+                    "model"
+                  ]
+                }
+              }
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "type": {
+                  "const": "tts"
+                }
+              },
+              "required": [
+                "type"
+              ]
+            },
+            "then": {
+              "properties": {
+                "tts": {
+                  "required": [
+                    "model",
+                    "voice"
+                  ]
+                }
+              }
+            }
+          }
+        ]
+      }
+    }
+  }
+}
