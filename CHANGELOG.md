@@ -20,6 +20,11 @@
   env。测试同时钉两头：整条 SSE 流里没有 key，而上游**照样收到**了 `Bearer <key>`。
 - `GET /api/runs/:id` 补上与 assets / report 兄弟端点同一条路径守卫（`..%2F` 逃不出输出目录）；`web-keys.json`
   写成 0600，老的 0644 文件在下次保存时一并收紧。`test/request-guard.ts` 36 条。
+- **生产依赖的已知漏洞 15 → 2**（`npm audit fix`，全部是 semver 兼容的小版本升级，只动 `package-lock.json`）：
+  hono / @hono/node-server / path-to-regexp / qs / body-parser / fast-uri / ip-address / nanoid / smol-toml，以及
+  **js-yaml 4.1.1 → 4.3.2**——`/api/workflows/save` 与社区模板导入会对不可信文本 `yaml.load`，这条最要紧。
+  剩下两条没动：`image-size`（html-to-docx / pptxgenjs 的传递依赖，修复要跨大版本）与 `xlsx`（上游无修复版；
+  AO 只在 `src/export/convert.ts` 里**写** xlsx、从不解析，暴露面小）。
 
 ### Added
 - **Studio「网络代理」设置**（#105）：供应商页新增一张卡，填一个 http/https 代理地址，保存即生效、重启仍在
