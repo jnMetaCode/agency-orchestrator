@@ -21,17 +21,69 @@ import { existsSync, readFileSync, writeFileSync, copyFileSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
 
-/** 会顶掉官方登录 / 把请求改道到中转的「劫持」env 键。修复 = 从 settings 里删掉这些。 */
-export const HIJACK_ENV_KEYS = [
+/** 凭据 / 端点类劫持键：任何模式下出现在 settings 里都是劫持，修复 = 删掉。 */
+export const CREDENTIAL_HIJACK_KEYS = [
   'ANTHROPIC_AUTH_TOKEN',
   'ANTHROPIC_API_KEY',
   'ANTHROPIC_BASE_URL',
+] as const;
+
+/**
+ * 模型名键：中转用它们指定中转侧的模型名，所以默认算劫持。
+ * 但 Bedrock / Vertex 用户**正是**靠这几个键填云上的模型 ID
+ * （如 `us.anthropic.claude-sonnet-4-5-20250929-v1:0`）—— 那时删了等于毁配置。
+ * 见 {@link usesCloudProvider}。
+ */
+export const MODEL_OVERRIDE_KEYS = [
   'ANTHROPIC_MODEL',
   'ANTHROPIC_DEFAULT_SONNET_MODEL',
   'ANTHROPIC_DEFAULT_OPUS_MODEL',
   'ANTHROPIC_DEFAULT_HAIKU_MODEL',
   'ANTHROPIC_SMALL_FAST_MODEL',
 ] as const;
+
+/** 走云厂商网关（AWS Bedrock / Google Vertex）的开关键——它们一开，模型名键就是正当配置。 */
+export const CLOUD_PROVIDER_KEYS = [
+  'CLAUDE_CODE_USE_BEDROCK',
+  'CLAUDE_CODE_USE_VERTEX',
+] as const;
+
+/**
+ * 所有「可能」是劫持的 env 键（凭据 + 模型名）。
+ * Studio 拍 shell 快照用它决定要记哪些键；判定是否劫持请用 {@link activeHijackKeys}。
+ */
+export const HIJACK_ENV_KEYS = [...CREDENTIAL_HIJACK_KEYS, ...MODEL_OVERRIDE_KEYS] as const;
+
+/** Studio 拍 shell 快照时要一并记下的键：判定 Bedrock/Vertex 模式也得看 shell。 */
+export const SNAPSHOT_ENV_KEYS = [...HIJACK_ENV_KEYS, ...CLOUD_PROVIDER_KEYS] as const;
+
+/** `CLAUDE_CODE_USE_BEDROCK=1` 式开关：非空且不是 0/false 就算开。 */
+function isSwitchOn(value: unknown): boolean {
+  const s = String(value ?? '').trim().toLowerCase();
+  return s !== '' && s !== '0' && s !== 'false';
+}
+
+/**
+ * 是否在用 Bedrock / Vertex。开关可能写在 shell（`export CLAUDE_CODE_USE_BEDROCK=1`），
+ * 也可能写在任一 settings 文件的 env 块里 —— claude CLI 会把两个文件的 env 合并读，
+ * 所以这里也按「并集」判，避免开关在 settings.json、模型名在 settings.local.json 时误杀。
+ *
+ * 附加条件：没有任何 `ANTHROPIC_BASE_URL`。Bedrock/Vertex 不用这个键（它们的端点键是
+ * `ANTHROPIC_BEDROCK_BASE_URL` / `ANTHROPIC_VERTEX_BASE_URL`），所以它一旦出现就说明当前指着中转
+ * —— 那批模型名键是中转的、该删。这条也让「Bedrock 用户在 Studio 里切了中转再切回官方」能删干净。
+ */
+function usesCloudProvider(fileEnvs: any[], shellEnv: Record<string, string | undefined>): boolean {
+  const relayActive = !!shellEnv.ANTHROPIC_BASE_URL || fileEnvs.some((env) => env && env.ANTHROPIC_BASE_URL);
+  if (relayActive) return false;
+  return CLOUD_PROVIDER_KEYS.some(
+    (k) => isSwitchOn(shellEnv[k]) || fileEnvs.some((env) => env && isSwitchOn(env[k])),
+  );
+}
+
+/** 当前模式下真正算劫持的键：Bedrock/Vertex 模式下豁免模型名键。 */
+function activeHijackKeys(cloudProvider: boolean): readonly string[] {
+  return cloudProvider ? CREDENTIAL_HIJACK_KEYS : HIJACK_ENV_KEYS;
+}
 
 function claudeDir(): string {
   // 允许测试 / 自定义 profile 覆盖，与 cc-switch 的 override 思路一致。
@@ -79,35 +131,44 @@ export interface ClaudeDiagnosis {
   files: FileFinding[];
   /** shell（process.env）层面存在的劫持键 —— 工具改不了，只能提示用户去 ~/.zshrc 删 */
   shellOverrides: Record<string, string>;
+  /** 是否检测到 Bedrock / Vertex 模式（此时模型名键是正当配置，不查也不删） */
+  cloudProvider: boolean;
   /** 命中的中转端点（若有），给用户一眼看清被改道到哪 */
   baseUrl?: string;
 }
 
-function readFinding(path: string): FileFinding {
-  if (!existsSync(path)) return { path, exists: false, hijackKeys: {} };
-  let obj: any;
+/** 读一个 settings 文件：解析结果 + env 块（解析失败时只带 parseError）。 */
+function readSettings(path: string): { path: string; exists: boolean; parseError?: string; env?: any } {
+  if (!existsSync(path)) return { path, exists: false };
   try {
-    obj = JSON.parse(readFileSync(path, 'utf-8'));
+    const obj = JSON.parse(readFileSync(path, 'utf-8'));
+    const env = obj && typeof obj === 'object' && obj.env && typeof obj.env === 'object' ? obj.env : undefined;
+    return { path, exists: true, ...(env ? { env } : {}) };
   } catch (err: any) {
-    return { path, exists: true, parseError: err?.message || String(err), hijackKeys: {} };
+    return { path, exists: true, parseError: err?.message || String(err) };
   }
-  const env = obj && typeof obj === 'object' ? obj.env : undefined;
+}
+
+function toFinding(s: ReturnType<typeof readSettings>, keys: readonly string[]): FileFinding {
+  if (!s.exists) return { path: s.path, exists: false, hijackKeys: {} };
+  if (s.parseError) return { path: s.path, exists: true, parseError: s.parseError, hijackKeys: {} };
   const hijackKeys: Record<string, string> = {};
-  if (env && typeof env === 'object') {
-    for (const key of HIJACK_ENV_KEYS) {
-      if (env[key] != null && env[key] !== '') hijackKeys[key] = maskValue(key, env[key]);
-    }
+  for (const key of keys) {
+    if (s.env && s.env[key] != null && s.env[key] !== '') hijackKeys[key] = maskValue(key, s.env[key]);
   }
-  return { path, exists: true, hijackKeys };
+  return { path: s.path, exists: true, hijackKeys };
 }
 
 /** 只读诊断：全局 settings 有没有被劫持、shell 里有没有残留。不改任何文件。 */
 export function diagnoseClaudeConfig(opts: ShellEnvOptions = {}): ClaudeDiagnosis {
-  const files = settingsFiles().map(readFinding);
   const shellEnv = opts.shellEnv ?? process.env;
+  const settings = settingsFiles().map(readSettings);
+  const cloudProvider = usesCloudProvider(settings.map((s) => s.env), shellEnv);
+  const keys = activeHijackKeys(cloudProvider);
+  const files = settings.map((s) => toFinding(s, keys));
 
   const shellOverrides: Record<string, string> = {};
-  for (const key of HIJACK_ENV_KEYS) {
+  for (const key of keys) {
     const v = shellEnv[key];
     if (v) shellOverrides[key] = maskValue(key, v);
   }
@@ -130,6 +191,7 @@ export function diagnoseClaudeConfig(opts: ShellEnvOptions = {}): ClaudeDiagnosi
     healthy: !fileHijacked && !shellHijacked && !parseError,
     files,
     shellOverrides,
+    cloudProvider,
     ...(baseUrl ? { baseUrl } : {}),
   };
 }
@@ -167,6 +229,10 @@ function backupIfExists(path: string): string | null {
 export function repairClaudeConfig(opts: ShellEnvOptions = {}): RepairResult {
   const repaired: RepairedFile[] = [];
   const skipped: { path: string; reason: string }[] = [];
+  const shellEnv = opts.shellEnv ?? process.env;
+
+  // 先整体判一次模式：Bedrock/Vertex 下模型名键装的是云上的模型 ID，删了等于毁用户配置。
+  const keys = activeHijackKeys(usesCloudProvider(settingsFiles().map((p) => readSettings(p).env), shellEnv));
 
   for (const path of settingsFiles()) {
     if (!existsSync(path)) continue;
@@ -182,7 +248,7 @@ export function repairClaudeConfig(opts: ShellEnvOptions = {}): RepairResult {
     if (!env || typeof env !== 'object') continue;
 
     const removedKeys: string[] = [];
-    for (const key of HIJACK_ENV_KEYS) {
+    for (const key of keys) {
       if (env[key] != null) { delete env[key]; removedKeys.push(key); }
     }
     if (removedKeys.length === 0) continue;
@@ -195,8 +261,7 @@ export function repairClaudeConfig(opts: ShellEnvOptions = {}): RepairResult {
   }
 
   // shell 层的 export 我们不碰用户的 ~/.zshrc，只把还在的键名报出来让用户自己删。
-  const shellEnv = opts.shellEnv ?? process.env;
-  const shellOverridesRemaining = HIJACK_ENV_KEYS.filter((k) => shellEnv[k]);
+  const shellOverridesRemaining = keys.filter((k) => shellEnv[k]);
 
   return {
     changed: repaired.length > 0,

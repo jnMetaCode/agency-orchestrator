@@ -12,7 +12,7 @@ import {
   AO_MANAGED_KEY,
   AO_MANAGED_BASEURL_KEY,
 } from '../src/utils/claude-apply.js';
-import { diagnoseClaudeConfig } from '../src/utils/claude-repair.js';
+import { diagnoseClaudeConfig, repairClaudeConfig } from '../src/utils/claude-repair.js';
 
 let passed = 0, failed = 0;
 function assert(c: boolean, m: string): void { if (c) { console.log(`  ✅ ${m}`); passed++; } else { console.log(`  ❌ ${m}`); failed++; } }
@@ -198,6 +198,66 @@ try {
     applyClaudeProvider(cfg);
     restoreClaudeToOfficial({ detectSystemProxy: false });
     assert(readSettings()[AO_MANAGED_BASEURL_KEY] === undefined, '切回官方：base_url 指纹一并清除');
+  }
+
+  // 9) Bedrock / Vertex 用户不能被误伤（留言反馈，2026-09-18）：他们没有 API Key，靠 AWS 凭证走
+  //    网关，而模型名就填在 ANTHROPIC_MODEL / ANTHROPIC_SMALL_FAST_MODEL 里（值是 Bedrock 的模型 ID）。
+  //    旧逻辑把这几个键一律当"中转劫持"，体检报红、--fix 直接删掉 → 用户配置被毁。
+  const BEDROCK_MODEL = 'us.anthropic.claude-sonnet-4-5-20250929-v1:0';
+  {
+    const bedrockEnv = {
+      CLAUDE_CODE_USE_BEDROCK: '1',
+      AWS_REGION: 'us-west-2',
+      ANTHROPIC_MODEL: BEDROCK_MODEL,
+      ANTHROPIC_SMALL_FAST_MODEL: 'us.anthropic.claude-haiku-4-5-20251001-v1:0',
+    };
+    writeFileSync(settings, JSON.stringify({ env: { ...bedrockEnv } }, null, 2), 'utf-8');
+    const d = diagnoseClaudeConfig({ shellEnv: {} });
+    assert(d.healthy === true, 'Bedrock（开关在 settings）：体检为绿，不报劫持');
+    assert(d.cloudProvider === true, 'Bedrock：诊断标出走云网关');
+
+    const r = repairClaudeConfig({ shellEnv: {} });
+    assert(r.changed === false, 'Bedrock：--fix 不动任何文件');
+    assert(readSettings().env.ANTHROPIC_MODEL === BEDROCK_MODEL, 'Bedrock：模型 ID 原样保留（核心回归）');
+  }
+  {
+    // 开关在 shell（export CLAUDE_CODE_USE_BEDROCK=1），settings 里只有模型名
+    writeFileSync(settings, JSON.stringify({ env: { ANTHROPIC_MODEL: BEDROCK_MODEL } }, null, 2), 'utf-8');
+    const shellEnv = { CLAUDE_CODE_USE_BEDROCK: '1' };
+    assert(diagnoseClaudeConfig({ shellEnv }).healthy === true, 'Bedrock（开关在 shell）：体检为绿');
+    repairClaudeConfig({ shellEnv });
+    assert(readSettings().env.ANTHROPIC_MODEL === BEDROCK_MODEL, 'Bedrock（开关在 shell）：模型 ID 保留');
+
+    // 开关为 0 = 没开，回到旧行为：模型名键照样算劫持
+    assert(diagnoseClaudeConfig({ shellEnv: { CLAUDE_CODE_USE_BEDROCK: '0' } }).healthy === false,
+      '开关为 0：不豁免，模型名键仍算劫持');
+  }
+  {
+    // 没有开关 = 老用户的中转场景，行为完全不变（防止豁免开得太宽）
+    writeFileSync(settings, JSON.stringify({ env: { ANTHROPIC_MODEL: 'claude-sonnet-5' } }, null, 2), 'utf-8');
+    const d = diagnoseClaudeConfig({ shellEnv: {} });
+    assert(d.healthy === false && d.cloudProvider === false, '无 Bedrock 开关：模型名键仍报劫持（旧行为不变）');
+    repairClaudeConfig({ shellEnv: {} });
+    assert(readSettings().env === undefined, '无 Bedrock 开关：模型名键被清除，env 空了一并移除');
+  }
+  {
+    // Bedrock 开关还在，但确实被中转劫持了（有 ANTHROPIC_BASE_URL）→ 豁免失效，连模型名一起删干净。
+    // 否则中转写进来的模型名会留在 settings 里，切回官方后继续生效。
+    writeFileSync(settings, JSON.stringify({
+      env: {
+        CLAUDE_CODE_USE_BEDROCK: '1',
+        ANTHROPIC_BASE_URL: 'https://relay.example.com',
+        ANTHROPIC_AUTH_TOKEN: 'sk-fake-token-123',
+        ANTHROPIC_MODEL: 'relay-model-name',
+      },
+    }, null, 2), 'utf-8');
+    const d = diagnoseClaudeConfig({ shellEnv: {} });
+    assert(d.healthy === false && d.cloudProvider === false, 'Bedrock 开关 + 中转地址：仍按劫持报红');
+    repairClaudeConfig({ shellEnv: {} });
+    const env = readSettings().env;
+    assert(env.ANTHROPIC_BASE_URL === undefined && env.ANTHROPIC_AUTH_TOKEN === undefined, '中转凭据已清除');
+    assert(env.ANTHROPIC_MODEL === undefined, '中转的模型名也一并清除（豁免不生效）');
+    assert(env.CLAUDE_CODE_USE_BEDROCK === '1', '用户自己的 Bedrock 开关不动（只做减法，且不是劫持键）');
   }
 
 } finally {

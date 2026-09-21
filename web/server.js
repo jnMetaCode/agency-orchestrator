@@ -27,7 +27,7 @@ import { normalizeBaseUrl, postChatCompletions, postApiEndpoint, endpointHint, j
 // Anthropic 协议的 base 归一化（客户端会自己接 /v1/messages，base 不能自带 /v1）
 import { normalizeAnthropicBaseUrl } from '../dist/connectors/claude.js';
 import { applyCodexRelay, clearCodexRelay, readCodexRelayStatus } from '../dist/utils/codex-relay.js';
-import { diagnoseClaudeConfig, HIJACK_ENV_KEYS } from '../dist/utils/claude-repair.js';
+import { diagnoseClaudeConfig, SNAPSHOT_ENV_KEYS } from '../dist/utils/claude-repair.js';
 import { applyClaudeProvider, restoreClaudeToOfficial, readClaudeSwitchStatus, readClaudeProxyStatus, probeProxyReachable, clearClaudeProxy, syncClaudeProxy, detectSystemProxy } from '../dist/utils/claude-apply.js';
 import { validateCustomProviderId, readCustomProviders, addCustomProvider, removeCustomProvider, updateCustomProvider } from '../dist/utils/custom-providers.js';
 import { rotatingSponsors, rotateFrom } from '../dist/utils/sponsor-guide.js';
@@ -432,7 +432,7 @@ function applyKeys(obj) {
 // 体检（/api/claude/health、repair、restore）一律用这份快照判 shell 层残留，否则用户只是在
 // AO 里存了个 claude-code 中转，体检卡就红灯喊"被劫持"、还叫他去 .zshrc 删（那儿根本没有）。
 const SHELL_ENV_SNAPSHOT = Object.freeze(Object.fromEntries(
-  HIJACK_ENV_KEYS.map((k) => [k, process.env[k]]).filter(([, v]) => v != null),
+  SNAPSHOT_ENV_KEYS.map((k) => [k, process.env[k]]).filter(([, v]) => v != null),
 ));
 
 applyKeys(readKeys());
