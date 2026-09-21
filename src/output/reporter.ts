@@ -296,11 +296,13 @@ export function loadPreviousContext(outputDir: string): Map<string, string> {
     }
   }
 
-  for (const step of metadata.steps) {
+  for (const [index, step] of metadata.steps.entries()) {
     if (step.status === 'completed' && step.output_var) {
-      // 从 steps/ 目录读取输出内容
-      const stepFiles = existsSync(stepsDir) ? readdirSync(stepsDir) : [];
-      const stepFile = stepFiles.find(f => f.endsWith(`-${step.id}.md`));
+      // 从 steps/ 目录读取输出内容。文件名必须**精确**匹配（与 saveResults / loadStepOutput 同一写法）：
+      // 以前用 endsWith(`-${id}.md`) 找，步骤 id 带连字符时会串——`review` 会先撞上
+      // `1-final-review.md`，把另一步的正文当成自己的产出回灌给下游，且毫无报错。
+      const candidate = `${index + 1}-${step.id}.md`;
+      const stepFile = existsSync(join(stepsDir, candidate)) ? candidate : undefined;
       if (stepFile) {
         let content = readFileSync(join(stepsDir, stepFile), 'utf-8');
         // 去掉文件头部（> emoji **name** | 步骤 i/n 后跟 \n---\n），只把正文回灌给下游，

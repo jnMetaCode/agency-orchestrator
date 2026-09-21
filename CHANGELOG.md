@@ -93,6 +93,25 @@
   新增「氛围锁定」规则与「按类型的默认运镜与节拍」表（剧情短剧 / 产品广告片 / 治愈日常 / 悬疑惊悚 /
   搞笑段子 / 科幻 / 古风武侠 / 纪实 Vlog），来源是上游的 genre-camera-sop 与各题材范例。
 ### Fixed
+- **非交互环境下跑到 `approval` / `human_input` 节点，运行不再永远挂死**。readline 的 `question` 回调在 stdin EOF 时
+  永远不触发，进度计时器又让进程永不退出——cron / Docker / CI / `< /dev/null` 下，运行就挂在人工节点上一直打
+  「gate ... 90s」，上游已经花钱跑完的步骤一个字不落盘，也没有任何报错（真机复现）。现在 stdin 在拿到回答前关闭 →
+  这一步立刻失败、结果照常保存、提示 `--resume` 与 `-i` 预填。经 MCP 调用时（stdin 是 JSON-RPC 通道）人工节点
+  连 readline 都不开（`AO_NON_INTERACTIVE=1`，`ao serve` 自动设）——否则会把下一条协议消息当成「用户的回答」吃掉。
+- **`--resume last --from <循环步骤>` 回跳后循环体真的重跑**。调度时「resume 复用」判定排在「pending」之前：回跳把
+  循环体重置成 pending 后，复用名单里的步骤又被标成复用、根本不执行——审稿步对着同一份旧稿审满 `max_iterations` 轮，
+  白烧 token，最后报「循环达上限」。回跳时把循环体从复用名单里摘掉。
+- **`timeout: 0`（不限时）在三个连接器里都不是不限时**。`config.timeout || 默认值` 把 0 吃成 600s（claude-code / 通用 CLI）
+  和 300s（OpenAI 兼容 API）；而 executor 的注释与超时失败提示都在教用户「或 `--timeout 0` 不限时」。且因为
+  `attemptTimeout` 为 0，重试不放宽，五次都死在同一个 600s 上。API 连接器不限时时仍保留停顿检测（对面彻底不吐数据
+  仍要能失败）。`test/timeout-zero.ts` 9 条。
+- **`--resume` 恢复产出时，带连字符的步骤 id 不再串文件**。按 `endsWith("-<id>.md")` 找文件，`review` 会先撞上
+  `1-final-review.md`，把另一步的正文当成自己的产出回灌给下游，毫无报错。改成与落盘同一写法的精确文件名。
+- **「视频 + 配音」的纯媒体工作流不再被「暂不支持 provider」挡死**。parser 早把 `tts` 算作媒体步，`run()` 判断要不要
+  建文本连接器时漏了它：`llm.provider` 写视频供应商（秘塔）的短片工作流只要带一个配音步就跑不起来。
+- **`ao validate` 现在查 `tts.*`、`concat.voiceover / subtitles / bgm` 里的变量名**。这些步骤排在付费的出图、出视频
+  **之后**，变量名写错等到运行期才报「模板变量未定义」时钱已经花了（此前只查 image / video / concat.inputs）。
+- **`concurrency` 必须是 ≥ 1 的整数**：负数会让分批循环永不结束、把事件循环饿死，Ctrl-C 都按不动。
 - **Bedrock / Vertex 用户不再被体检误判成「被劫持」，`ao doctor --fix` 也不会删掉他们的模型配置**。走 AWS Bedrock /
   Google Vertex 的 Claude Code 用户没有 API key，模型 ID 就填在 `ANTHROPIC_MODEL` / `ANTHROPIC_SMALL_FAST_MODEL`
   这几个键里；而这几个键此前被一律当成「中转劫持」，导致体检报红、`--fix` 把用户配置删了（有备份，但要手动恢复）。

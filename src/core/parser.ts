@@ -64,6 +64,11 @@ export function parseWorkflow(
   if (!llm.model && !cliProviders.includes(llm.provider as string) && !mediaOnly) {
     fail(t('parse.missing_model'));
   }
+  // concurrency 是分批循环的步长：写成 0 会被下面的 `|| 2` 兜住，但负数 / 小数不会——
+  // `i += -1` 永不结束，循环里不停 await 空批次，把事件循环饿死，Ctrl-C 都按不动。
+  if (doc.concurrency !== undefined && !(Number.isInteger(doc.concurrency) && (doc.concurrency as number) >= 1)) {
+    fail(`concurrency 必须是 ≥ 1 的整数（当前：${JSON.stringify(doc.concurrency)}）`);
+  }
 
   // 校验每个 step
   const stepIds = new Set<string>();
@@ -393,6 +398,10 @@ export function validateWorkflow(workflow: WorkflowDefinition, agentsDir?: strin
     for (const v of Object.values(step.image ?? {})) if (typeof v === 'string') refTexts.push(v);
     for (const v of Object.values(step.video ?? {})) if (typeof v === 'string') refTexts.push(v);
     for (const v of step.concat?.inputs ?? []) if (typeof v === 'string') refTexts.push(v);
+    // tts / 配音 / 字幕 / 配乐同样在运行期过变量渲染。它们排在付费的出图、出视频步骤**之后**，
+    // 变量名写错如果等到运行期才报「模板变量未定义」，前面的钱已经花了
+    for (const v of Object.values(step.tts ?? {})) if (typeof v === 'string') refTexts.push(v);
+    for (const v of [...(step.concat?.voiceover ?? []), ...(step.concat?.subtitles ?? []), step.concat?.bgm]) if (typeof v === 'string') refTexts.push(v);
 
     const varRefs: string[] = [];
     for (const text of refTexts) {

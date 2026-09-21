@@ -148,7 +148,8 @@ export class CLIBaseConnector implements LLMConnector {
       ? (this.cfg.buildStdinArgs?.(config) ?? this.cfg.buildArgs('-', config))
       : this.cfg.buildArgs(fullPrompt, config);
 
-    const timeout = config.timeout || 600_000;  // 默认 10 分钟（gateway/MiniMax 等 CLI provider 可能单步 5+ 分钟）
+    // `??` 而不是 `||`：timeout: 0 = 不限时，见 claude-code.ts 同一行的说明
+    const timeout = config.timeout ?? 600_000;  // 默认 10 分钟（gateway/MiniMax 等 CLI provider 可能单步 5+ 分钟）
 
     return new Promise<LLMResult>((resolve, reject) => {
       // Windows 下不能走 shell:true —— Node 会把参数裸拼给 cmd.exe，prompt 里的

@@ -255,6 +255,53 @@ console.log('\n─── 端到端：duration 走输入时必须转成数字 ─
   }
 }
 
+console.log('\n─── 端到端：「视频 + 配音」的纯媒体工作流不该被要求一个文本连接器 ───');
+{
+  // parser 的 mediaOnly 早就把 tts 算作媒体步（validate 通过、不要求 llm.model），但 run() 判断
+  // 「要不要建文本连接器」时漏了 tts——于是 llm.provider 写视频供应商（秘塔）的短片工作流只要带
+  // 一个配音步，一跑就被「暂不支持 provider: metaso」挡死，明明一次文本模型都用不上。
+  const seen: { create?: any; prompts: string[] } = { prompts: [] };
+  const srv = fakeServer(seen);
+  const port = await listen(srv);
+  const dir = mkdtempSync(join(tmpdir(), 'ao-e2e-video-tts-'));
+  const wf = join(dir, 'v.yaml');
+  writeFileSync(wf, [
+    'name: "视频加配音"',
+    'llm:',
+    '  provider: "metaso"',   // 真实写法：不带 base_url（带了会被工厂当成 OpenAI 兼容端点兜住，测不到这条）
+    'inputs:',
+    '  - name: narration',
+    '    default: "不配"',
+    'steps:',
+    '  - id: clip',
+    '    type: video',
+    '    task: "猫"',
+    '    video: { model: "MiniMax-H3", duration: 5 }',
+    '    output: c',
+    '  - id: vo',
+    '    type: tts',
+    '    condition: "{{narration}} contains 配旁白"',
+    '    task: "一句旁白"',
+    '    tts: { provider: "openai", model: "gpt-4o-mini-tts", voice: "nova" }',
+    '    output: vo_audio',
+  ].join('\n'), 'utf-8');
+  const envBefore = { key: process.env.METASO_API_KEY, base: process.env.METASO_BASE_URL };
+  process.env.METASO_API_KEY = 'mk-test';
+  process.env.METASO_BASE_URL = `http://127.0.0.1:${port}`;
+  try {
+    const result = await run(wf, {}, { quiet: true, outputDir: join(dir, 'out') });
+    assert(result.steps.find((s) => s.id === 'clip')?.status === 'completed', '视频步骤照常出片');
+    assert(result.steps.find((s) => s.id === 'vo')?.status === 'skipped', '配音步按条件跳过');
+  } catch (e) {
+    assert(false, `不该在建连接器这一步就挂：${e instanceof Error ? e.message : e}`);
+  } finally {
+    if (envBefore.key === undefined) delete process.env.METASO_API_KEY; else process.env.METASO_API_KEY = envBefore.key;
+    if (envBefore.base === undefined) delete process.env.METASO_BASE_URL; else process.env.METASO_BASE_URL = envBefore.base;
+    srv.close();
+    rmSync(dir, { recursive: true, force: true });
+  }
+}
+
 console.log('\n─── 端到端：两个视频步骤并行，各拿各的片 ───');
 {
   // 这条测的是整个视频实现里最容易出错的一环：秘塔的查询接口**不按 task_id 过滤**，

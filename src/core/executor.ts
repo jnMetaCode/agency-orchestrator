@@ -118,7 +118,8 @@ export async function executeDAG(dag: DAG, options: ExecutorOptions): Promise<Wo
   const maxRetry = llmConfig.retry ?? 5;
 
   // CLI provider 强制串行：共享同一账户额度，并发会触发限速反而更慢
-  const effectiveConcurrency = isCLI ? 1 : concurrency;
+  // parser 已校验；这里再兜一层给直接调 executeDAG 的库用户——步长 < 1 是死循环
+  const effectiveConcurrency = isCLI ? 1 : Math.max(1, Math.floor(Number(concurrency)) || 1);
 
   const loopIterations = new Map<string, number>();
   // 每步真实执行次数与累计 token：循环回跳会重跑 back_to 到循环节点之间的所有步骤，
@@ -357,6 +358,10 @@ export async function executeDAG(dag: DAG, options: ExecutorOptions): Promise<Wo
           for (const nodeId of ancestorsOfLoop) {
             if (!descendantsOfBackTo.has(nodeId)) continue;
             const n = dag.nodes.get(nodeId)!;
+            // resume 复用名单里的循环体步骤必须摘掉：调度时「复用」判定排在「pending」之前，
+            // 不摘的话 `--resume last --from <循环步骤>` 回跳后循环体又被标成复用、根本不重跑——
+            // 审稿步对着同一份旧稿审满 max_iterations 轮，白烧 token，最后报「循环达上限」。
+            options.skipStepIds?.delete(nodeId);
             n.status = 'pending';
             n.result = undefined;
             n.error = undefined;
@@ -1153,19 +1158,8 @@ async function handleApproval(
 
   emitWebInputRequest(node.step.id, prompt, 'approval');
 
-  const rl = createInterface({
-    input: process.stdin,
-    output: process.stdout,
-  });
-
-  return new Promise((resolve) => {
-    // Web 模式由前端弹框驱动，不在终端再打印人类提示
-    const display = process.env.AO_WEB_INPUT === '1' ? '' : `\n⏸️  ${prompt} `;
-    rl.question(display, (answer) => {
-      rl.close();
-      resolve(answer.trim());
-    });
-  });
+  // Web 模式由前端弹框驱动，不在终端再打印人类提示
+  return askOnStdin(node.step.id, process.env.AO_WEB_INPUT === '1' ? '' : `\n⏸️  ${prompt} `);
 }
 
 /**
@@ -1199,16 +1193,37 @@ async function handleHumanInput(
 
   emitWebInputRequest(node.step.id, prompt, 'human_input');
 
-  const rl = createInterface({
-    input: process.stdin,
-    output: process.stdout,
-  });
+  return askOnStdin(node.step.id, process.env.AO_WEB_INPUT === '1' ? '' : `\n📝 ${prompt} `);
+}
 
-  return new Promise((resolve) => {
-    const display = process.env.AO_WEB_INPUT === '1' ? '' : `\n📝 ${prompt} `;
+/**
+ * 从 stdin 读一行回答。**stdin 在拿到回答之前就关了（EOF）必须报错**——readline 的 question 回调在
+ * EOF 时永远不会被调用，于是 cron / Docker / CI / `< /dev/null` 下跑到人工节点，整个运行就挂在这里：
+ * 进度计时器让进程永不退出，上游已经花钱跑完的步骤一个字都不落盘，也没有任何报错（真机复现过：
+ * 只有一个 approval 步的工作流 `< /dev/null` 会一直打「gate ... 90s」）。报错之后走正常的失败路径：
+ * 这一步标失败、结果照常保存，用户可以 `--resume last` 在能交互的终端里接着跑。
+ */
+function askOnStdin(stepId: string, display: string): Promise<string> {
+  // MCP 服务端（stdin 是 JSON-RPC 通道）等明确不可交互的宿主：连 readline 都不能开
+  if (process.env.AO_NON_INTERACTIVE === '1') {
+    return Promise.reject(new Error(
+      `步骤 "${stepId}" 需要人工输入，但当前宿主不可交互（如经 MCP 调用）。human_input 步骤可通过 inputs 预填其输出变量；含 approval 的工作流请在终端或 Studio 里运行`,
+    ));
+  }
+  const rl = createInterface({ input: process.stdin, output: process.stdout });
+  return new Promise((resolve, reject) => {
+    let answered = false;
     rl.question(display, (answer) => {
+      answered = true;
       rl.close();
       resolve(answer.trim());
+    });
+    rl.once('close', () => {
+      if (answered) return;
+      reject(new Error(
+        `步骤 "${stepId}" 需要人工输入，但标准输入已关闭（非交互环境：cron / Docker / CI / 管道）。`
+        + `在能交互的终端里运行；human_input 步骤也可以用 -i <输出变量>=<内容> 预填后跳过`,
+      ));
     });
   });
 }

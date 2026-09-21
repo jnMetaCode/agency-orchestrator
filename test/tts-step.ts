@@ -14,7 +14,7 @@ import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { generateSpeech } from '../src/connectors/tts.js';
-import { parseWorkflow } from '../src/core/parser.js';
+import { parseWorkflow, validateWorkflow } from '../src/core/parser.js';
 import type { LLMConfig } from '../src/types.js';
 
 let passed = 0;
@@ -78,6 +78,34 @@ await test('全是媒体步骤的工作流不必填顶层 llm.model（tts 与 im
   writeFileSync(p, 'name: "x"\nllm:\n  provider: "lanox"\nsteps:\n  - id: vo\n    type: tts\n    task: "念一句"\n    tts:\n      model: "m"\n      voice: "v"\n    output: vo_mp3\n', 'utf-8');
   assert(parseWorkflow(p).steps.length === 1, '纯配音工作流不该被"缺 model"挡住');
   rmSync(f, { recursive: true, force: true });
+});
+
+// tts / 配音 / 字幕 / 配乐排在付费的出图、出视频步骤**之后**。变量名写错如果等到运行期才报
+// 「模板变量未定义」，前面的钱已经花了——所以必须在 validate 就拦（此前只查 image / video / concat.inputs）。
+await test('validate 拦住 tts / 配音 / 字幕 / 配乐里写错的变量名', () => {
+  const f = wf([
+    '  - id: shot', '    type: video', '    task: "一只猫"', '    video: { model: "m" }', '    output: shot_mp4',
+    '  - id: vo', '    type: tts', '    task: "念一句"', '    tts: { model: "m", voice: "{{tts_voic}}" }', '    output: vo_mp3',
+    '  - id: film', '    type: concat', '    depends_on: [shot, vo]',
+    '    concat:', '      inputs: ["{{shot_mp4}}"]', '      voiceover: ["{{vo_mp4}}"]', '      subtitles: ["{{subtitel}}"]', '      bgm: "{{bgm_pth}}"',
+    '    output: film_mp4', '',
+  ].join('\n'));
+  const errs = validateWorkflow(parseWorkflow(f)).join('\n');
+  for (const v of ['tts_voic', 'vo_mp4', 'subtitel', 'bgm_pth']) assert(errs.includes(v), `应报出未定义变量 ${v}（实际：${errs || '无报错'}）`);
+  assert(!errs.includes('shot_mp4'), '写对的变量不误报');
+  rmSync(join(f, '..'), { recursive: true, force: true });
+});
+
+await test('concurrency 必须是 ≥ 1 的整数（负数会让分批循环永不结束、Ctrl-C 都按不动）', () => {
+  for (const bad of ['-1', '1.5', '"two"']) {
+    const dir = mkdtempSync(join(tmpdir(), 'ao-conc-'));
+    const p = join(dir, 'w.yaml');
+    writeFileSync(p, `name: "x"\nconcurrency: ${bad}\nllm:\n  provider: "lanox"\n  model: "m"\nsteps:\n  - id: a\n    role: "r/x"\n    task: "t"\n`, 'utf-8');
+    let msg = '';
+    try { parseWorkflow(p); } catch (e) { msg = e instanceof Error ? e.message : String(e); }
+    assert(/concurrency/.test(msg), `concurrency: ${bad} 应在解析期报错（实际：${msg || '通过了'}）`);
+    rmSync(dir, { recursive: true, force: true });
+  }
 });
 
 console.log('\n─── 请求形状 ───');

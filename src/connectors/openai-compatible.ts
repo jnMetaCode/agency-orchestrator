@@ -155,13 +155,17 @@ export class OpenAICompatibleConnector implements LLMConnector {
         );
       }
 
-      const fetchTimeout = config.timeout || 300_000;
+      // timeout: 0 = 不限时（executor 与超时提示都这么承诺）。`|| 300_000` 会把 0 吃成 300s，
+      // 而 setTimeout(…, 0) 又会立刻中断——两种写法都不对，所以单独分支：不设总计时器，
+      // 只留停顿检测（对面彻底不吐数据时仍然要能失败，不限时不等于挂死也不管）。
+      const unlimited = config.timeout === 0;
+      const fetchTimeout = unlimited ? Number.POSITIVE_INFINITY : (config.timeout || 300_000);
       // 首字节/停顿超时：provider 迟迟不吐数据（输入过大 / 服务端卡死）时快速失败，
       // 而不是干等到总超时（可被动态抬到 20+ 分钟）。可用 AO_STREAM_STALL_MS 覆盖；不超过总超时。
       // 覆盖「等响应头」+「读 body」全程：连响应头都不来也能在 stallMs 内中断（不只 token 间隙）。
       const stallMs = Math.min(Number(process.env.AO_STREAM_STALL_MS) || 90_000, fetchTimeout);
       const controller = new AbortController();
-      const timer = setTimeout(() => controller.abort(), fetchTimeout);
+      const timer = unlimited ? undefined : setTimeout(() => controller.abort(), fetchTimeout);
       const abortState = { stalled: false };
       let stallTimer: ReturnType<typeof setTimeout> | undefined;
       const armStall = () => {

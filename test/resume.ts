@@ -3,8 +3,9 @@
  * 覆盖: skipStepIds 计算（纯函数）+ 完整 run→save→resume 往返（Mock LLM）
  * DAG: L0=[analyze]  L1=[tech_review, design_review]  L2=[final_summary]
  */
-import { resolve } from 'node:path';
-import { existsSync, readFileSync, rmSync } from 'node:fs';
+import { resolve, join } from 'node:path';
+import { existsSync, readFileSync, rmSync, mkdtempSync, mkdirSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
 import { parseWorkflow } from '../src/core/parser.js';
 import { buildDAG } from '../src/core/dag.js';
 import { executeDAG } from '../src/core/executor.js';
@@ -176,6 +177,68 @@ await test('--from final_summary：仅重跑 1 步，上游复用旧输出', asy
   // 复用步骤要带 reused：ao ledger 靠它避免把上次的工作再算一遍
   assert(byId.get('analyze')!.reused === true, `analyze 是复用的，应标 reused，实际 ${byId.get('analyze')!.reused}`);
   assert(byId.get('final_summary')!.reused === undefined, 'final_summary 是本次执行的，不应标 reused');
+});
+
+// 真实故障：调度时「resume 复用」判定排在「pending」之前。循环回跳把循环体重置成 pending 后，
+// 名单里的步骤又被标成复用、根本不重跑——审稿步对着同一份旧稿审满 max_iterations 轮，
+// 白烧 token，最后报「循环达上限」。
+await test('--from <循环步骤>：回跳后循环体真的重跑，而不是又被当成复用', async () => {
+  const dir = mkdtempSync(join(tmpdir(), 'ao-resume-loop-'));
+  const loopWf = join(dir, 'loop.yaml');
+  writeFileSync(loopWf, [
+    'name: "loop-resume"', `agents_dir: "${agentsDir}"`, 'verify: false',
+    'llm: { provider: "deepseek", model: "m" }',
+    'steps:',
+    '  - id: write', '    role: "marketing/marketing-content-creator"', '    task: "写稿 {{review_notes}}"', '    output: draft',
+    '  - id: review', '    role: "marketing/marketing-content-creator"', '    task: "审 {{draft}}"', '    output: review_notes',
+    '    depends_on: [write]',
+    '    loop: { back_to: write, max_iterations: 3, exit_condition: "{{review_notes}} contains APPROVED" }', '',
+  ].join('\n'), 'utf-8');
+  // write 第 n 次产出 DRAFT-n；review 只认重写过的稿子（DRAFT-2 起）才给 APPROVED
+  const seen: string[] = [];
+  let writes = 0;
+  const conn: LLMConnector = {
+    async chat(_sys: string, user: string): Promise<LLMResult> {
+      if (user.includes('写稿')) { writes++; seen.push(`write#${writes}`); return { content: `DRAFT-${writes + 1}`, usage: { input_tokens: 1, output_tokens: 1 } }; }
+      seen.push(`review(${user.match(/DRAFT-\d+/)?.[0]})`);
+      return { content: user.includes('DRAFT-1') ? '不行，重写' : 'APPROVED', usage: { input_tokens: 1, output_tokens: 1 } };
+    },
+  };
+  const loopDag = buildDAG(parseWorkflow(loopWf));
+  // 上一次运行留下的：write 已完成（DRAFT-1），现在从 review 续跑
+  const skip = computeResumeSkipIds(loopDag, ['write', 'review'], 'review');
+  assert(skip.has('write') && !skip.has('review'), '前提：write 在复用名单里，review 要重跑');
+  const result = await executeDAG(loopDag, {
+    connector: conn, agentsDir, llmConfig: parseWorkflow(loopWf).llm, concurrency: 1,
+    inputs: new Map([['draft', 'DRAFT-1'], ['review_notes', '']]),
+    skipStepIds: skip,
+  });
+  assert(writes === 1, `回跳后 write 必须真的重跑一次，实际 ${writes} 次（轨迹 ${seen.join(' → ')}）`);
+  assert(seen.join(' → ') === 'review(DRAFT-1) → write#1 → review(DRAFT-2)', `轨迹应为 审旧稿 → 重写 → 审新稿，实际 ${seen.join(' → ')}`);
+  const review = result.steps.find((x) => x.id === 'review')!;
+  assert(review.output === 'APPROVED' && !review.loopExhausted, '第二轮过审退出，不该报循环达上限');
+  assert(result.steps.find((x) => x.id === 'write')!.reused !== true, '重跑过的 write 不该再标 reused');
+  rmSync(dir, { recursive: true, force: true });
+});
+
+// 真实故障：恢复产出时用 endsWith(`-${id}.md`) 找文件，id 带连字符会串——`review` 先撞上
+// `1-final-review.md`，把另一步的正文当成自己的回灌给下游，毫无报错。
+await test('loadPreviousContext：带连字符的 step id 不串文件', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'ao-resume-hyphen-'));
+  mkdirSync(join(dir, 'steps'), { recursive: true });
+  writeFileSync(join(dir, 'metadata.json'), JSON.stringify({
+    name: 'x', inputs: {},
+    steps: [
+      { id: 'final-review', status: 'completed', output_var: 'final_out' },
+      { id: 'review', status: 'completed', output_var: 'review_out' },
+    ],
+  }), 'utf-8');
+  writeFileSync(join(dir, 'steps', '1-final-review.md'), '> 头\n---\nFINAL 的正文', 'utf-8');
+  writeFileSync(join(dir, 'steps', '2-review.md'), '> 头\n---\nREVIEW 的正文', 'utf-8');
+  const ctx = loadPreviousContext(dir);
+  assert(ctx.get('review_out') === 'REVIEW 的正文', `review 应读到自己的产出，实际「${ctx.get('review_out')}」`);
+  assert(ctx.get('final_out') === 'FINAL 的正文', 'final-review 读到自己的');
+  rmSync(dir, { recursive: true, force: true });
 });
 
 await test('清理临时输出', () => {

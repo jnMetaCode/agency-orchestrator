@@ -337,6 +337,9 @@ export async function startServer(verbose = false): Promise<void> {
     console.error('[ao-mcp] Starting MCP server...');
   }
 
+  // stdin/stdout 是 JSON-RPC 传输通道：工作流里的 approval / human_input 节点绝不能去读它——
+  // 会把下一条协议消息当成「用户的回答」吃掉，还往 stdout 写提示，把整条会话搞坏。
+  process.env.AO_NON_INTERACTIVE = '1';
   const transport = new StdioServerTransport();
   await server.connect(transport);
 

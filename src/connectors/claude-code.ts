@@ -134,7 +134,9 @@ export class ClaudeCodeConnector implements LLMConnector {
   }
 
   async chat(systemPrompt: string, userMessage: string, config: LLMConfig): Promise<LLMResult> {
-    const timeout = config.timeout || 600_000;  // 默认 10 分钟
+    // `??` 而不是 `||`：timeout: 0 = 不限时。`||` 会把 0 吃成 600s——显式要求不限时的长步骤照样
+    // 600s 被杀，且 attemptTimeout 为 0 时重试不放宽，五次都死在同一个 600s 上
+    const timeout = config.timeout ?? 600_000;  // 默认 10 分钟
 
     // 用临时文件传系统 prompt（避免命令行过长）
     let systemPromptFile: string | undefined;
@@ -194,11 +196,14 @@ export class ClaudeCodeConnector implements LLMConnector {
       let receivedBytes = 0;
       let lastProgressTime = 0;
 
-      const timer = setTimeout(() => {
-        killed = true;
-        child.kill('SIGTERM');
-        setTimeout(() => { try { child.kill('SIGKILL'); } catch {} }, 5000);
-      }, timeout);
+      // timeout 为 0 = 不限时：不上计时器（setTimeout(…, 0) 会让进程一启动就被杀）
+      const timer = timeout
+        ? setTimeout(() => {
+            killed = true;
+            child.kill('SIGTERM');
+            setTimeout(() => { try { child.kill('SIGKILL'); } catch {} }, 5000);
+          }, timeout)
+        : undefined;
 
       child.stdout!.on('data', (chunk: Buffer) => {
         stdoutChunks.push(chunk);
