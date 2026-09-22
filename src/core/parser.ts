@@ -3,6 +3,7 @@
  */
 import { readFileSync, existsSync } from 'node:fs';
 import { CLI_PROVIDER_IDS } from '../providers/detect.js';
+import { API_PROVIDER_MAP, ANTHROPIC_PROVIDER_MAP, VIDEO_PROVIDERS } from '../connectors/api-providers.js';
 import { extractVariables } from './template.js';
 import { evaluateCondition } from './condition.js';
 import { isValidCharSpec } from './assert.js';
@@ -10,6 +11,46 @@ import yaml from 'js-yaml';
 import type { WorkflowDefinition, StepDefinition } from '../types.js';
 import { t } from '../i18n.js';
 import { loadAgent, suggestRoles } from '../agents/loader.js';
+import { dirname, resolve as resolvePath } from 'node:path';
+import { fileURLToPath } from 'node:url';
+
+/**
+ * 合法字段表，取自随包的 schemas/workflow.schema.json——它同时是编辑器补全的来源，改一处两边都变。
+ * 读不到（极端情况：包被裁剪）就退化成不查未知键，而不是把所有工作流都判坏。
+ */
+function loadSchemaKeys(): { top: Set<string>; step: Set<string> } {
+  try {
+    const here = dirname(fileURLToPath(import.meta.url));
+    for (const candidate of [resolvePath(here, '../../schemas/workflow.schema.json'), resolvePath(here, '../schemas/workflow.schema.json')]) {
+      if (!existsSync(candidate)) continue;
+      const schema = JSON.parse(readFileSync(candidate, 'utf-8')) as { properties?: Record<string, unknown> & { steps?: { items?: { properties?: Record<string, unknown> } } } };
+      return {
+        top: new Set(Object.keys(schema.properties ?? {})),
+        step: new Set(Object.keys(schema.properties?.steps?.items?.properties ?? {})),
+      };
+    }
+  } catch { /* 退化为不查 */ }
+  return { top: new Set(), step: new Set() };
+}
+const { top: KNOWN_TOP_KEYS, step: KNOWN_STEP_KEYS } = loadSchemaKeys();
+
+/** 拼错的键找最接近的合法键（编辑距离 ≤ 3 才给），给「你是不是想写」用 */
+export function closestKey(key: string, known: string[]): string | undefined {
+  const dist = (a: string, b: string): number => {
+    const dp = Array.from({ length: a.length + 1 }, (_, i) => [i, ...Array<number>(b.length).fill(0)]);
+    for (let j = 1; j <= b.length; j++) dp[0][j] = j;
+    for (let i = 1; i <= a.length; i++) for (let j = 1; j <= b.length; j++) {
+      dp[i][j] = Math.min(dp[i - 1][j] + 1, dp[i][j - 1] + 1, dp[i - 1][j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1));
+    }
+    return dp[a.length][b.length];
+  };
+  let best: { k: string; d: number } | undefined;
+  for (const k of known) {
+    const d = dist(key.toLowerCase(), k.toLowerCase());
+    if (d <= 3 && (!best || d < best.d)) best = { k, d };
+  }
+  return best?.k;
+}
 
 /**
  * 解析失败几乎全是"用户的 YAML 写得不对"，不是服务端故障 —— 打上标记，让调用方
@@ -65,6 +106,19 @@ export function parseWorkflow(
   if (!llm.model && !cliProviders.includes(llm.provider as string) && !mediaOnly) {
     fail(t('parse.missing_model'));
   }
+  // 不认识的 provider 又没给 base_url：run 会报「暂不支持 provider」，validate / plan 却一路放行——
+  // 连接器工厂的规则是「不在注册表里但有 base_url = 按 OpenAI 兼容端点处理」，这里同一条口径。
+  // 纯媒体工作流的 provider 可以是视频供应商（有自己的注册表），不在此列。
+  {
+    const known = new Set<string>([...CLI_PROVIDER_IDS, 'ollama', 'claude', ...Object.keys(API_PROVIDER_MAP), ...Object.keys(ANTHROPIC_PROVIDER_MAP), ...VIDEO_PROVIDERS.map((v) => v.id)]);
+    const pid = String(llm.provider ?? '');
+    // 命令行 / Studio 用 --provider --base-url 覆盖时（llmFrom），YAML 里的 provider 会被换掉，不按 YAML 判
+    const overridden = !!opts?.llmFrom?.provider;
+    if (pid && !known.has(pid) && !llm.base_url && !mediaOnly && !overridden && !/\{\{/.test(pid)) {
+      const guess = closestKey(pid, [...known]);
+      fail(`不认识的 provider "${pid}"${guess ? `——你是不是想写 "${guess}"？` : ''}。自定义中转请配上 base_url（按 OpenAI 兼容端点处理）；内置供应商见 ao doctor`);
+    }
+  }
   // concurrency 是分批循环的步长：写成 0 会被下面的 `|| 2` 兜住，但负数 / 小数不会——
   // `i += -1` 永不结束，循环里不停 await 空批次，把事件循环饿死，Ctrl-C 都按不动。
   if (doc.concurrency !== undefined && !(Number.isInteger(doc.concurrency) && (doc.concurrency as number) >= 1)) {
@@ -84,6 +138,19 @@ export function parseWorkflow(
     }
     if (stepIds.has(step.id)) fail(`step id 重复: ${step.id}`);
     stepIds.add(step.id);
+    // depends_on 写成单个字符串（模型常这么写）：以前按字符串迭代，报出 8 条「依赖不存在的 step: "r" / "e" / "s"…」，
+    // 任何修复阶段都无从下手。deliverables 早就接受单字符串，这里同样规整成数组。
+    if (typeof (step as { depends_on?: unknown }).depends_on === 'string') {
+      step.depends_on = [(step as unknown as { depends_on: string }).depends_on];
+    }
+    // 拼错的键（depend_on / outputs / acceptence…）此前被**静默忽略**：依赖没连上、验收没做，用户以为都生效了。
+    // 键表取自随包的 JSON Schema（同一份给编辑器补全用），别在这里再抄一遍。
+    for (const key of Object.keys(step)) {
+      if (KNOWN_STEP_KEYS.size && !KNOWN_STEP_KEYS.has(key)) {
+        const guess = closestKey(key, [...KNOWN_STEP_KEYS]);
+        fail(`step "${step.id}" 有不认识的字段 "${key}"${guess ? `——你是不是想写 "${guess}"？` : ''}（拼错的字段会被静默忽略，所以这里直接报错）`);
+      }
+    }
 
     // approval / human_input 是无角色的人工节点，不需要 role / task；
     // image 是文生图节点：task 就是图片提示词，不需要 role
@@ -164,6 +231,13 @@ export function parseWorkflow(
     }
 
     // depends_on 的引用校验在 validateWorkflow() 中处理
+  }
+
+  for (const key of Object.keys(doc)) {
+    if (KNOWN_TOP_KEYS.size && !KNOWN_TOP_KEYS.has(key)) {
+      const guess = closestKey(key, [...KNOWN_TOP_KEYS]);
+      fail(`工作流顶层有不认识的字段 "${key}"${guess ? `——你是不是想写 "${guess}"？` : ''}`);
+    }
   }
 
   return {
@@ -309,6 +383,22 @@ export function validateWorkflow(workflow: WorkflowDefinition, agentsDir?: strin
         errors.push(`step "${step.id}" 的 loop 缺少 back_to`);
       } else if (!stepIds.has(step.loop.back_to)) {
         errors.push(`step "${step.id}" 的 loop.back_to 引用不存在的 step: "${step.loop.back_to}"`);
+      } else if (step.loop.back_to === step.id) {
+        errors.push(`step "${step.id}" 的 loop.back_to 不能指向自己`);
+      } else {
+        // 必须是依赖链上的祖先（与 dag.ts 同一条规则）。以前只有 buildDAG 查，于是 ao validate / ao plan / 自动组队的
+        // 校验都放行，一跑 ao run 才炸。回跳只重跑「back_to 的后代 ∩ 本步的祖先」，不在链上等于什么都不重跑。
+        const ancestors = new Set<string>();
+        const stack = [...(step.depends_on ?? [])];
+        while (stack.length) {
+          const cur = stack.pop()!;
+          if (ancestors.has(cur)) continue;
+          ancestors.add(cur);
+          stack.push(...(stepById.get(cur)?.depends_on ?? []));
+        }
+        if (!ancestors.has(step.loop.back_to)) {
+          errors.push(`step "${step.id}" 的 loop.back_to "${step.loop.back_to}" 不在它的依赖链上——回跳只会重跑两者之间的步骤，back_to 必须是 "${step.id}" 直接或间接 depends_on 的步骤`);
+        }
       }
       if (!step.loop.max_iterations || step.loop.max_iterations < 1) {
         errors.push(`step "${step.id}" 的 loop.max_iterations 必须 >= 1`);
@@ -480,20 +570,25 @@ function detectCycle(steps: StepDefinition[]): string | null {
     adj.set(step.id, step.depends_on || []);
   }
 
+  const path: string[] = [];
+  let found: string[] | null = null;
   function dfs(id: string): boolean {
     visited.add(id);
     inStack.add(id);
+    path.push(id);
     for (const dep of adj.get(id) || []) {
-      if (inStack.has(dep)) return true;
+      if (inStack.has(dep)) { found = [...path.slice(path.indexOf(dep)), dep]; return true; }
       if (!visited.has(dep) && dfs(dep)) return true;
     }
     inStack.delete(id);
+    path.pop();
     return false;
   }
 
   for (const step of steps) {
     if (!visited.has(step.id) && dfs(step.id)) {
-      return '工作流存在循环依赖';
+      // 点名是哪几步绕成了环——光说「存在循环依赖」，十几步的工作流要一条条肉眼查
+      return `工作流存在循环依赖: ${(found as string[] | null)?.join(' → ') ?? ''}`;
     }
   }
   return null;

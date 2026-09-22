@@ -216,6 +216,8 @@ const dict: Dict = {
     explain <workflow.yaml>           用自然语言解释执行计划
     roles [关键词] [--agents-dir path] 列出可用角色（带关键词则按 路径/名称/描述 搜索）
     upgrade [--check]                 自我升级到最新版（--check 只检查不安装）
+    install --tool <工具>              把角色库装进编码工具（claude-code/cursor/copilot/gemini-cli/qwen/opencode/workbuddy/codebuddy）
+    <命令> --help                      查看该命令的用法（不会执行它）
 
   自带私有角色：设 AO_AGENTS_DIR=/你的角色目录，run/compose/roles/web 全局生效。
   自建角色（叠加）：放 ~/.ao/roles/<id>.md（或设 AO_USER_ROLES_DIR），工作流里用 my/<id> 引用，
@@ -233,6 +235,13 @@ const dict: Dict = {
     --notify <url>           跑完把结果推送到 webhook（自动适配钉钉/飞书/企微机器人格式，其他地址发通用 {text}；也可用 AO_NOTIFY_URL）
     --resume <dir|last>      从上次运行恢复（加载已完成步骤的输出）
     --from <step-id>         配合 --resume，从指定步骤重新执行
+    --feedback "意见"         配合 --from：把上一版产出 + 这条意见交给该步骤改稿（省略 --resume 时默认 last）
+    --compare                跑完再跑单次基线 + 盲评，并排对比多智能体 vs 单次
+    --export <格式>          导出产出：docx / pdf / xlsx / pptx（给人）或 skill / plan（给编码 agent）
+    --materialize <目录>     把「### 路径 + 代码围栏」文件块落盘成项目脚手架
+    --no-verify              关闭 acceptance 自动核验；--verify-provider/--verify-model 指定验收员模型
+    --base-url / --api-key   覆盖端点与密钥（key 也可用环境变量 AO_API_KEY）
+    --temperature <0-2>      采样温度（0 = 近确定性）
     --watch                  实时进度显示（终端 UI）
     --quiet, -q              静默模式
     --lang <zh|en>           界面语言（默认根据系统 LANG 检测，也可用 AO_LANG 环境变量）
@@ -289,6 +298,8 @@ const dict: Dict = {
     explain <workflow.yaml>           Explain the plan in natural language
     roles [keyword] [--agents-dir path] List roles (with a keyword: search path/name/description)
     upgrade [--check]                 Self-update to the latest version (--check: check only)
+    install --tool <tool>             Install the role library into a coding tool (claude-code/cursor/copilot/gemini-cli/qwen/opencode/workbuddy/codebuddy)
+    <command> --help                  Show that command's usage (without running it)
 
   Bring your own roles: set AO_AGENTS_DIR=/your/roles/dir — applies to run/compose/roles/web.
   Your own roles (additive): drop ~/.ao/roles/<id>.md (or set AO_USER_ROLES_DIR) and reference
@@ -306,6 +317,13 @@ const dict: Dict = {
     --notify <url>           Push the result to a webhook when done (auto-adapts DingTalk/Feishu/WeCom bot formats; generic {text} otherwise; AO_NOTIFY_URL also works)
     --resume <dir|last>      Resume from previous run (reuse completed step outputs)
     --from <step-id>         With --resume, re-run starting from this step
+    --feedback "note"        With --from: hand the previous output + this note to that step for revision (--resume defaults to last)
+    --compare                After the run, also run a single-shot baseline + blind judge, side by side
+    --export <format>        Export outputs: docx / pdf / xlsx / pptx (for people) or skill / plan (for coding agents)
+    --materialize <dir>      Write "### path + code fence" blocks to disk as a project scaffold
+    --no-verify              Disable acceptance auto-verify; --verify-provider/--verify-model pick the reviewer model
+    --base-url / --api-key   Override endpoint and key (key also via AO_API_KEY)
+    --temperature <0-2>      Sampling temperature (0 = near-deterministic)
     --watch                  Live progress display (terminal UI)
     --quiet, -q              Quiet mode
     --lang <zh|en>           Interface language (auto-detected from LANG; also AO_LANG env)

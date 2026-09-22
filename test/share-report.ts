@@ -65,5 +65,15 @@ const withImg = renderShareReport({
 assert(withImg.includes('src="data:image/png;base64,AAA"'), '相对图片内联为 data URI');
 assert(withImg.includes('src="https://x.com/a.png"'), '外链图片保持原样');
 
+// 模型产出经 marked 渲染，没有净化——这页会被 Studio 同源打开、也会被转发。CSP 是唯一的闸。
+{
+  const hostile = renderShareReport({ name: 'x', steps: [{ id: 'a', markdown: '正文 <img src=x onerror="fetch(\'/api/run\')"> <script>alert(1)</script>' }] });
+  const csp = hostile.match(/<meta http-equiv="Content-Security-Policy" content="([^"]+)"/)?.[1] ?? '';
+  assert(/default-src 'none'/.test(csp) && !/script-src/.test(csp) && /img-src data:/.test(csp) && /style-src 'unsafe-inline'/.test(csp),
+    `页内 CSP 禁掉一切脚本、只放行内联样式与 data: 媒体（实际：${csp || '没有 CSP'}）`);
+  assert(hostile.indexOf('<meta http-equiv="Content-Security-Policy"') < hostile.indexOf('\n<style>'), 'CSP 放在 <head> 最前，先于任何可被注入的内容');
+  assert(!/<script[^>]*src=/.test(hostile), '报告页自己不引外部脚本（否则 CSP 会把它自己也拦掉）');
+}
+
 console.log(`\n  结果: ${passed} 通过, ${failed} 失败`);
 if (failed > 0) process.exit(1);

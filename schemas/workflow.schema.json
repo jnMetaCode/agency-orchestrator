@@ -878,6 +878,26 @@
           }
         ]
       }
+    },
+    "meta": {
+      "type": "object",
+      "description": "引擎不读的附属信息。Studio 画布把节点坐标存在 meta.layout 里。",
+      "properties": {
+        "layout": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "object",
+            "properties": {
+              "x": {
+                "type": "number"
+              },
+              "y": {
+                "type": "number"
+              }
+            }
+          }
+        }
+      }
     }
   }
 }

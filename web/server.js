@@ -849,6 +849,8 @@ app.get('/api/runs/:id/report', async (req, res) => {
     const html = renderRunDirReport(runDir, new Date().toLocaleString());
     try { writeFileSync(join(runDir, 'report.html'), html, 'utf-8'); } catch { /* 只读盘也不挡预览 */ }
     res.setHeader('Content-Type', 'text/html; charset=utf-8');
+    // 与页内 <meta> CSP 同一条：模型产出渲染成的 HTML 在 Studio 同源打开，脚本一旦跑起来就能调 /api/*
+    res.setHeader('Content-Security-Policy', "default-src 'none'; img-src data:; media-src data:; style-src 'unsafe-inline'; font-src data:; form-action 'none'; base-uri 'none'");
     res.send(html);
   } catch (err) {
     res.status(500).json({ error: err.message });

@@ -175,6 +175,10 @@ export function renderShareReport(d: ShareReportData): string {
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<!-- 正文是模型产出经 marked 渲染的 HTML（没有净化）。角色读过的资料、社区模板、抓来的网页都可能夹带
+     <script> / onerror=。这页会被 Studio 在同源打开、也会被转发给别人，所以用 CSP 把脚本一刀切掉：
+     本页自己没有脚本，样式全在 <style> 里，图片 / 音视频全是内联的 data:。 -->
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src data:; media-src data:; style-src 'unsafe-inline'; font-src data:; form-action 'none'; base-uri 'none'">
 <title>${esc(d.name)} · AO 运行报告</title>
 <style>
   :root {

@@ -9,7 +9,7 @@
  * - 总量有上限（默认 400KB ≈ 10 万 token 量级）：超过就按顺序截断，告警列出没装下的文件——
  *   把 5MB 文档塞进 prompt 只会换来一次超长请求失败，而且用户会以为模型"读过了"。
  */
-import { readdirSync, readFileSync, statSync } from 'node:fs';
+import { readdirSync, readFileSync, statSync, lstatSync } from 'node:fs';
 import { join, relative, extname } from 'node:path';
 
 const TEXT_EXT = new Set(['.md', '.markdown', '.txt', '.csv', '.tsv', '.json', '.yaml', '.yml', '.html', '.htm', '.rst', '.xml',
@@ -37,7 +37,10 @@ function walk(dir: string, root: string, out: string[]): void {
   for (const name of entries.sort()) {
     if (name.startsWith('.') || SKIP_DIRS.has(name)) continue;
     const p = join(dir, name);
-    let st; try { st = statSync(p); } catch { continue; }
+    // lstat 而不是 stat：符号链接一律跳过。一个 `sub/up -> ..` 就让 walk 绕圈到 ENAMETOOLONG，
+    // 两个文件被读成 66 份，400KB 上限全被重复填满、真正的资料反而报「总量已满」（真机复现）
+    let st; try { st = lstatSync(p); } catch { continue; }
+    if (st.isSymbolicLink()) continue;
     if (st.isDirectory()) walk(p, root, out);
     else if (st.isFile()) out.push(p);
   }

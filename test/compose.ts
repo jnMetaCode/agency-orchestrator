@@ -67,6 +67,24 @@ test('提取无语言标记的代码块', () => {
   assert(yaml.includes('name: "test"'), '应提取无标记代码块');
 });
 
+// 真机复现的静默截断：task 里带 ```json 示例，懒匹配在内层围栏收口，截出一份合法但少了后半截的工作流
+test('task 里嵌套的 ```json 示例不会截断工作流（以前静默丢掉后面的步骤）', () => {
+  const response = [
+    '```yaml', 'name: "嵌套"', 'steps:', '  - id: s1', '    role: "r/a"', '    task: |', '      按下面格式输出：',
+    '      ```json', '      {"a": 1}', '      ```', '    output: o1',
+    '  - id: s2', '    role: "r/b"', '    task: "总结 {{o1}}"', '    output: o2', '```', '', '以上。',
+  ].join('\n');
+  const y = extractYamlFromResponse(response);
+  assert(y.includes('id: s2') && y.includes('output: o2'), `第二步必须还在（实际截到：${y.slice(-60).replace(/\n/g, '⏎')}）`);
+  assert(y.includes('```json'), '内层示例围栏原样保留在 task 里');
+  assert(!y.endsWith('```') && !y.includes('以上'), '外层闭合与围栏外的文字被去掉');
+});
+
+test('模型只写了开头的 ```yaml 没闭合：照样取到全文', () => {
+  const y = extractYamlFromResponse('```yaml\nname: "x"\nsteps:\n  - id: s1\n');
+  assert(y.startsWith('name: "x"') && y.includes('id: s1'), '未闭合也能取');
+});
+
 test('无代码块时返回整个内容', () => {
   const response = 'name: "test"\nsteps:\n  - id: s1';
   const yaml = extractYamlFromResponse(response);

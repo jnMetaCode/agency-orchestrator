@@ -1119,6 +1119,19 @@ async function executeStep(
     return content;
   }
 
+  // 返工稿必须**重新过一遍机械断言**：断言是硬闸（少一个文件 = 缺件），只在第一稿上查过；
+  // 验收返工重写一遍，文件数完全可能从 6 掉到 5——不复查就是这个模块专门要拦的「缺件绿灯」。
+  // 返工稿断言不过 → 保留过了断言的第一稿，验收按未通过记录（宁可 ⚠️，不冒充通过）。
+  if (node.step.assert) {
+    const assertSpec = resolveAssert(node.step.assert, opts.context, () => undefined);
+    const again = checkAssert(reworked, assertSpec);
+    if (!again.pass) {
+      process.stderr.write(`\n  ⚠️  ${node.step.id} 验收返工稿未过机械断言（${again.failures[0]}），保留第一稿\n`);
+      node.verification = { pass: false, failed: failed1, reworked: true };
+      return content;
+    }
+  }
+
   const check2 = await verifyAcceptance(textJudge.connector, textJudge.cfg, renderedTask, reworked, node.acceptance);
   addTokens(check2.tokens);
   if (check2.verdict?.pass) {

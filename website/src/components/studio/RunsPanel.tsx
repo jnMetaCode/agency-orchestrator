@@ -117,7 +117,9 @@ function DetailPane({ id, provider, onRun }: { id: string; provider: string; onR
                   if (!res.ok) throw new Error(`${res.status}`);
                   const html = await res.text();
                   downloadText(safeFilename(baseName + (lang === "en" ? "-report" : "-分享报告"), "html"), html, "text/html");
-                  window.open(URL.createObjectURL(new Blob([html], { type: "text/html" })), "_blank");
+                  // 预览走 /api/…/report 这个带 CSP 头的地址，**不要**再用 blob: URL：blob 继承 Studio 的源，
+                  // 报告里的模型产出若夹带脚本，就能以 Studio 的身份调 /api/*（开跑、删运行、改配置）
+                  window.open(`/api/runs/${encodeURIComponent(id)}/report`, "_blank");
                 } catch (e) {
                   window.alert((lang === "en" ? "Report failed: " : "生成报告失败：") + (e instanceof Error ? e.message : String(e)));
                 }

@@ -169,7 +169,7 @@ Big-tech AI workstations sell "we operate your computer for you." Our answer is 
 
 ```bash
 # 1) Multi-expert planning (clarify → plan → project scaffold), code blocks land as real files
-ao run workflows/en/solo-founder-plan.yaml -i idea="a CLI bookkeeping tool" --materialize ./my-app
+ao run workflows/需求转项目脚手架.yaml -i idea="a CLI bookkeeping tool" --materialize ./my-app   # this template emits file blocks; solo-founder-plan produces a plan, not code
 
 # 2) Install the 276 expert roles into your coding tool (claude-code / cursor / copilot… 14 tools)
 ao install --tool claude-code

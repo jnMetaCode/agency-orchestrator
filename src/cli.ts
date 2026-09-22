@@ -8,7 +8,7 @@
  *   ao plan workflow.yaml
  *   ao roles --agents-dir ./agents
  */
-import { readFileSync, existsSync, writeFileSync } from 'node:fs';
+import { readFileSync, existsSync, writeFileSync, statSync } from 'node:fs';
 import { resolve, join, dirname, basename } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { spawnSync, execSync, spawn } from 'node:child_process';
@@ -52,6 +52,28 @@ const args = process.argv.slice(2);
 const command = args[0];
 detectLang(process.argv);
 
+/**
+ * 把命令行里的工作流路径变成真实文件。两件事：
+ *  1. `ao run workflows/tech-blog.yaml` 是 README 里所有示例的写法，但全局安装后它相对 cwd 不存在——
+ *     内置模板随包发布在安装目录，这里回退过去找（用户目录下同名文件仍然优先）；
+ *  2. 找不到 / 传了目录时给人话，而不是把 Node 的 ENOENT / EISDIR 原样抛出来。
+ */
+function resolveWorkflowArg(filePath: string): string {
+  const direct = resolve(filePath);
+  if (existsSync(direct)) {
+    if (statSync(direct).isDirectory()) {
+      console.error(`错误: ${filePath} 是目录，请指定 .yaml 工作流文件（ao roles / ao web 可浏览内置模板）`);
+      process.exit(1);
+    }
+    return direct;
+  }
+  const bundled = resolve(dirname(fileURLToPath(import.meta.url)), '..', filePath.replace(/^\.\//, ''));
+  if (/^(\.\/)?workflows[\/\\]/.test(filePath) && existsSync(bundled) && !statSync(bundled).isDirectory()) return bundled;
+  console.error(`错误: 找不到工作流文件: ${filePath}`);
+  console.error(`  内置模板：ao run workflows/<名字>.yaml（随包安装，任何目录都能这么写）；自己的文件请给对路径`);
+  process.exit(1);
+}
+
 async function main(): Promise<void> {
   // 环境里配了代理就先接管全局 dispatcher —— Node 的 fetch 默认不读 HTTP(S)_PROXY，
   // 不接管的话"curl 能通、AO 连不上"。没配代理时这一步什么都不做。
@@ -61,6 +83,13 @@ async function main(): Promise<void> {
 
   if (!command || command === '--help' || command === '-h') {
     printHelp();
+    return;
+  }
+  // `ao <命令> --help` 必须在分发之前拦下：以前 --help 会被当成文件名/参数原样送进命令——
+  // `ao init --help` 真的去下载 4MB 角色库，`ao demo --help` 在非 TTY 下自动选 provider **真跑**一条工作流，
+  // `ao run --help` 报 ENOENT '--help'。team / ledger / prompt 自己认 --help，其余在这里统一处理。
+  if ((args.includes('--help') || args.includes('-h')) && !['team', 'ledger', 'prompt', 'compose', 'install'].includes(command)) {
+    printCommandHelp(command);
     return;
   }
 
@@ -242,7 +271,7 @@ async function handleRun(): Promise<void> {
       process.exit(cmp.result.success ? 0 : 1);
     }
 
-    const result = await run(resolve(filePath), inputs, {
+    const result = await run(resolveWorkflowArg(filePath), inputs, {
       outputDir,
       quiet,
       watch,
@@ -355,7 +384,7 @@ function handleValidate(): void {
   }
 
   try {
-    const workflow = parseWorkflow(resolve(filePath));
+    const workflow = parseWorkflow(resolveWorkflowArg(filePath));
     const agentsDir = findAgentsDir(workflow.agents_dir, resolve(filePath)) ?? undefined;
     const errors = validateWorkflow(workflow, agentsDir);
 
@@ -400,7 +429,7 @@ function handlePlan(): void {
   }
 
   try {
-    const workflow = parseWorkflow(resolve(filePath));
+    const workflow = parseWorkflow(resolveWorkflowArg(filePath));
     const agentsDir = findAgentsDir(workflow.agents_dir, resolve(filePath)) ?? undefined;
     const errors = validateWorkflow(workflow, agentsDir);
     if (errors.length > 0) {
@@ -436,7 +465,7 @@ async function handleExplain(): Promise<void> {
   }
 
   try {
-    const workflow = parseWorkflow(resolve(filePath));
+    const workflow = parseWorkflow(resolveWorkflowArg(filePath));
     const agentsDir = findAgentsDir(workflow.agents_dir, resolve(filePath)) ?? undefined;
     const errors = validateWorkflow(workflow, agentsDir);
     if (errors.length > 0) {
@@ -2003,6 +2032,32 @@ function getVersion(): string {
 
 function printHelp(): void {
   console.log(t('help.text'));
+}
+
+/** `ao <命令> --help`：只打印用法，不执行。没有专门用法的命令回退到总帮助里对应的那几行。 */
+function printCommandHelp(command: string): void {
+  const usage: Record<string, string> = {
+    run: `用法: ao run <workflow.yaml> [-i key=value ...] [--provider p] [--model m]
+      ao run <workflow.yaml> --resume last --from <step-id> [--feedback "意见"]
+      ao run --team <名字> "任务"
+  选项见 ao --help 的「选项」一节（--export / --materialize / --compare / --no-verify / --notify …）`,
+    validate: '用法: ao validate <workflow.yaml> [--json] [--agents-dir path]',
+    plan: '用法: ao plan <workflow.yaml> [-i key=value ...]   查看 DAG 执行计划与媒体花费预览',
+    explain: '用法: ao explain <workflow.yaml>   用自然语言解释执行计划',
+    report: '用法: ao report [运行目录|last]   把一次运行渲染成可分享的单文件 HTML（默认最近一次）',
+    init: `用法: ao init [--lang zh|en] [--workflow] [--provider p --model m [--base-url u] [--api-key k]]
+  不带参数：下载/更新角色库到 ./agency-agents-zh（--help 不会下载）`,
+    demo: '用法: ao demo [--provider p] [--mock]   零配置体验多智能体协作（--help 不会真跑）',
+    doctor: '用法: ao doctor [--fix] [--no-probe] [--media-probe]   环境自检；--fix 修复被写坏的 ~/.claude',
+    roles: '用法: ao roles [关键词] [--lang zh|en] [--agents-dir path]',
+    skills: '用法: ao skills [名字]',
+    serve: '用法: ao serve   启动 MCP Server（stdio）',
+    web: '用法: ao web [--port n]   启动 Web Studio',
+    upgrade: '用法: ao upgrade [--check]',
+  };
+  const text = usage[command];
+  if (text) console.log(`\n  ${text.replace(/\n/g, '\n  ')}\n`);
+  else printHelp();
 }
 
 main();

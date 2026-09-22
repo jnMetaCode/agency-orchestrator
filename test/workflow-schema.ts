@@ -30,12 +30,10 @@ const errorsOf = (doc: unknown): string => (validate(doc) ? '' : (validate.error
 
 console.log('\n─── 内置模板全部通过（schema 不比引擎更严） ───');
 {
-  const files = [
-    ...readdirSync('workflows').filter((f) => f.endsWith('.yaml')).map((f) => join('workflows', f)),
-    ...readdirSync(join('workflows', 'en')).filter((f) => f.endsWith('.yaml')).map((f) => join('workflows', 'en', f)),
-  ];
+  // 递归：dev/ marketing/ ops/ … 子目录里还有 27 个模板，只扫两层会漏
+  const files = (readdirSync('workflows', { recursive: true }) as string[]).filter((f) => f.endsWith('.yaml')).map((f) => join('workflows', f));
   const bad = files.map((f) => ({ f, e: errorsOf(yaml.load(readFileSync(f, 'utf-8'))) })).filter((x) => x.e);
-  assert(files.length >= 40, `扫到 ${files.length} 个模板`);
+  assert(files.length >= 70, `扫到 ${files.length} 个模板（含子目录）`);
   assert(bad.length === 0, bad.length ? `不通过：${bad.slice(0, 3).map((x) => `${x.f} → ${x.e.slice(0, 160)}`).join(' ‖ ')}` : '全部通过');
 }
 

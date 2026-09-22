@@ -164,7 +164,7 @@ ao compose "帮我分析做一个AI记账工具的可行性" --run
 ```bash
 # 用 60+ 个内置模板（含英文版）
 ao run workflows/一人公司全员大会.yaml --input idea="帮打工人用AI写简历的求职神器"
-ao run workflows/dev/pr-review.yaml --input code=@src/main.ts
+ao run workflows/dev/pr-review.yaml -i pr_diff=@changes.diff -i pr_description="修复登录超时"
 ao run workflows/story-creation.yaml -i premise="一个程序员发现AI开始回复不该知道的事情"
 ```
 
@@ -483,7 +483,7 @@ ao run workflows/一人公司全员大会.yaml -i idea="用AI帮小商家做短�
 ao run workflows/一人公司全员大会.yaml --resume last --from marketing_plan
 
 # 只改最终汇总
-ao run workflows/一人公司全员大会.yaml --resume last --from launch_decision
+ao run workflows/一人公司全员大会.yaml --resume last --from ceo_decision
 ```
 
 每轮输出保存在 `ao-output/` 下独立目录，所有版本都保留，随时可以回溯。
@@ -517,10 +517,10 @@ ao run workflows/一人公司全员大会.yaml --from marketing_plan \
 
 ```bash
 # 手动跑一次并推送到飞书群
-ao run workflows/每日简报.yaml --notify https://open.feishu.cn/open-apis/bot/v2/hook/xxx
+ao run workflows/tech-blog.yaml -i topic="今日 AI 要闻" --notify https://open.feishu.cn/open-apis/bot/v2/hook/xxx
 
 # crontab -e：每天早上 8 点自动生成行业简报并推到钉钉群
-0 8 * * * cd ~/work && ao run workflows/每日简报.yaml --notify https://oapi.dingtalk.com/robot/send?access_token=xxx
+0 8 * * * cd ~/work && ao run workflows/tech-blog.yaml -i topic="今日 AI 要闻" --notify https://oapi.dingtalk.com/robot/send?access_token=xxx
 ```
 
 > 钉钉机器人若开了"自定义关键词"安全设置，把关键词设为 `AO` 即可（推送文案固定包含）。也可以用环境变量 `AO_NOTIFY_URL` 代替参数。推送失败只提示一行，绝不影响运行本身。想看完整产出？`ao report last` 生成可分享的单文件报告页。

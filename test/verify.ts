@@ -180,6 +180,23 @@ async function runOnce(wf: WorkflowDefinition, mock: ScriptedConnector, verify: 
   assert(validateWorkflow(badStep).some(e => e.includes('verify 必须是布尔值')), 'validate: step.verify 非布尔被报出');
 }
 
+// ── 场景 F：验收返工稿必须重新过机械断言（缺件绿灯） ──
+// assert 是硬闸，以前只查第一稿；验收不过触发的返工重写一遍，「必须包含 §结论」这种结构完全可能丢掉，
+// 而返工稿不经断言直接成为产出、验收还标通过——正是 assert 模块要拦的那种静默缺件。
+{
+  const mock = new ScriptedConnector(
+    ['{"pass": false, "failed": [{"criterion": "不超过 200 字", "why": "超长"}]}', '{"pass": true, "failed": []}'],
+    ['第一版草稿 §结论 在这', '返工后的成稿（把 §结论 弄丢了）'.replace('§结论', '结论')],
+  );
+  const wf = makeWf('    assert:\n      contains: ["§结论"]\n');
+  const result = await runOnce(wf, mock, true);
+  const step = result.steps.find(s => s.id === 'a')!;
+  assert(step.status === 'completed', 'F: 步骤不因此失败（第一稿是过了断言的）');
+  assert(step.output === '第一版草稿 §结论 在这', `F: 返工稿丢了必含项 → 保留过断言的第一稿（实际：${step.output}）`);
+  assert(step.verification?.pass === false && step.verification.reworked === true, `F: 验收按未通过记录，不冒充通过（实际 ${JSON.stringify(step.verification)}）`);
+  assert(mock.verifyCount === 1, `F: 返工稿没过断言就不再花一次核验的钱（实际核验 ${mock.verifyCount} 次）`);
+}
+
 rmSync(dir, { recursive: true, force: true });
 // ── 验收员的判定口径（2026-08-28 真机 11 次采样定的） ──────────────────────
 // 原先是"宁严勿松：条目只做到一部分也算未满足"。对可数条目对，对**质性**条目

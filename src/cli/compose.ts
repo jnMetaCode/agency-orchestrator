@@ -431,17 +431,25 @@ ${description}`;
  * 从 LLM 回复中提取 YAML 内容
  */
 export function extractYamlFromResponse(response: string): string {
-  // 尝试从 ```yaml ... ``` 代码块中提取
-  const yamlBlock = response.match(/```ya?ml\s*\n([\s\S]*?)```/);
-  if (yamlBlock) return yamlBlock[1].trim();
+  // 围栏只认**顶格**的那种。以前用懒匹配 /```ya?ml\s*\n([\s\S]*?)```/：提示词让模型「告诉角色输出什么格式」，
+  // task 里常带 ```json … ``` 的示例，懒匹配在第一个内层围栏就收口——截出来的是一份**合法但少了后半截**的工作流，
+  // 不报错、不告警，交付物那一步直接没了（真机复现）。块标量里的内容一定带缩进，顶格的 ``` 只可能是真围栏。
+  const open = response.match(/^```ya?ml[^\n]*\n/m);
+  if (open) {
+    const bodyStart = open.index! + open[0].length;
+    const rest = response.slice(bodyStart);
+    // 闭合取第一个**顶格** ```（模型有时会在后面再附一个示例块，只取第一块）
+    const closer = rest.match(/^```[ \t]*$/m);
+    return (closer ? rest.slice(0, closer.index) : rest).trim();
+  }
 
-  // 尝试从 ``` ... ``` 代码块中提取
-  const codeBlock = response.match(/```\s*\n([\s\S]*?)```/);
-  if (codeBlock) return codeBlock[1].trim();
-
-  // 小模型可能只有开头的 ``` 没有闭合，兜底去掉
-  const unclosed = response.match(/```ya?ml?\s*\n([\s\S]+)/);
-  if (unclosed) return unclosed[1].trim().replace(/```\s*$/, '').trim();
+  // 没标语言的 ``` 块：同样顶格开合
+  const anyOpen = response.match(/^```[^\n]*\n/m);
+  if (anyOpen) {
+    const rest = response.slice(anyOpen.index! + anyOpen[0].length);
+    const closer = rest.match(/^```[ \t]*$/m);
+    return (closer ? rest.slice(0, closer.index) : rest).trim();
+  }
 
   // 没有代码块，整个回复当 YAML
   return response.trim();
@@ -548,8 +556,10 @@ export async function composeWorkflow(options: {
   if (!existsSync(workflowsDir)) {
     mkdirSync(workflowsDir, { recursive: true });
   }
-  const fileName = options.outputName
-    ? (options.outputName.endsWith('.yaml') ? options.outputName : `${options.outputName}.yaml`)
+  // outputName 来自用户 / Studio 的表单：只取文件名部分——"../../x" 会把生成的 YAML 写到工作流目录外面
+  const rawName = options.outputName ? basename(options.outputName.trim()) : '';
+  const fileName = rawName && rawName !== '.' && rawName !== '..'
+    ? (rawName.endsWith('.yaml') ? rawName : `${rawName}.yaml`)
     : generateFileName(description, workflowsDir);
   const savedPath = resolve(workflowsDir, fileName);
   // 模型偶尔漏写整段 `llm:`（提示词里给了模板也拦不住）。这一段我们自己就知道该填什么 ——
@@ -595,6 +605,9 @@ export async function composeWorkflow(options: {
     if (det.replaced.length > 0) {
       console.log(`  自动替换 ${det.replaced.length} 个不存在的角色为最接近的真实角色：`);
       for (const r of det.replaced) console.log(`    ${r.from} → ${r.to}`);
+      // 同时进 warnings：Studio 只拿得到 warnings（然后直接开跑），console.log 它看不见——
+      // 换成了哪个专家必须让用户知道，替换有可能替错
+      warnings.push(`已把不存在的角色自动替换为最接近的真实角色：${det.replaced.map((r) => `${r.from} → ${r.to}`).join('，')}（若不合适请手改 YAML）`);
       first = await validateGenerated(savedPath);
     }
   }
@@ -625,7 +638,9 @@ export async function composeWorkflow(options: {
       });
       const retryYaml = extractYamlFromResponse(retryResult.content);
       if (retryYaml && retryYaml.includes('steps:')) {
-        writeFileSync(savedPath, retryYaml + '\n', 'utf-8');
+        // 重试写盘同样要补 llm / agents_dir：模型第一次会漏，第二次也会漏；漏了之后 parse 直接抛
+        // 「缺少 llm 配置」，后面每个 autoFix 都只能 fixed: 0，用户拿到一个跑不起来的文件
+        writeFileSync(savedPath, ensureLlmBlock(retryYaml, llmConfig, basename(resolve(agentsDir))) + '\n', 'utf-8');
         let second = await validateGenerated(savedPath);
         // LLM 重试后若仍残留幻觉角色 → 再用确定性替换兜底，堵住"重试后仍坏、却被当成功"的缺口
         if (second.invalidRoles.length > 0) {
@@ -1287,7 +1302,8 @@ inputs: ${inputNames.length > 0 ? inputNames.join('、') : '（无）'}
       process.stderr.write('  ⚠️  LLM 二次修复返回的内容不是有效 YAML，保留原文件\n');
       return { ok: false, replaced: false };
     }
-    writeFileSync(yamlPath, fixedYaml + '\n', 'utf-8');
+    // 同上：修复稿也可能漏掉 llm 段
+    writeFileSync(yamlPath, ensureLlmBlock(fixedYaml, llmConfig) + '\n', 'utf-8');
     return { ok: true, replaced: true };
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
