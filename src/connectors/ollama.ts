@@ -1,7 +1,7 @@
 /**
  * Ollama Connector — 本地模型，不需要 API key
  */
-import { hasImageInput, stripImageDataUris } from '../utils/vision.js';
+import { splitVisionMessage } from '../utils/vision.js';
 import type { LLMConnector, LLMResult, LLMConfig } from '../types.js';
 import { normalizeBaseUrl, joinEndpoint, postApiEndpoint } from './endpoint.js';
 
@@ -14,13 +14,12 @@ export class OllamaConnector implements LLMConnector {
   }
 
   async chat(systemPrompt: string, userMessage: string, config: LLMConfig): Promise<LLMResult> {
-    // 图片输入 v1 先剥离（ollama 的 images 字段对 llava 类模型可用，后续按需接）
-    if (hasImageInput(userMessage)) {
-      process.stderr.write('  ⚠️ ollama 路径暂不支持图片输入，已跳过图片\n');
-      userMessage = stripImageDataUris(userMessage, '[图片输入已跳过]');
-    }
+    // 图片走 Ollama 自己的 `images` 字段（消息级 base64 数组，qwen2.5vl / llava / minicpm-v / moondream 都认）；
+    // 文本里留 [图片N] 占位。选了看不了图的模型时 Ollama 会忽略 images，上层按"答不出图里内容"处理
+    const { text: userText, images } = splitVisionMessage(userMessage);
+    userMessage = userText;
     const numPredict = config.max_tokens || 8192;
-    const numCtx = estimateNumCtx(systemPrompt, userMessage, numPredict);
+    const numCtx = estimateNumCtx(systemPrompt, userMessage, numPredict, images.length);
 
     let response: Response;
     try {
@@ -36,7 +35,7 @@ export class OllamaConnector implements LLMConnector {
           model: config.model || 'llama3.1',
           messages: [
             { role: 'system', content: systemPrompt },
-            { role: 'user', content: userMessage },
+            { role: 'user', content: userMessage, ...(images.length ? { images: images.map((im) => im.base64) } : {}) },
           ],
           stream: false,
           options: {
@@ -85,8 +84,12 @@ export class OllamaConnector implements LLMConnector {
  * 根据实际输入长度自适应计算 num_ctx，避免 Ollama 默认 2048 截断，
  * 同时小输入不分配多余显存，提升推理速度。
  */
-function estimateNumCtx(systemPrompt: string, userMessage: string, numPredict: number): number {
+function estimateNumCtx(systemPrompt: string, userMessage: string, numPredict: number, imageCount = 0): number {
   const text = systemPrompt + userMessage;
+  // 图片不在文本里，但很吃上下文：qwen2.5-vl 一张缩略图约 300–1300 token（按分辨率分块），llava 固定 576。
+  // 真机：12 张候选缩略图只按文本估成 4096，Ollama 直接 400 "request (11867 tokens) exceeds the available context"。
+  // 按每张 1500 留余量；估多了只是多占显存，估少了整次调用报废。
+  const imageTokens = imageCount * 1500;
   // CJK 字符约 1.5-2 token/字，ASCII 约 0.25 token/字，按实际比例加权
   let tokens = 0;
   for (let i = 0; i < text.length; i++) {
@@ -94,7 +97,7 @@ function estimateNumCtx(systemPrompt: string, userMessage: string, numPredict: n
   }
   const estimatedInputTokens = Math.ceil(tokens);
   const buffer = 512;
-  const computed = estimatedInputTokens + numPredict + buffer;
+  const computed = estimatedInputTokens + imageTokens + numPredict + buffer;
   // 下限 4096（部分模型低于此值行为异常），上限 131072（主流模型极限）
   return Math.min(Math.max(computed, 4096), 131072);
 }

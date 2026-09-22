@@ -8,7 +8,8 @@
  * 发送前的分工：
  * - 支持 vision 的连接器（openai-compatible / claude）用 splitVisionMessage 把 data URI
  *   拆成多模态消息（文本里留 [图片N] 占位）；
- * - 不支持的（CLI 订阅类 / ollama v1）用 stripImageDataUris 剥离并警告——
+ * - ollama 用 splitVisionMessage 拆出后走它自己的 `images` 字段；
+ * - 不支持的（CLI 订阅类）用 stripImageDataUris 剥离并警告——
  *   几 MB 的 base64 直接进提示词是 token 炸弹，绝不能原样透传。
  */
 
