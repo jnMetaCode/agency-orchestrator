@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { api } from "@/lib/studio";
 
 export type BackendStatus = "checking" | "online" | "offline";
@@ -11,15 +11,26 @@ export function useBackend() {
   const [stale, setStale] = useState(false);
   const [latest, setLatest] = useState<string | null>(null);
 
+  // 连续失败次数：一次网络抖动就切到 offline 会让整个 Studio 换成离线视图，已填的任务、勾的角色全被卸载丢掉。
+  // 连续 3 次（15 秒）没响应才算离线；首次检查除外（一开始就连不上要马上说）。
+  const misses = useRef(0);
+  const [blocked, setBlocked] = useState<string | null>(null);
   const check = useCallback(async () => {
     try {
       const h = await api.health();
+      misses.current = 0;
+      setBlocked(null);
       setVersion(h.version ?? null);
       setStale(h.stale === true);
       setLatest(h.latest ?? null);
       setStatus("online");
-    } catch {
-      setStatus("offline");
+    } catch (e) {
+      // 403 = 引擎在、但来源守卫把这次访问拦了（比如用域名访问没设 AO_ALLOWED_HOSTS）。这不是「没装引擎」，
+      // 服务端的报错里写着该设哪个变量，得原样给用户看
+      const msg = e instanceof Error ? e.message : String(e);
+      if (/^403\b/.test(msg)) { setBlocked(msg.replace(/^403\s*/, "")); setStatus("offline"); return; }
+      misses.current += 1;
+      setStatus((prev) => (prev === "online" && misses.current < 3 ? prev : "offline"));
     }
   }, []);
 
@@ -37,5 +48,5 @@ export function useBackend() {
     return false;
   };
   const updateAvailable = !!(latest && version && semverGt(latest, version));
-  return { status, version, stale, latest, updateAvailable, recheck: check };
+  return { status, version, stale, latest, updateAvailable, blocked, recheck: check };
 }

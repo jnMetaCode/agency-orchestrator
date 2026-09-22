@@ -378,6 +378,7 @@ const zh = {
       runFailedExitCodePrefix: "运行失败（退出码 ",
       runFailedExitCodeSuffix: "）",
       runError: "运行出错",
+      stoppedByUser: "已手动停止",
       stepsFailedPrefix: "有步骤失败：\n",
       notifyDoneBody: "任务完成，点击查看成果",
       notifyFailBody: "任务失败，点击查看原因",
@@ -695,6 +696,7 @@ const zh = {
       stepSkipped: "已跳过",
     },
     demo: {
+      blockedTitle: "引擎拒绝了这次访问",
       bannerTitle: "演示模式",
       bannerDesc: "可浏览全部专家、查看并复制完整提示词。真正运行工作流需要本地引擎——请安装客户端或本地运行。",
       bannerInstall: "安装 / 下载客户端",
@@ -1205,6 +1207,7 @@ const en: typeof zh = {
       runFailedExitCodePrefix: "Run failed (exit code ",
       runFailedExitCodeSuffix: ")",
       runError: "Run error",
+      stoppedByUser: "Stopped by you",
       stepsFailedPrefix: "Some steps failed:\n",
       notifyDoneBody: "Run finished — click to view the results",
       notifyFailBody: "Run failed — click to see what went wrong",
@@ -1521,6 +1524,7 @@ const en: typeof zh = {
       stepSkipped: "Skipped",
     },
     demo: {
+      blockedTitle: "The engine refused this request",
       bannerTitle: "Demo mode",
       bannerDesc: "Browse every expert, view and copy full prompts. Running workflows for real needs a local engine — install the app or run it locally.",
       bannerInstall: "Install / download the app",

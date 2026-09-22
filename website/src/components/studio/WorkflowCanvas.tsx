@@ -133,7 +133,11 @@ export function WorkflowCanvas({ file, name, onClose, onSaved }: { file: string;
         : "pending";
     }
     return map;
-  }, [activeRun]);
+    // activeRun 是 RunManager 原地改的同一个对象（steps / state 都是 mutate 后 force 渲染），引用不变——
+    // 只依赖 [activeRun] 的 memo 算一次就永远停在全 pending，画布上的执行态灯从来不亮。
+    // 与 RunViewer 同一个坑（那边索性不 memo）；这里把真正会变的两个字段也列进依赖。
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeRun, activeRun?.steps, activeRun?.state]);
   const isRunning = activeRun?.state === "running";
 
   useEffect(() => {

@@ -61,7 +61,7 @@ function resolveTab(qp: string | null): { tab: Tab; start?: StartView; settings?
 
 function StudioInner() {
   const { t, lang, prefix } = useLanguage();
-  const { status, version, stale, latest, updateAvailable } = useBackend();
+  const { status, version, stale, latest, updateAvailable, blocked } = useBackend();
   // 防御：任一 tab 文案缺失也不要让整个 Studio 渲染崩溃（否则所有 tab 都点不动）
   const TABS = TAB_META.map((tb) => ({
     ...tb,
@@ -264,13 +264,14 @@ function StudioInner() {
             <>
               <div className="mb-5 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-amber-500/40 bg-amber-500/[0.07] px-4 py-3">
                 <div className="min-w-0">
-                  <span className="text-sm font-semibold text-amber-600 dark:text-amber-400">{t.studio.demo.bannerTitle}</span>
-                  <p className="mt-0.5 text-xs leading-relaxed text-muted-foreground">{t.studio.demo.bannerDesc}</p>
+                  {/* 403 = 引擎在、来源守卫拦了（用域名访问没设 AO_ALLOWED_HOSTS）。这时喊「去装引擎」是误导，原样给服务端的指引 */}
+                  <span className="text-sm font-semibold text-amber-600 dark:text-amber-400">{blocked ? t.studio.demo.blockedTitle : t.studio.demo.bannerTitle}</span>
+                  <p className="mt-0.5 text-xs leading-relaxed text-muted-foreground">{blocked ?? t.studio.demo.bannerDesc}</p>
                 </div>
-                <Button size="sm" onClick={() => setInstallOpen(true)}>
+                {!blocked && <Button size="sm" onClick={() => setInstallOpen(true)}>
                   <Download className="size-4" />
                   {t.studio.demo.bannerInstall}
-                </Button>
+                </Button>}
               </div>
               {/* 演示模式也按 tab 显示真实内容（可浏览，只是不能真跑）；运行类操作引导安装 */}
               {tab === "start" && startView === "workflows" ? (

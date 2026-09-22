@@ -222,7 +222,12 @@ export async function downloadExport(markdown: string, format: "docx" | "pdf" | 
 
 async function getJSON<T>(path: string): Promise<T> {
   const res = await fetch(`${API}${path}`);
-  if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
+  if (!res.ok) {
+    // 服务端的 { error } 是写给人看的（403 会说该设 AO_ALLOWED_HOSTS=…），别丢掉只留 "403 Forbidden"
+    let msg = `${res.status} ${res.statusText}`;
+    try { const j = await res.json(); if (j?.error) msg = `${res.status} ${j.error}`; } catch { /* 不是 JSON */ }
+    throw new Error(msg);
+  }
   return res.json();
 }
 

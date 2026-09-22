@@ -1,4 +1,4 @@
-import { createContext, useCallback, useContext, useReducer, useRef, type ReactNode } from "react";
+import { createContext, useCallback, useContext, useEffect, useReducer, useRef, type ReactNode } from "react";
 import { api, runRole, runWorkflow, type SseHandler, type WorkflowStepMeta } from "@/lib/studio";
 import { useLanguage } from "@/i18n/LanguageProvider";
 
@@ -124,6 +124,19 @@ export function RunProvider({ children }: { children: ReactNode }) {
   const [, force] = useReducer((x) => x + 1, 0);
 
   const touch = useCallback(() => force(), []);
+
+  // 刷新 / 关标签 / 点到站外链接时，服务端一看到响应流断开就 SIGTERM 子进程——正在跑的（可能按秒计费的）
+  // 运行会被无声杀掉。运行只活在内存里、SSE 也接不回来，所以这里至少要让浏览器弹一句"确定离开？"。
+  useEffect(() => {
+    const guard = (e: BeforeUnloadEvent) => {
+      const busy = [...runsRef.current.values()].some((r) => r.state === "running");
+      if (!busy) return;
+      e.preventDefault();
+      e.returnValue = "";
+    };
+    window.addEventListener("beforeunload", guard);
+    return () => window.removeEventListener("beforeunload", guard);
+  }, []);
 
   const start = useCallback(
     (request: RunRequest): string => {
@@ -280,6 +293,7 @@ export function RunProvider({ children }: { children: ReactNode }) {
           case "error":
             inst.error = data.message || t.studio.run.runError;
             inst.state = "error";
+            inst.steps = inst.steps.map((s) => (s.status === "running" ? { ...s, status: "failed" } : s));
             notifyRunEnd(inst.title, false, t.studio.run.notifyFailBody);
             break;
         }
@@ -299,6 +313,8 @@ export function RunProvider({ children }: { children: ReactNode }) {
         if (ctrl.signal.aborted) return;
         inst.error = e?.message || String(e);
         inst.state = "error";
+        // 请求本身挂了（不是引擎发的 error 事件）：正在跑的步骤不会再收到任何事件，别让它们的转圈永远转下去
+        inst.steps = inst.steps.map((s) => (s.status === "running" ? { ...s, status: "failed" } : s));
         touch();
       });
 
@@ -312,7 +328,12 @@ export function RunProvider({ children }: { children: ReactNode }) {
       const inst = runsRef.current.get(id);
       if (!inst) return;
       inst.ctrl.abort();
-      if (inst.state === "running") inst.state = "done";
+      // 用户主动停的：状态是 error（带说明），不是 done——以前标 done，绿色「已完成」徽章下面步骤还在转圈
+      if (inst.state === "running") {
+        inst.state = "error";
+        inst.error = t.studio.run.stoppedByUser;
+        inst.steps = inst.steps.map((s) => (s.status === "running" ? { ...s, status: "failed" } : s));
+      }
       touch();
     },
     [touch],
@@ -359,11 +380,14 @@ export function RunProvider({ children }: { children: ReactNode }) {
     (id: string, text: string) => {
       const inst = runsRef.current.get(id);
       if (!inst?.runId || !inst.pendingInput) return;
-      // 乐观清除等待态；引擎收到输入后会继续推进
+      // 乐观清除等待态；引擎收到输入后会继续推进。发送失败要把弹框**还回来**：引擎还在等 stdin，
+      // 弹框没了用户就没有任何办法再提交，这条运行只能挂着
+      const pending = inst.pendingInput;
       inst.pendingInput = null;
       touch();
       api.runInput(inst.runId, text).catch((e) => {
         inst.error = e?.message || String(e);
+        inst.pendingInput = pending;
         touch();
       });
     },

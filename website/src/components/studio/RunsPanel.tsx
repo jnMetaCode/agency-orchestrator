@@ -20,9 +20,12 @@ function DetailPane({ id, provider, onRun }: { id: string; provider: string; onR
   useEffect(() => {
     setRun(null);
     setErr(null);
+    // 快速切换运行时，先发出的慢请求可能后到，把当前运行的详情覆盖成别的运行的——用 alive 标记丢掉过期响应
+    let alive = true;
     api
       .run(id)
       .then((raw) => {
+        if (!alive) return;
         // The detail endpoint omits id and uses total* fields — normalize them.
         const r = raw as RunSummary & { totalDuration?: string; totalTokens?: RunSummary["tokens"] };
         const norm: RunSummary = {
@@ -37,7 +40,8 @@ function DetailPane({ id, provider, onRun }: { id: string; provider: string; onR
         const last = declared[declared.length - 1] ?? [...(norm.steps ?? [])].reverse().find((s) => s.content?.trim());
         setOpen(last?.id ?? null);
       })
-      .catch((e) => setErr(e.message));
+      .catch((e) => { if (alive) setErr(e.message); });
+    return () => { alive = false; };
   }, [id]);
 
   const fullText = useMemo(() => {

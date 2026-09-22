@@ -289,8 +289,10 @@ function InputsDialog({ wf, provider, onClose, onRun, onCompare }: { wf: Workflo
     } catch { /* 失败就保留原文，不打扰 */ } finally { setExpanding(null); }
   };
 
+  // 只有「按下并松开都在遮罩上」才算点遮罩：在输入框里拖选文字、松手滑到遮罩外，click 会落在遮罩上，
+  // 以前一整段填好的任务就这么没了。onClick 换成 mouseDown + target 检查。
   return (
-    <div className="fixed inset-0 z-[55] grid place-items-center bg-black/50 p-4 backdrop-blur-sm" onClick={onClose}>
+    <div className="fixed inset-0 z-[55] grid place-items-center bg-black/50 p-4 backdrop-blur-sm" onMouseDown={(e) => { if (e.target === e.currentTarget) onClose(); }}>
       {/* 有出图/出片设置时放宽成两栏：左=内容，右=媒体设置；正文可滚动，按钮固定在底部 */}
       <div className={cn("flex max-h-[88vh] w-full flex-col rounded-2xl border border-border/70 bg-background shadow-2xl", isMedia ? "max-w-4xl" : "max-w-lg")} onClick={(e) => e.stopPropagation()}>
         <div className="px-5 pt-5">
