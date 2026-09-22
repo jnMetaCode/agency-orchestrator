@@ -22,10 +22,33 @@
 
 收录标准：`ao validate` 通过、角色引用真实存在、任务描述具体可复现、不含任何收集用户数据的行为。
 
-### 新增 LLM Connector
-- 在 `src/connectors/` 中实现 `LLMConnector` 接口
-- 在 `src/index.ts` 的 `run()` 函数中注册 provider
-- 添加对应的测试
+### 新增供应商（provider）
+
+先分清是哪一类，登记点不同：
+
+- **API 供应商（OpenAI 兼容 / Anthropic 协议）**：在 `src/connectors/api-providers.ts` 的 `API_PROVIDERS` / `ANTHROPIC_PROVIDERS`
+  加一条即可被引擎认识（`factory.ts` 按表路由，不用改）。要让 Studio 也认识，还要：`web/server.js` 的 `KEY_ENV`、
+  `website/src/lib/studio.ts` 的 `API_PROVIDERS`（展示名 / 预设 / 模型建议）、`website/src/i18n/translations.ts`；
+  赞助商另加 `src/utils/sponsor-guide.ts`、`website/public/providers-manifest.json`（旧版免升级靠它）。
+  最后跑 `npm run build && node scripts/sync-schema-providers.mjs` 同步编辑器补全候选——`test/workflow-schema.ts` 对不上会红。
+  对照最近一次接入（`git log --all --oneline | grep -i packycode`）看全部登记点。
+- **本机 CLI 供应商**：在 `src/connectors/` 写连接器（多数可继承 `cli-base.ts`），`factory.ts` 加分支，
+  `src/providers/detect.ts` 的 `CLI_PROVIDER_IDS` 与 `CLI_PROVIDER_BINS` 各加一条（**别处不要再抄名单**，
+  `test/detect-providers.ts` 会拦）。参考 `dsh-cli` 的接入提交。
+- **视频供应商**：`VIDEO_PROVIDERS`（`api-providers.ts`），一家一个 `shape` 适配器在 `src/connectors/video.ts`。
+
+每类都要加测试，且**端点靠探不靠抄**：用 `ao doctor --media-probe` / 真 key 核实过再写进注册表。
+
+### 跑测试
+
+```bash
+npm run build                 # 有 5 个测试直接 import dist/，先构建
+npm run build:studio          # web-server 测试要 website/dist（否则 SPA 路由那条 503）
+npm test                      # 全量（先 typecheck 测试文件，再按 package.json 里的顺序跑）
+npx tsx test/<文件>.ts        # 只跑一个
+```
+
+新增 `test/*.ts` 后要在 `package.json` 的 `test` 链里登记，否则不会被跑到。
 
 ### 改进代码
 - Fork 仓库并创建功能分支

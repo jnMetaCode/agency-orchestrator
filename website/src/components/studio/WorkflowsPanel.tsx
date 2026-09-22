@@ -1,7 +1,7 @@
 import { Check, Download, GitCompare, Loader2, Paperclip, Play, Scale, Search, Star, Trash2, Workflow as WorkflowIcon, X } from "lucide-react";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { Tip } from "@/components/ui/tip";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { lazy, Suspense, useEffect, useMemo, useRef, useState } from "react";
 import { useLanguage } from "@/i18n/LanguageProvider";
 import { Button } from "@/components/ui/button";
 import { api, DEFAULT_PROVIDER, CLI_PROVIDER_IDS, inputVisible, type WorkflowInput, type ConfigResponse, API_PROVIDERS, recentUsage, type RunSummary, getFavWorkflows, setFavWorkflows, getMediaDefaults, mediaDefaultFor, setMediaDefaults, mergedVideoProviders, type CommunityTemplate, type Workflow } from "@/lib/studio";
@@ -12,7 +12,8 @@ import { MediaSelect } from "./MediaSelect";
 import type { RunRequest } from "./RunManager";
 import { CompareOverlay } from "./CompareOverlay";
 import { BaselineCompareOverlay } from "./BaselineCompareOverlay";
-import { WorkflowCanvas } from "./WorkflowCanvas";
+// 画布连带 @xyflow/react + dagre（~200KB）以前静态打进 Studio 主包，而画布是可选功能——按需加载
+const WorkflowCanvas = lazy(() => import("./WorkflowCanvas").then((m) => ({ default: m.WorkflowCanvas })));
 
 function CastStack({ steps }: { steps: NonNullable<Workflow["steps"]> }) {
   const shown = steps.slice(0, 6);
@@ -826,12 +827,14 @@ export function WorkflowsPanel({ provider, onRun, demo, onInstallPrompt, filter 
       {compare && <CompareOverlay workflows={compare} provider={provider} onClose={() => setCompare(null)} />}
       {baseline && <BaselineCompareOverlay wf={baseline.wf} inputs={baseline.inputs} provider={provider} onClose={() => setBaseline(null)} />}
       {canvasFor && (
+        <Suspense fallback={<div className="fixed inset-0 z-[60] grid place-items-center bg-black/50 text-sm text-white">…</div>}>
         <WorkflowCanvas
           file={canvasFor.file}
           name={canvasFor.name}
           onClose={() => setCanvasFor(null)}
           onSaved={() => { if (!demo) api.workflows(lang).then(setWfs).catch(() => {}); }}
         />
+        </Suspense>
       )}
     </div>
   );

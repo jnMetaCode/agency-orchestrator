@@ -4,7 +4,7 @@
  * 用户用一句话描述需求，AI 从角色库中选角色、设计 DAG、生成完整 workflow YAML。
  * 支持中文（agency-agents-zh）和英文（agency-agents）角色库。
  */
-import { listAgents, suggestFromPaths } from '../agents/loader.js';
+import { listAgents, suggestFromPaths, confidentRoleMatch } from '../agents/loader.js';
 import { existsSync, readFileSync, writeFileSync, mkdirSync } from 'node:fs';
 import { resolve, relative, basename } from 'node:path';
 import { createConnector } from '../connectors/factory.js';
@@ -695,7 +695,8 @@ export function repairInvalidRolesInYaml(
   const replaced: { from: string; to: string }[] = [];
   const unresolved: string[] = [];
   for (const bad of [...new Set(invalidRoles)]) {
-    const to = suggestFromPaths(bad, validRolePaths)[0];
+    // 自动替换只在有把握时做（拼写错 / 目录写错）；把握不够的交给 LLM 修，别在用户看不见的地方换掉专家
+    const to = confidentRoleMatch(bad, validRolePaths);
     if (!to) { unresolved.push(bad); continue; }
     const before = content;
     content = content.split(`"${bad}"`).join(`"${to}"`).split(`'${bad}'`).join(`'${to}'`);

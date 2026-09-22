@@ -275,35 +275,65 @@ function editDistance(a: string, b: string): number {
   return prev[n];
 }
 
+/** 角色路径拆成 category + 去掉前缀的 leaf：库里的 leaf 大多重复带一遍 category（engineering/engineering-ai-engineer） */
+function splitRole(p: string): { cat: string; leaf: string; tokens: string[] } {
+  const lower = p.toLowerCase().replace(/\.md$/, '');
+  const i = lower.indexOf('/');
+  const cat = i >= 0 ? lower.slice(0, i) : '';
+  let leaf = i >= 0 ? lower.slice(i + 1) : lower;
+  if (cat && leaf.startsWith(`${cat}-`)) leaf = leaf.slice(cat.length + 1);
+  return { cat, leaf, tokens: leaf.split(/[-_]+/).filter(Boolean) };
+}
+
 /**
  * 在给定的候选路径集合里，找出最接近 badPath 的若干个（纯函数，不读盘）。
- * 优先子串包含（按 leaf 名匹配），再按编辑距离兜底；只返回足够接近的。
+ * 排序：同 category 优先 → 去前缀 leaf 相等 → 整词命中（按 - 分词的整个 token，不是任意子串）→ 编辑距离。
+ * 以前按任意子串命中：`product/pm` 因为 develo**pm**ent 被排到 game-designer，`engineering/ai` 排到 gis 的 geoai。
  * 供 compose 复用——它要在"实际提供给 LLM 的目录"里建议，而非全盘所有角色。
  */
 export function suggestFromPaths(badPath: string, allPaths: string[], limit = 3): string[] {
   if (allPaths.length === 0) return [];
-  const leaf = (badPath.split('/').pop() || badPath).toLowerCase();
-  const target = badPath.toLowerCase();
-
-  const scored = allPaths.map(p => {
-    const pl = p.toLowerCase();
-    const pleaf = (p.split('/').pop() || p).toLowerCase();
-    // 子串命中给大幅加分（排到前面）
-    const substr = pl.includes(leaf) || pleaf.includes(leaf) || leaf.includes(pleaf);
-    const dist = editDistance(target, pl);
-    return { p, dist, substr };
+  const bad = splitRole(badPath);
+  const scored = allPaths.map((p) => {
+    const c = splitRole(p);
+    const sameCat = !!bad.cat && c.cat === bad.cat;
+    const exact = c.leaf === bad.leaf;
+    const wholeWord = c.tokens.includes(bad.leaf) || bad.tokens.includes(c.leaf)
+      || (bad.tokens.length > 1 && bad.tokens.every((t) => c.tokens.includes(t)));
+    const dist = editDistance(bad.leaf, c.leaf);
+    const rank = exact ? 0 : wholeWord ? 1 : 2;
+    return { p, sameCat, rank, dist };
   });
+  scored.sort((a, b) => (a.rank - b.rank) || (Number(b.sameCat) - Number(a.sameCat)) || (a.dist - b.dist));
+  // 很短的 leaf（pm / ai）按编辑距离什么都像：只在同 category 里找，免得建议出 sales-coach 这种
+  const threshold = bad.leaf.length < 4 ? 0 : Math.ceil(bad.leaf.length / 2) + 4;
+  return scored.filter((x) => x.rank < 2 || (x.dist <= threshold && (x.sameCat || !bad.cat))).slice(0, limit).map((x) => x.p);
+}
 
-  scored.sort((a, b) =>
-    (a.substr === b.substr ? 0 : a.substr ? -1 : 1) || a.dist - b.dist
-  );
-
-  // 只保留"够接近"的：子串命中，或编辑距离不超过 leaf 长度的一半 + 4
-  const threshold = Math.ceil(leaf.length / 2) + 4;
-  return scored
-    .filter(s => s.substr || s.dist <= threshold)
-    .slice(0, limit)
-    .map(s => s.p);
+/**
+ * 只在**有把握**时给一个可以直接替换的角色；没把握返回 undefined，交给 LLM 修（带上 suggestFromPaths 的候选）。
+ * 自动替换会在用户看不见的情况下换掉专家，所以门槛比"建议"高得多：
+ *  - 同 category：去前缀 leaf 相等 / 整词命中 / 编辑距离 ≤ 3（拼写错一两个字母）；
+ *  - 跨 category：只认去前缀 leaf 完全相等（把 backend-architect 写错目录这类）。
+ */
+export function confidentRoleMatch(badPath: string, allPaths: string[]): string | undefined {
+  const bad = splitRole(badPath);
+  if (!bad.leaf) return undefined;
+  let best: { p: string; score: number } | undefined;
+  for (const p of allPaths) {
+    const c = splitRole(p);
+    const sameCat = !!bad.cat && c.cat === bad.cat;
+    const exact = c.leaf === bad.leaf;
+    const wholeWord = bad.leaf.length >= 4 && (c.tokens.includes(bad.leaf) || (bad.tokens.length > 1 && bad.tokens.every((t) => c.tokens.includes(t))));
+    const dist = editDistance(bad.leaf, c.leaf);
+    let score = -1;
+    if (sameCat && exact) score = 100;
+    else if (!sameCat && exact) score = 90;
+    else if (sameCat && wholeWord) score = 80 - dist;
+    else if (sameCat && dist <= 3 && bad.leaf.length >= 6) score = 70 - dist;
+    if (score >= 0 && (!best || score > best.score)) best = { p, score };
+  }
+  return best?.p;
 }
 
 /**

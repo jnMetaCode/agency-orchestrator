@@ -123,7 +123,13 @@ export function RunProvider({ children }: { children: ReactNode }) {
   const openRef = useRef<string | null>(null);
   const [, force] = useReducer((x) => x + 1, 0);
 
-  const touch = useCallback(() => force(), []);
+  // 一条 stdout 行会发两个 SSE 事件，每个都 force 一次 = 整个 Studio（含 276 张角色卡）跟着重渲染；
+  // 合并到一帧里只渲染一次。视觉上没区别，打字框在长运行里不再卡。
+  const frame = useRef(0);
+  const touch = useCallback(() => {
+    if (frame.current) return;
+    frame.current = requestAnimationFrame(() => { frame.current = 0; force(); });
+  }, []);
 
   // 刷新 / 关标签 / 点到站外链接时，服务端一看到响应流断开就 SIGTERM 子进程——正在跑的（可能按秒计费的）
   // 运行会被无声杀掉。运行只活在内存里、SSE 也接不回来，所以这里至少要让浏览器弹一句"确定离开？"。

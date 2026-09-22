@@ -155,7 +155,7 @@ ao compose "Analyze the feasibility of building an AI budgeting app" --run
 ### Step 3: Use built-in templates or integrate with AI coding tools
 
 ```bash
-# 10 English workflow templates in workflows/en/
+# 13 English workflow templates in workflows/en/
 ao run workflows/en/solo-founder-plan.yaml -i idea="AI-powered resume builder for job seekers"
 ao run workflows/en/pr-review.yaml -i pr_diff=@mypr.diff -i pr_description="Add auth middleware"
 ao run workflows/en/business-plan.yaml -i idea="B2B SaaS for remote-team project tracking"
@@ -327,7 +327,7 @@ OPENAI_API_KEY=your-key
 ```bash
 ao demo                              # Zero-config multi-agent demo
 ao init                              # (Optional) Copy 276 Chinese roles locally for editing
-ao init --lang en                    # (Optional) Copy 184 English roles locally for editing
+ao init --lang en                    # (Optional) Copy the 191 English roles locally for editing
 ao init --workflow                    # Interactive workflow creator
 ao compose "description"             # AI-powered workflow generation
 ao compose "description" --run       # Generate AND execute in one command
@@ -576,7 +576,7 @@ Four more tools plug in the other way round — AO runs **on the tool's own subs
 | **DeepSeek Harness** (dsh, developer preview) | `--provider dsh-cli` | — | [Guide](./integrations/deepseek-harness/) |
 | **Cherry Studio** | its API gateway as an OpenAI-compatible endpoint | — | [Guide](./integrations/cherry-studio/) |
 
-## English Workflow Templates (6)
+## English Workflow Templates (13 in `workflows/en/`; a selection below)
 
 Ready to run with `agency-agents` English roles:
 
@@ -657,6 +657,28 @@ ao run workflows/en/solo-founder-plan.yaml -i idea="Your idea here"
 | `一人公司全员大会.yaml` | CEO, Market Researcher, User Researcher, PM, Marketing Lead, CFO | **One-person company all-hands** (CEO → 6 depts parallel → decision) |
 | `ai-startup-launch.yaml` | CEO, PM, Architect, Marketing Lead, Finance Advisor | **SaaS product launch decision** (CEO → 4 depts parallel → launch plan) |
 
+## Environment variables
+
+Only the user-facing ones; test/internal variables (`AO_WEB_INPUT`, `AO_NODE`, …) are omitted.
+
+| Variable | Purpose |
+|---|---|
+| `AO_HOME` | One workspace: outputs, generated workflows, teams and prompts all land here (unset = current dir) |
+| `AO_DATA_DIR` / `AO_OUTPUT_DIR` / `AO_WORKFLOWS_DIR` | Data dir (Studio keys etc.) / outputs dir / generated-workflows dir, individually |
+| `AO_AGENTS_DIR` | **Replaces** the built-in role library; `AO_USER_ROLES_DIR` holds additive custom roles (`my/<id>`), default `~/.ao/roles` |
+| `AO_USER_WORKFLOWS_DIR` / `AO_TEAMS_DIR` / `AO_PROMPTS_DIR` / `AO_SKILLS_DIR` / `AO_LEDGER_FILE` | Extra Studio workflows dir / teams / prompts / skills / human-intervention ledger locations |
+| `AO_PROVIDER` / `AO_MODEL` / `AO_API_KEY` | Default provider / model / key (CLI flags > these > YAML); `ao init --provider` writes them to `.env` |
+| `AO_LANG` | UI language zh / en |
+| `AO_NOTIFY_URL` | Push results to a webhook when a run finishes (DingTalk / Feishu / WeCom auto-detected) |
+| `AO_ALLOWED_HOSTS` | Host allowlist when Studio is reached via a domain / reverse proxy (comma-separated) |
+| `AO_NO_PROXY` | Set to 1 to stop AO from honouring `HTTP(S)_PROXY` |
+| `AO_NON_INTERACTIVE` | Set to 1 so approval / human_input steps fail instead of reading stdin (`ao serve` sets it) |
+| `AO_CLI_INHERIT_CWD` | Set to 1 to launch claude-code / codebuddy in the cwd (default: empty temp dir, so project memory never leaks into outputs) |
+| `AO_FFMPEG` / `AO_FFPROBE` | Paths to ffmpeg / ffprobe |
+| `AO_NO_UPDATE_CHECK` / `AO_NO_MODEL_HINT` / `AO_NO_RESUME_HINT` | Silence the update check / small-model hint / post-run resume hint |
+| `AO_VERBOSE` / `AO_DEBUG` | Print token usage / debug info |
+| `AO_STREAM_STALL_MS` | Stall timeout for streaming responses in ms (default 90000) |
+
 ## Output Structure
 
 Each run saves to `ao-output/<name>-<timestamp>/`:
@@ -676,7 +698,7 @@ ao-output/product-review-2026-03-22/
 
 ```
 Your AI subscription ──→ agency-orchestrator ──→ 400+ expert roles collaborate ──→ quality output
-                              │                  (276 Chinese + 184 English + 5 languages)
+                              │                  (276 Chinese + 191 English + 5 languages)
              ┌────────────────┼────────────────┐
              ▼                ▼                ▼
       18 AI Tools           CLI Mode        MCP Server

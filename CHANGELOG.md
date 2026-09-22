@@ -88,6 +88,11 @@
   章标题用 `## Chapter N: Title`；审校多一条"大纲自身的矛盾要指出并给出正文该怎么处理"（中文版真跑时审校自己挑出过这类问题）。
 
 ### Changed
+- README：模板数三处不一致（60+ / 32 / 12；英文 11 / 10 / 6）按磁盘实数改为 57 中文 + 13 英文；补「环境变量」一表
+  （代码里约 40 个 `AO_*`，此前只文档了 7 个）；英文角色数 184 → 191。CONTRIBUTING 的「新增供应商」写的是
+  `src/index.ts` 的 `run()`（并不在那儿）——改成按 API / CLI / 视频三类列出全部登记点，并补跑测试的说明。
+- npm 包不再带官网预渲染的 SEO 页（`website/dist/creative/`、`experts/` 685 个 HTML、sitemap、百度验证文件）：
+  本地 Studio 的这些路由由 SPA 回退渲染，同样的内容。解包体积 45.7MB → 40.9MB。
 - **测试文件纳入类型检查**（`npm run typecheck:test`，`npm test` 与 CI 都先跑它）。`test/` 一直被 tsconfig 排除（避免进 dist），
   于是积了 43 个类型错误，其中两条测试因此是摆设：`verify-image` 给 `run()` 传了不存在的 `resume: 'last'`（被静默忽略，
   断言能过只因 feedback 路径容忍没有上一版产出），`providers-manifest` 拿**引擎**的供应商表按 `flagship / sponsor` 排序——
@@ -117,6 +122,13 @@
   新增「氛围锁定」规则与「按类型的默认运镜与节拍」表（剧情短剧 / 产品广告片 / 治愈日常 / 悬疑惊悚 /
   搞笑段子 / 科幻 / 古风武侠 / 纪实 Vlog），来源是上游的 genre-camera-sop 与各题材范例。
 ### Fixed
+- **自动组队的幻觉角色替换只在有把握时做**。以前按任意子串命中 + 宽松编辑距离，对着真实角色库：`product/pm` 被替成
+  `game-development/game-designer`（因为 develo**pm**ent），`engineering/ai` 替成 gis 的 geoai，`data/data-scientist`
+  替成 gis 的 spatial-data-scientist——而且是在用户看不见的地方（Studio 直接开跑）。现在拆掉库里 leaf 重复带的
+  category 前缀后比较，同 category 优先、只认整词命中；自动替换另有更高门槛（`confidentRoleMatch`：拼错一两个字母 /
+  漏了前缀 / 目录写错），没把握的交给 LLM 修并附候选。`test/role-suggest.ts` 对着真角色库钉 11 个例子。
+- **Studio 主包瘦身 395KB → 211KB**：画布连带 `@xyflow/react` + dagre 此前静态打进主包，改为打开画布时再加载。
+  SSE 每个事件都触发整个 Studio 重渲染（一行输出两个事件 × 276 张角色卡）——合并到一帧里渲染一次。
 - **Studio 七处交互缺陷**（前端体检，逐条对着代码核实）：① 有运行在跑时刷新 / 关页 / 点站外链接会无声杀掉它
   （服务端一见响应流断开就 SIGTERM，按秒计费的视频也一样）——现在浏览器先问「确定离开？」；② 一次 `/api/health`
   抖动就切到离线视图，把已填的任务、勾的角色整个卸载丢掉——改为连续 3 次失败才算离线；来源守卫的 403（用域名

@@ -162,7 +162,7 @@ ao compose "帮我分析做一个AI记账工具的可行性" --run
 ### 第 3 步：用内置模板或在 AI 编程工具中使用
 
 ```bash
-# 用 60+ 个内置模板（含英文版）
+# 用 70 个内置模板（57 个中文 + 13 个英文）
 ao run workflows/一人公司全员大会.yaml --input idea="帮打工人用AI写简历的求职神器"
 ao run workflows/dev/pr-review.yaml -i pr_diff=@changes.diff -i pr_description="修复登录超时"
 ao run workflows/story-creation.yaml -i premise="一个程序员发现AI开始回复不该知道的事情"
@@ -641,6 +641,28 @@ ao serve --verbose    # 带调试日志
 | `loop.max_iterations` | number | 否 | 最大循环次数（1-10） |
 | `loop.exit_condition` | string | 否 | 退出条件表达式 |
 
+## 环境变量
+
+只列用户会用到的；测试 / 内部用的（`AO_WEB_INPUT`、`AO_NODE`、`AO_SSY_CATALOG_HOST` …）不在此列。
+
+| 变量 | 作用 |
+|---|---|
+| `AO_HOME` | 统一工作区：产物、生成的工作流、团队、提示词都落到这里（不设 = 当前目录） |
+| `AO_DATA_DIR` / `AO_OUTPUT_DIR` / `AO_WORKFLOWS_DIR` | 分别指定数据目录（Studio 密钥等）/ 产物目录 / 生成的工作流目录 |
+| `AO_AGENTS_DIR` | **替换**内置角色库；`AO_USER_ROLES_DIR` 是叠加的自建角色（`my/<id>`），默认 `~/.ao/roles` |
+| `AO_USER_WORKFLOWS_DIR` / `AO_TEAMS_DIR` / `AO_PROMPTS_DIR` / `AO_SKILLS_DIR` / `AO_LEDGER_FILE` | Studio 额外工作流目录 / 团队 / 提示词 / 方法论 skill / 人工介入账本的位置 |
+| `AO_PROVIDER` / `AO_MODEL` / `AO_API_KEY` | 默认供应商 / 模型 / 密钥（优先级：命令行 > 这些 > YAML）；`ao init --provider` 会写进 `.env` |
+| `AO_LANG` | 界面语言 zh / en |
+| `AO_NOTIFY_URL` | 跑完推送到 webhook（钉钉 / 飞书 / 企微自动适配） |
+| `AO_ALLOWED_HOSTS` | Studio 通过域名 / 反向代理访问时的 Host 白名单（逗号分隔） |
+| `AO_NO_PROXY` | 设 1 关闭对 `HTTP(S)_PROXY` 的接管 |
+| `AO_NON_INTERACTIVE` | 设 1 时 approval / human_input 节点不读 stdin、直接失败（`ao serve` 自动设） |
+| `AO_CLI_INHERIT_CWD` | 设 1 让 claude-code / codebuddy 在当前目录启动（默认在空临时目录，避免项目记忆混进产出） |
+| `AO_FFMPEG` / `AO_FFPROBE` | 指定 ffmpeg / ffprobe 路径 |
+| `AO_NO_UPDATE_CHECK` / `AO_NO_MODEL_HINT` / `AO_NO_RESUME_HINT` | 关掉启动时的新版本提示 / 小模型提示 / 跑完的 resume 提示 |
+| `AO_VERBOSE` / `AO_DEBUG` | 打印 token 用量 / 调试信息 |
+| `AO_STREAM_STALL_MS` | 流式响应多久没新数据算卡死（默认 90000） |
+
 ## 输出
 
 每次运行保存到 `ao-output/<名称>-<时间戳>/`：
@@ -656,7 +678,7 @@ ao-output/产品需求评审-2026-03-22/
 └── metadata.json       # 耗时、token 用量、步骤状态
 ```
 
-## 内置工作流模板（32 个）
+## 内置工作流模板（精选；全部 57 个中文模板见 `workflows/`，Studio「工作流模板」按类目列出）
 
 ### 开发类（7 个）
 
@@ -698,7 +720,7 @@ ao-output/产品需求评审-2026-03-22/
 | `legal/contract-review.yaml` | 合同审查专家、法务合规员 | **合同审查**（逐条分析→合规检查→意见书） |
 | `hr/interview-questions.yaml` | 招聘专家、心理学家、后端架构师 | **面试题设计**（维度→并行出题→评分表） |
 
-### 通用类（12 个）
+### 通用类
 
 | 模板 | 角色 | 说明 |
 |------|------|------|
