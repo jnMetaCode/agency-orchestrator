@@ -68,7 +68,7 @@ console.log('\n─── 解析期：image 步骤允许 acceptance，仍拦 asse
   try { parseWorkflow(bad); } catch (e) { threw = e instanceof Error ? e.message : String(e); }
   assert(/assert/.test(threw) && /acceptance/.test(threw), `image 步骤写 assert 仍拦下并指路 acceptance（实际：${threw.split('\n')[0]}）`);
   const wf = parseWorkflow(ok);
-  const pf = summarizeMediaSpend(wf, {});
+  const pf = summarizeMediaSpend(wf, new Map());
   assert(pf.lines.some((l) => l.includes('挂了验收') && l.includes('+1')), `花费预览说明验收可能多出一张（实际：${pf.lines.join(' | ')}）`);
   rmSync(dir, { recursive: true, force: true });
 }
@@ -129,7 +129,7 @@ console.log('\n─── 端到端：出图 → 看图验收未过 → 重出 �
     const poster = result.steps.find((s) => s.id === 'poster');
     assert(poster?.verification?.pass === true && poster.verification.reworked === true, `verification 应为通过+已返工（实际 ${JSON.stringify(poster?.verification)}）`);
     assert((poster?.tokens?.input ?? 0) > 0, `核验的 token 计入本步（实际 ${JSON.stringify(poster?.tokens)}）`);
-    const dirs = readFileSync ? (await import('node:fs')).readdirSync(join(dir, 'out')) : [];
+    const dirs = (await import('node:fs')).readdirSync(join(dir, 'out'));
     const rd = join(dir, 'out', dirs.find((d) => d.startsWith('图验收'))!);
     assert(readFileSync(join(rd, 'assets', 'poster.png')).equals(Buffer.from(PNG_B, 'base64')), '落盘的是重出后的第二张');
     const meta = JSON.parse(readFileSync(join(rd, 'metadata.json'), 'utf-8')) as { steps: Array<{ id: string; verification?: unknown; acceptance?: string }> };
@@ -208,7 +208,10 @@ console.log('\n─── 端到端：--feedback 打在图片步骤上 → 意见
   try {
     const r1 = await run(wf, {}, { quiet: true, outputDir: join(dir, 'out') });
     assert(r1.success && imagePrompts[0] === '一只猫', '首跑：原提示词原样发出');
-    const r2 = await run(wf, {}, { quiet: true, outputDir: join(dir, 'out'), resume: 'last', fromStep: 'pic', feedback: '猫要是橘色的' });
+    // 以前这里写的是 `resume: 'last'`——run() 根本没有这个选项，被静默忽略；断言仍能过是因为 feedback 路径容忍没有上一版产出。
+    // 现在按 run() 的真实契约传 resumeDir，才真正测到「上一版产出 + 意见」这条路。
+    const { findLatestOutput } = await import('../src/output/reporter.js');
+    const r2 = await run(wf, {}, { quiet: true, outputDir: join(dir, 'out'), resumeDir: findLatestOutput(join(dir, 'out'))!, fromStep: 'pic', feedback: '猫要是橘色的' });
     assert(r2.success && imagePrompts.length === 2 && imagePrompts[1].startsWith('一只猫') && imagePrompts[1].includes('猫要是橘色的'), `带意见重出：提示词 = 原文 + 意见硬约束（实际：${imagePrompts[1]}）`);
   } finally {
     if (saved === undefined) delete process.env.LANOX_API_KEY; else process.env.LANOX_API_KEY = saved;

@@ -34,9 +34,9 @@ console.log('\n─── 解析期 + 花费预览 ───');
   threw = '';
   try { parseWorkflow(mk('      rework: "yes"\n')); } catch (e) { threw = e instanceof Error ? e.message : String(e); }
   assert(/rework/.test(threw), 'video.rework 非布尔在解析期报错');
-  const pf1 = summarizeMediaSpend(parseWorkflow(mk('')), {});
+  const pf1 = summarizeMediaSpend(parseWorkflow(mk('')), new Map());
   assert(pf1.lines.some((l) => l.includes('只审不重出')), `默认预览标「只审不重出」（${pf1.lines[0]}）`);
-  const pf2 = summarizeMediaSpend(parseWorkflow(mk('      rework: true\n')), {});
+  const pf2 = summarizeMediaSpend(parseWorkflow(mk('      rework: true\n')), new Map());
   assert(pf2.lines.some((l) => l.includes('最多 +1')), `rework 预览标「最多 +1」（${pf2.lines[0]}）`);
   rmSync(dir, { recursive: true, force: true });
 }

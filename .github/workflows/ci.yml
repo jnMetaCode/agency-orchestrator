@@ -27,6 +27,11 @@ jobs:
       - name: Build
         run: npm run build
 
+      # test/ 不在 tsconfig 的 include 里（避免进 dist），所以单靠 build 查不出测试的类型错误。
+      # 曾经积了 43 个：其中两条测试因此成了摆设（传了不存在的选项、对没有该字段的表排序）。
+      - name: Typecheck tests
+        run: npm run typecheck:test
+
       # web-server 冒烟测试会请求 SPA 深层路由，需要前端产物存在（否则 server 返回 503 → 测试挂）。
       # 与 release.yml 对齐：test 前构建 Studio。
       - name: Build Studio

@@ -84,7 +84,8 @@ test('进阶档若有人持有，不得同时在轮换池里（避免双份曝�
   // 现状是无人持有（多元探索 2026-08-17 下架）——那就没什么可冲突的；
   // 但下一家买进阶档时这条必须仍然拦得住"既拿进阶位又留在轮换池"。
   if (!PREMIUM_SPONSOR) return;
-  assert(!SPONSOR_ROTATION.some((x) => x.name === PREMIUM_SPONSOR.name), 'PREMIUM_SPONSOR 不该出现在轮换池');
+  const premium = PREMIUM_SPONSOR;
+  assert(!SPONSOR_ROTATION.some((x) => x.name === premium.name), 'PREMIUM_SPONSOR 不该出现在轮换池');
 });
 
 test('已下架的多元探索不得出现在任何曝光位，但仍是可用 provider', () => {

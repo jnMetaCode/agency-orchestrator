@@ -241,9 +241,20 @@ test('在架供应商不受影响', () => {
       'ProvidersPanel 必须在渲染前按赞助层级排序，否则任何插在赞助商中间的非赞助条目都会占掉赞助位');
   });
 
+  // 用**前端**的供应商表：flagship / sponsor 标只在 website/src/lib/studio.ts 里，引擎的 API_PROVIDERS 没有这两个字段——
+  // 以前拿引擎表来排，所有条目 rank 都是 2，下面两条的断言永远为真（tsc 一查就露馅）。studio.ts 是前端模块，
+  // 这里按源码文本抠出 id / flagship / sponsor 三个字段，不引入它的运行时。
+  const feSrc = readFileSync('website/src/lib/studio.ts', 'utf-8');
+  const feStart = feSrc.indexOf('export const API_PROVIDERS');
+  const feBlock = feSrc.slice(feStart, feSrc.indexOf('\n];', feStart));
+  const FE_PROVIDERS = [...feBlock.matchAll(/\{\s*id:\s*"([^"]+)"([^\n]*)/g)].map((m) => ({ id: m[1], flagship: /flagship:\s*true/.test(m[2]), sponsor: /sponsor:\s*true/.test(m[2]) }));
+  test('前端供应商表能抠出来（旗舰 / 赞助商标只在这张表上）', () => {
+    assert(FE_PROVIDERS.length >= 10 && FE_PROVIDERS.some((x) => x.flagship) && FE_PROVIDERS.some((x) => x.sponsor), `抠出 ${FE_PROVIDERS.length} 条，含旗舰与赞助商`);
+  });
+
   test('纯数据推演：非赞助条目排序后一定落在所有赞助商之后', () => {
     const rank = (m: { flagship?: boolean; sponsor?: boolean }) => (m.flagship ? 0 : m.sponsor ? 1 : 2);
-    const sorted = API_PROVIDERS.slice().sort((a, b) => rank(a) - rank(b));
+    const sorted = FE_PROVIDERS.slice().sort((a, b) => rank(a) - rank(b));
     const lastSponsor = sorted.map(rank).lastIndexOf(1);
     const firstPlain = sorted.map(rank).indexOf(2);
     assert(firstPlain === -1 || lastSponsor === -1 || lastSponsor < firstPlain,
@@ -258,8 +269,8 @@ test('在架供应商不受影响', () => {
 
   test('组内保持声明顺序（赞助商之间的次序是谈好的，排序不能打乱）', () => {
     const rank = (m: { flagship?: boolean; sponsor?: boolean }) => (m.flagship ? 0 : m.sponsor ? 1 : 2);
-    const sorted = API_PROVIDERS.slice().sort((a, b) => rank(a) - rank(b));
-    const declared = API_PROVIDERS.filter((x) => rank(x) === 1).map((x) => x.id);
+    const sorted = FE_PROVIDERS.slice().sort((a, b) => rank(a) - rank(b));
+    const declared = FE_PROVIDERS.filter((x) => rank(x) === 1).map((x) => x.id);
     const rendered = sorted.filter((x) => rank(x) === 1).map((x) => x.id);
     assert(JSON.stringify(declared) === JSON.stringify(rendered),
       `赞助商组内顺序被打乱了：声明 ${declared.join(',')} → 渲染 ${rendered.join(',')}`);

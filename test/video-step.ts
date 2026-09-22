@@ -705,7 +705,7 @@ await test('mp4 落到 assets/，base64 绝不进 metadata.json', () => {
     }],
     totalDuration: 1000, totalTokens: { input: 0, output: 0 }, completedSteps: 1, totalSteps: 1,
   } as unknown as WorkflowResult;
-  const out = saveResults(result, dir, 'v');
+  const out = saveResults(result, dir);
   const mp4 = join(out, 'assets', 'clip.mp4');
   assert(existsSync(mp4), 'mp4 应落到 assets/');
   assert(readFileSync(mp4).equals(MP4), 'mp4 字节应完整');

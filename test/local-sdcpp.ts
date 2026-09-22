@@ -60,7 +60,7 @@ ffmpeg -v error -y -f lavfi -i "color=c=red:size=\${w}x\${h}:rate=24:d=$(echo "$
     const args = readFileSync(join(home, 'args.txt'), 'utf-8');
     assert(/-M vid_gen/.test(args) && /--cfg-scale 1.0/.test(args) && /--video-frames 39/.test(args) && /--width 640/.test(args) && /te=cpu/.test(args), `sd-cli 参数正确（${args.trim().slice(0, 80)}…）`);
     assert(r.mime === 'video/mp4' && r.buffer.length > 500 && r.buffer.slice(4, 8).toString() === 'ftyp', 'webm 转成了 mp4 Buffer');
-    assert(Math.abs(r.seconds - 39 / 24) < 0.01 && r.taskId.startsWith('local-'), `seconds=${r.seconds} 由帧数算出，taskId 本地前缀`);
+    assert(Math.abs((r.seconds ?? 0) - 39 / 24) < 0.01 && r.taskId.startsWith('local-'), `seconds=${r.seconds} 由帧数算出，taskId 本地前缀`);
     assert(notices.some((n) => /不花钱/.test(n)), '通知里明说不花钱、草稿档');
   } finally { process.env.AO_SD_CLI = saved.c as string; process.env.AO_SD_MODELS = saved.m as string; for (const k of ['AO_SD_CLI', 'AO_SD_MODELS']) if (process.env[k] === 'undefined') delete process.env[k]; rmSync(home, { recursive: true, force: true }); }
 }
