@@ -4,8 +4,8 @@ description: "从主题到成稿的完整内容创作流程 — 研究、写作�
 agents_dir: "agency-agents-zh"
 
 llm:
-  provider: "claude"
-  model: "claude-sonnet-4-20250514"
+  provider: "deepseek"
+  model: "deepseek-chat"
   max_tokens: 4096
 
 concurrency: 2

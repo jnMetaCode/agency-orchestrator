@@ -36,7 +36,7 @@ test('解析 product-review.yaml', () => {
   const wf = parseWorkflow(workflowPath);
   assert(wf.name === '产品需求评审', `name 应为 "产品需求评审"，实际: ${wf.name}`);
   assert(wf.steps.length === 4, `应有 4 步，实际: ${wf.steps.length}`);
-  assert(wf.llm.provider === 'claude', `provider 应为 claude`);
+  assert(wf.llm.provider === 'deepseek', `provider 应为 deepseek（与英文版一致，DeepSeek 是全库默认）`);
   assert(wf.concurrency === 2, `concurrency 应为 2`);
 });
 

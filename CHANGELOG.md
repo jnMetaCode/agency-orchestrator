@@ -122,6 +122,13 @@
   新增「氛围锁定」规则与「按类型的默认运镜与节拍」表（剧情短剧 / 产品广告片 / 治愈日常 / 悬疑惊悚 /
   搞笑段子 / 科幻 / 古风武侠 / 纪实 Vlog），来源是上游的 genre-camera-sop 与各题材范例。
 ### Fixed
+- **几处首跑体验**：缺输入现在在缺 key **之前**报（以前先建连接器，用户配好 key 再撞一次缺输入）；传了工作流没声明的
+  `-i` 键（多半是拼错）会提示「未声明的输入: topci（该工作流的输入: topic, audience）」；变量拼错的报错带
+  「你是不是想写 {{topic}}」（角色早有，变量一直没有）；`content-pipeline` / `product-review` 两个模板默认改成 DeepSeek
+  （其余 55 个都是，英文版也是——只有这两个写死 `claude` + 一个 2025 年的模型号）；`provider: claude` 的默认模型收成
+  `CLAUDE_DEFAULT_MODEL` 一处（此前四处各写一个过时号）；`ao demo` 文案还说「4 个角色 · 第二层并行」，实际是 5 步串行。
+- **Studio「vs 单次」对比结果不再因关掉 overlay 而丢**：对比要跑完整工作流 + 基线 + 盲评（真金白银），服务端进程内跑、
+  没法中途取消；以前关掉再打开会从头再跑一遍、上一次的结论也没了。现在同参数复用同一个请求，结论保留到页面刷新。
 - **自动组队的幻觉角色替换只在有把握时做**。以前按任意子串命中 + 宽松编辑距离，对着真实角色库：`product/pm` 被替成
   `game-development/game-designer`（因为 develo**pm**ent），`engineering/ai` 替成 gis 的 geoai，`data/data-scientist`
   替成 gis 的 spatial-data-scientist——而且是在用户看不见的地方（Studio 直接开跑）。现在拆掉库里 leaf 重复带的

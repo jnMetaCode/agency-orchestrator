@@ -9,6 +9,7 @@
  * 期望被错误抬高；同时占用注意力 5 秒后还要再问 y/n 真跑，链路太长。
  */
 import { resolve, dirname } from 'node:path';
+import { CLAUDE_DEFAULT_MODEL } from '../connectors/api-providers.js';
 import { fileURLToPath } from 'node:url';
 import { existsSync } from 'node:fs';
 import { createInterface } from 'node:readline';
@@ -155,7 +156,7 @@ async function showDagAndGuide(): Promise<void> {
     for (const line of dagText.split('\n')) {
       console.log(`  ${line}`);
     }
-    console.log('\n  4 个 AI 角色协作完成短篇小说创作（第二层并行）。\n');
+    console.log('\n  5 个步骤串行协作完成短篇小说：结构 → 人物 → 成稿 → 审读 → 定稿。\n');
   } catch (err) {
     // DAG 渲染失败兜底，给一个文字描述
     console.log('  Level 1: 叙事学家（搭故事结构）');
@@ -186,7 +187,7 @@ export async function runDemo(): Promise<void> {
   console.log(`
   🎬 Agency Orchestrator Demo
   ${'─'.repeat(40)}
-  Workflow: 短篇小说创作（4 个 AI 角色协作）
+  Workflow: 短篇小说创作（5 个 AI 角色接力）
   Premise: "${DEMO_PREMISE}"
   ${'─'.repeat(40)}
 `);
@@ -225,7 +226,7 @@ export async function runDemo(): Promise<void> {
 
   const modelMap: Record<string, string> = {
     deepseek: 'deepseek-chat',
-    claude: 'claude-sonnet-4-20250514',
+    claude: CLAUDE_DEFAULT_MODEL,
     openai: 'gpt-4o',
     ollama: 'qwen2.5:7b',
   };

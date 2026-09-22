@@ -21,7 +21,7 @@ import { buildDAG, formatDAG } from '../core/dag.js';
 import { listAgents } from '../agents/loader.js';
 import { composeWorkflow } from '../cli/compose.js';
 import { CLI_PROVIDER_IDS, isCliProvider } from '../providers/detect.js';
-import { API_PROVIDERS, API_PROVIDER_MAP, ANTHROPIC_PROVIDERS } from '../connectors/api-providers.js';
+import { CLAUDE_DEFAULT_MODEL, API_PROVIDERS, API_PROVIDER_MAP, ANTHROPIC_PROVIDERS } from '../connectors/api-providers.js';
 
 /**
  * run_workflow 可选的 provider。此前是手抄的一份：CLI 那半和别处一样，API 那半却只有
@@ -292,7 +292,7 @@ export async function startServer(verbose = false): Promise<void> {
         const llmProvider = provider || process.env.AO_PROVIDER as any || 'deepseek';
         const defaultModels: Record<string, string> = {
           deepseek: 'deepseek-chat',
-          claude: 'claude-sonnet-4-20250514',
+          claude: CLAUDE_DEFAULT_MODEL,
           openai: 'gpt-4o',
           ollama: 'llama3',
         };

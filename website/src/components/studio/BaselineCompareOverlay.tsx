@@ -11,6 +11,9 @@ import { Markdown } from "./Markdown";
  * 调 /api/compare：跑完整工作流 + 单次基线 + 双向盲评，并排展示 + 评审结论。
  * 非流式——一次跑完返回，过程中显示 loading（可能一两分钟）。
  */
+/** 对比结果缓存（同文件 + 同输入 + 同 provider）：跨 overlay 开关存活，页面刷新才清。 */
+const compareCache = new Map<string, Promise<CompareResult>>();
+
 export function BaselineCompareOverlay({
   wf,
   inputs,
@@ -33,16 +36,17 @@ export function BaselineCompareOverlay({
   useEffect(() => {
     if (started.current) return; // StrictMode 双调用守卫
     started.current = true;
-    api
-      .compare({ file: wf.file, inputs, provider: provider || undefined })
-      .then((r) => {
-        setResult(r);
-        setState("done");
-      })
-      .catch((e) => {
-        setErr(e?.message || String(e));
-        setState("error");
-      });
+    // 请求挂在组件外的缓存上：对比要跑完整工作流 + 单次基线 + 盲评（真金白银），关掉 overlay 再打开
+    // 以前会从头再跑一遍、上一次的结论也丢了；服务端也没法中途取消。同参数命中就复用同一个 promise。
+    const key = JSON.stringify([wf.file, inputs, provider || ""]);
+    let p = compareCache.get(key);
+    if (!p) {
+      p = api.compare({ file: wf.file, inputs, provider: provider || undefined });
+      compareCache.set(key, p);
+      p.catch(() => compareCache.delete(key)); // 失败的不缓存，下次能重试
+    }
+    p.then((r) => { setResult(r); setState("done"); })
+      .catch((e) => { setErr(e?.message || String(e)); setState("error"); });
   }, [wf.file, inputs, provider]);
 
   const v = result?.verdict;

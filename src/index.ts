@@ -200,15 +200,6 @@ export async function run(
     mergeLlmOverride(workflow.llm, options.llmOverride);
   }
 
-  // 创建 connector。**纯媒体工作流（每步都是 type: image / video）没有文本调用**，
-  // 而视频供应商（秘塔等）压根不是文本连接器 —— 这里硬建就会被"暂不支持 provider"挡死，
-  // 明明那条工作流一次文本模型都用不上。与"没有角色就不强求角色库"是同一条道理。
-  // tts 也是媒体步（parser 的 mediaOnly 早就把它算进去了；这里漏掉的话，「视频 + 配音 + 合成」的纯媒体工作流
-  // validate 通过、一跑就被「暂不支持 provider」挡死）
-  const needsTextConnector = workflow.steps.some((s) => s.type !== 'image' && s.type !== 'video' && s.type !== 'concat' && s.type !== 'tts');
-  const connector = needsTextConnector
-    ? createConnector(workflow.llm)
-    : (undefined as unknown as ReturnType<typeof createConnector>);
 
   // 媒体产物登记表：每次运行一份 + 一生成就暂存到盘上（为什么，见 executor.ts 的 MediaRegistry）。
   // 暂存目录是点目录：findLatestOutput / Studio 的运行列表都不会把它当成一次运行。
@@ -263,6 +254,23 @@ export async function run(
     }
     throw new Error(lines.join('\n'));
   }
+  // 传了工作流没声明的输入（多半是拼错：-i topci=…）：静默吞掉的话，用户看到的是「缺少必填输入 topic」
+  // 或者更糟——可选输入拼错后什么都不报、模板拿到空串。只警告不拦：有人会故意多传几个给条件用。
+  if (!options?.quiet && workflow.inputs?.length) {
+    const declared = new Set(workflow.inputs.map((i) => i.name));
+    const unknown = Object.keys(inputs).filter((k) => !declared.has(k) && !k.startsWith('_'));
+    if (unknown.length) console.log(`  ⚠️  未声明的输入: ${unknown.join(', ')}（该工作流的输入: ${[...declared].join(', ')}）`);
+  }
+  // 连接器放在输入检查**之后**建：以前先建，缺 key 与缺输入两个错一次只报一个，用户配好 key 再撞一次缺输入
+  // 创建 connector。**纯媒体工作流（每步都是 type: image / video）没有文本调用**，
+  // 而视频供应商（秘塔等）压根不是文本连接器 —— 这里硬建就会被"暂不支持 provider"挡死，
+  // 明明那条工作流一次文本模型都用不上。与"没有角色就不强求角色库"是同一条道理。
+  // tts 也是媒体步（parser 的 mediaOnly 早就把它算进去了；这里漏掉的话，「视频 + 配音 + 合成」的纯媒体工作流
+  // validate 通过、一跑就被「暂不支持 provider」挡死）
+  const needsTextConnector = workflow.steps.some((s) => s.type !== 'image' && s.type !== 'video' && s.type !== 'concat' && s.type !== 'tts');
+  const connector = needsTextConnector
+    ? createConnector(workflow.llm)
+    : (undefined as unknown as ReturnType<typeof createConnector>);
   for (const def of workflow.inputs || []) {
     // 可选输入未提供时使用默认值
     if (!inputMap.has(def.name) && def.default !== undefined) {

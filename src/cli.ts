@@ -19,7 +19,7 @@ import { summarizeMediaSpend } from './media/preflight.js';
 import { listAgents, filterAgentsByKeyword } from './agents/loader.js';
 import { run, findAgentsDir, compareWorkflowVsBaseline } from './index.js';
 import { detectInstalledCliProviders, detectUsableCliProviders, DEPRECATED_CLI_PROVIDERS, CLI_PROVIDER_IDS } from './providers/detect.js';
-import { API_PROVIDERS, VIDEO_PROVIDERS, API_PROVIDER_MAP } from './connectors/api-providers.js';
+import { CLAUDE_DEFAULT_MODEL, API_PROVIDERS, VIDEO_PROVIDERS, API_PROVIDER_MAP } from './connectors/api-providers.js';
 import { postChatCompletions, postApiEndpoint, endpointHint, normalizeBaseUrl, envProxyHint } from './connectors/openai-compatible.js';
 import { installEnvProxy, envProxyStatus } from './utils/env-proxy.js';
 // claude 走原生 SDK，端点体检要按 Anthropic 协议单独来（见 doctor 的 3.6 段）
@@ -529,7 +529,7 @@ async function handleCompose(): Promise<void> {
   }
   const model = cliModel || (
     cliProviders.includes(provider) ? '' :
-    provider === 'claude' ? 'claude-sonnet-4-20250514' :
+    provider === 'claude' ? CLAUDE_DEFAULT_MODEL :
     API_PROVIDER_MAP[provider]?.defaultModel || 'gpt-4o'
   );
   const baseUrl = getArgValue('--base-url') || getArgValue('--baseurl');
@@ -1118,7 +1118,7 @@ function resolveProviderModel(teamProvider?: string, teamModel?: string): { prov
   const cliProviders = CLI_PROVIDER_IDS;
   const model = getArgValue('--model') || process.env.AO_MODEL || teamModel || (
     cliProviders.includes(provider) ? '' :
-    provider === 'claude' ? 'claude-sonnet-4-20250514' :
+    provider === 'claude' ? CLAUDE_DEFAULT_MODEL :
     API_PROVIDER_MAP[provider]?.defaultModel || ''
   );
   return { provider, model };
@@ -1446,7 +1446,7 @@ async function handlePrompt(): Promise<void> {
   const provider = autoProvider(getArgValue('--provider') || process.env.AO_PROVIDER, 'deepseek') as LLMConfig['provider'];
   const model = getArgValue('--model') || process.env.AO_MODEL || (
     cliProviders.includes(provider) ? '' :
-    provider === 'claude' ? 'claude-sonnet-4-20250514' :
+    provider === 'claude' ? CLAUDE_DEFAULT_MODEL :
     API_PROVIDER_MAP[provider]?.defaultModel || ''
   );
 

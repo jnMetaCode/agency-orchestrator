@@ -4,8 +4,8 @@ description: "多角色协作评审 PRD 文档 — 产品经理分析需求，�
 agents_dir: "agency-agents-zh"
 
 llm:
-  provider: "claude"
-  model: "claude-sonnet-4-20250514"
+  provider: "deepseek"
+  model: "deepseek-chat"
   max_tokens: 4096
   timeout: 120000
   retry: 3

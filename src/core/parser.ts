@@ -522,7 +522,9 @@ export function validateWorkflow(workflow: WorkflowDefinition, agentsDir?: strin
       if (producedBySomeStep) {
         errors.push(`step "${step.id}" 引用了未定义的变量: {{${varName}}} (该变量由非上游 step 产出，需要把对应 step 加进 depends_on)`);
       } else {
-        errors.push(`step "${step.id}" 引用了未定义的变量: {{${varName}}}`);
+        // 角色拼错有「你是不是想用」，变量拼错以前没有：在 inputs ∪ 上游 outputs 里找最接近的
+        const guess = closestKey(varName, [...(workflow.inputs ?? []).map((i) => i.name), ...upstreamOutputs]);
+        errors.push(`step "${step.id}" 引用了未定义的变量: {{${varName}}}${guess ? `（你是不是想写 {{${guess}}}？）` : ''}`);
       }
       reportedVars.add(varName);
     }

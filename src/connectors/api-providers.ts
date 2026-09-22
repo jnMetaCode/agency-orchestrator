@@ -22,6 +22,9 @@ export interface ApiProviderSpec {
   defaultModel?: string;
 }
 
+/** provider: claude（原生 SDK）没写 model 时的默认。以前散在 cli.ts / mcp / demo 四处各写一个过时的日期版号。 */
+export const CLAUDE_DEFAULT_MODEL = 'claude-sonnet-5';
+
 export const API_PROVIDERS: ApiProviderSpec[] = [
   { id: 'deepseek', envKey: 'DEEPSEEK_API_KEY', envBase: 'DEEPSEEK_BASE_URL', defaultBaseUrl: 'https://api.deepseek.com/v1', defaultModel: 'deepseek-chat' },
   { id: 'openai', envKey: 'OPENAI_API_KEY', envBase: 'OPENAI_BASE_URL', defaultBaseUrl: 'https://api.openai.com/v1', defaultModel: 'gpt-5.5' },
@@ -201,7 +204,7 @@ export interface VideoProviderSpec {
    * **接第二家时才知道这层抽象立不立得住**：秘塔与 APIMart 从路径到字段名到状态词
    * 没有一处相同，加 APIMart 只新增了一个 adapter，主流程一行没动。
    */
-  shape: 'minimax' | 'apimart' | 'openai-videos' | 'ark' | 'local';
+  shape: 'minimax' | 'apimart' | 'openai-videos' | 'ark' | 'local' | 'shengsuanyun';
   /** 建任务时额外固定字段（如 Agnes 的 openai-videos 变体要求 mode:"text"）；有首帧图时用 createExtraWithImage */
   createExtra?: Record<string, unknown>;
   createExtraWithImage?: Record<string, unknown>;
@@ -225,6 +228,12 @@ export interface VideoProviderSpec {
      * Wan / PixVerse / Grok 的宽高比叫 size，MiniMax 系的首帧图叫 first_frame_image。缺省 = resolution / aspect_ratio / image_urls。
      */
     fields?: { resolution?: 'resolution' | 'mode'; ratio?: 'aspect_ratio' | 'size'; image?: 'image_urls' | 'first_frame_image' };
+    /**
+     * 提示词的承载形状。胜算云一个端点转发多家上游的**原生**请求体，所以同一家里
+     * 也不统一：豆包/MiniMax 系要 `content:[{type:"text",text}]`，通义万相系要 `prompt` 字符串。
+     * 缺省 'content'。写错的表现是建任务回执正常、轮询才报 `request conversion failed`。
+     */
+    promptField?: 'content' | 'prompt';
   }>;
 }
 
@@ -333,6 +342,57 @@ VIDEO_PROVIDERS.push({
     { id: 'minimax-h3-q2', resolutions: ['640x384', '384x640', '512x512'], durations: [1, 2, 3, 4], ratios: ['16:9', '9:16', '1:1'] },
     { id: 'minimax-h3-q3', resolutions: ['640x384', '384x640', '768x432', '512x512'], durations: [1, 2, 3, 4, 5], ratios: ['16:9', '9:16', '1:1'] },
     { id: 'minimax-h3-q4', resolutions: ['640x384', '768x432', '960x544', '544x960'], durations: [2, 3, 4, 5, 6], ratios: ['16:9', '9:16', '1:1'] },
+  ],
+});
+
+// 胜算云（赞助商）—— 它同时在 API_PROVIDERS（聊天/图片）与这里（视频），一把
+// SHENGSUANYUN_API_KEY 通用，同 APIMart / Agnes / 方舟的处理。
+//
+// **为什么之前没接**：视频模型一个都不在 `GET /api/v1/models` 里——那个接口只收录
+// chat 模型（2026-09-08 实拉：204 条，`architecture.output` 全是 text）。按它建下拉，
+// 出图/出视频/出音频模型永远不会出现，于是 Studio 显示"胜算云"却没有可选模型。
+// 另一半的坑是 `architecture.input` 里的 `text+image+video`——那是**能读**不是**能生成**，
+// 拿它当能力判据会得出"支持视频"的错结论。
+//
+// 多媒体模型有另一套**无需 key**的目录接口（在 modelmesh 国际站的 bundle 里挖到的，
+// 主机是 api.shengsuanyun.com，与 router 不是同一个）：
+//   GET /modelrouter/outputmodalities                              → text / image / video / audio
+//   GET /modelrouter/modalities/list?output_names=video&page_size=100  → 55 条（含 id）
+//   GET /modelrouter/modalities/info?model_id=<id>                 → api_name + class_names + input_schema + pricing
+// 下面的模型 id 与档位就是从这套目录逐条取的（2026-09-08），**不是猜的**。
+//
+// 任务接口已真机核实（2026-09-08，带真 key）：
+//   POST {base}/tasks/generations        → 200 {code:"success", data:{request_id, status:"SUBMITTING"}}
+//   GET  {base}/tasks/generations/{rid}  → 200 {code, data:{status, fail_reason, progress, cost, data:{video_urls[]}}}
+//   无效模型 → 仍回 200 + SUBMITTING，**轮询才报** `model "x" is not available`
+//   余额不足 → fail_reason 写明 `余额不足: 可用额度 2.18 元…本次预扣 80 元`
+//   token 额度耗尽 → 建任务直接 402 insufficient_quota
+// ⚠️ **未核实的部分**：没有一次任务跑到 COMPLETED（诊断用的 5 元测试 key 中途耗尽），
+// 所以 `COMPLETED` 与 `data.data.video_urls[]` 是照官方文档写的，档位也只有官方 schema
+// 背书、没有真机出过片。第一次真跑通后请把这段注释改掉。
+VIDEO_PROVIDERS.push({
+  id: 'shengsuanyun',
+  envKey: 'SHENGSUANYUN_API_KEY',
+  envBase: 'SHENGSUANYUN_BASE_URL',
+  defaultBaseUrl: 'https://router.shengsuanyun.com/api/v1',
+  shape: 'shengsuanyun',
+  // 目录里 output=video 的共 55 条（文本->视频 36 / 图像->视频 42 / 视频->视频 6 / 音频->视频 3）。
+  // 这里只列**档位有官方 schema 明确枚举**的几条，其余留给用户手填——
+  // 没有枚举背书就写进下拉，等于把猜的值伪装成核实过的。
+  models: [
+    // required=['content']；resolution enum 480p/720p，ratio enum 见下，duration 无枚举（default -1 = 自适应）
+    { id: 'bytedance/doubao-seedance-2-5', resolutions: ['480p', '720p'], ratios: ['16:9', '4:3', '1:1', '3:4', '9:16', '21:9', 'adaptive'] },
+    { id: 'bytedance/doubao-seedance-2-0', resolutions: ['480p', '720p'], ratios: ['16:9', '4:3', '1:1', '3:4', '9:16', '21:9', 'adaptive'] },
+    // required=['content','resolution','duration']——这两项**必填**，留空建任务就会失败
+    { id: 'minimax/minimax-h3', resolutions: ['768P', '2K'], ratios: ['adaptive', '21:9', '16:9', '4:3', '1:1', '3:4', '9:16'] },
+    // 通义万相系走 `prompt` 字符串，且宽高比字段叫 size、取值是 "宽*高"（不是 16:9 这种比例名）
+    {
+      id: 'ali/wan2.5-t2v-preview',
+      durations: [5, 10],
+      ratios: ['832*480', '480*832', '624*624', '1280*720', '720*1280', '960*960', '1088*832', '832*1088', '1440*1440', '1632*1248', '1248*1632'],
+      fields: { ratio: 'size' },
+      promptField: 'prompt',
+    },
   ],
 });
 

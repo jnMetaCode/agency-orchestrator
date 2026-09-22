@@ -60,6 +60,13 @@ console.log('\n─── 不认识的 provider 且没有 base_url ───');
   assert(parseErr(`name: "x"\nllm: { provider: "metaso" }\nsteps:\n  - id: v\n    type: video\n    task: "t"\n    video: { model: "MiniMax-H3" }\n    output: v_mp4\n`) === '', '纯媒体工作流的视频供应商放行');
 }
 
+console.log('\n─── 变量拼错给「你是不是想写」 ───');
+{
+  const w = parseWorkflow(wf(`${head}inputs:\n  - name: topic\nsteps:\n${step('a').replace('task: "t"', 'task: "写 {{topci}}"')}`));
+  const errs = validateWorkflow(w).join('\n');
+  assert(/未定义的变量: \{\{topci\}\}.*想写 \{\{topic\}\}/.test(errs), `猜到 topic（实际：${errs.slice(0, 120)}）`);
+}
+
 console.log('\n─── @dir 知识源不跟符号链接绕圈 ───');
 {
   const docs = join(dir, 'docs');
