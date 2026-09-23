@@ -315,6 +315,15 @@ export function RunProvider({ children }: { children: ReactNode }) {
             )
           : runRole({ role: request.role, task: request.task, provider: request.provider, lang: request.lang }, onEvent, ctrl.signal);
 
+      // 流正常结束却没收到 done / error（代理提前收口、服务端异常退出）：状态会永远停在"运行中"，
+      // 转圈转到天荒地老、还挡着 beforeunload 的离开确认。收口成失败。
+      starter.then(() => {
+        if (ctrl.signal.aborted || inst.state !== "running") return;
+        inst.state = "error";
+        inst.error = inst.error || t.studio.run.runError;
+        inst.steps = inst.steps.map((s) => (s.status === "running" ? { ...s, status: "failed" } : s));
+        touch();
+      });
       starter.catch((e: any) => {
         if (ctrl.signal.aborted) return;
         inst.error = e?.message || String(e);

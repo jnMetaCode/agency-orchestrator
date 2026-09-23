@@ -19,6 +19,16 @@ export function RunViewer({ onViewHistory, onGoProviders }: { onViewHistory?: ()
   const [showTerminal, setShowTerminal] = useState(false);
   const [showCompare, setShowCompare] = useState(false);
   const [exportOpen, setExportOpen] = useState(false);
+  // 导出下拉以前只能再点一次按钮关掉：点到别处、按 Esc 都不关，一直挡着下面的内容
+  const exportRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!exportOpen) return;
+    const onDown = (e: MouseEvent) => { if (!exportRef.current?.contains(e.target as Node)) setExportOpen(false); };
+    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") { e.stopPropagation(); setExportOpen(false); } };
+    document.addEventListener("mousedown", onDown);
+    document.addEventListener("keydown", onKey, true);   // 捕获阶段：先于「Esc 关闭整个查看器」那条
+    return () => { document.removeEventListener("mousedown", onDown); document.removeEventListener("keydown", onKey, true); };
+  }, [exportOpen]);
   const [exporting, setExporting] = useState<string | null>(null);
   const [exportErr, setExportErr] = useState<string | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -27,11 +37,13 @@ export function RunViewer({ onViewHistory, onGoProviders }: { onViewHistory?: ()
   const running = run?.state === "running";
   const contentLen = run ? run.steps.reduce((n, s) => n + s.content.length, 0) : 0;
 
-  // Auto-scroll to bottom while streaming.
+  // 流式输出时自动滚到底——但**只在用户本来就在底部附近时**。用户往回翻看前几步的产出时
+  // 每来一个 chunk 就被拽回底部，等于没法读。40px 容差按一行的高度给。
   useEffect(() => {
-    if (running && scrollRef.current && !showTerminal) {
-      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
-    }
+    const el = scrollRef.current;
+    if (!running || !el || showTerminal) return;
+    const atBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 40;
+    if (atBottom) el.scrollTop = el.scrollHeight;
   }, [contentLen, running, showTerminal]);
 
   // 模板声明了 deliverables（交付物步骤）时，复制/下载/导出默认只带成稿——
@@ -236,7 +248,7 @@ export function RunViewer({ onViewHistory, onGoProviders }: { onViewHistory?: ()
                   {t.studio.run.downloadMd}
                 </Button>
                 {/* 导出为 Word/PDF/Excel(给人)或 Skill/可执行计划(给机器)*/}
-                <div className="relative">
+                <div className="relative" ref={exportRef}>
                   <Button size="sm" variant="outline" onClick={() => setExportOpen((v) => !v)}>
                     {exporting ? <Loader2 className="size-3.5 animate-spin" /> : <FileDown className="size-3.5" />}
                     {lang === "en" ? "Export" : "导出"}

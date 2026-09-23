@@ -115,8 +115,9 @@ function InputsDialog({ wf, provider, onClose, onRun, onCompare }: { wf: Workflo
     window.addEventListener("ao-media-defaults", sync);
     return () => window.removeEventListener("ao-media-defaults", sync);
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  // 必填**文本**输入以前不拦：Run 亮着、服务端把空值丢掉、引擎 spawn 之后才报「缺少必填输入」。
   // 隐藏的（show_when 为假）不算缺失：选了"不配音"还拦着说"音色必填"就是自相矛盾
-  const missingMedia = mediaInputs.filter((i) => inputVisible(i, vals) && i.required && !(vals[i.name] ?? "").trim());
+  const missingRequired = inputs.filter((i) => inputVisible(i, vals) && i.required && !(vals[i.name] ?? "").trim());
   // 需要实拉模型列表的供应商（按当前选择算出来），在 effect 里拉——渲染期不发请求、不 setState
   const neededModelProviders = inputs
     .filter((i) => i.source === "models")
@@ -335,8 +336,8 @@ function InputsDialog({ wf, provider, onClose, onRun, onCompare }: { wf: Workflo
                   用"反向排除"而不是列白名单：漏列一个的后果是那个输入在弹窗里**凭空消失**，
                   而它又是必填 —— 模板直接跑不起来（配音供应商就这么消失过）。 */}
               {mediaInputs.filter((i) => !coveredByMediaPanel(i) && inputVisible(i, vals)).map((i) => field(i, true))}
-              {missingMedia.length > 0 && (
-                <p className="rounded-lg bg-amber-500/10 px-2 py-1.5 text-[11px] text-amber-600 dark:text-amber-400">{m.missingRequired}{missingMedia.map((i) => i.label || i.name).join("、")}</p>
+              {missingRequired.length > 0 && (
+                <p className="rounded-lg bg-amber-500/10 px-2 py-1.5 text-[11px] text-amber-600 dark:text-amber-400">{m.missingRequired}{missingRequired.map((i) => i.label || i.name).join("、")}</p>
               )}
             </aside>
           )}
@@ -350,7 +351,7 @@ function InputsDialog({ wf, provider, onClose, onRun, onCompare }: { wf: Workflo
               {lang === "en" ? "vs Single-shot" : "对比单次"}
             </Button>
           )}
-          <Button onClick={submit} disabled={missingMedia.length > 0 || textNoKey}>
+          <Button onClick={submit} disabled={missingRequired.length > 0 || textNoKey}>
             <Play className="size-4" />
             {t.studio.workflows.run}
           </Button>

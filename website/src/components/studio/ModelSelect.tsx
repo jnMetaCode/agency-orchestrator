@@ -108,6 +108,10 @@ export function ModelSelect({ provider }: { provider: string }) {
     try {
       await api.saveConfig({ provider: eff, model: m });
       setCurrent(m);
+    } catch (e) {
+      // 以前只有 finally：保存失败时下拉关掉、模型没变、一句话都没有，用户以为换好了，
+      // 下一次运行还是用旧模型
+      window.alert((e instanceof Error ? e.message : String(e)));
     } finally {
       setSaving(false);
     }
