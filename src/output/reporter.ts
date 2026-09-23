@@ -50,19 +50,17 @@ export function saveResults(result: WorkflowResult, outputDir: string): string {
   if (withAssets.length) {
     const assetsDir = join(dir, 'assets');
     mkdirSync(assetsDir, { recursive: true });
+    // **先全部写完，再统一摘 base64**。以前是写一个摘一个：第 3 个写失败（盘满 / 目录只读 / 文件名被
+    // 文件系统拒绝）时，前两个的字节已经从内存里没了——而这些正是花过钱的产物，重试或兜底都救不回来。
     for (const s of withAssets) {
-      if (s.imageAsset?.base64) {
-        writeFileSync(join(assetsDir, s.imageAsset.filename), Buffer.from(s.imageAsset.base64, 'base64'));
-        delete s.imageAsset.base64;
-      }
-      if (s.videoAsset?.base64) {
-        writeFileSync(join(assetsDir, s.videoAsset.filename), Buffer.from(s.videoAsset.base64, 'base64'));
-        delete s.videoAsset.base64;
-      }
-      if (s.audioAsset?.base64) {
-        writeFileSync(join(assetsDir, s.audioAsset.filename), Buffer.from(s.audioAsset.base64, 'base64'));
-        delete s.audioAsset.base64;
-      }
+      if (s.imageAsset?.base64) writeFileSync(join(assetsDir, s.imageAsset.filename), Buffer.from(s.imageAsset.base64, 'base64'));
+      if (s.videoAsset?.base64) writeFileSync(join(assetsDir, s.videoAsset.filename), Buffer.from(s.videoAsset.base64, 'base64'));
+      if (s.audioAsset?.base64) writeFileSync(join(assetsDir, s.audioAsset.filename), Buffer.from(s.audioAsset.base64, 'base64'));
+    }
+    for (const s of withAssets) {
+      delete s.imageAsset?.base64;
+      delete s.videoAsset?.base64;
+      delete s.audioAsset?.base64;
     }
   }
 

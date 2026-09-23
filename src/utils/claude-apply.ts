@@ -16,9 +16,9 @@
  */
 import { execFileSync } from 'node:child_process';
 import { connect as netConnect } from 'node:net';
-import { existsSync, readFileSync, writeFileSync, copyFileSync, mkdirSync } from 'node:fs';
+import { existsSync, readFileSync, writeFileSync, copyFileSync, mkdirSync, renameSync, chmodSync, readdirSync, unlinkSync } from 'node:fs';
 import { homedir } from 'node:os';
-import { join } from 'node:path';
+import { join, dirname, basename } from 'node:path';
 import { repairClaudeConfig, type RepairResult, type ShellEnvOptions } from './claude-repair.js';
 
 /** 顶层标记键：记录当前是 AO 切到了哪个 provider。不在 env 里，不影响 CLI 运行。 */
@@ -42,9 +42,43 @@ function settingsPath(): string {
 
 function backupIfExists(path: string): string | null {
   if (!existsSync(path)) return null;
-  const backupPath = `${path}.ao-backup-${Date.now()}`;
+  // 同一毫秒内会连着备份两次（restoreClaudeToOfficial 先 repair 再 syncProxy），撞名就往后排，
+  // 否则第二次的 copyFileSync 会把第一次的备份覆盖掉——而这些都是凭证的明文副本。
+  let backupPath = `${path}.ao-backup-${Date.now()}`;
+  for (let n = 2; existsSync(backupPath); n++) backupPath = `${path}.ao-backup-${Date.now()}-${n}`;
   copyFileSync(path, backupPath);
+  try { chmodSync(backupPath, 0o600); } catch { /* 不支持权限位的文件系统 */ }
+  pruneBackups(path);
   return backupPath;
+}
+
+/**
+ * 只留最近 5 份备份。每次 apply / repair / restore / 同步代理都会留一份，而**没有任何地方清理**——
+ * 在 Studio 里来回切几次供应商，~/.claude 下就躺着十几份带 token 的明文副本。
+ */
+function pruneBackups(path: string, keep = 5): void {
+  try {
+    const dir = dirname(path);
+    const prefix = `${basename(path)}.ao-backup-`;
+    const olds = readdirSync(dir)
+      .filter((f) => f.startsWith(prefix))
+      .sort();                                  // 名字里是毫秒时间戳，字典序即时间序
+    for (const f of olds.slice(0, Math.max(0, olds.length - keep))) {
+      try { unlinkSync(join(dir, f)); } catch { /* 删不掉就算了，不能让清理反过来搞挂写入 */ }
+    }
+  } catch { /* 目录读不了：不清理，但绝不影响主流程 */ }
+}
+
+/** 凭证文件：原子写 + 0600。直接 writeFileSync 是先截断——中途崩了就剩个半截的 settings.json，
+ *  而那正是"救 Claude Code"的那个文件，坏了之后 repair 自己也修不动（只能让用户去翻备份）。 */
+function writeSecretJson(path: string, obj: unknown): void {
+  // 目录可能还不存在（机器上从没跑过 Claude Code）——原来的直写也会在这里 ENOENT，只是多数人
+  // 的 ~/.claude 早就有了才没暴露
+  mkdirSync(dirname(path), { recursive: true });
+  const tmp = `${path}.ao-tmp`;
+  writeFileSync(tmp, JSON.stringify(obj, null, 2) + '\n', { encoding: 'utf-8', mode: 0o600 });
+  renameSync(tmp, path);
+  try { chmodSync(path, 0o600); } catch { /* 不支持权限位的文件系统 */ }
 }
 
 /** 读 JSON；不存在返回空对象；解析失败抛错（调用方据此中止写入，绝不覆写坏文件）。 */
@@ -105,7 +139,7 @@ export function applyClaudeProvider(cfg: ClaudeApplyConfig): ClaudeApplyResult {
   obj[AO_MANAGED_KEY] = cfg.providerId;     // 打 AO 管理标记
   obj[AO_MANAGED_BASEURL_KEY] = cfg.baseUrl; // 记指纹：体检时验 env 有没有被别的工具改走
 
-  writeFileSync(path, JSON.stringify(obj, null, 2) + '\n', 'utf-8');
+  writeSecretJson(path, obj);
   return { path, backup, writtenKeys: written };
 }
 
@@ -286,7 +320,7 @@ export function syncClaudeProxy(proxyUrl?: string): ClaudeProxySyncResult {
   const backup = backupIfExists(path);
   env.HTTP_PROXY = proxyUrl;
   env.HTTPS_PROXY = proxyUrl;
-  writeFileSync(path, JSON.stringify(obj, null, 2) + '\n', 'utf-8');
+  writeSecretJson(path, obj);
   return { configured: true, changed: true, proxyUrl, backup };
 }
 
@@ -307,7 +341,7 @@ export function restoreClaudeToOfficial(options: RestoreOptions = {}): RestoreRe
       if (obj && typeof obj === 'object' && (obj[AO_MANAGED_KEY] != null || obj[AO_MANAGED_BASEURL_KEY] != null)) {
         delete obj[AO_MANAGED_KEY];
         delete obj[AO_MANAGED_BASEURL_KEY]; // 指纹跟标记成对，一起清，别留孤儿
-        writeFileSync(path, JSON.stringify(obj, null, 2) + '\n', 'utf-8');
+        writeSecretJson(path, obj);
         removedAoMarker = true;
       }
     } catch { /* 解析失败：repair 已跳过并报告，这里不重复处理 */ }
@@ -390,6 +424,6 @@ export function clearClaudeProxy(): { changed: boolean; backup: string | null } 
   delete env.HTTP_PROXY;
   delete env.HTTPS_PROXY;
   if (Object.keys(env).length === 0) delete obj.env;
-  writeFileSync(path, JSON.stringify(obj, null, 2) + '\n', 'utf-8');
+  writeSecretJson(path, obj);
   return { changed: true, backup };
 }

@@ -2,7 +2,7 @@
  * 测试 Claude Code 全局安全切换写入器（claude-apply）。
  * 全程走 AO_CLAUDE_DIR 沙箱临时目录，绝不触碰真实 ~/.claude。
  */
-import { mkdtempSync, rmSync, writeFileSync, readFileSync, existsSync, readdirSync } from 'node:fs';
+import { mkdtempSync, rmSync, writeFileSync, readFileSync, existsSync, readdirSync, statSync, mkdirSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import {
@@ -264,6 +264,42 @@ try {
   rmSync(sandbox, { recursive: true, force: true });
   if (savedDir === undefined) delete process.env.AO_CLAUDE_DIR;
   else process.env.AO_CLAUDE_DIR = savedDir;
+}
+
+// 这个文件里装着中转商的 token。三件事以前都不成立：
+//  · 权限是默认的 0644（同机其他用户可读）；
+//  · 直接 writeFileSync 是先截断——中途崩了就剩个半截的 settings.json，而那正是"救 Claude Code"
+//    的那个文件，坏了之后 repair 自己也修不动；
+//  · 每次 apply/repair/restore 都留一份明文备份，而没有任何地方清理。
+console.log('\n─── 凭证写入：0600 + 原子 + 备份不无限堆积 ───');
+{
+  const dir = mkdtempSync(join(tmpdir(), 'ao-claude-sec-'));
+  const prevHome = process.env.HOME;
+  process.env.HOME = dir;
+  // 先把 ~/.claude 建出来：目录不存在时新旧代码都会 ENOENT（一个本来就有、只是没人踩到的问题，
+  // 顺手也修了）。这里要逐条验的是权限 / 原子 / 备份不堆积，不是那个。
+  mkdirSync(join(dir, '.claude'), { recursive: true });
+  try {
+    const { applyClaudeProvider } = await import(`../src/utils/claude-apply.js?t=${Date.now()}`);
+    const settings = join(dir, '.claude', 'settings.json');
+    for (let i = 0; i < 8; i++) {
+      applyClaudeProvider({ providerId: `p${i}`, baseUrl: `https://x${i}/api`, apiKey: `sk-${i}` });
+    }
+    if (process.platform !== 'win32') {
+      assert((statSync(settings).mode & 0o777) === 0o600, `settings.json 权限 0600（实际 ${(statSync(settings).mode & 0o777).toString(8)}）`);
+    }
+    const backups = readdirSync(join(dir, '.claude')).filter((f) => f.includes('.ao-backup-'));
+    assert(backups.length > 0 && backups.length <= 5, `备份保留最近 5 份，不无限堆（实际 ${backups.length} 份）`);
+    if (process.platform !== 'win32') {
+      const worldReadable = backups.filter((f) => (statSync(join(dir, '.claude', f)).mode & 0o077) !== 0);
+      assert(worldReadable.length === 0, `备份也是 0600（${worldReadable.length} 份没锁住）`);
+    }
+    assert(!readdirSync(join(dir, '.claude')).some((f) => f.endsWith('.ao-tmp')), '原子写的临时文件不留下');
+    assert(JSON.parse(readFileSync(settings, 'utf-8')).env?.ANTHROPIC_AUTH_TOKEN === 'sk-7', '最后一次写入生效');
+  } finally {
+    if (prevHome === undefined) delete process.env.HOME; else process.env.HOME = prevHome;
+    rmSync(dir, { recursive: true, force: true });
+  }
 }
 
 console.log(`\n  结果: ${passed} 通过, ${failed} 失败\n`);

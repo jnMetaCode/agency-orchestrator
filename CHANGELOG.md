@@ -5,6 +5,12 @@
 ## [Unreleased]
 
 ### Security
+- **写进 `~/.claude/settings.json` 的中转 token 现在是 0600、原子写，备份也不再无限堆积**（与本轮 Codex 那条同类，
+  只是这边装的是 API key）。此前：权限是默认的 0644（同机其他用户可读）；`writeFileSync` 先截断——中途崩了就剩个
+  半截的 settings.json，而那正是「救 Claude Code」的那个文件，坏了之后 `ao doctor --fix` 自己也修不动；每次
+  apply / repair / restore / 同步代理都留一份**凭证明文**备份，而没有任何地方清理（在 Studio 里来回切几次供应商，
+  `~/.claude` 下就躺着十几份），且同一毫秒内的两次备份会互相覆盖。现在：备份撞名往后排、只留最近 5 份、同样 0600。
+  顺带修掉一个本来就有的：机器上从没跑过 Claude Code（`~/.claude` 不存在）时，写入会直接 ENOENT。
 - **`clearCodexRelay` 可能把用户的 Codex 登录态清空且无从恢复**：它整份重写 `~/.codex/config.toml` 与
   `auth.json`，却**一个备份都不留**（apply 那条是备份了的），而解析失败时又按「空文件」处理——手改坏过
   config.toml 的人点一下 Studio 的「切回官方」，配置连同 `auth.json` 里的 OAuth tokens 一起没了。
@@ -141,6 +147,8 @@
   新增「氛围锁定」规则与「按类型的默认运镜与节拍」表（剧情短剧 / 产品广告片 / 治愈日常 / 悬疑惊悚 /
   搞笑段子 / 科幻 / 古风武侠 / 纪实 Vlog），来源是上游的 genre-camera-sop 与各题材范例。
 ### Fixed
+- **存档时先把所有产物写完，再统一摘掉内存里的 base64**。以前是写一个摘一个：第 3 个写失败（盘满 / 目录只读 /
+  文件名被文件系统拒绝）时，前两个的字节已经从内存里没了——而这些正是花过钱的产物，重试或兜底都救不回来。
 - **Docker 镜像装上 ffmpeg**，并且 Dockerfile 现在**每个 PR 都构建一遍**（以前只在 `v*` tag 时构建，坏了要到
   发版当天、npm 已经发出去之后才知道）。`node:22-slim` 不带 ffmpeg，而 `type: concat` 硬依赖它——NAS 用户跑
   短片流水线时每条片子、每段配音都**先花完钱**，最后一步合成才失败，CLAUDE.md 里「付过钱的片子不能白费」

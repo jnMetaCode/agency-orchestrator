@@ -17,9 +17,9 @@
  * 注意：这里绝不写入任何中转/token —— 它是「恢复官方登录」的减法工具，
  * 跟 AO 给子进程注入 env 的正向逻辑（web/server.js 的 applyKeys）互不相干。
  */
-import { existsSync, readFileSync, writeFileSync, copyFileSync } from 'node:fs';
+import { existsSync, readFileSync, writeFileSync, copyFileSync, renameSync, chmodSync, readdirSync, unlinkSync, mkdirSync } from 'node:fs';
 import { homedir } from 'node:os';
-import { join } from 'node:path';
+import { join, dirname, basename } from 'node:path';
 
 /** 凭据 / 端点类劫持键：任何模式下出现在 settings 里都是劫持，修复 = 删掉。 */
 export const CREDENTIAL_HIJACK_KEYS = [
@@ -217,9 +217,43 @@ export interface RepairResult {
 
 function backupIfExists(path: string): string | null {
   if (!existsSync(path)) return null;
-  const backupPath = `${path}.ao-backup-${Date.now()}`;
+  // 同一毫秒内会连着备份两次（restoreClaudeToOfficial 先 repair 再 syncProxy），撞名就往后排，
+  // 否则第二次的 copyFileSync 会把第一次的备份覆盖掉——而这些都是凭证的明文副本。
+  let backupPath = `${path}.ao-backup-${Date.now()}`;
+  for (let n = 2; existsSync(backupPath); n++) backupPath = `${path}.ao-backup-${Date.now()}-${n}`;
   copyFileSync(path, backupPath);
+  try { chmodSync(backupPath, 0o600); } catch { /* 不支持权限位的文件系统 */ }
+  pruneBackups(path);
   return backupPath;
+}
+
+/**
+ * 只留最近 5 份备份。每次 apply / repair / restore / 同步代理都会留一份，而**没有任何地方清理**——
+ * 在 Studio 里来回切几次供应商，~/.claude 下就躺着十几份带 token 的明文副本。
+ */
+function pruneBackups(path: string, keep = 5): void {
+  try {
+    const dir = dirname(path);
+    const prefix = `${basename(path)}.ao-backup-`;
+    const olds = readdirSync(dir)
+      .filter((f) => f.startsWith(prefix))
+      .sort();                                  // 名字里是毫秒时间戳，字典序即时间序
+    for (const f of olds.slice(0, Math.max(0, olds.length - keep))) {
+      try { unlinkSync(join(dir, f)); } catch { /* 删不掉就算了，不能让清理反过来搞挂写入 */ }
+    }
+  } catch { /* 目录读不了：不清理，但绝不影响主流程 */ }
+}
+
+/** 凭证文件：原子写 + 0600。直接 writeFileSync 是先截断——中途崩了就剩个半截的 settings.json，
+ *  而那正是"救 Claude Code"的那个文件，坏了之后 repair 自己也修不动（只能让用户去翻备份）。 */
+function writeSecretJson(path: string, obj: unknown): void {
+  // 目录可能还不存在（机器上从没跑过 Claude Code）——原来的直写也会在这里 ENOENT，只是多数人
+  // 的 ~/.claude 早就有了才没暴露
+  mkdirSync(dirname(path), { recursive: true });
+  const tmp = `${path}.ao-tmp`;
+  writeFileSync(tmp, JSON.stringify(obj, null, 2) + '\n', { encoding: 'utf-8', mode: 0o600 });
+  renameSync(tmp, path);
+  try { chmodSync(path, 0o600); } catch { /* 不支持权限位的文件系统 */ }
 }
 
 /**
@@ -256,7 +290,7 @@ export function repairClaudeConfig(opts: ShellEnvOptions = {}): RepairResult {
     const backup = backupIfExists(path);
     let removedEmptyEnv = false;
     if (Object.keys(env).length === 0) { delete obj.env; removedEmptyEnv = true; }
-    writeFileSync(path, JSON.stringify(obj, null, 2) + '\n', 'utf-8');
+    writeSecretJson(path, obj);
     repaired.push({ path, removedKeys, backup, removedEmptyEnv });
   }
 
