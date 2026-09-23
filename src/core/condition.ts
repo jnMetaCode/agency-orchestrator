@@ -32,11 +32,28 @@ export function evaluateCondition(
     throw new Error(`条件格式错误: "${condition}"。支持的格式: <text> contains <keyword> 或 <text> equals <keyword>`);
   }
 
+  // 左操作数以取反词结尾 = 作者写了 `{{x}} not contains y` 这类否定式。左侧是懒匹配，`not` 会被
+  // 吞进左操作数里，于是整条**当成 contains 求值、结果正好相反**，而且一声不吭。
+  // 真机后果：`condition: "{{qa}} not contains 失败"` 在 QA 报失败时**照样跑**那一步——
+  // 如果它是 type: video，就是按秒计费的钱。没有取反语法就当场说清楚，别猜。
+  if (/(^|\s)(not|!|非|不)\s*$/i.test(match[1])) {
+    throw new Error(
+      `条件不支持取反写法（"${condition.trim().slice(0, 60)}"）：只有 contains / equals。`
+      + `请把分支反过来写——例如把 "{{x}} not contains A" 改成给另一条分支加 "{{x}} contains A"。`,
+    );
+  }
+
   // 仅对两侧操作数分别替换变量；换行替空格避免多行 LLM 输出干扰
   const left = renderTemplate(match[1], context).trim().replace(/\n/g, ' ').toLowerCase();
   const operator = match[2].toLowerCase();
   // 去掉引号包裹
   const right = renderTemplate(match[3], context).trim().replace(/^["']|["']$/g, '').toLowerCase();
+
+  // 右操作数渲染后为空（引用了一个没填的可选输入）：`"".includes("")` 恒真，于是"有条件的分支"
+  // 每次都跑——短片流水线里那就是每条片子都出、都计费。空关键词按"没匹配上"算。
+  if (!right) {
+    return operator === 'equals' ? !left : false;
+  }
 
   switch (operator) {
     case 'contains':

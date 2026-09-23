@@ -11,7 +11,7 @@
  *      保留用户自己在 config.toml 里已有的其它内容（其它 provider、其它配置项）
  *   3. auth.json 同理，只更新 OPENAI_API_KEY 字段，不动其它可能存在的字段
  */
-import { existsSync, readFileSync, writeFileSync, copyFileSync, mkdirSync } from 'node:fs';
+import { existsSync, readFileSync, writeFileSync, copyFileSync, mkdirSync, renameSync, chmodSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
 import { parse, stringify } from 'smol-toml';
@@ -34,6 +34,7 @@ function backupIfExists(path: string): string | null {
   if (!existsSync(path)) return null;
   const backupPath = `${path}.ao-backup-${Date.now()}`;
   copyFileSync(path, backupPath);
+  try { chmodSync(backupPath, 0o600); } catch { /* 不支持权限位的文件系统 */ }   // 备份是凭证的明文副本
   return backupPath;
 }
 
@@ -42,17 +43,35 @@ function readTomlSafe(path: string): Record<string, any> {
   try {
     return parse(readFileSync(path, 'utf-8')) as Record<string, any>;
   } catch {
-    return {}; // 解析失败（用户手改坏了之类）—— 兜底当空文件处理，仍会先备份原文件
+    return {}; // 只给**只读**的状态查询用（读不动就当没配）——要写回去的路径一律走 strict
   }
 }
 
-function readJsonSafe(path: string): Record<string, any> {
+/**
+ * 要**写回**这两个文件之前，必须能先把它们完整读懂。
+ * 读不懂就当空文件处理 = 把用户手里那份配置整个换成空的：config.toml 里他自己的 provider 全没了，
+ * auth.json 更要命——里面除了 OPENAI_API_KEY 还有 Codex 的 OAuth tokens，覆盖掉就是把登录态删了。
+ * 宁可当场停手让用户自己看一眼。
+ */
+function readForWrite(path: string, kind: 'toml' | 'json'): Record<string, any> {
   if (!existsSync(path)) return {};
+  const text = readFileSync(path, 'utf-8');
   try {
-    return JSON.parse(readFileSync(path, 'utf-8'));
-  } catch {
-    return {};
+    return (kind === 'toml' ? parse(text) : JSON.parse(text)) as Record<string, any>;
+  } catch (err) {
+    throw new Error(
+      `${path} 解析失败，为避免把你的 Codex 配置覆盖成空的，这次不动它：${err instanceof Error ? err.message.slice(0, 120) : err}\n`
+      + `  请先手动修好这个文件（或把它挪走让 Codex 重新生成）再试。`,
+    );
   }
+}
+
+/** 凭证文件：原子写 + 0600。直接 writeFileSync 是先截断——中途崩了就剩个半截的 settings/auth。 */
+function writeSecret(path: string, text: string): void {
+  const tmp = `${path}.ao-tmp`;
+  writeFileSync(tmp, text, { encoding: 'utf-8', mode: 0o600 });
+  renameSync(tmp, path);
+  try { chmodSync(path, 0o600); } catch { /* 不支持权限位的文件系统 */ }
 }
 
 /**
@@ -65,7 +84,7 @@ export function applyCodexRelay(cfg: CodexRelayConfig): { backups: string[] } {
 
   const configBackup = backupIfExists(CONFIG_TOML);
   if (configBackup) backups.push(configBackup);
-  const doc = readTomlSafe(CONFIG_TOML);
+  const doc = readForWrite(CONFIG_TOML, 'toml');
   doc.model_provider = cfg.providerId;
   if (cfg.model) doc.model = cfg.model;
   doc.model_providers = doc.model_providers && typeof doc.model_providers === 'object' ? doc.model_providers : {};
@@ -75,13 +94,13 @@ export function applyCodexRelay(cfg: CodexRelayConfig): { backups: string[] } {
     wire_api: 'responses',
     requires_openai_auth: true,
   };
-  writeFileSync(CONFIG_TOML, stringify(doc), 'utf-8');
+  writeSecret(CONFIG_TOML, stringify(doc));
 
   const authBackup = backupIfExists(AUTH_JSON);
   if (authBackup) backups.push(authBackup);
-  const auth = readJsonSafe(AUTH_JSON);
+  const auth = readForWrite(AUTH_JSON, 'json');
   auth.OPENAI_API_KEY = cfg.apiKey;
-  writeFileSync(AUTH_JSON, JSON.stringify(auth, null, 2), 'utf-8');
+  writeSecret(AUTH_JSON, JSON.stringify(auth, null, 2));
 
   return { backups };
 }
@@ -93,17 +112,20 @@ export function applyCodexRelay(cfg: CodexRelayConfig): { backups: string[] } {
  */
 export function clearCodexRelay(providerId: string): void {
   if (existsSync(CONFIG_TOML)) {
-    const doc = readTomlSafe(CONFIG_TOML);
+    // 和 apply 一样先备份：这条路径以前**一个备份都不留**，而它照样在整份重写用户的配置
+    backupIfExists(CONFIG_TOML);
+    const doc = readForWrite(CONFIG_TOML, 'toml');
     if (doc.model_provider === providerId) delete doc.model_provider;
     if (doc.model_providers && typeof doc.model_providers === 'object') {
       delete doc.model_providers[providerId];
     }
-    writeFileSync(CONFIG_TOML, stringify(doc), 'utf-8');
+    writeSecret(CONFIG_TOML, stringify(doc));
   }
   if (existsSync(AUTH_JSON)) {
-    const auth = readJsonSafe(AUTH_JSON);
+    backupIfExists(AUTH_JSON);
+    const auth = readForWrite(AUTH_JSON, 'json');
     delete auth.OPENAI_API_KEY;
-    writeFileSync(AUTH_JSON, JSON.stringify(auth, null, 2), 'utf-8');
+    writeSecret(AUTH_JSON, JSON.stringify(auth, null, 2));
   }
 }
 

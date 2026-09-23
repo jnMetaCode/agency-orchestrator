@@ -262,6 +262,17 @@ export function parseWorkflow(
  */
 export function validateWorkflow(workflow: WorkflowDefinition, agentsDir?: string): string[] {
   const errors: string[] = [];
+  // 名字必须是渲染器认得的（{{\w+}}）：声明成中文名的输入永远不会被替换，而校验此前一声不吭
+  for (const inp of workflow.inputs ?? []) {
+    if (!/^\w+$/.test(inp.name ?? '')) {
+      errors.push(`输入名 "${inp.name}" 只能用字母、数字、下划线——{{${inp.name}}} 不会被替换，模型会原样收到它`);
+    }
+  }
+  for (const st of workflow.steps) {
+    if (st.output !== undefined && !/^\w+$/.test(st.output)) {
+      errors.push(`step "${st.id}" 的 output "${st.output}" 只能用字母、数字、下划线——下游 {{${st.output}}} 不会被替换`);
+    }
+  }
   const stepIds = new Set(workflow.steps.map(s => s.id));
   const stepById = new Map(workflow.steps.map(s => [s.id, s]));
 
@@ -494,6 +505,16 @@ export function validateWorkflow(workflow: WorkflowDefinition, agentsDir?: strin
     // 变量名写错如果等到运行期才报「模板变量未定义」，前面的钱已经花了
     for (const v of Object.values(step.tts ?? {})) if (typeof v === 'string') refTexts.push(v);
     for (const v of [...(step.concat?.voiceover ?? []), ...(step.concat?.subtitles ?? []), step.concat?.bgm]) if (typeof v === 'string') refTexts.push(v);
+
+    // 渲染器只认 {{\w+}}（ASCII）。写成 {{主题}} 的话：renderTemplate 原样留着不替换，
+    // 下面的引用检查也看不见它——`ao validate` 报"校验通过"，然后模型收到的是字面量 "{{主题}}"。
+    // 对一个中文优先的产品，这是手写 YAML 最容易踩且最难自己发现的一种。
+    for (const text of refTexts) {
+      for (const m of text.match(/\{\{[^}]*\}\}/g) ?? []) {
+        if (/^\{\{\w+\}\}$/.test(m)) continue;
+        errors.push(`step "${step.id}" 里的 ${m} 不是合法的变量引用——变量名只能用字母、数字、下划线（中文名不会被替换，模型会原样收到 ${m}）`);
+      }
+    }
 
     const varRefs: string[] = [];
     for (const text of refTexts) {
