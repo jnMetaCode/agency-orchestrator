@@ -39,6 +39,19 @@ jobs:
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
+      # tag 必须与 desktop/package.json 的 version 一致——否则 desktop-v0.3.0 会发出一包
+      # 在「关于」里自称 0.2.0 的安装包（npm 那条流水线早就有这个闸，这里一直没有）。
+      - name: Verify tag matches desktop/package.json version
+        shell: bash
+        run: |
+          PKG=$(node -p "require('./desktop/package.json').version")
+          REF="${{ inputs.tag || github.ref_name }}"
+          TAG="${REF#desktop-v}"
+          echo "desktop/package.json=$PKG  tag=$TAG"
+          if [ "$PKG" != "$TAG" ]; then
+            echo "::error::tag $REF 与 desktop/package.json version $PKG 不一致，拒绝发布"
+            exit 1
+          fi
 
       - uses: actions/setup-node@v4
         with:
@@ -93,6 +106,27 @@ jobs:
         run: node scripts/verify-frontend.mjs --packed desktop/release
 
       # 为本平台产物生成 SHA256 校验和（mac 用 shasum，linux/win-gitbash 用 sha256sum）
+      # 三件事凑在一起，会让一次「绿」的发布把缺安装包的版本标成 latest：
+      #   fail-fast: false（某个平台挂了别的照跑）+ fail_on_unmatched_files: false（没文件也不报错）
+      #   + make_latest: "true"（官网下载入口走 /releases/latest）。
+      # 于是 electron-builder 的产物命名一变、或 Windows 那档挂了，官网对应平台的下载就静默 404。
+      - name: 本平台必须真的产出了安装包
+        shell: bash
+        working-directory: desktop/release
+        run: |
+          shopt -s nullglob
+          case "${{ matrix.plat }}" in
+            mac)   files=( *.dmg ) ;;
+            win)   files=( *.exe ) ;;
+            linux) files=( *.AppImage ) ;;
+          esac
+          if [ ${#files[@]} -eq 0 ]; then
+            echo "::error::${{ matrix.plat }} 没有产出任何安装包——拒绝上传（否则会把缺包的版本标成 latest）"
+            ls -la || true
+            exit 1
+          fi
+          printf '  ✓ %s\n' "${files[@]}"
+
       - name: Generate checksums
         shell: bash
         working-directory: desktop/release

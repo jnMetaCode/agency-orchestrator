@@ -34,6 +34,47 @@ const ICONS = {
  * @param stepIds 全部步骤 id 列表
  * @param roles 全部步骤角色列表
  */
+/** 终端显示宽度：CJK / 全角 / emoji 占 2 列，其余 1 列。`String.length` 对中文标题会少算一半。 */
+export function dispWidth(str: string): number {
+  let n = 0;
+  for (const ch of str) {
+    const cp = ch.codePointAt(0) ?? 0;
+    const wide = (cp >= 0x1100 && cp <= 0x115f)
+      || cp === 0x2329 || cp === 0x232a
+      || (cp >= 0x2e80 && cp <= 0xa4cf && cp !== 0x303f)
+      || (cp >= 0xac00 && cp <= 0xd7a3)
+      || (cp >= 0xf900 && cp <= 0xfaff)
+      || (cp >= 0xfe30 && cp <= 0xfe6f)
+      || (cp >= 0xff00 && cp <= 0xff60)
+      || (cp >= 0xffe0 && cp <= 0xffe6)
+      || (cp >= 0x1f300 && cp <= 0x1f64f)
+      || (cp >= 0x1f900 && cp <= 0x1f9ff);
+    n += wide ? 2 : 1;
+  }
+  return n;
+}
+
+/** 按显示宽度右填充 */
+function padDisp(str: string, width: number): string {
+  return str + ' '.repeat(Math.max(0, width - dispWidth(str)));
+}
+
+/** 按显示宽度截断（不会把一个宽字符切一半） */
+function clipDisp(str: string, width: number): string {
+  let out = '', n = 0;
+  for (const ch of str) {
+    const w = dispWidth(ch);
+    if (n + w > width) break;
+    out += ch; n += w;
+  }
+  return out;
+}
+
+/** 一整行：`│ 内容…… │`，总显示宽度恰好 boxWidth */
+function boxRow(content: string, boxWidth: number): string {
+  return `│ ${padDisp(clipDisp(content, boxWidth - 4), boxWidth - 4)} │`;
+}
+
 export function createWatchRenderer(
   workflowName: string,
   stepIds: string[],
@@ -81,23 +122,20 @@ export function createWatchRenderer(
 
     const lines: string[] = [];
     const boxWidth = 52;
-    const title = ` ${workflowName} `;
-    const padLen = Math.max(0, boxWidth - 2 - title.length);
-
-    lines.push(`┌─${title}${'─'.repeat(padLen)}┐`);
+    // 一律按**显示宽度**排版：以前用 String.length，中文标题（每字 2 列）把顶边撑出去、
+    // 步骤行又比边框短 16 列，整个框是歪的；emoji 同理。
+    // 标题也要按显示宽度截断：名字太长时 padLen 被 clamp 到 0，顶边就被撑出框外
+    const title = ` ${clipDisp(workflowName, boxWidth - 5)} `;
+    lines.push(`┌─${title}${'─'.repeat(Math.max(0, boxWidth - 3 - dispWidth(title)))}┐`);
 
     for (const s of states) {
       const icon = ICONS[s.status];
       const elapsedStr = s.elapsed ? `${(s.elapsed / 1000).toFixed(0)}s` : s.status === 'running' ? 'running' : 'waiting';
-      const idPad = s.id.slice(0, 18).padEnd(18);
-      const line = `│ ${icon} ${idPad} ${elapsedStr.padEnd(10)} │`;
-      lines.push(line);
+      lines.push(boxRow(`${icon} ${padDisp(clipDisp(s.id, 22), 22)} ${elapsedStr}`, boxWidth));
     }
 
-    lines.push(`│${''.padEnd(boxWidth - 2)}│`);
-    const progressContent = `Progress: ${bar} ${completed}/${total}  ${elapsed}s`;
-    const progressPad = Math.max(0, boxWidth - 4 - progressContent.length);
-    lines.push(`│ ${progressContent}${''.padEnd(progressPad)} │`);
+    lines.push(boxRow('', boxWidth));
+    lines.push(boxRow(`Progress: ${bar} ${completed}/${total}  ${elapsed}s`, boxWidth));
     lines.push(`└${'─'.repeat(boxWidth - 2)}┘`);
 
     // 写到 stderr 避免与正常输出混合
