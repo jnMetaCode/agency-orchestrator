@@ -18,8 +18,10 @@ ENV HOST=0.0.0.0 \
 VOLUME /data
 EXPOSE 8088
 
-# slim 镜像无 curl，用 node 自带 fetch 做健康检查
+# slim 镜像无 curl，用 node 自带 fetch 做健康检查。
+# 设了 AO_WEB_TOKEN 时 /api/health 也要令牌（这是有意的：前端靠这个 401 才知道要提示"需要访问令牌"，
+# 而不是显示成"没装引擎"），所以这里把容器里的令牌带上——不带的话整个容器会被判 unhealthy。
 HEALTHCHECK --interval=30s --timeout=5s --start-period=15s --retries=3 \
-  CMD node -e "fetch('http://127.0.0.1:8088/api/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
+  CMD node -e "const t=process.env.AO_WEB_TOKEN;fetch('http://127.0.0.1:8088/api/health',t?{headers:{Authorization:'Bearer '+t}}:undefined).then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
 
 CMD ["ao", "web"]

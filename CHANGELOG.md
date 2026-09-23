@@ -132,6 +132,10 @@
   新增「氛围锁定」规则与「按类型的默认运镜与节拍」表（剧情短剧 / 产品广告片 / 治愈日常 / 悬疑惊悚 /
   搞笑段子 / 科幻 / 古风武侠 / 纪实 Vlog），来源是上游的 genre-camera-sop 与各题材范例。
 ### Fixed
+- **设了 `AO_WEB_TOKEN` 的 Docker 容器会被判 unhealthy**（本轮自己引入的回归）：镜像的 HEALTHCHECK 打
+  `/api/health`，而令牌守卫连它一起挡。`/api/health` **有意**仍需令牌——前端正是靠这个 401 才显示
+  「需要访问令牌」而不是误导成「没装引擎」；所以修的是健康检查：它现在带上容器里的 `AO_WEB_TOKEN`。
+  没设令牌的部署（绝大多数）行为不变。`docker-compose.yml` 也把这个变量写进注释。
 - **MCP 那一侧看不到媒体花费**：`plan_workflow` 以前只回 DAG，调用方（另一个 agent）看到一张干净的图就直接
   `run_workflow`，几条按秒计费的视频钱就这么花出去了，全程没人提过一句——而 CLI 的 `ao plan` 一直是报的。
   现在 `plan_workflow` 带上花费预览，`run_workflow` 跑完也回报产出了几个媒体、视频合计多少秒。

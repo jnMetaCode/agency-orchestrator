@@ -12,6 +12,9 @@ services:
     volumes:
       - ao-data:/data
     environment:
+      # 容器监听 0.0.0.0：同一网络里任何人打开就能用你存的 key 跑任务、删运行、改配置。
+      # 放在可信内网之外（或家里有别人用同一个网）时，设一个访问令牌：
+      # - AO_WEB_TOKEN=换成你自己的一串口令        # 之后用 http://<主机IP>:8088/?token=<口令> 打开一次
       # - DEEPSEEK_API_KEY=sk-xxx
       # - DUOYUANX_API_KEY=sk-xxx
       - TZ=Asia/Shanghai
