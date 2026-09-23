@@ -31,16 +31,23 @@ function writeCache(c: Cache): void {
   } catch { /* silent */ }
 }
 
-/** 简单 semver 比较：a > b 返回 true */
+/**
+ * 简单 semver 比较：a > b 返回 true。
+ * 预发布（1.2.3-rc.1）排在同号正式版**之前**——以前把 `-` 也当分隔符、`parseInt('rc')` 得 NaN → 0，
+ * 于是 `0.19.0-beta.1` 被判成比 `0.19.0` 新：跑 @next 的用户永远收不到"有正式版了"的提示，
+ * 而一旦有预发布被推到 latest 标签，所有正式版用户都会被劝去"升级"到一个更旧的东西。
+ */
 export function isNewer(a: string, b: string): boolean {
-  const pa = a.split(/[.-]/).map(n => parseInt(n, 10));
-  const pb = b.split(/[.-]/).map(n => parseInt(n, 10));
+  const core = (v: string) => v.split('-')[0].split('.').map((n) => parseInt(n, 10) || 0);
+  const pre = (v: string) => v.includes('-');
+  const [pa, pb] = [core(a), core(b)];
   for (let i = 0; i < Math.max(pa.length, pb.length); i++) {
     const x = pa[i] || 0, y = pb[i] || 0;
     if (x > y) return true;
     if (x < y) return false;
   }
-  return false;
+  // 主版本号相同：正式版 > 预发布；两边都是预发布就当"没有更新"（不去比 rc.1 / rc.2，没必要）
+  return !pre(a) && pre(b);
 }
 
 /** 拉取 npm 上的最新版本号；网络失败/超时返回 null（静默）。 */

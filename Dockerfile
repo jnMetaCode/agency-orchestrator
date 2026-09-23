@@ -7,6 +7,13 @@
 #   docker build --build-arg AO_VERSION=0.11.0 -t ... .      # 锁定版本
 FROM node:22-slim
 
+# ffmpeg 是 `type: concat`（本机合成）的硬依赖。slim 镜像不带它，于是 NAS 用户跑短片流水线时
+# 每条片子、每段配音都**先花完钱**，最后一步合成才失败——CLAUDE.md 里那套「付过钱的片子不能白费」
+# 的规矩，在容器里一直是落空的。`ao doctor` 也会因此一直报缺 ffmpeg。
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends ffmpeg \
+    && rm -rf /var/lib/apt/lists/*
+
 ARG AO_VERSION=latest
 RUN npm i -g agency-orchestrator@${AO_VERSION} && npm cache clean --force
 

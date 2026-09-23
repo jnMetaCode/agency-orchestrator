@@ -33,8 +33,11 @@ export function saveResults(result: WorkflowResult, outputDir: string): string {
     .replace(/\s+/g, '-')
     .replace(/-+/g, '-')
     .replace(/^-+|-+$/g, '') || 'workflow';
-  const dirName = `${safeName}-${timestamp}`;
-  const dir = join(outputDir, dirName);
+  // 时间戳只到秒：同一秒内跑完的两次同名工作流会写进同一个目录，后一次把前一次的
+  // steps/*.md、summary.md、metadata.json 盖掉，还留下前一次多出来的步骤文件成为混合体。
+  // Studio 允许并行跑，所以这不是假想。撞上就加后缀，绝不覆盖已有的运行。
+  let dir = join(outputDir, `${safeName}-${timestamp}`);
+  for (let n = 2; existsSync(dir); n++) dir = join(outputDir, `${safeName}-${timestamp}-${n}`);
   const stepsDir = join(dir, 'steps');
 
   mkdirSync(stepsDir, { recursive: true });

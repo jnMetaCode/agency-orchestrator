@@ -46,3 +46,21 @@ jobs:
 
       - name: Run tests
         run: npm test
+
+  # Dockerfile 以前只在 v* tag 时才被构建一次——坏了要到发版当天才知道，而那时 npm 已经发出去了
+  # （本仓库「CI-only 步骤等于没测过」那条教训的正中靶心）。这里在 PR 上就构建一遍，不推送。
+  # 单架构即可：要验的是 Dockerfile 本身跑不跑得通（apt 装得上、npm 装得上、ffmpeg 在不在）。
+  docker-build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+      - name: Build image (no push)
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: false
+          load: true
+          tags: ao-ci-test:latest
+      - name: "ffmpeg 必须在镜像里（type: concat 的硬依赖）"
+        run: docker run --rm --entrypoint ffmpeg ao-ci-test:latest -version | head -1

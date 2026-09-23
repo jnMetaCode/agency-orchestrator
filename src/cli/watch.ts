@@ -47,6 +47,7 @@ export function createWatchRenderer(
 
   const startTime = Date.now();
   let lastLineCount = 0;
+  let lastPlainLine = '';   // 非 TTY 下用它去重，别把同一行刷一万遍
 
   function formatRoleShort(role: string): string {
     const parts = role.split('/');
@@ -54,6 +55,18 @@ export function createWatchRenderer(
   }
 
   function render(): void {
+    // 非 TTY（`ao run --watch 2> run.log`、CI、被别的程序管道接走）：光标上移/清行这些转义码
+    // 会原样写进日志，把它糊成一片。这时改成一行一条的纯文本进度，信息不丢、也不脏。
+    if (!process.stderr.isTTY) {
+      const done = states.filter((x) => x.status === 'done' || x.status === 'skipped').length;
+      const running = states.filter((x) => x.status === 'running').map((x) => x.id).join(', ');
+      const line = `  [${done}/${states.length}] ${((Date.now() - startTime) / 1000).toFixed(0)}s${running ? ` · 进行中: ${running}` : ''}`;
+      if (line !== lastPlainLine) {
+        process.stderr.write(`${line}\n`);
+        lastPlainLine = line;
+      }
+      return;
+    }
     // 清除之前的输出
     if (lastLineCount > 0) {
       process.stderr.write(`\x1b[${lastLineCount}A`);
