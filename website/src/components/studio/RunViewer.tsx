@@ -1,6 +1,7 @@
 import { Check, ChevronDown, Copy, Download, FileDown, Loader2, MessageSquare, Minus, Scale, Square, Terminal, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
+import { useDialog } from "@/components/ui/use-dialog";
 import { Tip } from "@/components/ui/tip";
 import { useCopy } from "@/components/ui/copy-button";
 import { useLanguage } from "@/i18n/LanguageProvider";
@@ -19,6 +20,8 @@ export function RunViewer({ onViewHistory, onGoProviders }: { onViewHistory?: ()
   const [showTerminal, setShowTerminal] = useState(false);
   const [showCompare, setShowCompare] = useState(false);
   const [exportOpen, setExportOpen] = useState(false);
+  // 不传 onEscape：这个组件自己已经处理 Esc（关闭查看器），再接一层会一次按键关两处
+  const dialogRef = useDialog();
   // 导出下拉以前只能再点一次按钮关掉：点到别处、按 Esc 都不关，一直挡着下面的内容
   const exportRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
@@ -105,7 +108,12 @@ export function RunViewer({ onViewHistory, onGoProviders }: { onViewHistory?: ()
   return (
     <>
     <div className="fixed inset-0 z-[60] flex items-stretch justify-center bg-black/50 p-0 backdrop-blur-sm sm:items-center sm:p-6">
-      <div className="flex w-full max-w-2xl flex-col overflow-hidden rounded-none border border-border/70 bg-background shadow-2xl sm:max-h-[84vh] sm:rounded-2xl">
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-label={run?.title ?? "Run"}
+        ref={dialogRef}
+        className="flex w-full max-w-2xl flex-col overflow-hidden rounded-none border border-border/70 bg-background shadow-2xl sm:max-h-[84vh] sm:rounded-2xl">
         {/* header */}
         <div className="flex items-center justify-between gap-3 border-b border-border/60 bg-gradient-to-r from-primary/[0.07] to-transparent px-5 py-3.5">
           <div className="flex min-w-0 items-center gap-2.5">

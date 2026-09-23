@@ -21,6 +21,7 @@ import "@xyflow/react/dist/style.css";
 import dagre from "@dagrejs/dagre";
 import { CheckCircle2, Loader2, Plus, Save, Trash2, Wand2, X, XCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { useDialog } from "@/components/ui/use-dialog";
 import { useLanguage } from "@/i18n/LanguageProvider";
 import { api, type CanvasEdge, type CanvasNode, type Role } from "@/lib/studio";
 import { useRunManager } from "./RunManager";
@@ -109,6 +110,7 @@ function assertOf(n: { data?: Record<string, unknown> } | null | undefined): Rec
 
 export function WorkflowCanvas({ file, name, onClose, onSaved }: { file: string; name: string; onClose: () => void; onSaved?: (newFile: string) => void }) {
   const tc = useLanguage().t.studio.canvas;
+  const dialogRef = useDialog({ onEscape: onClose });
   const [nodes, setNodes, onNodesChange] = useNodesState<Node<StepData>>([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([]);
   const [editable, setEditable] = useState(false);
@@ -263,7 +265,12 @@ export function WorkflowCanvas({ file, name, onClose, onSaved }: { file: string;
   return (
     <ExecStatusCtx.Provider value={execStatus}>
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={onClose}>
-      <div className="flex h-[85vh] w-full max-w-6xl flex-col overflow-hidden rounded-2xl border border-border/60 bg-background shadow-xl" onClick={stop}>
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-label={name}
+        ref={dialogRef}
+        className="flex h-[85vh] w-full max-w-6xl flex-col overflow-hidden rounded-2xl border border-border/60 bg-background shadow-xl" onClick={stop}>
         {/* 工具栏 */}
         <div className="flex items-center gap-2 border-b border-border/60 px-4 py-2.5">
           <span className="truncate text-sm font-semibold">🗺️ {name}</span>

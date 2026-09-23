@@ -1,6 +1,7 @@
 import { CheckCircle2, Loader2, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { useLanguage } from "@/i18n/LanguageProvider";
+import { useDialog } from "@/components/ui/use-dialog";
 import { Button } from "@/components/ui/button";
 import { runWorkflow, type Workflow } from "@/lib/studio";
 import { Markdown } from "./Markdown";
@@ -13,6 +14,7 @@ interface ColState {
 
 export function CompareOverlay({ workflows, provider, onClose }: { workflows: Workflow[]; provider: string; onClose: () => void }) {
   const { t } = useLanguage();
+  const dialogRef = useDialog({ onEscape: onClose });
   const [cols, setCols] = useState<Record<string, ColState>>(() =>
     Object.fromEntries(workflows.map((w) => [w.file, { status: "pending", text: "" }])),
   );
@@ -55,7 +57,13 @@ export function CompareOverlay({ workflows, provider, onClose }: { workflows: Wo
   }, []);
 
   return (
-    <div className="fixed inset-0 z-[60] flex flex-col bg-black/50 backdrop-blur-sm">
+    <div
+      role="dialog"
+      aria-modal="true"
+      aria-label={t.studio.workflows.compareRun}
+      ref={dialogRef}
+      className="fixed inset-0 z-[60] flex flex-col bg-black/50 backdrop-blur-sm"
+    >
       <div className="flex items-center justify-between border-b border-border/60 bg-background px-5 py-3.5">
         <h3 className="font-semibold">{`${t.studio.workflows.compareRun} · ${workflows.length} ${t.studio.workflows.templatesSequential}`}</h3>
         <Button size="sm" variant="ghost" onClick={onClose}>

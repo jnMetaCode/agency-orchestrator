@@ -1,5 +1,6 @@
 import { Check, Download, GitCompare, Loader2, Paperclip, Play, Scale, Search, Star, Trash2, Workflow as WorkflowIcon, X } from "lucide-react";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+import { useDialog } from "@/components/ui/use-dialog";
 import { Tip } from "@/components/ui/tip";
 import { lazy, Suspense, useEffect, useMemo, useRef, useState } from "react";
 import { useLanguage } from "@/i18n/LanguageProvider";
@@ -96,6 +97,7 @@ function InputsDialog({ wf, provider, onClose, onRun, onCompare }: { wf: Workflo
   const coveredByMediaPanel = (i: WorkflowInput) =>
     ["image_providers", "video_providers", "video_resolutions", "video_durations", "video_ratios"].includes(i.source ?? "")
     || (i.source === "models" && (i.source_from?.startsWith("image") || i.source_from?.startsWith("video")));
+  const dialogRef = useDialog({ onEscape: onClose });
   const [vals, setVals] = useState<Record<string, string>>(() => {
     const init: Record<string, string> = {};
     inputs.forEach((i) => (init[i.name] = mediaDefaultFor(i, media) || i.default || ""));
@@ -296,7 +298,12 @@ function InputsDialog({ wf, provider, onClose, onRun, onCompare }: { wf: Workflo
   return (
     <div className="fixed inset-0 z-[55] grid place-items-center bg-black/50 p-4 backdrop-blur-sm" onMouseDown={(e) => { if (e.target === e.currentTarget) onClose(); }}>
       {/* 有出图/出片设置时放宽成两栏：左=内容，右=媒体设置；正文可滚动，按钮固定在底部 */}
-      <div className={cn("flex max-h-[88vh] w-full flex-col rounded-2xl border border-border/70 bg-background shadow-2xl", isMedia ? "max-w-4xl" : "max-w-lg")} onClick={(e) => e.stopPropagation()}>
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-label={wf.name}
+        ref={dialogRef}
+        className={cn("flex max-h-[88vh] w-full flex-col rounded-2xl border border-border/70 bg-background shadow-2xl", isMedia ? "max-w-4xl" : "max-w-lg")} onClick={(e) => e.stopPropagation()}>
         <div className="px-5 pt-5">
           <div className="flex items-center justify-between">
             <h3 className="font-semibold">{wf.name}</h3>

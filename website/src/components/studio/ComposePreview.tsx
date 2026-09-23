@@ -1,6 +1,7 @@
 import { Bookmark, Boxes, Check, ChevronDown, Loader2, Play, Sparkles, TriangleAlert, X } from "lucide-react";
 import { useState } from "react";
 import { useLanguage } from "@/i18n/LanguageProvider";
+import { useDialog } from "@/components/ui/use-dialog";
 import { Button } from "@/components/ui/button";
 import { CopyButton } from "@/components/ui/copy-button";
 import type { ComposeResult, Workflow } from "@/lib/studio";
@@ -29,6 +30,7 @@ export function ComposePreview({
   defaultTeamName?: string;
 }) {
   const { t } = useLanguage();
+  const dialogRef = useDialog({ onEscape: onClose });
   const [showYaml, setShowYaml] = useState(false);
   const [teamState, setTeamState] = useState<"idle" | "saving" | "saved" | "error">("idle");
   const [teamErr, setTeamErr] = useState<string | null>(null);
@@ -52,6 +54,10 @@ export function ComposePreview({
   return (
     <div className="fixed inset-0 z-[58] flex items-stretch justify-center bg-black/50 p-0 backdrop-blur-sm sm:items-center sm:p-6" onClick={onClose}>
       <div
+        role="dialog"
+        aria-modal="true"
+        aria-label={t.studio.workflows.composedTeam}
+        ref={dialogRef}
         className="flex w-full max-w-2xl flex-col overflow-hidden rounded-none border border-border/70 bg-background shadow-2xl sm:max-h-[86vh] sm:rounded-2xl"
         onClick={(e) => e.stopPropagation()}
       >

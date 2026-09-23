@@ -1,6 +1,7 @@
 import { ArrowLeft, Check, Download, ExternalLink, Eye, EyeOff, Gauge, Loader2, Plug, Plus, Star, TriangleAlert, XCircle } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
+import { useDialog } from "@/components/ui/use-dialog";
 import { useLanguage } from "@/i18n/LanguageProvider";
 import { api, API_PROVIDERS, CLI_RELAY_PRESETS, CUSTOM_PROVIDER_PRESETS, getFavModels, groupModelsByVendor, providerLogo, toggleFavModel, type CliRelayPreset, type ConfigResponse } from "@/lib/studio";
 import { sponsors, sponsorUrl } from "@/content/sponsors";
@@ -62,6 +63,7 @@ export function ProviderConfigView({
   const { t, lang } = useLanguage();
   const p = t.studio.providers;
   const isAdd = target.kind === "add-custom";
+  const dialogRef = useDialog({ onEscape: onClose });
   const isRelay = target.kind === "cli-relay";
   const isOllama = target.kind === "ollama";
   const isEditCustom = target.kind === "api" && !!target.isCustom;
@@ -379,7 +381,13 @@ export function ProviderConfigView({
     : "";
 
   return (
-    <div className="fixed inset-0 z-[58] overflow-auto bg-background">
+    <div
+      role="dialog"
+      aria-modal="true"
+      aria-label={isAdd ? p.addCustomProvider : `${p.editProviderTitle} · ${displayTitle}`}
+      ref={dialogRef}
+      className="fixed inset-0 z-[58] overflow-auto bg-background"
+    >
       {/* 顶栏：返回 + 头像 + 标题 */}
       <div className="sticky top-0 z-10 border-b border-border/60 bg-background/95 backdrop-blur">
         <div className="mx-auto flex max-w-2xl items-center gap-3 px-4 py-3">

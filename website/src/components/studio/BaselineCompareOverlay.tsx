@@ -1,6 +1,7 @@
 import { Loader2, Trophy, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { useLanguage } from "@/i18n/LanguageProvider";
+import { useDialog } from "@/components/ui/use-dialog";
 import { Button } from "@/components/ui/button";
 import { api, type CompareResult, type Workflow } from "@/lib/studio";
 import { cn } from "@/lib/utils";
@@ -31,6 +32,7 @@ export function BaselineCompareOverlay({
   const [state, setState] = useState<"running" | "done" | "error">("running");
   const [result, setResult] = useState<CompareResult | null>(null);
   const [err, setErr] = useState<string>("");
+  const dialogRef = useDialog({ onEscape: onClose });
   const started = useRef(false);
 
   useEffect(() => {
@@ -56,7 +58,13 @@ export function BaselineCompareOverlay({
     : (zh ? "➖ 打平" : "➖ Tie");
 
   return (
-    <div className="fixed inset-0 z-[60] flex flex-col bg-black/50 backdrop-blur-sm">
+    <div
+      role="dialog"
+      aria-modal="true"
+      aria-label={(zh ? "多智能体 vs 单次基线 · " : "Multi-agent vs Single-shot · ") + wf.name}
+      ref={dialogRef}
+      className="fixed inset-0 z-[60] flex flex-col bg-black/50 backdrop-blur-sm"
+    >
       <div className="flex items-center justify-between border-b border-border/60 bg-background px-5 py-3.5">
         <h3 className="flex items-center gap-2 font-semibold">
           <Trophy className="size-4 text-primary" />

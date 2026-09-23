@@ -1,5 +1,6 @@
 import { Loader2, TriangleAlert } from "lucide-react";
 import { Button } from "./button";
+import { useDialog } from "./use-dialog";
 
 /**
  * 应用内确认框——替代 window.confirm（原生框带 "127.0.0.1:8088 显示" 抬头，观感差，
@@ -27,12 +28,17 @@ export function ConfirmDialog({
   onConfirm: () => void;
   onClose: () => void;
 }) {
+  const dialogRef = useDialog({ onEscape: busy ? undefined : onClose });
   return (
     <div
       className="fixed inset-0 z-[70] grid place-items-center bg-black/50 p-4 backdrop-blur-sm"
       onClick={busy ? undefined : onClose}
     >
       <div
+        role="dialog"
+        aria-modal="true"
+        aria-label={title}
+        ref={dialogRef}
         className="w-full max-w-sm rounded-2xl border border-border/70 bg-background p-5 shadow-2xl"
         onClick={(e) => e.stopPropagation()}
       >
