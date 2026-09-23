@@ -197,7 +197,7 @@ export const sponsors: Sponsor[] = [
     badge: "M",
     accent: "from-neutral-800 to-neutral-500",
     logo: "/sponsors/logo-apimart-icon.png",
-    url: "https://go.apimart.ai/gh-agency-agents-zh",
+    url: "https://go.apimart.ai/gh-agency-orchestrator",
     tier: "standard",
     since: "2026-08",
     featured: false,

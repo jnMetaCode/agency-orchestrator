@@ -988,7 +988,7 @@ export const API_PROVIDERS: ApiProviderMeta[] = [
   // 主打图片/视频生成的低价供给；接它的理由是 /v1/images/generations 能直接供
   // `type: image` 步骤与创意库「一键出图」用（同一个 key 也通聊天模型）。
   // 不给 modelSuggestions：零余额账户 GET /v1/models 也回 402，模型编码尚未核实（见引擎侧说明）。
-  { id: "apimart", name: "APIMart", hint: "api.apimart.ai · 图片/视频低价 API · 配好 key 点「获取模型列表」", defaultBaseUrl: "https://api.apimart.ai/v1", signupUrl: "https://go.apimart.ai/gh-agency-agents-zh", sponsor: true },
+  { id: "apimart", name: "APIMart", hint: "api.apimart.ai · 图片/视频低价 API · 配好 key 点「获取模型列表」", defaultBaseUrl: "https://api.apimart.ai/v1", signupUrl: "https://go.apimart.ai/gh-agency-orchestrator", sponsor: true },
   // 赞助商 秘塔科技（2026-08-23 接入）—— **视频专用供应商**，给 `type: video` 步骤用：
   // MiniMax-H3 文生视频，768P 0.09 元/秒、2K 0.15 元/秒。端点是 MiniMax 官方 API 换了 Host，
   // 建任务/查状态两条路径已用真 key 实探核实（见引擎 VIDEO_PROVIDERS 的说明）。

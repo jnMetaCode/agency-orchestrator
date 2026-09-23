@@ -24,6 +24,25 @@
 
 ---
 
+## ❤️ 赞助商 &nbsp;<sub>🙏 想出现在这里？联系 **jnMetaCode@qq.com** 赞助</sub>
+
+<table>
+<tr>
+<td width="25%">
+  <a href="https://go.apimart.ai/gh-agency-orchestrator">
+    <img src="./assets/sponsors/apimart.jpg" alt="APIMart —— 专注 AI 图片/视频生成的低价 API 平台，GPT-Image-2 低至 $0.006/张，1 美元可出图 160+ 张" width="100%">
+  </a>
+</td>
+<td width="75%" valign="middle">
+
+感谢 [APIMart](https://go.apimart.ai/gh-agency-orchestrator) 赞助了本项目！APIMart 是专注 AI 图片/视频生成的低价 API 平台，**GPT-Image-2 低至 $0.006/张**，1 美元可出图 160+ 张。图片、视频一套异步 API 通吃，提交任务拿 ID、回调取结果，跑批万张不超时、换模型不改代码。按量付费、无月费，🎁 **通过[此链接](https://go.apimart.ai/gh-agency-orchestrator)注册即可开用！**
+
+</td>
+</tr>
+</table>
+
+---
+
 ## 网页 Studio（图形界面）
 
 不想敲命令行？本地跑一条 `ao web`，浏览器里勾选专家、运行工作流、查看产物、实时介入——全程图形界面，全中英双语。
