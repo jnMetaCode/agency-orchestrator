@@ -191,7 +191,13 @@ const SHAPES: Record<string, VideoShapeAdapter> = {
     createPath: 'videos',
     inlineImage: true,
     authDownload: true,
-    createBody: (opts, prompt) => {
+    createBody: (opts, prompt, imageUrl) => {
+      // 这一家只吃字节（JSON data URI 或 multipart），没有"传个公网 URL 当首帧"的入口。
+      // 以前这里连 imageUrl 都不接，于是 `video.image: "https://…"` 被**静默丢掉**——出的是纯文生视频，
+      // 按秒照付，用户拿到的片子跟他要的首帧毫无关系。宁可当场报错。
+      if (imageUrl && !opts.image_bytes) {
+        throw new Error(`视频供应商 ${opts.provider || ''} 的图生视频只接受图片字节，不接受公网 URL——请改用本地图片路径，或让上游的 type: image 步骤产出首帧（${imageUrl.slice(0, 80)}）`);
+      }
       const fields: Record<string, string> = { model: opts.model || '', prompt };
       // 供应商级固定字段（Agnes 要 mode:"text"）——只在没有首帧图时加；带图走 createExtraWithImage（未核实则不加）
       const spec = VIDEO_PROVIDER_MAP[(opts.provider || '').trim()];

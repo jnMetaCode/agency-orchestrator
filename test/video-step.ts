@@ -715,5 +715,25 @@ await test('mp4 落到 assets/，base64 绝不进 metadata.json', () => {
   rmSync(dir, { recursive: true, force: true });
 });
 
+// 这家只吃图片字节（JSON data URI / multipart），没有"传公网 URL 当首帧"的入口。以前 createBody 连
+// imageUrl 都不接 → `video.image: "https://…"` 被**静默丢掉**，出的是纯文生视频、按秒照付，
+// 用户拿到的片子跟他要的首帧毫无关系。宁可当场报错，而且**一个建任务请求都别发**（没花钱）。
+await test('openai-videos：公网 URL 当首帧 → 当场报错，且没有发出建任务请求', async () => {
+  const fake = fakeOpenAIVideos();
+  const port = await listen(fake.srv);
+  try {
+    let threw = '';
+    try {
+      await generateVideo(
+        { provider: 'openai', api_key: 'sk-t', base_url: `http://127.0.0.1:${port}/v1` } as unknown as LLMConfig,
+        '一只橘猫',
+        { model: 'sora-2', duration: 8, poll_interval: 10, image: 'https://cdn.example/frame.png' } as never,
+      );
+    } catch (e) { threw = e instanceof Error ? e.message : String(e); }
+    assert(/只接受图片字节|公网 URL/.test(threw), `应当场说清（实际：${threw.slice(0, 90) || '没报错'}）`);
+    assert(fake.seen.create === undefined, '一个建任务请求都没发出去——没花钱');
+  } finally { fake.srv.close(); }
+});
+
 console.log(`\n  结果: ${passed} 通过, ${failed} 失败\n`);
 if (failed > 0) process.exit(1);

@@ -389,5 +389,18 @@ if (hasFfmpeg) {
   });
 }
 
+// force_style 的值直接进 -filter_complex。滤镜图的元字符除了 \ : , 还有 ; [ ] '，漏掉的代价是
+// 「所有片子都出完、都付过钱之后」整条 filtergraph 解析失败——font 里一个分号就够。
+await test('字幕样式里的滤镜元字符全部转义（片子都付过钱了，别栽在一个分号上）', async () => {
+  const { buildStyleArgForTest } = await import('../src/media/concat.js') as unknown as { buildStyleArgForTest?: (st: Record<string, unknown>) => string };
+  if (!buildStyleArgForTest) { console.log('     （辅助未导出，跳过）'); return; }
+  const out = buildStyleArgForTest({ font: "My;Font[x]'s", color: 'a,b:c' });
+  for (const ch of [';', '[', ']', "'", ',', ':']) {
+    const idx = out.indexOf(ch);
+    if (idx <= 0) continue;
+    assert(out[idx - 1] === '\\', `「${ch}」前面要有反斜杠（实际片段：${out.slice(Math.max(0, idx - 3), idx + 2)}）`);
+  }
+});
+
 console.log(`\n  结果: ${passed} 通过, ${failed} 失败\n`);
 if (failed > 0) process.exit(1);

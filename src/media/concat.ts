@@ -182,6 +182,11 @@ export function buildSrt(text: string, duration: number): string {
  * force_style 的值要塞进 filtergraph，而 filtergraph 用逗号分隔滤镜、冒号分隔参数——
  * 不转义的话一个字体名里的逗号就能把整条滤镜链拆坏。
  */
+/** 仅测试用：字幕样式的转义结果（滤镜元字符漏一个，整条 filtergraph 就废，而那时片子已经付过钱了） */
+export function buildStyleArgForTest(st: NonNullable<ConcatOptions['subtitle_style']>): string {
+  return styleArg(st);
+}
+
 function styleArg(st: NonNullable<ConcatOptions['subtitle_style']>): string {
   const parts = [
     `FontSize=${st.size && st.size > 0 ? Math.round(st.size) : 22}`,
@@ -191,7 +196,9 @@ function styleArg(st: NonNullable<ConcatOptions['subtitle_style']>): string {
     'BorderStyle=1', 'Alignment=2',
   ];
   if (st.font) parts.push(`FontName=${st.font}`);
-  return parts.join(',').replace(/[\\:,]/g, (c) => `\\${c}`);
+  // force_style 的值直接进 -filter_complex：除了 \ : ,，滤镜图的 ; [ ] ' 同样是元字符。
+  // 漏掉它们的代价是「所有片子都出完、都付过钱之后」整条 filtergraph 解析失败（font: "My;Font" 就够）。
+  return parts.join(',').replace(/[\\:,;[\]']/g, (c) => `\\${c}`);
 }
 
 /** 合成；输入按顺序拼接。返回 mp4 字节。 */

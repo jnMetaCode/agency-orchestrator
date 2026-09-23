@@ -51,7 +51,7 @@ for (const [file, meta] of Object.entries(FILES)) {
   if (!existsSync(path)) continue;
   const md = readFileSync(path, 'utf-8');
   // ### 标题 → 正文里找 **Prompt:** / **Full Prompt:** 后的代码块
-  for (const m of md.matchAll(/^###\s+(.+?)\n([\s\S]*?)(?=^###\s|\Z)/gm)) {
+  for (const m of md.matchAll(/^###\s+(.+?)\n([\s\S]*?)(?=^###\s|$(?![\s\S]))/gm)) {
     const title = m[1].trim();
     const pm = m[2].match(/\*\*(?:Full )?Prompt:\*\*\s*\n+```[^\n]*\n([\s\S]*?)\n```/);
     if (!pm) continue;

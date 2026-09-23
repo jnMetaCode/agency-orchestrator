@@ -880,6 +880,21 @@ app.get('/api/workflows/yaml', (req, res) => {
 // the right process's stdin when a human_input / approval node pauses for input.
 let runSeq = 0;
 const activeRuns = new Map();
+// 桌面版退出时只 SIGTERM 了本进程（web/server.js），我们 spawn 出去的 `ao run` 不会跟着死——
+// POSIX 不因父进程退出而杀子进程。表现：用户关掉 App，引擎还在轮询按秒计费的视频任务、把片子
+// 下载到一个没人看的运行目录里，直到十分钟超时；下次开 App 又来一批。这里把它们一起带走。
+for (const sig of ['SIGTERM', 'SIGINT']) {
+  process.once(sig, () => {
+    for (const child of activeRuns.values()) {
+      try { child.kill('SIGTERM'); } catch { /* 已经没了 */ }
+    }
+    // 给引擎一点时间做它自己的优雅存档（src/index.ts 的 flushAndExit），然后收尾
+    setTimeout(() => {
+      for (const child of activeRuns.values()) { try { child.kill('SIGKILL'); } catch { /* 已经没了 */ } }
+      process.exit(0);
+    }, 1500).unref?.();
+  });
+}
 
 // ── Run workflow (with optional resume) ──
 app.post('/api/run', (req, res) => {

@@ -27,6 +27,8 @@ export interface MediaSpendItem {
   verified?: boolean;
   /** 视频：验收不过会重出（video.rework: true），最多再花一条 */
   rework?: boolean;
+  /** 在循环体里、最多会被重跑几轮（1 = 不在循环里）。花费按最多轮数算——宁可高估，绝不低估 */
+  repeats?: number;
 }
 
 export interface MediaSpendSummary {
@@ -56,6 +58,44 @@ function judgeCondition(step: StepDefinition, ctx: Map<string, string>): MediaSp
 export function summarizeMediaSpend(workflow: WorkflowDefinition, inputs: Map<string, string>): MediaSpendSummary {
   const items: MediaSpendItem[] = [];
   const textProvider = workflow.llm?.provider || '';
+  // 循环体里的步骤最多会被重跑 max_iterations 轮。以前这里只走一遍 steps，于是「三条 8 秒的镜头
+  // 套一个 max_iterations: 3 的循环」预览成 24 秒、实际可能出 72 秒——而这个文件存在的意义就是
+  // 「先说清楚再花钱，宁可高估绝不低估」。循环体 = back_to 的后代 ∩ 循环节点的祖先（与执行器同一口径）。
+  const repeatsById = new Map<string, number>();
+  {
+    const depsOf = new Map(workflow.steps.map((s) => [s.id, s.depends_on ?? []]));
+    const ancestorsOf = (id: string): Set<string> => {
+      const out = new Set<string>([id]);
+      const stack = [...(depsOf.get(id) ?? [])];
+      while (stack.length) {
+        const cur = stack.pop()!;
+        if (out.has(cur)) continue;
+        out.add(cur);
+        stack.push(...(depsOf.get(cur) ?? []));
+      }
+      return out;
+    };
+    for (const s of workflow.steps) {
+      const lp = s.loop;
+      if (!lp?.back_to || !(lp.max_iterations > 1)) continue;
+      const anc = ancestorsOf(s.id);
+      if (!anc.has(lp.back_to)) continue;   // 不在依赖链上：回跳什么都不重置（parser 已拦，这里保守跳过）
+      // back_to 的后代里、同时又是循环节点祖先的那些，就是会被重跑的循环体
+      const backToDesc = new Set<string>([lp.back_to]);
+      let grew = true;
+      while (grew) {
+        grew = false;
+        for (const st of workflow.steps) {
+          if (backToDesc.has(st.id)) continue;
+          if ((st.depends_on ?? []).some((d) => backToDesc.has(d))) { backToDesc.add(st.id); grew = true; }
+        }
+      }
+      for (const id of anc) {
+        if (!backToDesc.has(id)) continue;
+        repeatsById.set(id, Math.max(repeatsById.get(id) ?? 1, Math.min(lp.max_iterations, 50)));
+      }
+    }
+  }
 
   for (const s of workflow.steps) {
     if (s.type === 'video') {
@@ -97,12 +137,17 @@ export function summarizeMediaSpend(workflow: WorkflowDefinition, inputs: Map<st
 
   const willRun = (i: MediaSpendItem) => i.conditional !== 'yes';
   const videos = items.filter((i) => i.kind === 'video' && willRun(i));
+  for (const it of items) {
+    const r = repeatsById.get(it.id);
+    if (r && r > 1) it.repeats = r;
+  }
   const images = items.filter((i) => i.kind === 'image' && willRun(i));
   const tts = items.filter((i) => i.kind === 'tts' && willRun(i));
   const concat = items.filter((i) => i.kind === 'concat' && willRun(i));
   // 本地 sd.cpp 不按秒计费，不进"钱在这一步花出去"的合计
-  const videoSeconds = videos.filter((v) => v.provider !== 'local-sdcpp').reduce((n, v) => n + (v.seconds ?? 0), 0);
+  const videoSeconds = videos.filter((v) => v.provider !== 'local-sdcpp').reduce((n, v) => n + (v.seconds ?? 0) * (v.repeats ?? 1), 0);
 
+  const countOf = (arr: MediaSpendItem[]) => arr.reduce((n, i) => n + (i.repeats ?? 1), 0);
   const lines: string[] = [];
   if (videos.length) {
     // 同规格合并成一行："3 条 × 8s · 720p · 16:9（apimart / veo3.1-fast）"
@@ -118,7 +163,11 @@ export function summarizeMediaSpend(workflow: WorkflowDefinition, inputs: Map<st
       const judged = g.filter((x) => x.verified && !x.rework).length;
       const note = rw ? `（${rw} 条挂了验收且开了重出，不过会再出一条，最多 +${rw}）` : judged ? `（${judged} 条挂了验收，只审不重出）` : '';
       const local = v.provider === 'local-sdcpp' ? '（本机 sd.cpp，不花钱，草稿档，每条几分钟）' : '';
-      lines.push(`🎬 出片 ${g.length} 条 × ${v.spec || '档位未填'}  ${v.provider}${v.model ? ` / ${v.model}` : ''}${cond}${note}${local}`);
+      // 在循环体里的，按最多轮数报条数——用户看到的必须是上限
+      const rep = Math.max(...g.map((x) => x.repeats ?? 1));
+      const count = g.reduce((n, x) => n + (x.repeats ?? 1), 0);
+      const loopNote = rep > 1 ? `（含循环最多 ${rep} 轮）` : '';
+      lines.push(`🎬 出片 ${count} 条 × ${v.spec || '档位未填'}  ${v.provider}${v.model ? ` / ${v.model}` : ''}${loopNote}${cond}${note}${local}`);
     }
     const paid = videos.filter((v) => v.provider !== 'local-sdcpp');
     const unknownSec = paid.some((v) => v.seconds === undefined);
@@ -127,12 +176,12 @@ export function summarizeMediaSpend(workflow: WorkflowDefinition, inputs: Map<st
   if (images.length) {
     const v = images[0];
     const rework = images.filter((i) => i.verified).length;
-    lines.push(`🎨 出图 ${images.length} 张${v.spec ? ` · ${v.spec}` : ''}  ${v.provider}${v.model ? ` / ${v.model}` : ''}${rework ? `（${rework} 张挂了验收，不过会重出一张，最多 +${rework}）` : ''}`);
+    lines.push(`🎨 出图 ${countOf(images)} 张${v.spec ? ` · ${v.spec}` : ''}  ${v.provider}${v.model ? ` / ${v.model}` : ''}${rework ? `（${rework} 张挂了验收，不过会重出一张，最多 +${rework}）` : ''}`);
   }
   if (tts.length) {
     const v = tts[0];
     const cond = tts.some((x) => x.conditional === 'unknown') ? '（视条件）' : '';
-    lines.push(`🎙 配音 ${tts.length} 段  ${v.provider}${v.model ? ` / ${v.model}` : ''}${v.spec ? ` · ${v.spec}` : ''}${cond}`);
+    lines.push(`🎙 配音 ${countOf(tts)} 段  ${v.provider}${v.model ? ` / ${v.model}` : ''}${v.spec ? ` · ${v.spec}` : ''}${cond}`);
   }
   if (concat.length) lines.push(`🎞 合成 ${concat.length} 条（本机 ffmpeg，不花厂商的钱）`);
 
@@ -140,5 +189,5 @@ export function summarizeMediaSpend(workflow: WorkflowDefinition, inputs: Map<st
   const off = items.filter((i) => i.conditional === 'yes');
   if (off.length) lines.push(`·  本次不跑（条件未满足）：${off.map((i) => i.id).join(' / ')}`);
 
-  return { items, videoSeconds, videoCount: videos.length, imageCount: images.length, ttsCount: tts.length, concatCount: concat.length, lines };
+  return { items, videoSeconds, videoCount: countOf(videos), imageCount: countOf(images), ttsCount: countOf(tts), concatCount: concat.length, lines };
 }

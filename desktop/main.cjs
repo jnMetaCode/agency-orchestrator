@@ -188,10 +188,16 @@ function startBackend() {
 }
 
 function stopBackend() {
+  const proc = backend;
   try {
-    backend && backend.kill();
+    proc && proc.kill();
   } catch {
     /* noop */
+  }
+  // 引擎收到 SIGTERM 后要先把自己 spawn 的 `ao run` 子进程带走、再退出（web/server.js 里那段），
+  // 给它一点时间；真卡住了就强杀，别留一个还在轮询付费视频任务的进程树。
+  if (proc) {
+    setTimeout(() => { try { proc.kill('SIGKILL'); } catch { /* 已经退了 */ } }, 2500).unref?.();
   }
   backend = null;
 }
