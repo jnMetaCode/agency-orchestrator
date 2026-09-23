@@ -21,6 +21,7 @@ import "@xyflow/react/dist/style.css";
 import dagre from "@dagrejs/dagre";
 import { CheckCircle2, Loader2, Plus, Save, Trash2, Wand2, X, XCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { useLanguage } from "@/i18n/LanguageProvider";
 import { api, type CanvasEdge, type CanvasNode, type Role } from "@/lib/studio";
 import { useRunManager } from "./RunManager";
 
@@ -65,6 +66,7 @@ function wouldCycle(source: string, target: string, edges: { source: string; tar
 }
 
 function AOStepNode({ id, data, selected }: NodeProps<Node<StepData>>) {
+  const tc = useLanguage().t.studio.canvas;
   const role = String(data.role ?? "");
   const isApproval = data.type === "approval" || data.type === "human_input";
   const exec = useContext(ExecStatusCtx)[id];
@@ -82,7 +84,7 @@ function AOStepNode({ id, data, selected }: NodeProps<Node<StepData>>) {
       <Handle type="target" position={Position.Left} className="!size-2.5 !bg-primary/60" />
       <div className="flex items-center gap-1.5">
         <span className="text-base leading-none">{String(data.emoji ?? "") || (isApproval ? "✋" : "🤖")}</span>
-        <span className="truncate text-sm font-semibold">{String(data.name ?? "") || role || (data.type === "approval" ? "签字闸门" : data.type === "human_input" ? "等待输入" : "")}</span>
+        <span className="truncate text-sm font-semibold">{String(data.name ?? "") || role || (data.type === "approval" ? tc.approvalNode : data.type === "human_input" ? tc.humanNode : "")}</span>
         {exec === "running" && <Loader2 className="size-3.5 shrink-0 animate-spin text-blue-500" />}
         {exec === "done" && <CheckCircle2 className="size-3.5 shrink-0 text-emerald-500" />}
         {exec === "error" && <XCircle className="size-3.5 shrink-0 text-red-500" />}
@@ -106,6 +108,7 @@ function assertOf(n: { data?: Record<string, unknown> } | null | undefined): Rec
 }
 
 export function WorkflowCanvas({ file, name, onClose, onSaved }: { file: string; name: string; onClose: () => void; onSaved?: (newFile: string) => void }) {
+  const tc = useLanguage().t.studio.canvas;
   const [nodes, setNodes, onNodesChange] = useNodesState<Node<StepData>>([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([]);
   const [editable, setEditable] = useState(false);
@@ -154,7 +157,7 @@ export function WorkflowCanvas({ file, name, onClose, onSaved }: { file: string;
         setEditable(g.editable);
         setLoaded(true);
       })
-      .catch((e) => alive && setErr(e?.message || "加载失败"));
+      .catch((e) => alive && setErr(e?.message || tc.loadFailed));
     return () => { alive = false; };
   }, [file, setNodes, setEdges]);
 
@@ -164,7 +167,7 @@ export function WorkflowCanvas({ file, name, onClose, onSaved }: { file: string;
       setEdges((eds) => {
         if (eds.some((e) => e.source === conn.source && e.target === conn.target)) return eds;
         if (wouldCycle(conn.source!, conn.target!, eds)) {
-          setMsg("⚠️ 不能连成环——工作流必须是有向无环图");
+          setMsg(tc.noCycle);
           return eds;
         }
         setMsg(null);
@@ -230,8 +233,8 @@ export function WorkflowCanvas({ file, name, onClose, onSaved }: { file: string;
       const outNodes: CanvasNode[] = nodes.map((n) => ({ id: n.id, position: n.position, data: { ...n.data, id: n.id } }));
       const outEdges: CanvasEdge[] = edges.map((e) => ({ id: e.id, source: e.source, target: e.target }));
       const res = await api.saveWorkflowGraph({ file, name, nodes: outNodes, edges: outEdges });
-      const fixNote = res.autoFixes?.length ? `，自动补了 ${res.autoFixes.length} 条缺失的依赖连线` : "";
-      setMsg(`✅ ${res.overwritten ? "已保存（就地覆盖）" : "已另存为新工作流"}${fixNote}`);
+      const fixNote = res.autoFixes?.length ? tc.autoFixed.replace("{n}", String(res.autoFixes.length)) : "";
+      setMsg(`✅ ${res.overwritten ? tc.savedInPlace : tc.savedAsCopy}${fixNote}`);
       // 服务端补了边的话，把画布同步成落盘后的真实形状（否则用户看到的图少几条线）
       if (res.autoFixes?.length) {
         setEdges((eds) => {
@@ -249,7 +252,7 @@ export function WorkflowCanvas({ file, name, onClose, onSaved }: { file: string;
       // postJSON 把结构化错误体挂在 e.body 上——之前读 e.errors 永远是 undefined，
       // 用户只看到 "invalid workflow"，不知道哪步错（#91 的"删了还是报错"体感来源）
       const errs = (e?.body?.errors ?? e?.errors) as string[] | undefined;
-      setMsg(`❌ 保存失败：${errs?.length ? errs.join("；") : e?.message || "未知错误"}`);
+      setMsg(`❌ ${tc.saveFailed}${errs?.length ? errs.join("; ") : e?.message || tc.unknownError}`);
     } finally {
       setSaving(false);
     }
@@ -264,23 +267,23 @@ export function WorkflowCanvas({ file, name, onClose, onSaved }: { file: string;
         {/* 工具栏 */}
         <div className="flex items-center gap-2 border-b border-border/60 px-4 py-2.5">
           <span className="truncate text-sm font-semibold">🗺️ {name}</span>
-          {loaded && !editable && <span className="rounded bg-muted px-1.5 py-0.5 text-[10px] text-muted-foreground">内置模板 · 编辑后将另存为副本</span>}
+          {loaded && !editable && <span className="rounded bg-muted px-1.5 py-0.5 text-[10px] text-muted-foreground">{tc.builtinHint}</span>}
           {activeRun && (
             <span className="flex items-center gap-2 rounded-full bg-muted/60 px-2.5 py-0.5 text-[10px] text-muted-foreground">
               {isRunning ? <Loader2 className="size-3 animate-spin text-blue-500" /> : activeRun.state === "error" ? <XCircle className="size-3 text-red-500" /> : <CheckCircle2 className="size-3 text-emerald-500" />}
-              {isRunning ? "运行中" : activeRun.state === "error" ? "失败" : "已完成"} · 执行态已点亮
+              {isRunning ? tc.running : activeRun.state === "error" ? tc.failed : tc.done} {tc.execLit}
             </span>
           )}
           <div className="ml-auto flex items-center gap-1.5">
-            <Button size="sm" variant="outline" onClick={addStep} disabled={!loaded} title="添加步骤">
-              <Plus className="size-3.5" /> 步骤
+            <Button size="sm" variant="outline" onClick={addStep} disabled={!loaded} title={tc.addStep}>
+              <Plus className="size-3.5" /> {tc.stepBtn}
             </Button>
-            <Button size="sm" variant="outline" onClick={relayout} disabled={!loaded} title="自动布局">
-              <Wand2 className="size-3.5" /> 布局
+            <Button size="sm" variant="outline" onClick={relayout} disabled={!loaded} title={tc.autoLayout}>
+              <Wand2 className="size-3.5" /> {tc.layoutBtn}
             </Button>
             <Button size="sm" onClick={save} disabled={!loaded || saving}>
               {saving ? <Loader2 className="size-3.5 animate-spin" /> : <Save className="size-3.5" />}
-              {editable ? "保存" : "另存为副本"}
+              {editable ? tc.save : tc.saveAsCopy}
             </Button>
             <button onClick={onClose} className="ml-1 text-muted-foreground hover:text-foreground">
               <X className="size-4" />
@@ -295,7 +298,7 @@ export function WorkflowCanvas({ file, name, onClose, onSaved }: { file: string;
             <p className="grid h-full w-full place-items-center text-sm text-red-500">{err}</p>
           ) : !loaded ? (
             <div className="grid h-full w-full place-items-center text-sm text-muted-foreground">
-              <span className="flex items-center gap-2"><Loader2 className="size-4 animate-spin" /> 加载工作流图…</span>
+              <span className="flex items-center gap-2"><Loader2 className="size-4 animate-spin" /> {tc.loading}</span>
             </div>
           ) : (
             <>
@@ -323,19 +326,19 @@ export function WorkflowCanvas({ file, name, onClose, onSaved }: { file: string;
               {selected && (
                 <div className="w-72 shrink-0 overflow-y-auto border-l border-border/60 p-4">
                   <div className="mb-3 flex items-center justify-between">
-                    <span className="text-sm font-semibold">编辑步骤</span>
+                    <span className="text-sm font-semibold">{tc.editStep}</span>
                     <button onClick={() => setSelectedId(null)} className="text-muted-foreground hover:text-foreground"><X className="size-3.5" /></button>
                   </div>
-                  <label className="mb-1 block text-xs text-muted-foreground">步骤 id</label>
+                  <label className="mb-1 block text-xs text-muted-foreground">{tc.stepId}</label>
                   <div className="mb-3 truncate rounded-lg bg-muted/50 px-2.5 py-1.5 text-xs">{selected.id}</div>
 
                   {selected.data.type === "approval" || selected.data.type === "human_input" ? (
                     <>
                       {/* 签字闸门 / 等待输入节点：没有 role/task，只编辑提示语 */}
                       <div className="mb-3 rounded-lg border border-amber-500/40 bg-amber-500/[0.08] px-2.5 py-1.5 text-xs text-amber-600 dark:text-amber-400">
-                        {selected.data.type === "approval" ? "✋ 签字闸门：运行到此暂停，等你放行" : "✋ 等待输入：运行到此暂停，等你回答"}
+                        {selected.data.type === "approval" ? tc.approvalDesc : tc.humanDesc}
                       </div>
-                      <label className="mb-1 block text-xs text-muted-foreground">提示语（支持 {"{{变量}}"}）</label>
+                      <label className="mb-1 block text-xs text-muted-foreground">{tc.promptLabel}</label>
                       <textarea
                         value={String(selected.data.prompt ?? "")}
                         onChange={(e) => patchSelected({ prompt: e.target.value })}
@@ -345,14 +348,14 @@ export function WorkflowCanvas({ file, name, onClose, onSaved }: { file: string;
                     </>
                   ) : (
                     <>
-                  <label className="mb-1 block text-xs text-muted-foreground">角色</label>
+                  <label className="mb-1 block text-xs text-muted-foreground">{tc.roleLabel}</label>
                   <select
                     value={String(selected.data.role ?? "")}
                     onChange={(e) => patchSelected({ role: e.target.value })}
                     className="mb-3 h-9 w-full rounded-lg border border-border/70 bg-background px-2 text-xs outline-none focus:border-primary/50"
                   >
                     {!roles.some((r) => `${r.category}/${r.id}` === selected.data.role) && (
-                      <option value={String(selected.data.role ?? "")}>{String(selected.data.role ?? "(未选)")}</option>
+                      <option value={String(selected.data.role ?? "")}>{String(selected.data.role ?? tc.noneSelected)}</option>
                     )}
                     {roles.map((r) => {
                       const path = `${r.category}/${r.id}`;
@@ -360,14 +363,14 @@ export function WorkflowCanvas({ file, name, onClose, onSaved }: { file: string;
                     })}
                   </select>
 
-                  <label className="mb-1 block text-xs text-muted-foreground">显示名（可选）</label>
+                  <label className="mb-1 block text-xs text-muted-foreground">{tc.displayName}</label>
                   <input
                     value={String(selected.data.name ?? "")}
                     onChange={(e) => patchSelected({ name: e.target.value || undefined })}
                     className="mb-3 h-9 w-full rounded-lg border border-border/70 bg-background px-2.5 text-xs outline-none focus:border-primary/50"
                   />
 
-                  <label className="mb-1 block text-xs text-muted-foreground">任务（支持 {"{{变量}}"}）</label>
+                  <label className="mb-1 block text-xs text-muted-foreground">{tc.taskLabel}</label>
                   <textarea
                     value={String(selected.data.task ?? "")}
                     onChange={(e) => patchSelected({ task: e.target.value })}
@@ -375,21 +378,21 @@ export function WorkflowCanvas({ file, name, onClose, onSaved }: { file: string;
                     className="mb-3 w-full resize-y rounded-lg border border-border/70 bg-background px-2.5 py-2 text-xs outline-none focus:border-primary/50"
                   />
 
-                  <label className="mb-1 block text-xs text-muted-foreground">验收标准（可选，产出必须满足）</label>
+                  <label className="mb-1 block text-xs text-muted-foreground">{tc.acceptanceLabel}</label>
                   <textarea
                     value={String(selected.data.acceptance ?? "")}
                     onChange={(e) => patchSelected({ acceptance: e.target.value || undefined })}
                     rows={3}
-                    placeholder={"1. 可核对的条件…\n2. …"}
+                    placeholder={tc.acceptancePh}
                     className="mb-3 w-full resize-y rounded-lg border border-border/70 bg-background px-2.5 py-2 text-xs outline-none focus:border-primary/50"
                   />
 
                   <label className="mb-1 block text-xs text-muted-foreground">
-                    机械检查（可选，不问 AI，直接数）
+                    {tc.assertTitle}
                   </label>
                   <p className="mb-1.5 text-[11px] leading-relaxed text-muted-foreground/80">
-                    上面的「验收标准」是让 AI 判内容好不好；这里是脚本直接数结构。
-                    差一个文件、被截断这类问题 AI 判不出来——它看不见「本该有几个」。
+                    {tc.assertDesc1}{" "}
+                    {tc.assertDesc2}
                   </p>
                   <div className="mb-2 grid grid-cols-2 gap-2">
                     <input
@@ -397,7 +400,7 @@ export function WorkflowCanvas({ file, name, onClose, onSaved }: { file: string;
                       min={0}
                       value={String(assertOf(selected).emits_files ?? "")}
                       onChange={(e) => patchAssert({ emits_files: e.target.value === "" ? undefined : Number(e.target.value) })}
-                      placeholder="必须产出几个文件"
+                      placeholder={tc.assertFiles}
                       className="h-9 w-full rounded-lg border border-border/70 bg-background px-2.5 text-xs outline-none focus:border-primary/50"
                     />
                     <input
@@ -405,7 +408,7 @@ export function WorkflowCanvas({ file, name, onClose, onSaved }: { file: string;
                       min={0}
                       value={String(assertOf(selected).min_bytes ?? "")}
                       onChange={(e) => patchAssert({ min_bytes: e.target.value === "" ? undefined : Number(e.target.value) })}
-                      placeholder="最少多少字节（防截断）"
+                      placeholder={tc.assertMinBytes}
                       className="h-9 w-full rounded-lg border border-border/70 bg-background px-2.5 text-xs outline-none focus:border-primary/50"
                     />
                     <input
@@ -413,7 +416,7 @@ export function WorkflowCanvas({ file, name, onClose, onSaved }: { file: string;
                       min={0}
                       value={String(assertOf(selected).max_bytes ?? "")}
                       onChange={(e) => patchAssert({ max_bytes: e.target.value === "" ? undefined : Number(e.target.value) })}
-                      placeholder="最多多少字节（防写飞）"
+                      placeholder={tc.assertMaxBytes}
                       className="h-9 w-full rounded-lg border border-border/70 bg-background px-2.5 text-xs outline-none focus:border-primary/50"
                     />
                   </div>
@@ -421,15 +424,15 @@ export function WorkflowCanvas({ file, name, onClose, onSaved }: { file: string;
                     value={(assertOf(selected).contains as string[] | undefined)?.join("\n") ?? ""}
                     onChange={(e) => patchAssert({ contains: e.target.value.split("\n").map((x) => x.trim()).filter(Boolean) })}
                     rows={2}
-                    placeholder={"必须出现的内容，每行一条"}
+                    placeholder={tc.assertContains}
                     className="mb-3 w-full resize-y rounded-lg border border-border/70 bg-background px-2.5 py-2 text-xs outline-none focus:border-primary/50"
                   />
 
-                  <label className="mb-1 block text-xs text-muted-foreground">skill（可选）</label>
+                  <label className="mb-1 block text-xs text-muted-foreground">{tc.skillLabel}</label>
                   <input
                     value={String(selected.data.skill ?? "")}
                     onChange={(e) => patchSelected({ skill: e.target.value || undefined })}
-                    placeholder="如 test-driven-development"
+                    placeholder={tc.skillPh}
                     className="mb-4 h-9 w-full rounded-lg border border-border/70 bg-background px-2.5 text-xs outline-none focus:border-primary/50"
                   />
                     </>
@@ -445,7 +448,7 @@ export function WorkflowCanvas({ file, name, onClose, onSaved }: { file: string;
                       setSelectedId(null);
                     }}
                   >
-                    <Trash2 className="size-3.5" /> 删除此步骤
+                    <Trash2 className="size-3.5" /> {tc.deleteStep}
                   </Button>
                 </div>
               )}

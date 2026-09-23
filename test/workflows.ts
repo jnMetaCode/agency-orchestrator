@@ -95,7 +95,10 @@ for (const file of files) {
     // 漏一处的后果：要么隐藏的输入照样显示（等于没做），要么隐藏了却还拦着说必填缺失（自相矛盾）
     const uses = (panel.match(/inputVisible\(/g) || []).length;
     assert(uses >= 3, `WorkflowsPanel 应在三处调用 inputVisible，实得 ${uses}`);
-    assert(/missingMedia = mediaInputs\.filter\(\(i\) => inputVisible\(i, vals\)/.test(panel), '必填缺失判断必须先排除隐藏的输入');
+    // 必填缺失判断覆盖**全部**输入（媒体 + 文本），且先排除隐藏的：
+    // 只看媒体输入的话，必填文本空着 Run 仍亮着、引擎 spawn 后才报缺输入；
+    // 不排除隐藏的话，选了"不配音"还拦着说"音色必填"。
+    assert(/missingRequired = inputs\.filter\(\(i\) => inputVisible\(i, vals\) && i\.required/.test(panel), '必填缺失判断要覆盖全部输入并先排除隐藏的');
   });
 
   test('「出图 / 出片」面板管不到的 source，必须在弹窗里就地渲染', () => {
