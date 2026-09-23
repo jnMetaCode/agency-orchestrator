@@ -5,6 +5,12 @@
 ## [Unreleased]
 
 ### Security
+- **Studio 可以上锁了：`AO_WEB_TOKEN`（默认不设，行为一个字节不变）**。Docker 镜像监听 `0.0.0.0`，同一内网里
+  任何人打开就能用你保存的 API key 跑活、删运行、改配置——#109 的来源守卫挡的是「别的网页借用户的浏览器发请求」，
+  挡不住直接访问的人。设了之后 `/api/*` 必须带 `Authorization: Bearer <令牌>` 或 `?token=<令牌>`；首次用带 `?token=`
+  的链接打开一次，前端存进 **sessionStorage**（标签页关了就没了）并把它从地址栏抹掉（免得进截图和历史记录），
+  之后自动带上。令牌比较用 `crypto.timingSafeEqual`。**监听在非回环地址却没设令牌时，启动会明确警告一次**。
+  401 的提示直接告诉用户怎么带令牌，不泄露任何配置。
 - **分享报告页加 CSP**（`report.html` 页内 `<meta>` + `/api/runs/:id/report` 响应头）：正文是模型产出经 marked 渲染的 HTML，
   没有净化——角色读过的资料、社区模板、抓来的网页都可能夹带 `<script>` / `onerror=`。这页此前被 Studio 以 **blob: URL**
   打开（继承 Studio 的源），脚本一跑就能以 Studio 的身份调 `/api/*`（开跑、删运行、改配置），绕过 #109 的来源守卫。

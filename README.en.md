@@ -690,6 +690,7 @@ Only the user-facing ones; test/internal variables (`AO_WEB_INPUT`, `AO_NODE`, â
 | `AO_LANG` | UI language zh / en |
 | `AO_NOTIFY_URL` | Push results to a webhook when a run finishes (DingTalk / Feishu / WeCom auto-detected) |
 | `AO_ALLOWED_HOSTS` | Host allowlist when Studio is reached via a domain / reverse proxy (comma-separated) |
+| `AO_WEB_TOKEN` | Optional access token for Studio. Set it and every `/api/*` call must carry it; open the UI once with `?token=<token>` (stored in that tab, then stripped from the URL). Unset = today's behaviour, but a non-loopback bind warns at startup |
 | `AO_NO_PROXY` | Set to 1 to stop AO from honouring `HTTP(S)_PROXY` |
 | `AO_NON_INTERACTIVE` | Set to 1 so approval / human_input steps fail instead of reading stdin (`ao serve` sets it) |
 | `AO_CLI_INHERIT_CWD` | Set to 1 to launch claude-code / codebuddy in the cwd (default: empty temp dir, so project memory never leaks into outputs) |

@@ -28,7 +28,9 @@ export function useBackend() {
       // 403 = 引擎在、但来源守卫把这次访问拦了（比如用域名访问没设 AO_ALLOWED_HOSTS）。这不是「没装引擎」，
       // 服务端的报错里写着该设哪个变量，得原样给用户看
       const msg = e instanceof Error ? e.message : String(e);
-      if (/^403\b/.test(msg)) { setBlocked(msg.replace(/^403\s*/, "")); setStatus("offline"); return; }
+      // 403 = 来源守卫拦了；401 = 设了 AO_WEB_TOKEN 但这次没带对。两者都不是「没装引擎」，
+      // 服务端的报错里写着该怎么办，原样给用户看
+      if (/^40[13]\b/.test(msg)) { setBlocked(msg.replace(/^40[13]\s*/, "")); setStatus("offline"); return; }
       misses.current += 1;
       setStatus((prev) => (prev === "online" && misses.current < 3 ? prev : "offline"));
     }

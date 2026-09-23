@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { CopyButton } from "@/components/ui/copy-button";
 import { Tip } from "@/components/ui/tip";
-import { api, type RunSummary } from "@/lib/studio";
+import { api, type RunSummary , authHeaders, withToken } from "@/lib/studio";
 import { downloadText, safeFilename } from "@/lib/download";
 import { useLanguage } from "@/i18n/LanguageProvider";
 import { cn } from "@/lib/utils";
@@ -117,13 +117,14 @@ function DetailPane({ id, provider, onRun }: { id: string; provider: string; onR
                 // 关键：交付物是自包含 HTML 文件（发微信/邮件对方双击即开），
                 // 绝不能只 window.open 本地地址——127.0.0.1 链接发出去谁也打不开
                 try {
-                  const res = await fetch(`/api/runs/${encodeURIComponent(id)}/report`);
+                  const res = await fetch(`/api/runs/${encodeURIComponent(id)}/report`, { headers: authHeaders() });
                   if (!res.ok) throw new Error(`${res.status}`);
                   const html = await res.text();
                   downloadText(safeFilename(baseName + (lang === "en" ? "-report" : "-分享报告"), "html"), html, "text/html");
                   // 预览走 /api/…/report 这个带 CSP 头的地址，**不要**再用 blob: URL：blob 继承 Studio 的源，
                   // 报告里的模型产出若夹带脚本，就能以 Studio 的身份调 /api/*（开跑、删运行、改配置）
-                  window.open(`/api/runs/${encodeURIComponent(id)}/report`, "_blank");
+                  // 新标签页带不了鉴权头，令牌只能放 query（没设令牌时 withToken 原样返回）
+                  window.open(withToken(`/api/runs/${encodeURIComponent(id)}/report`), "_blank");
                 } catch (e) {
                   window.alert((lang === "en" ? "Report failed: " : "生成报告失败：") + (e instanceof Error ? e.message : String(e)));
                 }

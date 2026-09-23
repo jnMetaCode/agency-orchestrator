@@ -198,11 +198,42 @@ export type SseHandler = (event: string, data: any) => void;
 
 const API = "/api";
 
+/**
+ * 可选的访问令牌（服务端 `AO_WEB_TOKEN`，默认没有）。首次用 `?token=xxx` 打开，这里存进 sessionStorage
+ * 并把它从地址栏抹掉（免得被截图、被写进历史记录），之后本标签页的请求自动带上。
+ * sessionStorage 而不是 localStorage：标签页关了就没了，共用电脑上不留。
+ */
+const TOKEN_KEY = "ao.webToken";
+function readToken(): string {
+  try {
+    const url = new URL(window.location.href);
+    const fromUrl = url.searchParams.get("token");
+    if (fromUrl) {
+      sessionStorage.setItem(TOKEN_KEY, fromUrl);
+      url.searchParams.delete("token");
+      window.history.replaceState({}, "", url.toString());
+      return fromUrl;
+    }
+    return sessionStorage.getItem(TOKEN_KEY) || "";
+  } catch {
+    return "";   // 隐私模式 / 禁了 storage：当没有令牌，服务端没开这功能时一切照常
+  }
+}
+let webToken = typeof window === "undefined" ? "" : readToken();
+/** 给 fetch 用的鉴权头；没有令牌就是空对象（不发多余的头）。 */
+export function authHeaders(): Record<string, string> {
+  return webToken ? { Authorization: `Bearer ${webToken}` } : {};
+}
+/** 给**导航**用（window.open / <a>）：头带不了，只能把令牌放进 query。 */
+export function withToken(path: string): string {
+  return webToken ? `${path}${path.includes("?") ? "&" : "?"}token=${encodeURIComponent(webToken)}` : path;
+}
+
 /** 把报告 Markdown 导出成 Word/PDF/Excel/Skill/计划,并触发浏览器下载。 */
 export async function downloadExport(markdown: string, format: "docx" | "pdf" | "xlsx" | "pptx" | "skill" | "plan", name: string): Promise<void> {
   const res = await fetch(`${API}/export`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: { "Content-Type": "application/json", ...authHeaders() },
     body: JSON.stringify({ markdown, format, name }),
   });
   if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error || `导出失败 (${res.status})`);
@@ -221,7 +252,7 @@ export async function downloadExport(markdown: string, format: "docx" | "pdf" | 
 }
 
 async function getJSON<T>(path: string): Promise<T> {
-  const res = await fetch(`${API}${path}`);
+  const res = await fetch(`${API}${path}`, { headers: authHeaders() });
   if (!res.ok) {
     // 服务端的 { error } 是写给人看的（403 会说该设 AO_ALLOWED_HOSTS=…），别丢掉只留 "403 Forbidden"
     let msg = `${res.status} ${res.statusText}`;
@@ -234,7 +265,7 @@ async function getJSON<T>(path: string): Promise<T> {
 async function postJSON<T>(path: string, body: unknown): Promise<T> {
   const res = await fetch(`${API}${path}`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: { "Content-Type": "application/json", ...authHeaders() },
     body: JSON.stringify(body),
   });
   if (!res.ok) {
@@ -256,7 +287,7 @@ async function postJSON<T>(path: string, body: unknown): Promise<T> {
 async function putJSON<T>(path: string, body: unknown): Promise<T> {
   const res = await fetch(`${API}${path}`, {
     method: "PUT",
-    headers: { "Content-Type": "application/json" },
+    headers: { "Content-Type": "application/json", ...authHeaders() },
     body: JSON.stringify(body),
   });
   if (!res.ok) {
@@ -273,7 +304,7 @@ async function putJSON<T>(path: string, body: unknown): Promise<T> {
 }
 
 async function delJSON<T>(path: string): Promise<T> {
-  const res = await fetch(`${API}${path}`, { method: "DELETE" });
+  const res = await fetch(`${API}${path}`, { method: "DELETE", headers: authHeaders() });
   if (!res.ok) {
     let msg = `${res.status}`;
     try {
@@ -754,7 +785,7 @@ export const api = {
   // 仅用户工作流可删（服务端限制目录）；下载复用 /workflows/yaml 原文
   deleteWorkflow: (file: string) => delJSON<{ ok: boolean }>(`/workflows?file=${encodeURIComponent(file)}`),
   workflowYaml: async (file: string): Promise<string> => {
-    const res = await fetch(`${API}/workflows/yaml?file=${encodeURIComponent(file)}`);
+    const res = await fetch(`${API}/workflows/yaml?file=${encodeURIComponent(file)}`, { headers: authHeaders() });
     if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
     return res.text();
   },
@@ -819,7 +850,7 @@ async function streamSse(
 ): Promise<void> {
   const res = await fetch(`${API}${path}`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: { "Content-Type": "application/json", ...authHeaders() },
     body: JSON.stringify(body),
     signal,
   });

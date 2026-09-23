@@ -39,7 +39,7 @@ import { BUDGET_CAPABLE_PROVIDERS } from '../dist/cli/compose.js';
 // 环境里配了代理就接管全局 dispatcher（Node 的 fetch 默认不读 HTTP(S)_PROXY）。
 // 清单拉取、测试连接、获取模型列表都要用它;没配代理时什么都不做。
 // 真正的安装在下面 DATA_DIR 定下来之后：要先读 Studio 里保存的「网络代理」设置（#105）。
-import { checkRequestSource, parseAllowedHosts } from './request-guard.js';
+import { checkRequestSource, parseAllowedHosts, timingSafeEqual, tokenFromRequest, isLoopbackHost } from './request-guard.js';
 import { installEnvProxy, reinstallEnvProxy, envProxyStatus, maskProxyUrl } from '../dist/utils/env-proxy.js';
 import { normalizeProxyInput, readProxySetting, writeProxySetting, snapshotProxyEnv, applyProxySetting } from '../dist/utils/proxy-setting.js';
 
@@ -468,6 +468,15 @@ app.use('/api', (req, res, next) => {
       ? `拒绝来自主机名「${verdict.detail}」的请求：Studio 默认只接受 localhost / 127.0.0.1。通过域名或反向代理访问时，启动前设置 AO_ALLOWED_HOSTS=${verdict.detail}（多个用逗号分隔）`
       : `拒绝来自其它站点（${verdict.detail}）的跨站请求`,
   });
+});
+// 可选的访问令牌：设了 AO_WEB_TOKEN 才生效（不设 = 现有行为一个字节不变）。
+// 来源守卫挡的是「别的网页借用户的浏览器发请求」，挡不住同内网里直接访问的人——Docker 镜像监听 0.0.0.0，
+// 谁打开都能用你存的 key 跑活。放在来源守卫之后、body 解析之前：没通过就别浪费解析。
+const WEB_TOKEN = (process.env.AO_WEB_TOKEN || '').trim();
+app.use('/api', (req, res, next) => {
+  if (!WEB_TOKEN) return next();
+  if (timingSafeEqual(tokenFromRequest(req), WEB_TOKEN)) return next();
+  res.status(401).json({ error: '需要访问令牌：在地址后加 ?token=<你的 AO_WEB_TOKEN> 打开一次（之后本标签页自动带上），或让请求带 Authorization: Bearer <令牌>' });
 });
 app.use(express.json({ limit: '5mb' }));
 // 请求体不是合法 JSON / 超过大小限制时，express.json 会把错误交给 Express 默认处理器，
@@ -2724,6 +2733,12 @@ app.listen(PORT, HOST, () => {
   if (!HAS_NEW_UI) console.warn(`⚠️  未找到 React 前端产物：${join(WEBSITE_DIST, 'index.html')}（将回退 legacy UI / 诊断页）`);
   // 数据落在哪儿必须让人看得见:全局安装时它不在包目录而在 ~/.ao,
   // 不打出来的话「我的 key 存哪了 / 产物去哪了」只能靠翻源码(issue #99)。
+  // 监听在非回环地址 = 同内网谁都能打开，而里面存着 API key、能开跑、能删运行。
+  // 不设令牌也照跑（不打断任何现有部署），但必须说一次。
+  if (!isLoopbackHost(HOST)) {
+    if (WEB_TOKEN) console.log(`🔑 已启用访问令牌（AO_WEB_TOKEN）：首次用 http://<地址>:${PORT}/?token=<令牌> 打开`);
+    else console.warn(`⚠️  监听在 ${HOST}（不只是本机）且未设访问令牌：同一网络内任何人都能用你保存的 API key 跑任务、删运行、改配置。\n   要上锁：启动前设 AO_WEB_TOKEN=<一串随口令>，然后用 http://<地址>:${PORT}/?token=<口令> 打开。`);
+  }
   console.log(`📁 数据目录 / data dir: ${DATA_DIR}`);
   if (MIGRATED.length) console.log(`   ↪︎ 已从旧的安装目录迁入:${MIGRATED.join('、')}`);
   if (DATA_DIR_ERROR) {

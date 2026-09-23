@@ -14,7 +14,7 @@ import { createServer } from 'node:net';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 // @ts-expect-error 纯 JS 模块，无类型声明
-import { checkRequestSource, hostnameOf, isLoopbackHost, parseAllowedHosts } from '../web/request-guard.js';
+import { checkRequestSource, hostnameOf, isLoopbackHost, parseAllowedHosts, timingSafeEqual, tokenFromRequest } from '../web/request-guard.js';
 
 let passed = 0;
 let failed = 0;
@@ -87,6 +87,15 @@ const raw = (port: number, path: string, headers: Record<string, string>, method
     req.end();
   });
 
+console.log('\n─── 可选访问令牌（AO_WEB_TOKEN）───');
+{
+  assert(timingSafeEqual('abc', 'abc') && !timingSafeEqual('abc', 'abd') && !timingSafeEqual('abc', 'abcd'), '定长比较：相等为真，改一个字符 / 长度不同为假');
+  assert(!timingSafeEqual('', '') && !timingSafeEqual(undefined, 'x'), '空令牌永远不算通过（没设就别放行）');
+  assert(tokenFromRequest({ headers: { authorization: 'Bearer  tok ' } } as never) === 'tok', 'Authorization: Bearer 取值并去空白');
+  assert(tokenFromRequest({ query: { token: 'q1' } } as never) === 'q1', '?token= 取值（新标签页带不了头）');
+  assert(tokenFromRequest({} as never) === '', '什么都没带返回空');
+}
+
 console.log('\n─── 真服务端：守卫挂在 /api 上 ───');
 const dataDir = mkdtempSync(join(tmpdir(), 'ao-web-guard-'));
 let server: ChildProcess | null = null;
@@ -146,6 +155,34 @@ try {
       assert(!/--api-key/.test(run.body), '回显的命令行里不再有 --api-key');
       assert(seenAuth.some((a) => a === `Bearer ${KEY}`), `上游照样收到了 key——经环境变量传过去的（上游看到 ${seenAuth.length} 次请求）`);
       upstream.close(); upstream.closeAllConnections?.();
+    }
+
+    // 令牌是可选的：设了才拦。这里起第二个进程验，别影响上面那台没设令牌的
+    {
+      const port2 = await freePort();
+      const dir2 = mkdtempSync(join(tmpdir(), 'ao-web-token-'));
+      const srv2 = spawn(process.execPath, [resolve('web/server.js')], {
+        env: { ...process.env, PORT: String(port2), HOST: '127.0.0.1', AO_NODE: process.execPath, AO_DATA_DIR: dir2, AO_WEB_TOKEN: 's3cret', AO_MANIFEST_URL: 'http://127.0.0.1:1/none.json' },
+        stdio: 'ignore',
+      });
+      let ready = false;
+      for (let i = 0; i < 80; i++) {
+        try { const r = await raw(port2, '/api/health', { Host: `127.0.0.1:${port2}`, Authorization: 'Bearer s3cret' }); if (r.status === 200) { ready = true; break; } } catch { /* not up */ }
+        await sleep(250);
+      }
+      assert(ready, '设了令牌的服务端起来了');
+      if (ready) {
+        const h = { Host: `127.0.0.1:${port2}` };
+        assert((await raw(port2, '/api/health', h)).status === 401, '不带令牌 → 401');
+        assert((await raw(port2, '/api/health', { ...h, Authorization: 'Bearer nope' })).status === 401, '令牌不对 → 401');
+        assert((await raw(port2, '/api/health', { ...h, Authorization: 'Bearer s3cret' })).status === 200, 'Bearer 正确 → 200');
+        assert((await raw(port2, '/api/health?token=s3cret', h)).status === 200, '?token= 正确 → 200');
+        const body = (await raw(port2, '/api/config', h)).body;
+        assert(/访问令牌/.test(body) && !/sk-|apiKey/.test(body), '401 的报错告诉用户怎么带令牌，且不泄露任何配置');
+        assert((await raw(port2, '/', h)).status === 200, '页面本身照常能开（带不了头，进去后用 ?token= 交换）');
+      }
+      try { srv2.kill(); } catch { /* gone */ }
+      rmSync(dir2, { recursive: true, force: true });
     }
 
     if (process.platform !== 'win32') {

@@ -17,6 +17,8 @@
 //     file://）一律拒绝——正常的 Studio 页面永远不会是 null 源。
 //   - 没有 Origin 头的请求（curl、脚本、同源 GET）不受 Origin 规则影响。
 
+import { timingSafeEqual as cryptoTimingSafeEqual } from 'node:crypto';
+
 const LOOPBACK = new Set(['localhost', '127.0.0.1', '::1', '[::1]']);
 
 export function isLoopbackHost(name) {
@@ -56,4 +58,31 @@ export function checkRequestSource({ host, origin, boundHost, allowedHosts = [] 
     if (!sameHost && !isLoopbackHost(oHost) && !allowed(oHost)) return { ok: false, reason: 'origin', detail: o.host };
   }
   return { ok: true };
+}
+
+/**
+ * 可选的访问令牌（`AO_WEB_TOKEN`）。默认不设 = 行为一个字节不变；设了之后 `/api/*` 必须带上它。
+ *
+ * 为什么需要：Docker 镜像监听 0.0.0.0，同一内网里任何人打开就能用你存的 key 跑活、删运行、改配置。
+ * 来源守卫（Host/Origin）挡的是**别的网页**借用户的浏览器发请求，挡不住直接访问的人。
+ *
+ * 两种带法：`Authorization: Bearer <token>`（前端的 fetch 用这个），或 `?token=<token>`（首次进页面
+ * 用链接把令牌带进来，前端随即存起来并把它从地址栏抹掉）。
+ * 比较用定长扫描，别让「第几个字符不对」从耗时上漏出去。
+ */
+export function timingSafeEqual(a, b) {
+  const x = Buffer.from(String(a ?? ''), 'utf8');
+  const y = Buffer.from(String(b ?? ''), 'utf8');
+  // 长度不等时 crypto 会直接抛，所以先判长度（长度本来就藏不住），再对等长内容做定时安全比较
+  if (x.length !== y.length || x.length === 0) return false;
+  return cryptoTimingSafeEqual(x, y);
+}
+
+/** 请求里带的令牌：优先 Authorization: Bearer，其次 ?token=。都没有返回 ''。 */
+export function tokenFromRequest(req) {
+  const auth = String(req?.headers?.authorization || '');
+  const m = auth.match(/^Bearer\s+(.+)$/i);
+  if (m) return m[1].trim();
+  const q = req?.query?.token;
+  return typeof q === 'string' ? q.trim() : '';
 }

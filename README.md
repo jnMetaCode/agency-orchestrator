@@ -165,6 +165,7 @@ npm install -g agency-orchestrator
 > - 用 `--provider claude-code`（或 `gemini-cli` / `codex-cli` 等）时，需要**本机已安装并登录对应 CLI**；AO 会自动探测已装的，零配置直接用。用 API key 类（deepseek/openai…）则配好 key 即可，无需装任何 CLI。
 > - **自定义目录**：产物 / 数据目录用 `AO_DATA_DIR`（桌面端默认指向 userData），角色库用 `AO_AGENTS_DIR`，统一工作区用 `AO_HOME`。
 > - **Docker / NAS 部署**（amd64/arm64）：`docker run -d -p 8088:8088 -v ao-data:/data ghcr.io/jnmetacode/agency-orchestrator:latest`，打开 `http://主机IP:8088`，密钥在页面「供应商」里配（存进挂载卷，重启不丢）。也可用仓库根的 [docker-compose.yml](./docker-compose.yml) 一键起。
+> - **把 Studio 暴露到内网时上把锁**：启动前设 `AO_WEB_TOKEN=<一串口令>`，然后用 `http://<地址>:8088/?token=<口令>` 打开一次（令牌存进该标签页、随即从地址栏抹掉）。不设 = 现在的行为不变，但监听在非回环地址时启动会提醒你——同一网络内任何人都能用你保存的 key 跑任务。
 > - **通过域名 / 反向代理访问网页版**：本机启动的 Studio 只接受 `localhost` / `127.0.0.1` 的请求（防 DNS 重绑定，别的网页借此偷不到你存的 key）。要用自己的域名访问时，启动前设 `AO_ALLOWED_HOSTS=studio.example.com`（多个用逗号分隔）。Docker 镜像监听 `0.0.0.0`、没有登录鉴权——只放在可信内网，别直接暴露到公网。
 
 ### 第 2 步：一句话跑起来
@@ -674,6 +675,7 @@ ao serve --verbose    # 带调试日志
 | `AO_LANG` | 界面语言 zh / en |
 | `AO_NOTIFY_URL` | 跑完推送到 webhook（钉钉 / 飞书 / 企微自动适配） |
 | `AO_ALLOWED_HOSTS` | Studio 通过域名 / 反向代理访问时的 Host 白名单（逗号分隔） |
+| `AO_WEB_TOKEN` | Studio 的可选访问令牌。设了之后 `/api/*` 必须带上它；首次用 `?token=<令牌>` 打开（存进该标签页并从地址栏抹掉）。不设 = 现有行为不变，但监听在非回环地址时启动会提醒 |
 | `AO_NO_PROXY` | 设 1 关闭对 `HTTP(S)_PROXY` 的接管 |
 | `AO_NON_INTERACTIVE` | 设 1 时 approval / human_input 节点不读 stdin、直接失败（`ao serve` 自动设） |
 | `AO_CLI_INHERIT_CWD` | 设 1 让 claude-code / codebuddy 在当前目录启动（默认在空临时目录，避免项目记忆混进产出） |
