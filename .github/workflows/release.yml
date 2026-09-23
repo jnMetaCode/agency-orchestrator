@@ -53,10 +53,15 @@ jobs:
         with:
           node-version: 22
 
-      # Trusted Publishing 要求 npm >= 11.5.1,而 Node 22 自带的是 10.x
+      # Trusted Publishing 要求 npm >= 11.5.1,而 Node 22 自带的是 10.x。
+      # **钉在 11 线**而不是 latest：npm 12 已发布，且它明确声明不支持 Node 22.14
+      # （要求 ^22.22.2 || ^24.15.0 || >=26），而这里的 node-version: 22 具体落到哪个小版本
+      # 由 runner 决定——发布路径不该同时押在两个都没钉的版本上。
+      # 本地预演（2026-09-23）：npm 11.20.0 对本包 `publish --dry-run` 正常打包（2137 个文件），
+      # 只在"该版本已发布"处停下，符合预期。
       - name: Upgrade npm for trusted publishing
         run: |
-          npm install -g npm@latest
+          npm install -g 'npm@^11.5.1'
           echo "npm=$(npm -v)  node=$(node -v)"
 
       # tag 必须与 package.json 的 version 一致,避免发错版本
