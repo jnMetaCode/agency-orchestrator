@@ -35,6 +35,11 @@ export interface MediaSpendSummary {
   items: MediaSpendItem[];
   /** 会跑的视频总秒数（排除已判定不跑的；unknown 按会跑算，宁可高估） */
   videoSeconds: number;
+  /** 上限：再算上「验收不过会重出」的那一份（video.rework / 图片验收）。
+   *  以前这个上限只写在给人看的括号文案里，读结构字段的消费方（Studio、测试、将来的预算闸）
+   *  拿到的一直是下限——而这个模块的规矩是宁可高估。 */
+  maxVideoSeconds: number;
+  maxImageCount: number;
   videoCount: number;
   imageCount: number;
   ttsCount: number;
@@ -148,6 +153,10 @@ export function summarizeMediaSpend(workflow: WorkflowDefinition, inputs: Map<st
   const videoSeconds = videos.filter((v) => v.provider !== 'local-sdcpp').reduce((n, v) => n + (v.seconds ?? 0) * (v.repeats ?? 1), 0);
 
   const countOf = (arr: MediaSpendItem[]) => arr.reduce((n, i) => n + (i.repeats ?? 1), 0);
+  // 上限：挂了验收且开了 rework 的视频最多再出一条；挂了验收的图片按设计最多再出一张
+  const maxVideoSeconds = videos.filter((v) => v.provider !== 'local-sdcpp')
+    .reduce((n, v) => n + (v.seconds ?? 0) * (v.repeats ?? 1) * (v.rework ? 2 : 1), 0);
+  const maxImageCount = images.reduce((n, i) => n + (i.repeats ?? 1) * (i.verified ? 2 : 1), 0);
   const lines: string[] = [];
   if (videos.length) {
     // 同规格合并成一行："3 条 × 8s · 720p · 16:9（apimart / veo3.1-fast）"
@@ -171,7 +180,8 @@ export function summarizeMediaSpend(workflow: WorkflowDefinition, inputs: Map<st
     }
     const paid = videos.filter((v) => v.provider !== 'local-sdcpp');
     const unknownSec = paid.some((v) => v.seconds === undefined);
-    if (paid.length) lines.push(`   合计 ${videoSeconds}${unknownSec ? '+' : ''} 秒——按秒计费，钱在这一步花出去`);
+    const ceiling = maxVideoSeconds > videoSeconds ? `–${maxVideoSeconds}` : '';
+    if (paid.length) lines.push(`   合计 ${videoSeconds}${ceiling}${unknownSec ? '+' : ''} 秒——按秒计费，钱在这一步花出去${ceiling ? '（上限含验收重出）' : ''}`);
   }
   if (images.length) {
     const v = images[0];
@@ -189,5 +199,5 @@ export function summarizeMediaSpend(workflow: WorkflowDefinition, inputs: Map<st
   const off = items.filter((i) => i.conditional === 'yes');
   if (off.length) lines.push(`·  本次不跑（条件未满足）：${off.map((i) => i.id).join(' / ')}`);
 
-  return { items, videoSeconds, videoCount: countOf(videos), imageCount: countOf(images), ttsCount: countOf(tts), concatCount: concat.length, lines };
+  return { items, videoSeconds, maxVideoSeconds, maxImageCount, videoCount: countOf(videos), imageCount: countOf(images), ttsCount: countOf(tts), concatCount: concat.length, lines };
 }

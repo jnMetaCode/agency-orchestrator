@@ -160,9 +160,16 @@ export async function startServer(verbose = false): Promise<void> {
         // 交付物口径与 CLI 导出 / summary ⭐ 一致：声明了 deliverables 取声明的，否则最后一个完成步
         const output = finalOutput(result) || '(no output)';
         const tokenSummary = `Tokens: ${result.totalTokens.input} in / ${result.totalTokens.output} out`;
+        // 花了多少媒体（按秒计费的视频尤其）也要报回去：quiet: true 把引擎自己的花费行吞了，
+        // 调用方（另一个 agent）对这次花销一无所知
+        const media = result.steps.filter((st) => st.videoAsset || st.imageAsset || st.audioAsset);
+        const secs = result.steps.reduce((n, st) => n + (st.videoAsset?.seconds ?? 0), 0);
+        const mediaSummary = media.length
+          ? `\n媒体产物: ${media.length} 个${secs > 0 ? `（视频合计 ${secs} 秒，按秒计费）` : ''}`
+          : '';
 
         return {
-          content: [{ type: 'text' as const, text: `${output}\n\n---\n${tokenSummary}` }],
+          content: [{ type: 'text' as const, text: `${output}\n\n---\n${tokenSummary}${mediaSummary}` }],
         };
       } catch (err) {
         return {
@@ -265,8 +272,13 @@ export async function startServer(verbose = false): Promise<void> {
 
         const dag = buildDAG(workflow);
         const dagText = formatDAG(dag);
+        // 媒体花费也要报：CLI 的 ao plan 一直有，MCP 这边以前只给 DAG——调用方看到一张干净的图就
+        // 直接 run_workflow，几条按秒计费的视频钱就这么花出去了，全程没人提过一句。
+        const { summarizeMediaSpend } = await import('../media/preflight.js');
+        const spend = summarizeMediaSpend(workflow, new Map());
+        const spendText = spend.lines.length ? `\n\n${spend.lines.join('\n')}` : '';
         return {
-          content: [{ type: 'text' as const, text: `${workflow.name}\n\n${dagText}` }],
+          content: [{ type: 'text' as const, text: `${workflow.name}\n\n${dagText}${spendText}` }],
         };
       } catch (err) {
         return {

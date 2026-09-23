@@ -18,7 +18,14 @@
 // 按关键词一刀切会把这类正常提示词误删（真机上就撞见两条）。
 //
 // 用法：node scripts/prune-extra-prompts.mjs [文件路径]
-import { readFileSync, writeFileSync } from 'node:fs';
+import { readFileSync, writeFileSync, renameSync } from 'node:fs';
+
+/** 先写临时文件再原子改名：直接原地 writeFileSync 一个 2MB 的词库，Ctrl-C 正好落在写入中间就把池子截断了 */
+function writeAtomic(file, text) {
+  const tmp = `${file}.tmp`;
+  writeFileSync(tmp, text, 'utf-8');
+  renameSync(tmp, file);
+}
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -129,7 +136,7 @@ if (process.argv[1] && process.argv[1].endsWith('prune-extra-prompts.mjs')) {
   }
   data[key] = kept;
   if (typeof data.count === 'number') data.count = kept.length;
-  writeFileSync(FILE, JSON.stringify(data, null, 2) + '\n', 'utf-8');
+  writeAtomic(FILE, JSON.stringify(data, null, 2) + '\n');
 
   const byRule = dropped.reduce((m, d) => (m[d.name] = (m[d.name] || 0) + 1, m), {});
   console.log(`✅ ${FILE.split('/').pop()}：保留 ${kept.length}，剔除 ${dropped.length}`);

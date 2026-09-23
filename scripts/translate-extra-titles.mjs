@@ -13,7 +13,14 @@
 //   node scripts/translate-extra-titles.mjs            # 全量补图片扩充池
 //   node scripts/translate-extra-titles.mjs website/src/content/video-prompts-community.json
 //   BATCH=40 LIMIT=200 node scripts/translate-extra-titles.mjs   # 小批试跑
-import { readFileSync, writeFileSync } from 'node:fs';
+import { readFileSync, writeFileSync, renameSync } from 'node:fs';
+
+/** 先写临时文件再原子改名：直接原地 writeFileSync 一个 2MB 的词库，Ctrl-C 正好落在写入中间就把池子截断了 */
+function writeAtomic(file, text) {
+  const tmp = `${file}.tmp`;
+  writeFileSync(tmp, text, 'utf-8');
+  renameSync(tmp, file);
+}
 import { spawn } from 'node:child_process';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -37,14 +44,26 @@ console.log(`待翻译 ${work.length} 条（总 ${list.length}，已完成 ${lis
 /** 调本机 claude CLI（headless）。返回纯文本 stdout。 */
 function claude(prompt) {
   return new Promise((ok, fail) => {
+    // 没超时的话，一个没登录 / 卡住的 claude 会让整个脚本无声地挂在这儿（翻译 1000+ 条要跑很久，
+    // 没人会盯着看）。给每批一个上限，超时按失败算、继续下一批。
     const child = spawn('claude', ['-p', '-', '--output-format', 'text', '--tools', '', '--effort', 'low'], {
       stdio: ['pipe', 'pipe', 'pipe'],
     });
-    let out = '', err = '';
+    let out = '', err = '', timedOut = false;
+    const TIMEOUT_MS = Number(process.env.AO_TRANSLATE_TIMEOUT_MS) || 180_000;
+    const timer = setTimeout(() => {
+      timedOut = true;
+      try { child.kill('SIGTERM'); } catch { /* 已经退了 */ }
+      setTimeout(() => { try { child.kill('SIGKILL'); } catch { /* 已经退了 */ } }, 3000).unref?.();
+    }, TIMEOUT_MS);
     child.stdout.on('data', (d) => { out += d; });
     child.stderr.on('data', (d) => { err += d; });
-    child.on('error', (e) => fail(new Error(`起不来 claude CLI：${e.message}（本机没装或没登录？）`)));
-    child.on('close', (code) => (code === 0 ? ok(out) : fail(new Error(`claude 退出码 ${code}：${err.slice(0, 300)}`))));
+    child.on('error', (e) => { clearTimeout(timer); fail(new Error(`起不来 claude CLI：${e.message}（本机没装或没登录？）`)); });
+    child.on('close', (code) => {
+      clearTimeout(timer);
+      if (timedOut) return fail(new Error(`claude 超过 ${TIMEOUT_MS / 1000}s 没返回（没登录 / 卡住？可用 AO_TRANSLATE_TIMEOUT_MS 调）`));
+      return code === 0 ? ok(out) : fail(new Error(`claude 退出码 ${code}：${err.slice(0, 300)}`));
+    });
     child.stdin.end(prompt);
   });
 }
@@ -87,7 +106,7 @@ for (let i = 0; i < work.length; i += BATCH) {
     }
     done += hit;
     // 每批落盘：中途挂了也不白跑
-    writeFileSync(FILE, JSON.stringify(data, null, 2) + '\n', 'utf-8');
+    writeAtomic(FILE, JSON.stringify(data, null, 2) + '\n');
     console.log(`  批 ${Math.floor(i / BATCH) + 1}：${hit}/${chunk.length} 条已译（累计 ${done}）`);
   } catch (e) {
     failed += chunk.length;

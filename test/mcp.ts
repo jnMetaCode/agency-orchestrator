@@ -86,6 +86,17 @@ await test('plan_workflow returns DAG text', async () => {
   assert(text.includes('Level') || text.includes('level') || text.includes('层'), `Should contain DAG levels: ${text}`);
 });
 
+// 花费要在花之前说清楚：调用方（另一个 agent）看到一张干净的 DAG 就直接 run_workflow，
+// 几条按秒计费的视频钱就这么花出去了。CLI 的 ao plan 一直报，MCP 这边以前只给 DAG。
+await test('plan_workflow 报出媒体花费（按秒计费的视频尤其）', async () => {
+  const result = await client.callTool({
+    name: 'plan_workflow',
+    arguments: { path: resolve('workflows/一句话出短片.yaml') },
+  });
+  const text = (result.content as Array<{ text: string }>)[0].text;
+  assert(/出片|出图|配音/.test(text), `应带媒体花费行（实际尾部：${text.slice(-200)}）`);
+});
+
 await test('run_workflow returns error on missing file', async () => {
   const result = await client.callTool({
     name: 'run_workflow',

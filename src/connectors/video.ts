@@ -438,6 +438,7 @@ export async function generateVideo(
   }
   inFlight.set(taskId, spec.id);
   onNotice?.(`🎬 视频任务已创建（task_id=${taskId}），开始轮询…（按秒计费，中途中断也可能已产生费用）`);
+  let missStreak = 0;   // 连续几轮在查询结果里找不到自己这条（见下）
 
   // 建任务之后的每一条出口都必须摘掉登记，包括意料之外的抛错。
   // inFlight 的语义是"此刻正在轮询的任务"——漏摘一处，长跑的 Studio 进程就会越积越多，
@@ -469,7 +470,23 @@ export async function generateVideo(
 
       let task: VideoTaskState | undefined;
       try { task = shape.parseQuery(JSON.parse(qText), taskId); } catch { /* 非 JSON：当作瞬时异常继续等 */ }
-      if (!task) continue;                       // 这一轮没看到我们那条，继续等
+      if (!task) {
+        // 「查询回了一串任务、但没有我们这条」与「还在排队」在日志里长得一模一样，而前者是真故障
+        // （厂商换了字段名、id 被 JSON 数字精度截断…），表现是干等到超时、报一句"最后状态：未知"，
+        // 而那条片子其实已经出完、已经计费。连着几轮都对不上就把看到的 id 亮出来。
+        missStreak++;
+        if (missStreak === 3) {
+          const ids = (() => {
+            try {
+              const j = JSON.parse(qText) as { items?: { id?: unknown }[] };
+              return (j.items ?? []).map((x) => String(x?.id ?? '?')).slice(0, 5).join(', ');
+            } catch { return ''; }
+          })();
+          if (ids) onNotice?.(`⚠️ 连续 3 轮在查询结果里找不到 task_id=${taskId}（列表里是：${ids}）——若一直如此，多半是厂商改了字段或 id 精度丢失，这条可能已经出完并计费`);
+        }
+        continue;                                // 这一轮没看到我们那条，继续等
+      }
+      missStreak = 0;
       const label = task.progress != null ? `${task.phase} ${task.progress}%` : task.phase;
       if (label !== last) {
         onNotice?.(`   任务状态：${label}`);

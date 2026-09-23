@@ -66,6 +66,21 @@ console.log('\n─── 没有循环时与从前一致 ───');
   assert(!s.lines.some((l) => /循环/.test(l)), '不提循环');
 }
 
+console.log('\n─── 上限（验收重出）要进结构字段，不能只写在给人看的括号里 ───');
+{
+  const w = wf([
+    'steps:',
+    '  - id: shot', '    type: video', '    task: "一只猫"',
+    '    video: { model: "MiniMax-H3", duration: 8, rework: true }', '    acceptance: "1. 画面里有一只猫"', '    output: shot_mp4',
+    '  - id: pic', '    type: image', '    task: "海报"', '    image: { model: "m" }', '    acceptance: "1. 没有文字"', '    output: pic_png', '',
+  ].join('\n'));
+  const s = summarizeMediaSpend(w, new Map());
+  assert(s.videoSeconds === 8, `下限仍是 8 秒（实际 ${s.videoSeconds}）`);
+  assert(s.maxVideoSeconds === 16, `上限含验收重出 = 16 秒（实际 ${s.maxVideoSeconds}）`);
+  assert(s.maxImageCount === 2, `图片验收不过会重出一张，上限 2（实际 ${s.maxImageCount}）`);
+  assert(s.lines.some((l) => /8–16 秒/.test(l)), `行文给出区间（实际：${s.lines.find((l) => /合计/.test(l))}）`);
+}
+
 rmSync(dir, { recursive: true, force: true });
 console.log(`\n  结果: ${passed} 通过, ${failed} 失败\n`);
 process.exit(failed > 0 ? 1 : 0);
