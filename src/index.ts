@@ -549,6 +549,13 @@ export async function compareWorkflowVsBaseline(
     verify?: boolean;
     /** SIGTERM/SIGINT 优雅存档，透传给内部 run()（仅 CLI 进程开；web in-process 调用勿开） */
     signalFlush?: boolean;
+    /**
+     * 「还要继续吗」——Studio 里用户关掉对比浮层 / 刷新页面时，HTTP 响应流断开，这里返回 false。
+     * 对比是三段：跑工作流 → 跑单次基线 → 盲评，每段都真花钱。工作流那段跑在 executeDAG 里、
+     * 中途停不下来（要停得把 AbortSignal 穿透执行器与全部连接器，是另一个改动），但**后两段还没开始**——
+     * 在段与段之间问一句，就能把它们省掉。省不掉的那段照跑完、照存档（钱已经花了，产物别丢）。
+     */
+    shouldContinue?: () => boolean;
   },
 ): Promise<{
   multiOutput: string;
@@ -572,6 +579,12 @@ export async function compareWorkflowVsBaseline(
     signalFlush: options?.signalFlush,
   });
   const multiOutput = finalOutput(result);
+  // 调用方已经不在了（Studio 关了浮层 / 刷新）→ 基线和盲评就别再花钱了。
+  // 工作流那段已经跑完并存档，产物照常返回，verdict 给 null（前端显示"已取消"而不是假装有结论）。
+  if (options?.shouldContinue && !options.shouldContinue()) {
+    if (!options?.quiet) console.log('\n  ⏹️  对比已取消（调用方断开）：多智能体那一轮已跑完并存档，单次基线与盲评已跳过\n');
+    return { multiOutput, baselineOutput: '', verdict: null, result };
+  }
 
   // 2) 跑单次基线（同生成模型）
   const genLlm = options?.genOverride
@@ -582,6 +595,10 @@ export async function compareWorkflowVsBaseline(
 
   // 3) 双向盲评。最终步声明了 acceptance 就作评分锚点（用运行时渲染后的文本；
   //    两份产出同一把尺——这正是"验收写成数据"优于再叠一个 Reviewer Agent 的地方）
+  if (options?.shouldContinue && !options.shouldContinue()) {
+    if (!options?.quiet) console.log('\n  ⏹️  对比已取消（调用方断开）：盲评已跳过\n');
+    return { multiOutput, baselineOutput, verdict: null, result };
+  }
   const judgeLlm = options?.judgeLlm ?? genLlm;
   const finalAcceptance = [...result.steps].reverse().find(s => s.status === 'completed')?.acceptance;
   const verdict = await compareOutputs(judgeLlm, baselineTask, multiOutput, baselineOutput, finalAcceptance);

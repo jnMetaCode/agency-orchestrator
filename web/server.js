@@ -1031,8 +1031,13 @@ app.post('/api/compare', async (req, res) => {
   try {
     const { compareWorkflowVsBaseline } = await import('../dist/index.js');
     const llm = buildLLMConfig(provider); // 注册 provider 的 key 已在启动时注入 process.env；自定义供应商靠 llm.api_key 直传
+    // 客户端断开（关浮层 / 刷新 / 关标签）后，对比的后两段（单次基线、盲评）就别再花钱了。
+    // 这一段跑在引擎进程内、不是 spawn 出来的，杀不掉；能做的是在段与段之间问一句。
+    let alive = true;
+    req.on('close', () => { alive = false; });
     const cmp = await compareWorkflowVsBaseline(resolvedFile, inputs || {}, {
       quiet: true,
+      shouldContinue: () => alive,
       outputDir: OUTPUT_DIR,
       genOverride: { provider: llm.provider, model: llm.model, base_url: llm.base_url, api_key: llm.api_key },
     });
