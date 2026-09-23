@@ -38,6 +38,10 @@
   AO 只在 `src/export/convert.ts` 里**写** xlsx、从不解析，暴露面小）。
 
 ### Added
+- **`ao validate --fix`**：就地改掉「`depends_on` 写成上游的**输出变量名**而不是 step id」这类错（#103 那一类）。
+  Studio 存盘时早就自动修了，CLI 用户却只能照着报错手改——而这类产物往往十来步、报错好几条。复用 compose 那套
+  同一个零歧义改写：对不上、有歧义、会成环的一律不动，宁可报错也不连错边；只动 `depends_on` 那一处，`task` 正文里
+  同名的 `{{变量}}` 引用一个不碰；幂等。拿 #103 用户上传的真实文件实测：改 2 处、当场校验通过、只动了 1 行。
 - **工作流 YAML 的 JSON Schema**（`schemas/workflow.schema.json`，随 npm 包发布，并经官网构建发布到
   `https://ao.aiolaola.com/schemas/workflow.schema.json`）：文件首行写
   `# yaml-language-server: $schema=…`，VS Code / JetBrains / Neovim 里就有字段补全、悬停说明和即时校验。来由：

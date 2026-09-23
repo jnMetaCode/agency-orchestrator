@@ -98,7 +98,7 @@ async function main(): Promise<void> {
       await handleRun();
       break;
     case 'validate':
-      handleValidate();
+      await handleValidate();
       break;
     case 'plan':
       handlePlan();
@@ -374,9 +374,10 @@ async function maybeNotifyRun(
   console.log(`  ${r.ok ? '📨' : '⚠️'} ${r.hint}`);
 }
 
-function handleValidate(): void {
+async function handleValidate(): Promise<void> {
   const filePath = args[1];
   const asJson = args.includes('--json');
+  const autoFix = args.includes('--fix');
   if (!filePath) {
     if (asJson) console.log(JSON.stringify({ valid: false, error: 'missing workflow path' }));
     else console.error(t('validate.usage'));
@@ -384,8 +385,21 @@ function handleValidate(): void {
   }
 
   try {
-    const workflow = parseWorkflow(resolveWorkflowArg(filePath));
-    const agentsDir = findAgentsDir(workflow.agents_dir, resolve(filePath)) ?? undefined;
+    const resolvedPath = resolveWorkflowArg(filePath);
+    // --fix：把 depends_on 里写成「上游输出变量名」的那类错就地改成 step id（#103）。
+    // Studio 存盘时早就这么修了，CLI 用户却只能照着报错手改——而这类产物往往十来步、报错好几条。
+    // 只做**零歧义**改写（compose 那套同一个函数）：对不上、有歧义、会成环的一律不动，宁可报错也不连错边。
+    if (autoFix && !asJson) {
+      const { autoFixDependsOnIds } = await import('./cli/compose.js');
+      const fix = await autoFixDependsOnIds(resolvedPath);
+      if (fix.fixed > 0) {
+        console.log(`  🔧 已改写 ${fix.fixed} 处 depends_on（写的是上游的输出变量名，不是 step id）：`);
+        for (const d of fix.details) console.log(`     ${d.step}: ${d.from} → ${d.to}`);
+        console.log(`     文件已就地更新：${resolvedPath}\n`);
+      }
+    }
+    const workflow = parseWorkflow(resolvedPath);
+    const agentsDir = findAgentsDir(workflow.agents_dir, resolvedPath) ?? undefined;
     const errors = validateWorkflow(workflow, agentsDir);
 
     // --json：结构化输出，供 CI / 编辑器集成消费（stdout 纯 JSON，退出码标识结果）
@@ -2041,7 +2055,7 @@ function printCommandHelp(command: string): void {
       ao run <workflow.yaml> --resume last --from <step-id> [--feedback "意见"]
       ao run --team <名字> "任务"
   选项见 ao --help 的「选项」一节（--export / --materialize / --compare / --no-verify / --notify …）`,
-    validate: '用法: ao validate <workflow.yaml> [--json] [--agents-dir path]',
+    validate: `用法: ao validate <workflow.yaml> [--json] [--fix] [--agents-dir path]\n  --fix  就地改掉「depends_on 写成上游输出变量名」这类错（只做零歧义改写，对不上/有歧义/会成环的一律不动）`,
     plan: '用法: ao plan <workflow.yaml> [-i key=value ...]   查看 DAG 执行计划与媒体花费预览',
     explain: '用法: ao explain <workflow.yaml>   用自然语言解释执行计划',
     report: '用法: ao report [运行目录|last]   把一次运行渲染成可分享的单文件 HTML（默认最近一次）',

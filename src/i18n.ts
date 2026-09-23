@@ -211,7 +211,7 @@ const dict: Dict = {
     serve                             启动 MCP Server（供 Claude Code / Cursor 调用）
     web                               启动可视化 Web Studio（浏览器里勾角色组队、跑工作流）
     run <workflow.yaml>               执行工作流
-    validate <workflow.yaml>          校验工作流定义（加 --json 输出结构化结果）
+    validate <workflow.yaml>          校验工作流定义（--json 结构化输出；--fix 就地改掉「depends_on 写成上游输出变量名」这类错）
     plan <workflow.yaml>              查看执行计划
     explain <workflow.yaml>           用自然语言解释执行计划
     roles [关键词] [--agents-dir path] 列出可用角色（带关键词则按 路径/名称/描述 搜索）
@@ -293,7 +293,7 @@ const dict: Dict = {
     serve                             Start MCP server (for Claude Code / Cursor)
     web                               Launch the visual Web Studio (pick roles & run in the browser)
     run <workflow.yaml>               Execute a workflow
-    validate <workflow.yaml>          Validate a workflow definition (--json for structured output)
+    validate <workflow.yaml>          Validate a workflow (--json for structured output; --fix rewrites depends_on entries naming an upstream output instead of a step id)
     plan <workflow.yaml>              Show execution plan
     explain <workflow.yaml>           Explain the plan in natural language
     roles [keyword] [--agents-dir path] List roles (with a keyword: search path/name/description)
