@@ -1,6 +1,6 @@
 name: "Novella in Chapters"
 description: "Five fixed chapters: narratologist writes the book outline and foreshadowing list → psychologist writes the character bible → each chapter is drafted with the outline, characters, the previous chapter in full and a running fact ledger → the ledger is updated after every chapter → a continuity review of the whole book. The deliverable is the five chapters, so export gives you a manuscript."
-category: "内容创作"
+category: "Content"
 
 agents_dir: "agency-agents"
 

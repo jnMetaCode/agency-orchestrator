@@ -445,6 +445,15 @@ export function WorkflowsPanel({ provider, onRun, demo, onInstallPrompt, filter 
   // 分组：「我的工作流」最顶（用户自己组/存的是核心资产，按最近修改倒序，#92），
   // 其次 ⭐ 常用，再按类目（一人公司系列置顶 → 开发 → 内容 → 商业 → 职场 → 其他）。
   const CATEGORY_ORDER = ["一人公司", "开发", "内容创作", "商业 / 产品", "职场 / 学术", "其他"];
+  // 类目名来自服务端的映射表和 YAML 的 category:，都是中文；英文站上「内容创作 / 其他」这样的标题就这么露出来了。
+  // 分组键仍用原始字符串（服务端与 YAML 的口径），只在**显示**时翻译；英文模板里写的 "Content" 先归一到同一个键，
+  // 免得英文站上同一类目裂成两组。
+  const CATEGORY_ALIAS: Record<string, string> = { Content: "内容创作", Development: "开发", Other: "其他" };
+  const CATEGORY_LABEL_EN: Record<string, string> = {
+    一人公司: "Solo company", 开发: "Development", 内容创作: "Content",
+    "商业 / 产品": "Business / Product", "职场 / 学术": "Work / Academic", 其他: "Other", 我的工作流: "My Workflows",
+  };
+  const catLabel = (c: string) => (lang === "en" ? CATEGORY_LABEL_EN[c] ?? c : c);
   const groups = useMemo(() => {
     // 我的工作流排序：☆ 置顶优先（点星即钉住，代替拖拽排序——网格里拖拽换行难用，
     // 且手动顺序和"最近修改"信号打架），其余按最近修改倒序。
@@ -456,7 +465,7 @@ export function WorkflowsPanel({ provider, onRun, demo, onInstallPrompt, filter 
     for (const w of filtered) {
       if (w.private) continue; // 我的工作流只在顶部分区出现，不再混入类目
       // 收藏的也仍按类目展示一份，方便浏览；顶部「常用」组只是把它们额外置顶。
-      const c = w.category || "其他";
+      const c = CATEGORY_ALIAS[w.category ?? ""] ?? w.category ?? "其他";
       if (!byCat.has(c)) byCat.set(c, []);
       byCat.get(c)!.push(w);
     }
@@ -732,7 +741,7 @@ export function WorkflowsPanel({ provider, onRun, demo, onInstallPrompt, filter 
             )}
             {groups.fav.length > 0 && <Section title={lang === "en" ? "Favorites" : "常用（点 ☆ 设为常用）"} items={groups.fav} star />}
             {groups.recent.length > 0 && <Section title={lang === "en" ? "Recently run" : "最近运行"} items={groups.recent} hint={lang === "en" ? "most-run in the last 30 days, from local run history" : "近 30 天跑得最多的，来自本机运行历史"} />}
-            {groups.cats.map(([c, items]) => <Section key={c} title={c} items={items} />)}
+            {groups.cats.map(([c, items]) => <Section key={c} title={catLabel(c)} items={items} />)}
             {!demo && !filter && community.length > 0 && (
               <section className="mt-8">
                 <h2 className="mb-3 flex items-baseline gap-2 text-sm font-bold">
