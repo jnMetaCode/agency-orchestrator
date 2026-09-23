@@ -83,6 +83,19 @@ console.log('\n─── @dir 知识源不跟符号链接绕圈 ───');
   }
 }
 
+console.log('\n─── @dir 知识源：不是 UTF-8 的文件点名跳过，别把乱码塞给模型 ───');
+{
+  const docs2 = join(dir, 'docs2');
+  mkdirSync(docs2, { recursive: true });
+  writeFileSync(join(docs2, 'ok.md'), '# 正常内容', 'utf-8');
+  // GBK 编码的中文（Windows 机器上的 .txt/.csv 很常见）：按 UTF-8 解出来是一片 U+FFFD
+  writeFileSync(join(docs2, 'gbk.txt'), Buffer.from([0xd6, 0xd0, 0xce, 0xc4, 0xb2, 0xe2, 0xca, 0xd4, 0xd6, 0xd0, 0xce, 0xc4]));
+  const r = readDocsDir(docs2);
+  assert(r.files.length === 1 && r.files[0] === 'ok.md', `只装进正常的那个（实际 ${JSON.stringify(r.files)}）`);
+  assert(r.skipped.some((x) => /gbk\.txt/.test(x) && /UTF-8/.test(x)), `乱码文件点名跳过并说清原因（实际 ${JSON.stringify(r.skipped)}）`);
+  assert(!r.text.includes('\uFFFD'), '正文里不带替换字符');
+}
+
 rmSync(dir, { recursive: true, force: true });
 console.log(`\n  结果: ${passed} 通过, ${failed} 失败\n`);
 process.exit(failed > 0 ? 1 : 0);

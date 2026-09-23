@@ -512,10 +512,22 @@ export async function composeWorkflow(options: {
     throw new Error(t('compose.empty_catalog', { dir: agentsDir }));
   }
   // 锁定阵容：把目录收窄到勾选的角色，LLM 既无法幻觉别的角色，也被强制用上这些
+  const pinWarnings: string[] = [];
   if (options.pinnedRoles?.length) {
     const pin = new Set(options.pinnedRoles);
     const filtered = roles.filter(r => pin.has(r.path));
-    if (filtered.length > 0) roles = filtered;
+    const missing = options.pinnedRoles.filter(p => !roles.some(r => r.path === p));
+    // 一个都对不上（团队存的是中文角色、却用 --lang en 跑；或角色库改过名）→ 以前**静默退回整库**，
+    // "锁定阵容"的承诺当场作废还没人知道。这是配置错，直接说清楚。
+    if (filtered.length === 0) {
+      throw new Error(
+        `锁定的角色一个都不在当前角色库里：${missing.join(', ')}\n`
+        + `  当前角色库：${agentsDir}（${roles.length} 个角色）\n`
+        + `  常见原因：团队存的是另一套语言的角色库，或角色库改过名。用 ao roles 看现有角色，或重新保存团队。`,
+      );
+    }
+    if (missing.length > 0) pinWarnings.push(`锁定阵容里有 ${missing.length} 个角色不在当前角色库，已跳过：${missing.join(', ')}`);
+    roles = filtered;
   }
   const catalog = formatCatalogForPrompt(roles);
 
@@ -574,7 +586,7 @@ export async function composeWorkflow(options: {
   }
 
   // 6. 校验生成的 YAML（含角色路径真实性校验，防 LLM 幻觉）
-  const warnings: string[] = [];
+  const warnings: string[] = [...pinWarnings];
   const validRolePaths = new Set(roles.map(r => r.path));
 
   async function validateGenerated(path: string): Promise<{ errors: string[]; invalidRoles: string[] }> {

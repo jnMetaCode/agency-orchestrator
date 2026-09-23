@@ -265,5 +265,15 @@ test('解析期：min_bytes 大于 max_bytes 要在解析期就报（否则每�
   assert(errs.some((e) => e.includes('没有产出能同时满足')), `应报区间矛盾，实得：${errs.join('; ')}`);
 });
 
+test('resolveAssert: contains 里的 {{变量}} 要渲染（不渲染就是拿字面量去找，必然失败）', () => {
+  const ctx = new Map([['product', '灵犀音箱'], ['empty', '']]);
+  const r = resolveAssert({ contains: ['固定串', '{{product}}'] }, ctx);
+  assert(JSON.stringify(r.contains) === JSON.stringify(['固定串', '灵犀音箱']), `实际 ${JSON.stringify(r.contains)}`);
+  const warns: string[] = [];
+  const r2 = resolveAssert({ contains: ['{{empty}}', '保留'] }, ctx, (m) => warns.push(m));
+  assert(JSON.stringify(r2.contains) === JSON.stringify(['保留']), '渲染后为空的那条跳过，而不是留个空串（空串永远"包含"）');
+  assert(warns.some((w) => /contains/.test(w)), '跳过要告警');
+});
+
 console.log(`\n  ${passed} passed, ${failed} failed`);
 if (failed > 0) process.exit(1);

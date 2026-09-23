@@ -74,6 +74,19 @@ export function resolveAssert(
     }
     out[k] = Math.round(parseFloat(m[1]) * (m[2] ? parseFloat(m[2]) : 1));
   }
+  // contains 里的 {{变量}} 同样要渲染：不渲染就是拿字面量 "{{title}}" 去产出里找，**必然找不到**——
+  // 而 assert 不过是硬失败（定向返工一轮后步骤红），用户完全看不出是断言自己写错了。
+  // 渲染后为空（引用的变量没填）→ 该条跳过并告警，而不是留一个空串（空串永远"包含"，等于白写）。
+  if (spec.contains?.length) {
+    const kept: string[] = [];
+    for (const item of spec.contains) {
+      if (!item.includes('{{')) { kept.push(item); continue; }
+      const rendered = renderTemplate(item, context).trim();
+      if (!rendered) { warn(`assert.contains 「${item}」渲染后是空的（引用的变量为空？），本条跳过`); continue; }
+      kept.push(rendered);
+    }
+    out.contains = kept;
+  }
   return out;
 }
 

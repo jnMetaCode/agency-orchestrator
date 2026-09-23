@@ -41,6 +41,9 @@ export function parseVerify(raw: string): VerifyVerdict | null {
   if (!m) return null;
   try {
     const j = JSON.parse(m[0]);
+    // 能力弱一点的裁判会把布尔写成字符串（"pass": "true"）。以前一律判为"核验不可用"→ 两次都这样就
+    // 静默跳过验收，而验收恰恰是给这类模型兜底的。只认这两个确定的写法，别的照旧当不可用。
+    if (j.pass === 'true' || j.pass === 'false') j.pass = j.pass === 'true';
     if (typeof j.pass !== 'boolean') return null;
     const failed = Array.isArray(j.failed)
       ? j.failed
@@ -106,8 +109,11 @@ export async function verifyAcceptance(
 
   const tokens = { input: 0, output: 0 };
   // 结论 JSON 要逐字回抄未满足条目原文——上限必须随验收标准长度伸缩，
-  // 否则条目越多/越长（恰恰是最差的产出）越容易截断 JSON、核验静默失效
-  const maxTokens = Math.min(2000, 500 + Math.ceil(acceptance.length * 1.2));
+  // 否则条目越多/越长（恰恰是最差的产出）越容易截断 JSON、核验静默失效。
+  // 起步值按"推理模型会先烧思考 token"给（与看图验收同一口径）：deepseek-reasoner / o 系列
+  // 先吐几百上千 token 思考，500 的预算常常全花在思考上、可见内容 0 字符 → 连接器报
+  // "只返回了思考内容"、verdict=null，于是**每一步的验收都被静默跳过**。
+  const maxTokens = Math.min(4000, 1500 + Math.ceil(acceptance.length * 1.2));
   // 两次尝试：第二次换更严厉的 system 逼纯 JSON（同 compare.judgeOnce 的成熟套路）
   for (let attempt = 0; attempt < 2; attempt++) {
     const sys = attempt === 0

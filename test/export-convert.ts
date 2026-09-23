@@ -88,5 +88,17 @@ assert(['pdf', 'html'].includes(pdf.ext), `pdf 产出 ${pdf.ext}(${pdf.engine})`
   assert(many.length === 2 && many[1].title === '长（续）', '超 9 条自动分「续」页');
 }
 
+// SheetJS 直接拒绝含 / \ ? * [ ] : 的表名，也拒绝重名——而表名取自模型产出的小标题，
+// "Q1/Q2 对比" 这种再常见不过，不净化就是整份导出抛错
+{
+  const md = ['## Q1/Q2 对比', '', '| a | b |', '|---|---|', '| 1 | 2 |', '',
+              '## Q1/Q2 对比', '', '| c | d |', '|---|---|', '| 3 | 4 |', ''].join('\n');
+  const r = await exportMarkdown(md, 'xlsx');
+  const wb = XLSX.read(r.buffer, { type: 'buffer' });
+  assert(wb.SheetNames.length === 2, `两张表都在（实际 ${wb.SheetNames.length}）`);
+  assert(!wb.SheetNames.some((n) => /[/\\?*[\]:]/.test(n)), `表名里没有非法字符（实际 ${JSON.stringify(wb.SheetNames)}）`);
+  assert(new Set(wb.SheetNames).size === 2, `重名被消歧（实际 ${JSON.stringify(wb.SheetNames)}）`);
+}
+
 console.log(`\n  结果: ${passed} 通过, ${failed} 失败\n`);
 if (failed > 0) process.exit(1);

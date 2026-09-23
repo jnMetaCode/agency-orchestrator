@@ -66,7 +66,15 @@ export function readDocsDir(dir: string, opts: DocsDirOptions = {}): DocsDirResu
     if (truncated) { skipped.push(`${rel}（总量已满）`); continue; }
     const buf = readFileSync(p);
     if (buf.includes(0)) { skipped.push(`${rel}（二进制）`); continue; }   // NUL 字节 = 不是文本
-    const section = `## 文件: ${rel}\n\n${buf.toString('utf-8').trim()}\n\n`;
+    const decoded = buf.toString('utf-8');
+    // 不是 UTF-8（Windows 中文机器上的 GBK .txt/.csv 很常见）：解出来是一片 U+FFFD。
+    // 原样塞给模型 = 一整段乱码占着预算、还可能被当成内容；点名跳过，让用户去转码。
+    const bad = (decoded.match(/\uFFFD/g) || []).length;
+    if (decoded.length > 0 && bad / decoded.length > 0.01) {
+      skipped.push(`${rel}（不是 UTF-8 编码，解出来是乱码——先转成 UTF-8，如 iconv -f gbk -t utf-8）`);
+      continue;
+    }
+    const section = `## 文件: ${rel}\n\n${decoded.trim()}\n\n`;
     if (used + Buffer.byteLength(section) > maxTotal) { truncated = true; skipped.push(`${rel}（总量已满）`); continue; }
     parts.push(section); files.push(rel); used += Buffer.byteLength(section);
   }

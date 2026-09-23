@@ -20,6 +20,10 @@ console.log('\n─── acceptance 自动核验（verify）───');
 
 // ── parseVerify：宽松解析 ──
 assert(parseVerify('{"pass": true, "failed": []}')?.pass === true, 'parseVerify: 纯 JSON 通过');
+// 弱一点的裁判把布尔写成字符串。以前判成"核验不可用"→ 两次都这样就静默跳过验收，而验收正是给这类模型兜底的
+assert(parseVerify('{"pass": "true", "failed": []}')?.pass === true, 'parseVerify: "pass": "true" 当成 true');
+assert(parseVerify('{"pass": "false", "failed": [{"criterion": "字数", "why": "超了"}]}')?.pass === false, 'parseVerify: "pass": "false" 当成 false');
+assert(parseVerify('{"pass": 1, "failed": []}') === null, 'parseVerify: 其它写法仍判为不可用（不猜）');
 const p1 = parseVerify('好的，结论如下：\n```json\n{"pass": false, "failed": [{"criterion": "不超过 200 字", "why": "共 450 字"}]}\n```');
 assert(p1?.pass === false && p1.failed[0].criterion === '不超过 200 字', 'parseVerify: 带前言/代码块也能抽出 JSON');
 const p2 = parseVerify('{"pass": true, "failed": [{"criterion": "有风险章节", "why": "缺失"}]}');

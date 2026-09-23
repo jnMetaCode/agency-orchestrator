@@ -139,9 +139,20 @@ function toXlsx(md: string): ExportResult {
     const ws = XLSX.utils.aoa_to_sheet(md.split('\n').map((line) => [line]));
     XLSX.utils.book_append_sheet(wb, ws, 'Report');
   } else {
+    // 工作表名不能带 / \\ ? * [ ] :，也不能重名——SheetJS 直接抛错，整份导出失败。
+    // 标题来自模型产出的小标题（"Q1/Q2 对比"这种再常见不过），必须先净化。
+    const used = new Set<string>();
     tables.forEach((t, i) => {
       const ws = XLSX.utils.aoa_to_sheet(t.rows);
-      XLSX.utils.book_append_sheet(wb, ws, (t.title || `Table${i + 1}`).slice(0, 28));
+      let name = (t.title || `Table${i + 1}`).replace(/[/\\?*[\]:]/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 28) || `Table${i + 1}`;
+      if (used.has(name)) {
+        const base = name.slice(0, 24);
+        let n = 2;
+        while (used.has(`${base} (${n})`)) n++;
+        name = `${base} (${n})`;
+      }
+      used.add(name);
+      XLSX.utils.book_append_sheet(wb, ws, name);
     });
   }
   const buffer = XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' }) as Buffer;

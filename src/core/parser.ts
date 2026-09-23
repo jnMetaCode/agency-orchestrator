@@ -485,6 +485,7 @@ export function validateWorkflow(workflow: WorkflowDefinition, agentsDir?: strin
     if (typeof step.acceptance === 'string') refTexts.push(step.acceptance);
     // 字数断言的字符串写法引用输入变量：写错变量名要在 validate 就拦，别等到运行期"本条跳过"
     for (const v of [step.assert?.min_chars, step.assert?.max_chars]) if (typeof v === 'string') refTexts.push(v);
+    for (const v of step.assert?.contains ?? []) if (typeof v === 'string') refTexts.push(v);
     // 媒体字段也会过变量渲染：写错变量名要在 validate 就拦住，别等到图生视频/合成时报"找不到图片"
     for (const v of Object.values(step.image ?? {})) if (typeof v === 'string') refTexts.push(v);
     for (const v of Object.values(step.video ?? {})) if (typeof v === 'string') refTexts.push(v);

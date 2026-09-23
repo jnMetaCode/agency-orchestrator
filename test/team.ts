@@ -3,7 +3,7 @@
  */
 import { mkdtempSync, writeFileSync, existsSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { join, resolve } from 'node:path';
 import {
   slugify,
   extractTeamFromWorkflow,
@@ -18,9 +18,9 @@ import {
 let passed = 0;
 let failed = 0;
 
-function test(name: string, fn: () => void): void {
+async function test(name: string, fn: () => void | Promise<void>): Promise<void> {
   try {
-    fn();
+    await fn();
     console.log(`  ✅ ${name}`);
     passed++;
   } catch (err) {
@@ -66,12 +66,12 @@ steps:
     depends_on: [b]
 `, 'utf-8');
 
-test('slugify 处理中文/空格/路径字符', () => {
+await test('slugify 处理中文/空格/路径字符', () => {
   assert(slugify('自媒体 副业/组') === '自媒体-副业-组', `got ${slugify('自媒体 副业/组')}`);
   assert(slugify('  ') === 'team', 'empty → team');
 });
 
-test('extractTeamFromWorkflow 去重并保序', () => {
+await test('extractTeamFromWorkflow 去重并保序', () => {
   const tm = extractTeamFromWorkflow(wfPath);
   assert(tm.kind === 'team', 'kind=team');
   assert(tm.name === '测试组', `name got ${tm.name}`);
@@ -82,13 +82,13 @@ test('extractTeamFromWorkflow 去重并保序', () => {
   assert(tm.provider === 'deepseek', 'provider carried');
 });
 
-test('extractTeamFromWorkflow 支持 name/desc 覆盖', () => {
+await test('extractTeamFromWorkflow 支持 name/desc 覆盖', () => {
   const tm = extractTeamFromWorkflow(wfPath, { name: '自定义名', description: '自定义说明' });
   assert(tm.name === '自定义名', `got ${tm.name}`);
   assert(tm.description === '自定义说明', `got ${tm.description}`);
 });
 
-test('serialize → parse 往返', () => {
+await test('serialize → parse 往返', () => {
   const tm = extractTeamFromWorkflow(wfPath);
   const yaml = serializeTeam(tm);
   assert(yaml.includes('kind: team'), 'has kind');
@@ -100,13 +100,13 @@ test('serialize → parse 往返', () => {
   assert(parsed.roles.length === tm.roles.length, 'roles roundtrip');
 });
 
-test('parseTeamFile 拒绝非团队文件', () => {
+await test('parseTeamFile 拒绝非团队文件', () => {
   let threw = false;
   try { parseTeamFile(wfPath); } catch { threw = true; }
   assert(threw, 'should reject workflow yaml (no kind: team)');
 });
 
-test('save / list / loadByRef / remove 全链路', () => {
+await test('save / list / loadByRef / remove 全链路', () => {
   const tm = extractTeamFromWorkflow(wfPath, { name: '保存测试组' });
   const saved = saveTeam(tm, dir);
   assert(existsSync(saved), 'file written');
@@ -127,11 +127,34 @@ test('save / list / loadByRef / remove 全链路', () => {
   assert(!existsSync(saved), 'file gone');
 });
 
-test('loadTeamByRef 找不到时抛错', () => {
+await test('loadTeamByRef 找不到时抛错', () => {
   let threw = false;
   try { loadTeamByRef('不存在的团队xyz', dir); } catch { threw = true; }
   assert(threw, 'should throw for missing team');
 });
 
+// ── 锁定阵容对不上当前角色库 ──
+// 团队存的是中文角色、却用 --lang en 跑（或角色库改过名）时，以前 `filtered.length > 0` 不成立就
+// **静默退回整库**——"锁定阵容"的承诺当场作废，用户还以为跑的是自己那套人。
+await test('锁定阵容一个都不在当前角色库 → 报错，而不是悄悄退回整库', async () => {
+  const { composeWorkflow } = await import('../src/cli/compose.js');
+  const agentsDir = resolve('node_modules/agency-agents-zh');
+  let msg = '';
+  try {
+    await composeWorkflow({
+      description: '随便什么任务',
+      agentsDir,
+      llmConfig: { provider: 'deepseek', model: 'm', api_key: 'k' } as never,
+      pinnedRoles: ['nope/not-a-role', 'also/missing'],
+      saveDir: mkdtempSync(join(tmpdir(), 'ao-team-pin-')),
+    });
+  } catch (e) {
+    msg = e instanceof Error ? e.message : String(e);
+  }
+  assert(/一个都不在当前角色库/.test(msg), `一个都对不上要报错，而不是悄悄用整库（实际：${msg.slice(0, 120)}）`);
+  assert(/nope\/not-a-role/.test(msg) && /ao roles/.test(msg), '报错点名缺的角色并给出路');
+});
+
 console.log(`\n  结果: ${passed} 通过, ${failed} 失败\n`);
 if (failed > 0) process.exit(1);
+
