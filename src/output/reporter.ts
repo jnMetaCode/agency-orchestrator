@@ -183,6 +183,8 @@ export function saveResults(result: WorkflowResult, outputDir: string): string {
       output_var: s.output_var,
       acceptance: s.acceptance,
       verification: s.verification,
+      // 机械断言（assert）的结果：以前只往终端打一行，事后翻档案看不出"这一步被 min_chars 逼着返工过"
+      assertion: s.assertion,
       // 失败原因（含"运行被中断"）随档案保存，历史查看器展示失败步骤时用
       error: s.error,
       duration: `${(s.duration / 1000).toFixed(1)}s`,

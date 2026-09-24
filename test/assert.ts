@@ -7,6 +7,11 @@
  */
 import { checkAssert, buildAssertReworkBlock, countChars, resolveAssert } from '../src/core/assert.js';
 import { parseWorkflow, validateWorkflow } from '../src/core/parser.js';
+import { buildDAG } from '../src/core/dag.js';
+import { executeDAG } from '../src/core/executor.js';
+import { saveResults } from '../src/output/reporter.js';
+import { mkdirSync, readFileSync } from 'node:fs';
+import type { LLMConnector, LLMResult, LLMConfig } from '../src/types.js';
 import { resolve } from 'node:path';
 import { writeFileSync, mkdtempSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -274,6 +279,52 @@ test('resolveAssert: contains 里的 {{变量}} 要渲染（不渲染就是拿�
   assert(JSON.stringify(r2.contains) === JSON.stringify(['保留']), '渲染后为空的那条跳过，而不是留个空串（空串永远"包含"）');
   assert(warns.some((w) => /contains/.test(w)), '跳过要告警');
 });
+
+// ── 断言结果要进档案 ──
+// 以前只往终端打一行「⟳ 机械断言未过…定向返工一轮」。跑完再回来翻 metadata.json，
+// 看不出这一步是被 min_chars/max_bytes 逼着重写过的——小说线尤其需要这条痕迹。
+{
+  const dir = mkdtempSync(join(tmpdir(), 'ao-assert-archive-'));
+  mkdirSync(join(dir, 'x'), { recursive: true });
+  writeFileSync(join(dir, 'x', 'y.md'), '---\nname: 测试角色\ndescription: 测试用\n---\n你是测试角色。\n', 'utf-8');
+  const wfPath2 = join(dir, 'wf.yaml');
+  writeFileSync(wfPath2, [
+    'name: assert-archive', `agents_dir: ${dir}`, 'verify: false',
+    'llm:', '  provider: deepseek', '  model: deepseek-chat',
+    'steps:',
+    '  - id: tight', '    role: x/y', '    task: 写点什么', '    assert:', '      max_bytes: 10', '    output: a',
+    '  - id: loose', '    role: x/y', '    task: 再写点什么', '    assert:', '      min_chars: 1', '    output: b', '    depends_on: [tight]', '',
+  ].join('\n'), 'utf-8');
+
+  class TwoShot implements LLMConnector {
+    calls = 0;
+    async chat(_s: string, user: string, _c: LLMConfig): Promise<LLMResult> {
+      this.calls++;
+      // 第一次给超长（撞 max_bytes），返工那次给短的 —— 与真机形态一致
+      const long = user.includes('写点什么') && !user.includes('产出太长');
+      return { content: long ? '这是一段很长很长的产出'.repeat(5) : '短', usage: { input_tokens: 1, output_tokens: 1 } };
+    }
+  }
+  const wf2 = parseWorkflow(wfPath2);
+  const res = await executeDAG(buildDAG(wf2), {
+    connector: new TwoShot(), agentsDir: dir, llmConfig: wf2.llm, concurrency: 1, inputs: new Map(),
+  });
+  res.name = wf2.name;
+  const tight = res.steps.find((s) => s.id === 'tight');
+  const loose = res.steps.find((s) => s.id === 'loose');
+  test('返工过的步骤在 StepResult 里留痕', () => {
+    assert(tight?.assertion?.reworked === true && tight?.assertion?.pass === true, `实际 ${JSON.stringify(tight?.assertion)}`);
+  });
+  test('一次就过的步骤记 reworked=false（而不是什么都不记）', () => {
+    assert(loose?.assertion?.pass === true && loose?.assertion?.reworked === false, `实际 ${JSON.stringify(loose?.assertion)}`);
+  });
+  test('assertion 进 metadata.json', () => {
+    const out = saveResults(res, join(dir, 'out'));
+    const meta = JSON.parse(readFileSync(join(out, 'metadata.json'), 'utf-8'));
+    const m = meta.steps.find((s: { id: string }) => s.id === 'tight');
+    assert(m?.assertion?.reworked === true, `实际 ${JSON.stringify(m?.assertion)}`);
+  });
+}
 
 console.log(`\n  ${passed} passed, ${failed} failed`);
 if (failed > 0) process.exit(1);

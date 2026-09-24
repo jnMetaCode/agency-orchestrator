@@ -159,6 +159,7 @@ export interface DAGNode {
   agentEmoji?: string;        // 角色 emoji
   acceptance?: string;        // 执行时渲染后的验收标准（executeStep 写入，进 StepResult/metadata）
   verification?: StepVerification; // acceptance 自动核验结果（executeStep 写入）
+  assertion?: StepVerification;    // 机械断言（assert）结果（executeStep 写入）——与 verification 同形状
   /** type: image 的产物（base64 只在内存里过一道手，saveResults 落成 assets/ 下的文件） */
   imageAsset?: { filename: string; base64: string };
   /** type: video 的产物（与 imageAsset 同一套落盘机制；mp4 比 png 大，base64 只在落盘前存在） */
@@ -264,6 +265,11 @@ export interface StepResult {
   output?: string;
   output_var?: string;            // 输出变量名（用于 resume 时重建 context）
   acceptance?: string;            // 该步的验收标准（渲染后），随 metadata 存档供查看器展示
+  /**
+   * 机械断言（assert）的结果，随 metadata 存档。存档里以前只有 acceptance 的核验记录，
+   * 断言只往终端打一行——事后翻档案看不出"这一步是被 min_chars 逼着返工过一轮的"。
+   */
+  assertion?: StepVerification;
   error?: string;
   duration: number;
   tokens: { input: number; output: number };

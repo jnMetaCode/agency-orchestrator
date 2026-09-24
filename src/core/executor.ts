@@ -197,6 +197,7 @@ export async function executeDAG(dag: DAG, options: ExecutorOptions): Promise<Wo
           agentEmoji: prev?.agentEmoji,
           acceptance: prev?.acceptance,
           verification: prev?.verification,
+          assertion: prev?.assertion,
           // 媒体产物只带文件名：run() 落盘后据此把上一轮的 png/mp4 复制进新目录，markdown 链接才不断
           imageAsset: prev?.imageAsset,
           videoAsset: prev?.videoAsset,
@@ -266,6 +267,7 @@ export async function executeDAG(dag: DAG, options: ExecutorOptions): Promise<Wo
               output_var: node.step.output,
               acceptance: node.acceptance ?? node.step.acceptance,
               verification: node.verification,
+              assertion: node.assertion,
               duration: Date.now() - (node.startTime || Date.now()),
               tokens: withPriorTokens(node.step.id, node.tokenUsage),
               imageAsset: node.imageAsset,
@@ -319,6 +321,7 @@ export async function executeDAG(dag: DAG, options: ExecutorOptions): Promise<Wo
           output_var: node.step.output,
           acceptance: node.acceptance ?? node.step.acceptance,
           verification: node.verification,
+          assertion: node.assertion,
           error: node.error,
           duration: (node.endTime || 0) - (node.startTime || 0),
           tokens: tokenTotals.get(node.step.id) || { input: 0, output: 0 },
@@ -1064,6 +1067,7 @@ async function executeStep(
     // min_chars / max_chars 可以是 "{{length}} * 0.7" 这种带变量的写法——先按本次输入算成数字
     const assertSpec = resolveAssert(node.step.assert, opts.context, (m) => process.stderr.write(`  ⚠️  ${node.step.id} ${m}\n`));
     const first = checkAssert(content, assertSpec);
+    node.assertion = { pass: true, failed: [], reworked: false };
     if (!first.pass) {
       process.stderr.write(`\n  ⟳ ${node.step.id} 机械断言未过（${first.failures.length} 条），定向返工一轮...\n`);
       first.failures.forEach((f) => process.stderr.write(`      · ${f}\n`));
@@ -1075,6 +1079,7 @@ async function executeStep(
         throw new Error(`step "${node.step.id}" 机械断言未过且返工生成失败（${msg}）：\n  - ${first.failures.join('\n  - ')}`);
       }
       const second = checkAssert(retried, assertSpec);
+      node.assertion = { pass: second.pass, failed: second.pass ? [] : second.failures, reworked: true };
       if (!second.pass) {
         // 到这里就停。宁可让这一步红着，也不能让缺件的产物流下去——
         // 静默损坏比失败贵得多：失败当场就知道，缺件要等上线后才发现。
