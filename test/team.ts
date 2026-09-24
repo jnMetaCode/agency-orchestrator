@@ -71,6 +71,17 @@ await test('slugify 处理中文/空格/路径字符', () => {
   assert(slugify('  ') === 'team', 'empty → team');
 });
 
+await test('超长中文名要按字节截断——它是文件名，Linux 上 255 字节是硬限', () => {
+  // <slug>.team.yaml 落在 ~/.ao/teams：Linux（Docker / NAS）NAME_MAX=255 **字节**，
+  // 86 个汉字就超了，保存会抛 ENAMETOOLONG。macOS 按字符算 255，本机试不出来 → 直接盯字节。
+  const slug = slugify('很长的团队名'.repeat(20));
+  assert(Buffer.byteLength(`${slug}.team.yaml`) <= 255, `文件名不超 255 字节（实际 ${Buffer.byteLength(`${slug}.team.yaml`)}）`);
+  assert(slug.startsWith('很长的团队名'), '保留可辨认的前缀');
+  assert(!/\uFFFD/.test(slug) && Buffer.from(slug, 'utf-8').toString('utf-8') === slug, '没有把汉字从中间切开');
+  const saved = saveTeam(extractTeamFromWorkflow(wfPath, { name: '很长的团队名'.repeat(20) }), dir);
+  assert(existsSync(saved), '真能存下来');
+});
+
 await test('extractTeamFromWorkflow 去重并保序', () => {
   const tm = extractTeamFromWorkflow(wfPath);
   assert(tm.kind === 'team', 'kind=team');

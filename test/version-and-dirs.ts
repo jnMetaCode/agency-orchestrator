@@ -11,7 +11,8 @@ import { resolve } from 'node:path';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { isNewer } from '../src/utils/version-check.js';
-import { saveResults, clipBytes } from '../src/output/reporter.js';
+import { saveResults } from '../src/output/reporter.js';
+import { clipBytes } from '../src/utils/paths.js';
 import type { WorkflowResult } from '../src/types.js';
 
 let passed = 0;

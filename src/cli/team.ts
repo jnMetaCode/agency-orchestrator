@@ -13,6 +13,7 @@
  */
 import { homedir } from 'node:os';
 import { join, resolve, basename, isAbsolute } from 'node:path';
+import { clipBytes } from '../utils/paths.js';
 import { existsSync, mkdirSync, readFileSync, writeFileSync, readdirSync, unlinkSync } from 'node:fs';
 import yaml from 'js-yaml';
 import { parseWorkflow } from '../core/parser.js';
@@ -50,7 +51,9 @@ export function slugify(name: string): string {
     .replace(/[\s/\\:*?"<>|]+/g, '-')   // 路径/空白 → 连字符
     .replace(/-+/g, '-')
     .replace(/^-|-$/g, '');
-  return s || 'team';
+  // 再按**字节**截断：这是要当文件名用的（<slug>.team.yaml），而 Linux 的 NAME_MAX 是
+  // 255 字节——一个 86 字的中文团队名就会让保存抛 ENAMETOOLONG（macOS 按字符算，本机试不出来）
+  return clipBytes(s, 120).replace(/-+$/, '') || 'team';
 }
 
 /** 从一个 workflow 中抽取团队（去重角色，保序，剥掉任务/inputs）。 */

@@ -53,3 +53,22 @@ export function displayPath(p: string): string {
   // 只按"有没有空白"决定要不要引号：Windows 路径里的反斜杠不能动，引号里它就是字面量
   return /\s/.test(pick) ? `"${pick.replace(/"/g, '\\"')}"` : pick;
 }
+
+/**
+ * 按 UTF-8 字节截断，且不切碎字符（中文一字 3 字节、emoji 4 字节）。
+ * 目录名的长度上限在**字节**上：Linux（Docker 镜像、NAS 部署）NAME_MAX=255 字节，
+ * 一个 86 个汉字的工作流名就会让 mkdir 抛 ENAMETOOLONG——而那时整条工作流已经跑完、
+ * 钱已经花了，产物却存不下来。macOS 的 APFS 按**字符**算 255，所以本机试不出来。
+ */
+export function clipBytes(s: string, maxBytes: number): string {
+  if (Buffer.byteLength(s) <= maxBytes) return s;
+  let out = '';
+  let used = 0;
+  for (const ch of s) {          // 按码点遍历：别把一个汉字/emoji 从中间切开
+    const b = Buffer.byteLength(ch);
+    if (used + b > maxBytes) break;
+    out += ch;
+    used += b;
+  }
+  return out;
+}

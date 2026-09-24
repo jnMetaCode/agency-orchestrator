@@ -12,6 +12,7 @@
  */
 import { homedir } from 'node:os';
 import { join, resolve } from 'node:path';
+import { clipBytes } from '../utils/paths.js';
 import { existsSync, mkdirSync, readFileSync, writeFileSync, readdirSync, unlinkSync } from 'node:fs';
 import { createConnector } from '../connectors/factory.js';
 import type { LLMConfig } from '../types.js';
@@ -46,7 +47,8 @@ export function slugify(name: string): string {
     .replace(/[\s/\\:*?"<>|]+/g, '-')
     .replace(/-+/g, '-')
     .replace(/^-|-$/g, '');
-  return s || 'prompt';
+  // 同 team：这是文件名（<slug>.prompt.json），Linux 的 NAME_MAX 按字节算 255
+  return clipBytes(s, 120).replace(/-+$/, '') || 'prompt';
 }
 
 // ── 优化：meta-prompt → LLM ──────────────────────────────────────────────────

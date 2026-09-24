@@ -33,6 +33,18 @@ test('slugify 处理中文/空格', () => {
   assert(slugify('我的 提示词/库') === '我的-提示词-库', `got ${slugify('我的 提示词/库')}`);
 });
 
+test('超长中文名按字节截断——它是文件名，Linux 上 255 字节是硬限', () => {
+  // <slug>.prompt.json 落在 ~/.ao/prompts：Linux（Docker / NAS）NAME_MAX=255 **字节**，
+  // 86 个汉字就超了，保存会抛 ENAMETOOLONG。macOS 按字符算 255，本机试不出来 → 直接盯字节。
+  const slug = slugify('很长的提示词名字'.repeat(20));
+  assert(Buffer.byteLength(`${slug}.prompt.json`) <= 255, `文件名不超 255 字节（实际 ${Buffer.byteLength(`${slug}.prompt.json`)}）`);
+  assert(slug.startsWith('很长的提示词名字'), '保留可辨认的前缀');
+  assert(Buffer.from(slug, 'utf-8').toString('utf-8') === slug, '没有把汉字从中间切开');
+  const now = new Date().toISOString();
+  const path = savePrompt({ kind: 'prompt', name: '很长的提示词名字'.repeat(20), mode: 'user', created: now, versions: [{ content: 'x', source: 'original', created: now }] }, dir);
+  assert(existsSync(path), '真能存下来');
+});
+
 test('buildOptimizeMetaPrompt 区分 system/user 与中英', () => {
   assert(buildOptimizeMetaPrompt('system', 'zh').includes('人设'), 'zh system mentions 人设');
   assert(buildOptimizeMetaPrompt('user', 'zh').includes('任务'), 'zh user mentions 任务');
