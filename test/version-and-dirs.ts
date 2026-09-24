@@ -5,7 +5,9 @@
  *  - 运行目录时间戳只到秒：同一秒跑完的两次同名工作流写进同一个目录，后一次把前一次盖掉
  *    （Studio 允许并行跑，所以不是假想）。
  */
-import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, readFileSync, writeFileSync, rmSync } from 'node:fs';
+import { spawnSync } from 'node:child_process';
+import { resolve } from 'node:path';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { isNewer } from '../src/utils/version-check.js';
@@ -43,6 +45,41 @@ console.log('\n─── 同一秒的两次运行不互相覆盖 ───');
   assert(readFileSync(join(d1, 'steps', '1-a.md'), 'utf-8').includes('第1次'), '第一次的产出没被盖掉');
   assert(readFileSync(join(d2, 'steps', '1-a.md'), 'utf-8').includes('第2次'), '第二次的产出也在');
   rmSync(out, { recursive: true, force: true });
+}
+
+console.log('\n─── 凭证：~/.ao/.env 是用户级的，换个目录也认 ───');
+{
+  // teams / prompts / roles 都住 ~/.ao，凭证却只读当前目录的 .env——换个目录敲 ao 就"没凭证"。
+  // 优先级：shell env > ./.env（项目级） > ~/.ao/.env（用户级）。
+  const home = mkdtempSync(join(tmpdir(), 'ao-home-'));
+  const work = mkdtempSync(join(tmpdir(), 'ao-work-'));
+  mkdirSync(join(home, '.ao'), { recursive: true });
+  writeFileSync(join(home, '.ao', '.env'), 'DEEPSEEK_API_KEY=sk-user-level\n', 'utf-8');
+  const CLI = resolve('dist/cli.js');
+  const ao = (extra: NodeJS.ProcessEnv) => {
+    const env: NodeJS.ProcessEnv = { ...process.env, HOME: home, USERPROFILE: home, AO_NO_UPDATE_CHECK: '1', AO_DATA_DIR: home };
+    for (const k of ['DEEPSEEK_API_KEY', 'OLLAMA_BASE_URL']) delete env[k];
+    Object.assign(env, extra);
+    const r = spawnSync(process.execPath, [CLI, 'doctor', '--no-probe'], { cwd: work, encoding: 'utf-8', timeout: 90_000, env, input: '' });
+    return (r.stdout || '') + (r.stderr || '');
+  };
+  const out = ao({});
+  assert(/环境变量已配 key：[^\n]*deepseek/.test(out), `在别的目录下跑，也读到了 ~/.ao/.env（实际：${out.split('\n').find((l) => l.includes('key（env）') || l.includes('已配 key'))?.trim().slice(0, 60)}）`);
+
+  // 三层的先后要能看出来：doctor 会把它实际用的 Ollama 地址原样打出来，拿它当探针
+  writeFileSync(join(home, '.ao', '.env'), 'DEEPSEEK_API_KEY=sk-user-level\nOLLAMA_BASE_URL=http://127.0.0.1:9/from-user\n', 'utf-8');
+  const userOnly = ao({});
+  assert(/from-user/.test(userOnly), `只有用户级时用它（实际：${userOnly.split('\n').find((l) => l.includes('Ollama'))?.trim().slice(0, 70)}）`);
+
+  writeFileSync(join(work, '.env'), 'OLLAMA_BASE_URL=http://127.0.0.1:9/from-project\n', 'utf-8');
+  const projectWins = ao({});
+  assert(/from-project/.test(projectWins) && !/from-user/.test(projectWins), '项目级 ./.env 压过用户级 ~/.ao/.env');
+
+  const shellWins = ao({ OLLAMA_BASE_URL: 'http://127.0.0.1:9/from-shell' });
+  assert(/from-shell/.test(shellWins), 'shell 里的值压过两个文件（否则 export 改了不生效，排查毫无头绪）');
+
+  rmSync(home, { recursive: true, force: true });
+  rmSync(work, { recursive: true, force: true });
 }
 
 console.log(`\n  结果: ${passed} 通过, ${failed} 失败\n`);

@@ -373,6 +373,9 @@ OPENAI_BASE_URL=https://你的API地址/v1
 OPENAI_API_KEY=你的key
 ```
 
+`.env` 读两处，优先级：**shell 环境变量 > 当前目录 `./.env`（项目级） > `~/.ao/.env`（用户级）**。
+配一次就想在任何目录下都生效，写 `~/.ao/.env`（和 `~/.ao/teams`、`~/.ao/prompts` 同一个地方）。
+
 常见示例：
 
 | 平台 | base_url | model |

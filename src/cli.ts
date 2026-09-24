@@ -35,11 +35,15 @@ import { scheduleUpdateCheck, fetchLatestVersion, isNewer, detectUpgradeCommand,
 import { t, detectLang } from './i18n.js';
 import { loadEnvFile, writeEnvFile, ensureEnvGitignored } from './utils/env-loader.js';
 import { parseDuration } from './utils/duration.js';
-import { defaultOutputDir, defaultWorkflowsDir } from './utils/paths.js';
+import { defaultOutputDir, defaultWorkflowsDir, aoUserDir } from './utils/paths.js';
 import { rotatingSponsors, guideProviderId } from './utils/sponsor-guide.js';
 
-// Auto-load ./.env (shell env wins; no overwrite)
+// 自动读 .env（shell 里已有的值永远赢，不覆盖）。两处，按优先级：
+//   shell env > ./.env（项目级） > ~/.ao/.env（用户级）
+// 用户级那份是必须的：teams / prompts / roles 都住在 ~/.ao，凭证却只认当前目录的 .env——
+// 换个目录敲 ao 就"没凭证"，而 doctor 里明明显示 Studio 已经配好（那份只注入 Studio 进程）。
 loadEnvFile();
+loadEnvFile(join(aoUserDir(), '.env'));
 
 // Suppress Node's DEP0190 warning from legitimate shell:true on Windows (.cmd shims).
 const origEmit = process.emit.bind(process);
@@ -811,7 +815,7 @@ async function handleDoctor(): Promise<void> {
       console.log(`     ⚠️ 这些只存在 Studio 里（网页/桌面版能跑），命令行不会读 —— 直接敲 ao 命令仍会报没凭证`);
       const sample = studioOnly[0];
       const envName = envKeys[sample] || `${sample.toUpperCase()}_API_KEY`;
-      console.log(`     ↳ 命令行要用就 export ${envName}=... ，或跑的时候带 --api-key / --provider`);
+      console.log(`     ↳ 命令行要用就 export ${envName}=... ，或写进 ~/.ao/.env（任何目录下都生效），或跑的时候带 --api-key / --provider`);
     }
   }
 
