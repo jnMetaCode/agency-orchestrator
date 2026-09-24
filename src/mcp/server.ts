@@ -20,7 +20,7 @@ import { parseWorkflow, validateWorkflow } from '../core/parser.js';
 import { buildDAG, formatDAG } from '../core/dag.js';
 import { listAgents } from '../agents/loader.js';
 import { composeWorkflow } from '../cli/compose.js';
-import { CLI_PROVIDER_IDS, isCliProvider } from '../providers/detect.js';
+import { CLI_PROVIDER_IDS, isCliProvider, pickAutoProvider } from '../providers/detect.js';
 import { CLAUDE_DEFAULT_MODEL, API_PROVIDERS, API_PROVIDER_MAP, ANTHROPIC_PROVIDERS } from '../connectors/api-providers.js';
 
 /**
@@ -315,20 +315,22 @@ export async function startServer(verbose = false): Promise<void> {
     'Generate a workflow YAML from a natural language description using AI',
     {
       description: z.string().describe('One-sentence workflow description'),
-      provider: z.enum(['deepseek', 'claude', 'openai', 'ollama']).optional().describe('LLM provider (default: deepseek)'),
+      provider: z.enum(MCP_PROVIDER_IDS).optional().describe('LLM provider (default: an installed CLI provider, else a keyed one)'),
       model: z.string().optional().describe('Model name'),
     },
     async ({ description, provider, model }) => {
       try {
         const agentsDir = findAgentsDir();
-        const llmProvider = provider || process.env.AO_PROVIDER as any || 'deepseek';
-        const defaultModels: Record<string, string> = {
-          deepseek: 'deepseek-chat',
-          claude: CLAUDE_DEFAULT_MODEL,
-          openai: 'gpt-4o',
-          ollama: 'llama3',
-        };
-        const llmModel = model || process.env.AO_MODEL || defaultModels[llmProvider] || 'gpt-4o';
+        // 与 CLI 同一套零配置选择：本机装了 claude-code / codex-cli 就直接用它（复用登录态）。
+        // 以前这里硬编码兜底 deepseek——于是同一台装了 claude-code 的机器上，`ao compose` 能跑，
+        // 经 MCP 调 compose_workflow 却报「缺少 API Key」。MCP 宿主基本都是这种机器。
+        const llmProvider = pickAutoProvider(provider || process.env.AO_PROVIDER, 'deepseek').provider;
+        // CLI 类 provider 不认模型名（用它自己的默认）；API 类回退到该家注册表里的默认模型
+        const llmModel = model || process.env.AO_MODEL || (
+          isCliProvider(llmProvider) ? ''
+          : llmProvider === 'claude' ? CLAUDE_DEFAULT_MODEL
+          : API_PROVIDER_MAP[llmProvider]?.defaultModel || 'gpt-4o'
+        );
 
         const result = await silentCall(() =>
           composeWorkflow({

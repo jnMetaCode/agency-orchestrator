@@ -18,7 +18,7 @@ import { buildDAG, formatDAG } from './core/dag.js';
 import { summarizeMediaSpend } from './media/preflight.js';
 import { listAgents, filterAgentsByKeyword } from './agents/loader.js';
 import { run, findAgentsDir, compareWorkflowVsBaseline } from './index.js';
-import { detectInstalledCliProviders, detectUsableCliProviders, DEPRECATED_CLI_PROVIDERS, CLI_PROVIDER_IDS } from './providers/detect.js';
+import { detectInstalledCliProviders, detectUsableCliProviders, pickAutoProvider, DEPRECATED_CLI_PROVIDERS, CLI_PROVIDER_IDS } from './providers/detect.js';
 import { CLAUDE_DEFAULT_MODEL, API_PROVIDERS, VIDEO_PROVIDERS, API_PROVIDER_MAP } from './connectors/api-providers.js';
 import { postChatCompletions, postApiEndpoint, endpointHint, normalizeBaseUrl, envProxyHint } from './connectors/openai-compatible.js';
 import { installEnvProxy, envProxyStatus } from './utils/env-proxy.js';
@@ -722,25 +722,12 @@ function firstPositional(): string | undefined {
  * 用于 compose / prompt / team 等「需要一个能直接跑的 provider」的路径；`ao run` 不走这里（尊重 YAML）。
  */
 function autoProvider(explicit: string | undefined, fallback: string): string {
-  if (explicit) return explicit;
-  // 1) 本机已装的订阅制 CLI 优先（零配置、复用登录态）——已停服的（如 gemini-cli）绝不自动选
-  const detected = detectUsableCliProviders();
-  if (detected.length > 0) {
-    console.log(`  🔌 检测到本机已安装 ${detected[0]}，零配置直接用（要换 provider 用 --provider 指定）\n`);
-    return detected[0];
+  // 选择逻辑在 providers/detect.ts（与 MCP 服务端共用一份），这里只负责把"为什么选它"说出来
+  const picked = pickAutoProvider(explicit, fallback);
+  if (picked.reason === 'installed-cli') {
+    console.log(`  🔌 检测到本机已安装 ${picked.provider}，零配置直接用（要换 provider 用 --provider 指定）\n`);
   }
-  // 2) 没装 CLI：尊重用户已配 key 的 provider（与 Web /api/config 的 recommended 一致），
-  //    避免用户配了 OPENAI/Anthropic key 却被兜底成 deepseek 而报错。
-  const keyed: Array<[string, string]> = [
-    ['deepseek', 'DEEPSEEK_API_KEY'],
-    ['openai', 'OPENAI_API_KEY'],
-    ['claude', 'ANTHROPIC_API_KEY'],
-  ];
-  for (const [provider, envKey] of keyed) {
-    if (process.env[envKey]) return provider;
-  }
-  // 3) 都没有 → 兜底默认
-  return fallback;
+  return picked.provider;
 }
 
 /**

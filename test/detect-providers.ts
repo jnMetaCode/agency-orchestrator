@@ -5,7 +5,7 @@
 import { mkdtempSync, writeFileSync, chmodSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, delimiter } from 'node:path';
-import { isOnPath, detectInstalledCliProviders, CLI_PROVIDER_BINS, CLI_PROVIDER_IDS, isCliProvider } from '../src/providers/detect.js';
+import { isOnPath, detectInstalledCliProviders, pickAutoProvider, CLI_PROVIDER_BINS, CLI_PROVIDER_IDS, isCliProvider } from '../src/providers/detect.js';
 import { readFileSync } from 'node:fs';
 import { hasExtraBinDirs } from '../src/utils/bin-lookup.js';
 
@@ -41,6 +41,35 @@ try {
   assert(CLI_PROVIDER_BINS['gemini-cli'] === 'gemini', 'gemini-cli → gemini 二进制名正确');
 } finally {
   rmSync(dir, { recursive: true, force: true });
+}
+
+console.log('\n─── 零配置选 provider：CLI 与 MCP 必须同一套 ───');
+{
+  // MCP 服务端此前把 compose 的 provider 硬编码兜底成 deepseek：同一台装了 claude-code 的机器上，
+  // `ao compose` 零配置就能跑，经 MCP 调 compose_workflow 却报「缺少 API Key」。
+  // 而 MCP 宿主（Claude Code / Claude Desktop）基本都是装了 CLI 的机器。
+  const binDir = mkdtempSync(join(tmpdir(), 'ao-auto-'));
+  const fake = join(binDir, 'claude');
+  writeFileSync(fake, '#!/bin/sh\nexit 0\n', 'utf-8');
+  chmodSync(fake, 0o755);
+  const withCli: NodeJS.ProcessEnv = { PATH: binDir };
+  assert(pickAutoProvider(undefined, 'deepseek', withCli).provider === 'claude-code', '装了 CLI 就用它');
+  assert(pickAutoProvider(undefined, 'deepseek', withCli).reason === 'installed-cli', 'reason 说清为什么（调用方据此决定要不要打提示）');
+  assert(pickAutoProvider('openai', 'deepseek', withCli).provider === 'openai', '显式指定永远优先');
+  // 没有任何 CLI 时的两条分支（兜底 / 用已配 key 的那家）要在"本机真没装"的前提下测。
+  // 注意：codebuddy 这类 CLI 即使 PATH 为空也能从已知安装目录探到（bin-lookup.ts），
+  // 所以不能假设清空 PATH 就等于"没装"——按实际探测结果分流，别写一条只在某些机器上成立的断言。
+  const bare: NodeJS.ProcessEnv = { PATH: join(binDir, 'nothing-here') };
+  const stillDetected = detectInstalledCliProviders(bare);
+  if (stillDetected.length === 0) {
+    assert(pickAutoProvider(undefined, 'deepseek', bare).provider === 'deepseek', '什么都没有 → 兜底');
+    assert(pickAutoProvider(undefined, 'deepseek', { ...bare, OPENAI_API_KEY: 'k' }).provider === 'openai', '没装 CLI 但配了 key → 用那家，别兜底成没 key 的 deepseek');
+  } else {
+    // 本机装着能被已知目录探到的 CLI（如 WorkBuddy 自带的 codebuddy）：改测"CLI 优先于已配的 key"
+    assert(pickAutoProvider(undefined, 'deepseek', { ...bare, OPENAI_API_KEY: 'k' }).provider === stillDetected[0],
+      `本机探到 ${stillDetected[0]}：CLI 优先于已配 key（兜底那两条在这台机器上测不了，CI 上会测）`);
+  }
+  rmSync(binDir, { recursive: true, force: true });
 }
 
 console.log('\n─── CLI provider 名单只有一份 ───');

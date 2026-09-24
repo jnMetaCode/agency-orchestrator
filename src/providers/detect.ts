@@ -89,3 +89,29 @@ export function detectInstalledCliProviders(env: NodeJS.ProcessEnv = process.env
 export function detectUsableCliProviders(env: NodeJS.ProcessEnv = process.env): string[] {
   return detectInstalledCliProviders(env).filter((name) => !(name in DEPRECATED_CLI_PROVIDERS));
 }
+
+/**
+ * 零配置选 provider（纯函数，不打印）：没显式指定时，优先本机已装的订阅制 CLI（复用其登录态、
+ * 无需配 key），其次是已配 key 的 API provider，最后才兜底。
+ *
+ * CLI 与 MCP 必须走同一套：MCP 服务端此前把 compose 的 provider 硬编码成 deepseek，
+ * 于是在一台装了 claude-code 的机器上（MCP 宿主基本都是这种），`ao compose` 能零配置跑，
+ * 经 MCP 调 compose_workflow 却报「缺少 API Key」——同一台机器两种结果。
+ * 返回 reason 让调用方决定要不要把"为什么选它"说给用户听。
+ */
+export function pickAutoProvider(
+  explicit: string | undefined,
+  fallback: string,
+  env: NodeJS.ProcessEnv = process.env,
+): { provider: string; reason: 'explicit' | 'installed-cli' | 'keyed' | 'fallback' } {
+  if (explicit) return { provider: explicit, reason: 'explicit' };
+  const detected = detectUsableCliProviders(env);
+  if (detected.length > 0) return { provider: detected[0], reason: 'installed-cli' };
+  const keyed: Array<[string, string]> = [
+    ['deepseek', 'DEEPSEEK_API_KEY'],
+    ['openai', 'OPENAI_API_KEY'],
+    ['claude', 'ANTHROPIC_API_KEY'],
+  ];
+  for (const [provider, envKey] of keyed) if (env[envKey]) return { provider, reason: 'keyed' };
+  return { provider: fallback, reason: 'fallback' };
+}

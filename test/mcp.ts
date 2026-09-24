@@ -133,6 +133,17 @@ await test('跑不成必须说出口：不可交互的 approval 步骤不能按�
   }
 });
 
+await test('compose_workflow 的 provider 与 CLI 同一套零配置选择（不再硬兜底 deepseek）', async () => {
+  // 以前这里硬编码 provider: 'deepseek'：同一台装了 claude-code 的机器上，`ao compose` 零配置能跑，
+  // 经 MCP 调 compose_workflow 却报「缺少 API Key」——而 MCP 宿主基本都是装了 CLI 的机器。
+  // 这里不真调模型（那要花钱），只钉住入参契约：provider 枚举得容得下 CLI 类。
+  const tools = await client.listTools();
+  const compose = tools.tools.find((t) => t.name === 'compose_workflow');
+  const schema = JSON.stringify(compose?.inputSchema ?? {});
+  assert(/claude-code/.test(schema), `provider 枚举要含 CLI 类（实际：${schema.slice(0, 200)}）`);
+  assert(/codex-cli/.test(schema), 'CLI 名单来自注册表，不是手抄的四个');
+});
+
 await test('list_roles returns roles', async () => {
   const result = await client.callTool({
     name: 'list_roles',
