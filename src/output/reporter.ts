@@ -25,15 +25,39 @@ export function formatVerification(v: StepVerification | undefined, en = false):
 /**
  * 保存工作流执行结果到文件
  */
+/**
+ * 按 UTF-8 字节截断，且不切碎字符（中文一字 3 字节、emoji 4 字节）。
+ * 目录名的长度上限在**字节**上：Linux（Docker 镜像、NAS 部署）NAME_MAX=255 字节，
+ * 一个 86 个汉字的工作流名就会让 mkdir 抛 ENAMETOOLONG——而那时整条工作流已经跑完、
+ * 钱已经花了，产物却存不下来。macOS 的 APFS 按**字符**算 255，所以本机试不出来。
+ */
+export function clipBytes(s: string, maxBytes: number): string {
+  if (Buffer.byteLength(s) <= maxBytes) return s;
+  let out = '';
+  let used = 0;
+  for (const ch of s) {          // 按码点遍历：别把一个汉字/emoji 从中间切开
+    const b = Buffer.byteLength(ch);
+    if (used + b > maxBytes) break;
+    out += ch;
+    used += b;
+  }
+  return out;
+}
+
 export function saveResults(result: WorkflowResult, outputDir: string): string {
   const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
   // 清洗工作流名再作目录名：Windows 禁止 \ / : * ? " < > | 及控制字符，run-role 默认名
   // "专家咨询: <role>" 含冒号会让 win 上 mkdirSync 直接失败。统一在此清洗，对全平台/全工作流生效。
-  const safeName = (result.name || 'workflow')
-    .replace(/[\\/:*?"<>|\x00-\x1f]+/g, '-')
-    .replace(/\s+/g, '-')
-    .replace(/-+/g, '-')
-    .replace(/^-+|-+$/g, '') || 'workflow';
+  // 再截到 120 字节：加上 "-2026-09-24T06-17-50"（20）与可能的 "-2" 后缀仍远低于 255 字节，
+  // Windows 那边整条路径也留得下余量。
+  const safeName = clipBytes(
+    (result.name || 'workflow')
+      .replace(/[\\/:*?"<>|\x00-\x1f]+/g, '-')
+      .replace(/\s+/g, '-')
+      .replace(/-+/g, '-')
+      .replace(/^-+|-+$/g, '') || 'workflow',
+    120,
+  ).replace(/-+$/, '') || 'workflow';
   // 时间戳只到秒：同一秒内跑完的两次同名工作流会写进同一个目录，后一次把前一次的
   // steps/*.md、summary.md、metadata.json 盖掉，还留下前一次多出来的步骤文件成为混合体。
   // Studio 允许并行跑，所以这不是假想。撞上就加后缀，绝不覆盖已有的运行。

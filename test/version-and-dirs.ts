@@ -5,13 +5,13 @@
  *  - 运行目录时间戳只到秒：同一秒跑完的两次同名工作流写进同一个目录，后一次把前一次盖掉
  *    （Studio 允许并行跑，所以不是假想）。
  */
-import { mkdtempSync, mkdirSync, readFileSync, writeFileSync, rmSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, readFileSync, writeFileSync, rmSync, existsSync } from 'node:fs';
 import { spawnSync } from 'node:child_process';
 import { resolve } from 'node:path';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { isNewer } from '../src/utils/version-check.js';
-import { saveResults } from '../src/output/reporter.js';
+import { saveResults, clipBytes } from '../src/output/reporter.js';
 import type { WorkflowResult } from '../src/types.js';
 
 let passed = 0;
@@ -44,6 +44,24 @@ console.log('\n─── 同一秒的两次运行不互相覆盖 ───');
   assert(d1 !== d2, `两次落到不同目录（${d1.split('/').pop()} / ${d2.split('/').pop()}）`);
   assert(readFileSync(join(d1, 'steps', '1-a.md'), 'utf-8').includes('第1次'), '第一次的产出没被盖掉');
   assert(readFileSync(join(d2, 'steps', '1-a.md'), 'utf-8').includes('第2次'), '第二次的产出也在');
+  rmSync(out, { recursive: true, force: true });
+}
+
+console.log('\n─── 运行目录名按字节截断（Linux 上 255 字节是硬限） ───');
+{
+  // Linux（Docker 镜像、NAS 部署）NAME_MAX=255 **字节**：86 个汉字的工作流名就会让 mkdir
+  // 抛 ENAMETOOLONG——而那时整条工作流已经跑完、钱已经花了，产物却存不下来。
+  // macOS 的 APFS 按**字符**算 255，本机试不出来，所以这里直接盯字节数。
+  const out = mkdtempSync(join(tmpdir(), 'ao-longname-'));
+  const longName = '很'.repeat(200);
+  const r = { name: longName, success: true, steps: [{ id: 'a', role: 'r', status: 'completed', output: 'x', duration: 1, tokens: { input: 1, output: 1 } }], totalDuration: 1, totalTokens: { input: 1, output: 1 } } as unknown as WorkflowResult;
+  const dir = saveResults(r, out);
+  const base = dir.split('/').pop() as string;
+  assert(Buffer.byteLength(base) <= 255, `目录名不超过 255 字节（实际 ${Buffer.byteLength(base)}）`);
+  assert(base.startsWith('很很很'), '保留可辨认的前缀');
+  assert(!/\uFFFD/.test(base) && base.replace(/-[\d:T-]+$/, '').split('').every((c) => c === '很'), '不把汉字从中间切开');
+  assert(existsSync(join(dir, 'metadata.json')), '内容照常写进去');
+  assert(clipBytes('abc', 10) === 'abc' && clipBytes('很很很', 4) === '很', `clipBytes 按字节切且不切碎（实际 ${clipBytes('很很很', 4)}）`);
   rmSync(out, { recursive: true, force: true });
 }
 
