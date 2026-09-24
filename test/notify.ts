@@ -20,6 +20,12 @@ const failText = buildNotifyText({ ...S, success: false, completedSteps: 3 });
 assert(failText.includes('⚠️') && failText.includes('部分完成') && failText.includes('3/5'), '失败文案如实说部分完成');
 const longText = buildNotifyText({ ...S, excerpt: 'x'.repeat(500) });
 assert(longText.includes('…') && longText.length < 500, '超长节选被截断');
+// cron 里同时跑好几条时，"ao report last" 指的是哪一条说不清——有存档目录就报确切的那条
+assert(text.includes('ao report last'), '没给目录时沿用 last');
+const withDir = buildNotifyText({ ...S, outputDir: '/data/ao-output/每日简报-2026-09-24T08-00-00' });
+assert(withDir.includes('ao report /data/ao-output/每日简报-2026-09-24T08-00-00'), `给了目录就报确切那条（实际：${withDir.split('\n').pop()}）`);
+const spaced = buildNotifyText({ ...S, outputDir: '/data/我的 产出/x' });
+assert(spaced.includes('"/data/我的 产出/x"'), `路径含空格要加引号，收件人能直接照抄（实际：${spaced.split('\n').pop()}）`);
 
 // ── 平台适配 ──
 const ding = buildNotifyPayload('https://oapi.dingtalk.com/robot/send?access_token=x', S) as any;

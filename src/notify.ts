@@ -17,6 +17,8 @@ export interface NotifySummary {
   totalSteps: number;
   /** 最终产出节选（调用方截好） */
   excerpt?: string;
+  /** 本次运行的存档目录（可选）——cron 里同时跑好几条时，"ao report last" 指的是哪一条说不清 */
+  outputDir?: string;
 }
 
 const EXCERPT_LIMIT = 300;
@@ -29,7 +31,10 @@ export function buildNotifyText(s: NotifySummary): string {
   ];
   if (s.excerpt) {
     const ex = s.excerpt.length > EXCERPT_LIMIT ? s.excerpt.slice(0, EXCERPT_LIMIT) + '…' : s.excerpt;
-    lines.push('', ex, '', '完整产出：ao report last（可分享的单文件报告）');
+    // 收件人看到的是一条命令，得能直接照抄。cron 同时跑几条时 "last" 指的是哪条说不清，
+    // 所以有存档目录就报出确切的那条（含空格的路径加引号）。
+    const where = s.outputDir ? (/\s/.test(s.outputDir) ? `"${s.outputDir}"` : s.outputDir) : 'last';
+    lines.push('', ex, '', `完整产出：ao report ${where}（可分享的单文件报告）`);
   }
   return lines.join('\n');
 }
