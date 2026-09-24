@@ -192,6 +192,14 @@ function DetailPane({ id, provider, onRun }: { id: string; provider: string; onR
                         : `${t.studio.runs.verifyFailPrefix}${s.verification.failed.length}${t.studio.runs.verifyFailSuffix}`}
                     </span>
                   )}
+                  {s.assertion?.reworked && (
+                    <span
+                      className="shrink-0 rounded-full bg-sky-500/15 px-2 py-0.5 text-[11px] font-semibold text-sky-600 dark:text-sky-400"
+                      title={t.studio.runs.assertReworkedTitle}
+                    >
+                      {t.studio.runs.assertReworked}
+                    </span>
+                  )}
                   {s.duration && <span className="shrink-0 text-xs text-muted-foreground">{s.duration}</span>}
                 </button>
                 <div className="flex shrink-0 items-center gap-1.5">

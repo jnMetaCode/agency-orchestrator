@@ -86,6 +86,8 @@ export interface RunStepSummary {
   acceptance?: string;
   /** acceptance 自动核验结果，来自 metadata.json（未核验的步骤没有该字段） */
   verification?: { pass: boolean; failed: string[]; reworked: boolean };
+  /** 机械断言（assert）结果；只有返工过的才值得在列表里标一下 */
+  assertion?: { pass: boolean; failed: string[]; reworked: boolean };
   /** 失败原因（含"运行被中断"），来自 metadata.json */
   error?: string;
 }
