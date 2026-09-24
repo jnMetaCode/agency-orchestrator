@@ -1,5 +1,6 @@
 /**
- * 「vs 单次基线」的协作式取消。
+ * 「vs 单次基线」整体行为：协作式取消 + 盲评锚点（都要真跑一遍 compareWorkflowVsBaseline，
+ * 所以共用同一套假上游）。
  *
  * 对比是三段、每段都真花钱：跑多智能体工作流 → 跑单次基线 → 盲评。用户刷新页面 / 关标签时
  * HTTP 连接断开，但这一段是**在引擎进程内**跑的（不像 /api/run 是 spawn 出来的子进程），杀不掉——
@@ -9,6 +10,8 @@
  *   ① 断开了 → 后两段真的不跑（省钱），已跑完的那段照常返回、照常存档（钱已经花了，产物别丢）；
  *   ② **没断开 → 三段都要跑完**。这条更要紧：`req.on('close')` 在 Node 里的触发时机很讲究，
  *      要是请求体读完就触发，对比会永远只跑第一段、永远没有结论，而且没人会立刻发现。
+ *
+ * 末尾还钉一条盲评的**尺子**：acceptance 锚点要取 deliverables 那一步的，不是"最后跑完的那步"。
  */
 import http from 'node:http';
 import { spawn, type ChildProcess } from 'node:child_process';
@@ -33,11 +36,14 @@ const root = mkdtempSync(join(tmpdir(), 'ao-cmp-cancel-'));
 /** 假上游：只数调用次数——按正文猜"这是哪一段"很不可靠（盲评是双向的、提示词也会变），
  *  而这里真正要钉的是「取消后还发不发请求」。 */
 const seen: string[] = [];
+/** 请求原文：给"盲评那两次用的是哪一步的验收标准"用（盲评提示词里有 `【产出 A】` 这个标记） */
+const bodies: string[] = [];
 const upstream = http.createServer((req, res) => {
   let b = ''; req.on('data', (d) => { b += d; });
   req.on('end', () => {
     const body = b;
     seen.push(body.length > 0 ? 'call' : 'call');
+    bodies.push(body);
     res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify({
       // 回包同时满足两种消费方：盲评要 scoreA/scoreB（core/compare.ts 的 parseJudge），
@@ -116,6 +122,29 @@ try {
       assert(!!body.verdict && !!body.baselineOutput, '返回了基线产出与结论');
     }
   }
+  console.log('\n─── 盲评的尺子取**交付物**那一步的 acceptance，不是"最后跑完的那步" ───');
+  {
+    // deliverables 指向中间那步、末尾还挂一个 review 步时，以前 finalAcceptance 取的是
+    // 「最后一个 completed 步骤」——于是拿 review 的验收标准去量 story 的产出，甲的尺子量乙。
+    const wf3 = join(root, 'anchor.yaml');
+    writeFileSync(wf3, [
+      'name: "锚点"', `agents_dir: "${resolve('node_modules/agency-agents-zh')}"`, 'verify: false',
+      'llm:', '  provider: "deepseek"', '  model: "m"', `  base_url: "http://127.0.0.1:${upPort}/v1"`, '  api_key: "k"',
+      'deliverables: [story]',
+      'steps:',
+      '  - id: story', '    role: "marketing/marketing-content-creator"', '    task: "写故事"',
+      '    acceptance: "结尾必须点题"', '    output: story_out',
+      '  - id: review', '    role: "marketing/marketing-content-creator"', '    task: "审 {{story_out}}"',
+      '    acceptance: "必须列出三条问题"', '    output: review_out', '    depends_on: [story]', '',
+    ].join('\n'), 'utf-8');
+    bodies.length = 0;
+    await compareWorkflowVsBaseline(wf3, {}, { quiet: true, outputDir: join(root, 'out3'), shouldContinue: () => true });
+    const judge = bodies.filter((b) => b.includes('【产出 A】'));
+    assert(judge.length === 2, `双向盲评两次（实际 ${judge.length} 次）`);
+    assert(judge.every((b) => b.includes('结尾必须点题')), '尺子是交付物 story 的验收标准');
+    assert(judge.every((b) => !b.includes('必须列出三条问题')), 'review 的验收标准没被当成尺子');
+  }
+
 } catch (e) {
   assert(false, `异常: ${e instanceof Error ? e.message : String(e)}`);
 } finally {

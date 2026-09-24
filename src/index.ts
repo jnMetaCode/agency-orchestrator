@@ -35,6 +35,7 @@ export type {
   DAGNode,
 } from './types.js';
 import type { InputDefinition } from './types.js';
+import { deliverableSteps } from './types.js';
 import { expandStyle } from './media/styles.js';
 import { createMediaRegistry, preloadProducedMedia } from './core/executor.js';
 import { killSpawnedCLIs } from './connectors/spawn-cli.js';
@@ -600,7 +601,9 @@ export async function compareWorkflowVsBaseline(
     return { multiOutput, baselineOutput, verdict: null, result };
   }
   const judgeLlm = options?.judgeLlm ?? genLlm;
-  const finalAcceptance = [...result.steps].reverse().find(s => s.status === 'completed')?.acceptance;
+  // 尺子必须取**被评的那份产出**自己的验收标准。声明了 deliverables 时，最后完成的步骤
+  // 往往不是交付物（末尾常挂一个 review / 归档步），拿它的 acceptance 当锚点＝用甲的标准量乙。
+  const finalAcceptance = deliverableSteps(result).map(s => s.acceptance).filter(Boolean).join('\n') || undefined;
   const verdict = await compareOutputs(judgeLlm, baselineTask, multiOutput, baselineOutput, finalAcceptance);
 
   return { multiOutput, baselineOutput, verdict, result };
