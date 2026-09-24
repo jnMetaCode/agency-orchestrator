@@ -5,7 +5,9 @@
  */
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js';
-import { resolve } from 'node:path';
+import { resolve, join } from 'node:path';
+import { mkdtempSync, writeFileSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
 
 let passed = 0;
 let failed = 0;
@@ -105,6 +107,30 @@ await test('run_workflow returns error on missing file', async () => {
   assert(result.isError === true, 'Should be error');
   const text = (result.content as Array<{ text: string }>)[0].text;
   assert(text.includes('不存在'), `Should mention missing file: ${text}`);
+});
+
+await test('跑不成必须说出口：不可交互的 approval 步骤不能按成功回', async () => {
+  // MCP 下 stdin 是 JSON-RPC 通道，approval 只能当场拒（executor 的 AO_NON_INTERACTIVE 分支）。
+  // 以前无论跑成什么样都按成功回，调用方（另一个 agent）拿到的是「(no output) / Tokens: 0 in / 0 out」——
+  // 看不出没跑成，更看不出为什么，只会拿着空产出接着往下做。
+  const dir = mkdtempSync(join(tmpdir(), 'ao-mcp-appr-'));
+  const wf = join(dir, 'a.yaml');
+  writeFileSync(wf, [
+    'name: "要人点头"', `agents_dir: "${resolve('node_modules/agency-agents-zh')}"`, 'verify: false',
+    'llm:', '  provider: "deepseek"', '  model: "m"', '  api_key: "k"',
+    'steps:', '  - id: gate', '    type: approval', '    role: "marketing/marketing-content-creator"',
+    '    task: "确认"', '    prompt: "继续吗？"', '    output: gate_out', '',
+  ].join('\n'), 'utf-8');
+  try {
+    const result = await client.callTool({ name: 'run_workflow', arguments: { path: wf } });
+    const text = (result.content as Array<{ text: string }>)[0].text;
+    assert(result.isError === true, `没跑成要标 isError（实际 ${String(result.isError)}：${text.slice(0, 120)}）`);
+    assert(/未全部完成/.test(text) && /gate/.test(text), `要点名是哪一步（实际：${text.slice(0, 160)}）`);
+    assert(/不可交互|人工输入/.test(text), `要说清为什么（实际：${text.slice(0, 160)}）`);
+    assert(/存档/.test(text), '要给出存档目录，调用方才能去看过程与 resume');
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
 });
 
 await test('list_roles returns roles', async () => {

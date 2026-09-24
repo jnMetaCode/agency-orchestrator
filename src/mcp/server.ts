@@ -168,8 +168,28 @@ export async function startServer(verbose = false): Promise<void> {
           ? `\n媒体产物: ${media.length} 个${secs > 0 ? `（视频合计 ${secs} 秒，按秒计费）` : ''}`
           : '';
 
+        // 存档目录报回去：产出可能很长（这里只回交付物），调用方要看全过程、媒体文件、resume 都靠它
+        const archive = result.outputDir ? `\n存档: ${result.outputDir}` : '';
+
+        // 失败必须说出口。以前无论跑成什么样都按成功回，于是一条 approval 工作流在 MCP 下
+        // （不可交互，askOnStdin 直接拒）回给调用方的是「(no output) / Tokens: 0 in / 0 out」——
+        // 另一个 agent 完全看不出它没跑成，更看不出为什么，只会拿着空产出接着往下做。
+        const failed = result.steps.filter((st) => st.status === 'failed');
+        const skipped = result.steps.filter((st) => st.status === 'skipped');
+        if (!result.success || failed.length > 0) {
+          const done = result.steps.filter((st) => st.status === 'completed').length;
+          const lines = [`工作流未全部完成：${done}/${result.steps.length} 步`];
+          for (const st of failed) lines.push(`❌ ${st.id}: ${st.error || '未知错误'}`);
+          if (skipped.length) lines.push(`⏭️ 跳过 ${skipped.length} 步: ${skipped.map((st) => st.id).join(', ')}`);
+          if (done > 0) lines.push('', '已完成步骤的产出：', output);
+          return {
+            content: [{ type: 'text' as const, text: `${lines.join('\n')}\n\n---\n${tokenSummary}${mediaSummary}${archive}` }],
+            isError: true,
+          };
+        }
+
         return {
-          content: [{ type: 'text' as const, text: `${output}\n\n---\n${tokenSummary}${mediaSummary}` }],
+          content: [{ type: 'text' as const, text: `${output}\n\n---\n${tokenSummary}${mediaSummary}${archive}` }],
         };
       } catch (err) {
         return {
