@@ -8,7 +8,7 @@
  * 注：团队 / 提示词 / 版本检查一直就放在 ~/.ao（见 cli/team.ts、cli/prompt.ts、utils/version-check.ts）。
  */
 import { homedir } from 'node:os';
-import { join, resolve } from 'node:path';
+import { join, resolve, relative } from 'node:path';
 
 /** 全局基目录：显式 AO_HOME 优先；未设则返回 null（= 沿用 cwd 相对路径，保持旧行为）。 */
 export function aoHome(): string | null {
@@ -37,4 +37,19 @@ export function defaultWorkflowsDir(fallback: string): string {
   if (process.env.AO_WORKFLOWS_DIR) return resolve(process.env.AO_WORKFLOWS_DIR);
   const h = aoHome();
   return h ? join(h, 'ao-workflows') : fallback;
+}
+
+/**
+ * 打印给用户**照抄**的路径。
+ *
+ * 一律 `relative(cwd, p)` 的老写法，在文件不在 cwd 底下时会打出
+ * `../../../../../private/tmp/…/fail.yaml` 这种五层回退链——难读、容易抄错，
+ * 而且用户一 cd 就失效（失败后的「从失败处继续」正是最该能原样照抄的一条命令）。
+ * 规则：在 cwd 底下才用相对路径，否则用绝对路径；含空格的整体加引号。
+ */
+export function displayPath(p: string): string {
+  const rel = relative(process.cwd(), p);
+  const pick = !rel || rel.startsWith('..') ? p : rel;
+  // 只按"有没有空白"决定要不要引号：Windows 路径里的反斜杠不能动，引号里它就是字面量
+  return /\s/.test(pick) ? `"${pick.replace(/"/g, '\\"')}"` : pick;
 }

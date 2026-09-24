@@ -5,6 +5,7 @@ import { stripImageDataUris } from '../utils/vision.js';
 import { mkdirSync, writeFileSync, readFileSync, existsSync, readdirSync, statSync } from 'node:fs';
 import { join, relative } from 'node:path';
 import { deliverableSteps, type WorkflowResult, type StepVerification } from '../types.js';
+import { displayPath as showPath } from '../utils/paths.js';
 import type { DAGNode } from '../types.js';
 
 /**
@@ -434,7 +435,7 @@ export function printSummary(result: WorkflowResult, outputPath: string, workflo
 
   // 成功时也提示可迭代：用户往往不知道能"只重跑某一步"。把命令和可选步骤直接列出来。
   if (showResumeHint && result.success && workflowPath) {
-    const displayPath = relative(process.cwd(), workflowPath) || workflowPath;
+    const displayPath = showPath(workflowPath);
     const stepIds = result.steps.filter(s => s.status === 'completed').map(s => s.id);
     console.log('');
     console.log(`  💡 想优化某一步？只重跑它即可（自动复用上游输出）/ Re-run one step:`);
@@ -462,7 +463,7 @@ export function printSummary(result: WorkflowResult, outputPath: string, workflo
       // 提示用户如何恢复（显示相对路径更友好）
       if (showFailResume) {
         const firstFailed = failedSteps[0].id;
-        const displayPath = relative(process.cwd(), workflowPath!) || workflowPath;
+        const displayPath = showPath(workflowPath!);
         console.log('');
         console.log(`  💡 从失败处继续:`);
         console.log(`     ao run ${displayPath} --resume last --from ${firstFailed}`);

@@ -7,6 +7,7 @@
 import { listAgents, suggestFromPaths, confidentRoleMatch } from '../agents/loader.js';
 import { existsSync, readFileSync, writeFileSync, mkdirSync } from 'node:fs';
 import { resolve, relative, basename } from 'node:path';
+import { displayPath } from '../utils/paths.js';
 import { createConnector } from '../connectors/factory.js';
 import type { LLMConfig } from '../types.js';
 import { t } from '../i18n.js';
@@ -579,7 +580,8 @@ export async function composeWorkflow(options: {
   // 少了它，`ao run 产物.yaml` 会被一句"工作流缺少 llm 配置"挡住。
   writeFileSync(savedPath, ensureLlmBlock(yaml, llmConfig, basename(resolve(agentsDir))) + '\n', 'utf-8');
 
-  const relativePath = relative(process.cwd(), savedPath);
+  // 展示用（下面几条「接下来可以」都是让用户照抄的命令）——不在 cwd 底下就给绝对路径
+  const relativePath = displayPath(savedPath);
 
   if (process.env.AO_VERBOSE) {
     console.log(`  ${t('compose.tokens', { in: result.usage.input_tokens, out: result.usage.output_tokens })}`);

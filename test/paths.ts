@@ -4,7 +4,7 @@
 import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { aoHome, defaultOutputDir, defaultWorkflowsDir } from '../src/utils/paths.js';
+import { aoHome, defaultOutputDir, defaultWorkflowsDir, displayPath } from '../src/utils/paths.js';
 import { findAgentsDir } from '../src/index.js';
 
 let passed = 0, failed = 0;
@@ -59,6 +59,20 @@ try {
   if (savedAgentsDir === undefined) delete process.env.AO_AGENTS_DIR;
   else process.env.AO_AGENTS_DIR = savedAgentsDir;
   rmSync(tmpRoles, { recursive: true, force: true });
+}
+
+console.log('\n─── 照抄用的路径：cwd 之外给绝对路径 ───');
+{
+  // 失败后的「从失败处继续」是最该能原样照抄的一条命令。老写法一律 relative(cwd,·)，
+  // 文件不在 cwd 底下时打出 `../../../../../private/tmp/…/x.yaml`——难读、易抄错，一 cd 就失效。
+  const inside = join(process.cwd(), 'workflows', 'a.yaml');
+  assert(displayPath(inside) === join('workflows', 'a.yaml'), `cwd 底下仍用相对路径（实际 ${displayPath(inside)}）`);
+  const outside = join(tmpdir(), 'ao-x', 'b.yaml');
+  assert(displayPath(outside) === outside, `cwd 之外给绝对路径，不给 ../ 链（实际 ${displayPath(outside)}）`);
+  assert(!displayPath(outside).startsWith('..'), '绝不以 .. 开头');
+  const spaced = join(tmpdir(), 'ao x', 'c d.yaml');
+  assert(displayPath(spaced) === `"${spaced}"`, `含空格整体加引号，命令能直接粘（实际 ${displayPath(spaced)}）`);
+  assert(displayPath(join(process.cwd(), 'plain.yaml')) === 'plain.yaml', '没空格不加引号');
 }
 
 console.log(`\n  结果: ${passed} 通过, ${failed} 失败\n`);
