@@ -12,7 +12,8 @@ ao plan <workflow.yaml>               # Show DAG execution plan + media spend pr
 ao doctor [--fix] [--no-probe] [--media-probe]  # Self-check provider/creds/endpoint reachability/CLI/system Claude Code; --fix repairs a hijacked ~/.claude (fake token / relay base_url); --no-probe skips the live endpoint probe (a 1-token request); --media-probe (old alias: --video-probe) checks every keyed OpenAI-compatible relay for **video / image / speech** endpoints at zero cost (invalid probe body + a control path; see src/media/probe-video.ts) — speech matters because `type: tts` otherwise fails only after the paid image/video steps already ran
 ao roles                              # List all 276 available roles
 ao install --tool claude-code         # Install bundled roles into a coding tool (claude-code/cursor/copilot/gemini-cli/qwen/opencode/workbuddy/codebuddy); --lang zh|en, --category, --dry-run
-ao run <workflow.yaml> --compare      # Run workflow + single-shot baseline + blind judge → side-by-side verdict (productized eval)
+ao run <workflow.yaml> --compare      # Run workflow + single-shot baseline + blind judge → side-by-side verdict (productized eval).
+                                      # Verdict + the baseline's own prompt + both full outputs are archived to <run>/compare.md and rendered in `ao report` — the baseline and the two judge calls cost real money, they don't live in the terminal only. The judge's anchor is the **deliverable** step's acceptance (not "last completed step")
 ao team save <workflow.yaml>          # Save a role line-up as a reusable team (Loadout)
 ao team list / show / rm              # Manage saved teams (stored in ~/.ao/teams)
 ao run --team <name> "task"           # Run a new task with a saved team (locked line-up)
@@ -25,7 +26,8 @@ ao ledger add "<what>" --reason <r>   # Human-intervention ledger (src/cli/ledge
 AO_CLI_INHERIT_CWD=1 ao run <wf>      # claude-code/codebuddy spawn in an empty temp dir by default (src/connectors/claude-code.ts) so the user's Claude Code project memory / CLAUDE.md never leak into role outputs; set this to spawn in cwd (old behavior). Don't switch to --bare: it disables OAuth/keychain
 ao ledger report [--since D] [--until D] [--out f.md]  # Daily table: runs, AI steps, approval/human_input nodes (auto-counted), manual entries → AI autonomy rate (counts, not effort; never prices)
 ao run <wf> --notify <webhook>        # Push result to DingTalk/Feishu/WeCom/generic webhook when done (AO_NOTIFY_URL also works; cron-friendly)
-ao run <wf> --export pptx             # Export outputs as PPTX (also docx/pdf/xlsx/skill/plan); pandoc preferred, pptxgenjs fallback
+ao run <wf> --export pptx             # Export outputs as PPTX (also docx/pdf/xlsx/skill/plan); pandoc preferred, pptxgenjs fallback.
+                                      # The file lands in the CURRENT directory, named after the workflow — same name overwrites the previous export
 ao run <wf> -i photo=@img.png         # Image inputs auto-become vision input (data-URI protocol, src/utils/vision.ts); needs a vision-capable API model; CLI providers strip+warn
 ao run <wf> -i docs=@./materials     # Directory input = knowledge source: text files (md/txt/csv/json/yaml/html/code) concatenated as `## 文件: <path>` sections (src/utils/docs-dir.ts); skips binaries/hidden/node_modules; pdf/docx are skipped WITH a warning (convert via pandoc first); 400KB total / 200KB per-file cap, truncation is announced. Studio never expands @ (AO_NO_AT_FILE=1)
 ```
@@ -72,6 +74,13 @@ answer), test (run a prompt on a sample), `scoreOutputs` (LLM judge ranks candid
 `~/.ao/prompts/*.prompt.json` (override with `AO_PROMPTS_DIR`), shared between the `ao prompt` CLI
 and the Studio "Prompts" tab (`/api/prompt/*` in `web/server.js`).
 
+## Credentials: `~/.ao/.env` (user-level)
+
+`.env` is read from two places, shell env always wins: **shell > `./.env` (project) > `~/.ao/.env` (user)**.
+`~/.ao` already holds teams / prompts / roles, so credentials live there too — configure once and every directory works
+(`ao doctor` says so when it finds Studio-only keys). `loadEnvFile` never overwrites an existing value, so the order is
+just the order of the two calls in `src/cli.ts`.
+
 ## Teams / Loadouts
 
 A "team" is a saved, named set of roles decoupled from any task — `src/cli/team.ts`.
@@ -93,6 +102,15 @@ favorites (☆常用, localStorage) mirror the workflow-card star.
 ## Resume — Iterative Optimization
 
 After `ao run` completes, all step outputs are saved to `ao-output/<name>-<timestamp>/`. Users can iterate on any step without re-running the entire workflow.
+
+Reuse is computed from the DAG, not from "it finished last time" (`resumeSkipDetail` in `src/output/reporter.ts`):
+- a completed step is reused only when **everything it depends on is also reused** — edit the workflow (insert a step, repoint a
+  `depends_on`) and the affected downstream steps re-run instead of silently handing back a product that never saw the new upstream;
+  the run header names them (`…旧产物已作废，会一起重跑: …`);
+- steps that were **skipped by `condition`** last time don't count as "will re-run" — otherwise the常年-false narration steps would
+  force a re-concat on every resume;
+- ids that no longer exist in the current workflow (renamed / deleted steps) are excluded from the reuse count and named separately,
+  so "跳过已完成步骤: N 个" is a number you can trust when N is what stands between you and re-paying for video steps.
 
 ### When to suggest `--resume`
 
@@ -175,6 +193,9 @@ steps:
       min_chars: "{{length}} * 0.7"  #   字数 = 非空白字符数（中文一字一计）；可引用输入变量 × 系数，运行期按实际输入算（bytes 不认变量）。变量为空 → 该条跳过并告警
       max_bytes: 900                 #   Fail → one targeted rework, then the step FAILS (unlike acceptance). Use it to stop
                                      #   a bad prompt *before* a per-second video step spends money.
+                                     #   The outcome is archived like acceptance's: StepResult.assertion → metadata.json,
+                                     #   a `📏 机械断言 ✓（返工 1 轮后达标）` line in the step file header, and a badge in Studio —
+                                     #   all three only when it actually reworked (passing first try is the norm, not news).
     verify: false                    # optional: opt this step out of acceptance auto-verify (top-level `verify: false` disables whole workflow; CLI --verify/--no-verify overrides; default on)
     output: output_variable
     skill: "test-driven-development" # optional: inject a methodology playbook (see `ao skills`)
