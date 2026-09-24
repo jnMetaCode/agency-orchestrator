@@ -46,9 +46,13 @@ const esc = (s: string): string =>
   s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 
 /** 步骤 md 开头的元信息引用块（"> 🦴 **人类学家** | 步骤 1/1 | 10.1s" + "---"）——
- *  报告页自己会渲染这些信息，正文里再出现一遍就是噪音。 */
+ *  报告页自己会渲染这些信息，正文里再出现一遍就是噪音。
+ *
+ *  头部**不止一行**：写了 acceptance 的步骤多一行验收标准、核验过的多一行核验结果、
+ *  机械断言返工过的再多一行。老写法只认单行（`^>\s[^\n]*\n`），于是这些步骤的整块头
+ *  原样漏进报告正文——而 acceptance 是主推功能，真实运行里一抓一大把。 */
 export function stripStepHeader(md: string): string {
-  return md.replace(/^>\s[^\n]*\n\s*\n---\s*\n\s*/, '');
+  return md.replace(/^(?:>[^\n]*\n)+\s*\n---\s*\n\s*/, '');
 }
 
 function mdToHtml(md: string, resolveAsset?: (src: string) => string | null): string {

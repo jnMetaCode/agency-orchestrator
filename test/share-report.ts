@@ -13,6 +13,11 @@ console.log('\n─── share-report ───');
 const md = '> 🦴 **人类学家** | 步骤 1/1 | 10.1s\n\n---\n\n正文开始';
 assert(stripStepHeader(md) === '正文开始', '剥掉步骤头引用块与分隔线');
 assert(stripStepHeader('普通正文') === '普通正文', '无步骤头时原样返回');
+// 头部不止一行：写了 acceptance 多一行、核验过多一行、断言返工过再多一行。
+// 老写法只认单行，于是这些步骤的整块头原样漏进报告正文（acceptance 是主推功能，真实运行里一抓一大把）。
+assert(stripStepHeader('> 🦴 **x** | 步骤 1/1\n> ✅ 验收标准: 必须提到长城\n\n---\n\n正文开始') === '正文开始', '两行头（带验收标准）也剥干净');
+assert(stripStepHeader('> 🦴 **x**\n> ✅ 验收标准: a\n> 🔍 验收 ✓\n> 📏 机械断言 ✓（返工 1 轮后达标）\n\n---\n\n正文开始') === '正文开始', '四行头（标准+核验+断言）也剥干净');
+assert(stripStepHeader('> 这是用户自己写的引用\n\n正文') === '> 这是用户自己写的引用\n\n正文', '正文开头的引用块不配 --- 分隔线时不动它');
 
 // ── 基本渲染 ──
 const html = renderShareReport({
