@@ -699,6 +699,9 @@ ao-output/产品需求评审-2026-03-22/
 │   ├── 2-tech_review.md
 │   ├── 3-design_review.md
 │   └── 4-summary.md
+├── assets/             # type: image / video / tts 的产物（png / mp4 / mp3）
+├── compare.md          # 只有跑了 --compare 才有：评审结论 + 基线用的提示词 + 两份完整产出
+├── report.html         # 只有跑了 `ao report` 才有：自包含单文件，可直接发给别人
 └── metadata.json       # 耗时、token 用量、步骤状态
 ```
 

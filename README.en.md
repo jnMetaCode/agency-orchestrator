@@ -711,6 +711,9 @@ ao-output/product-review-2026-03-22/
 │   ├── 2-tech_review.md
 │   ├── 3-design_review.md
 │   └── 4-summary.md
+├── assets/             # Products of type: image / video / tts (png / mp4 / mp3)
+├── compare.md          # Only with --compare: verdict + the baseline prompt + both full outputs
+├── report.html         # Only after `ao report`: self-contained single file, shareable as-is
 └── metadata.json       # Timing, token usage, step states
 ```
 
