@@ -36,20 +36,29 @@ export function formatAssertion(a: StepVerification | undefined, en = false): st
 /**
  * 保存工作流执行结果到文件
  */
-export function saveResults(result: WorkflowResult, outputDir: string): string {
-  const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
-  // 清洗工作流名再作目录名：Windows 禁止 \ / : * ? " < > | 及控制字符，run-role 默认名
-  // "专家咨询: <role>" 含冒号会让 win 上 mkdirSync 直接失败。统一在此清洗，对全平台/全工作流生效。
-  // 再截到 120 字节：加上 "-2026-09-24T06-17-50"（20）与可能的 "-2" 后缀仍远低于 255 字节，
-  // Windows 那边整条路径也留得下余量。
-  const safeName = clipBytes(
-    (result.name || 'workflow')
+/**
+ * 运行目录名里工作流名那一段（`<prefix>-<时间戳>`）。
+ * `--resume last` 要按它筛"这条工作流自己的上一次运行"，所以必须和 saveResults 用同一份算法——
+ * 各写一份的话，改了清洗规则就会变成"筛不到任何目录"。
+ */
+export function runDirPrefix(name: string | undefined): string {
+  return clipBytes(
+    (name || 'workflow')
       .replace(/[\\/:*?"<>|\x00-\x1f]+/g, '-')
       .replace(/\s+/g, '-')
       .replace(/-+/g, '-')
       .replace(/^-+|-+$/g, '') || 'workflow',
     120,
   ).replace(/-+$/, '') || 'workflow';
+}
+
+export function saveResults(result: WorkflowResult, outputDir: string): string {
+  const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
+  // 清洗工作流名再作目录名：Windows 禁止 \ / : * ? " < > | 及控制字符，run-role 默认名
+  // "专家咨询: <role>" 含冒号会让 win 上 mkdirSync 直接失败。统一在此清洗，对全平台/全工作流生效。
+  // 再截到 120 字节：加上 "-2026-09-24T06-17-50"（20）与可能的 "-2" 后缀仍远低于 255 字节，
+  // Windows 那边整条路径也留得下余量。
+  const safeName = runDirPrefix(result.name);
   // 时间戳只到秒：同一秒内跑完的两次同名工作流会写进同一个目录，后一次把前一次的
   // steps/*.md、summary.md、metadata.json 盖掉，还留下前一次多出来的步骤文件成为混合体。
   // Studio 允许并行跑，所以这不是假想。撞上就加后缀，绝不覆盖已有的运行。

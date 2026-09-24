@@ -3,7 +3,7 @@
  * 覆盖: skipStepIds 计算（纯函数）+ 完整 run→save→resume 往返（Mock LLM）
  * DAG: L0=[analyze]  L1=[tech_review, design_review]  L2=[final_summary]
  */
-import { resolve, join } from 'node:path';
+import { resolve, join, basename } from 'node:path';
 import { existsSync, readFileSync, rmSync, mkdtempSync, mkdirSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { parseWorkflow } from '../src/core/parser.js';
@@ -16,7 +16,7 @@ import {
   computeResumeSkipIds,
   findLatestOutput,
 } from '../src/output/reporter.js';
-import type { LLMConnector, LLMResult, LLMConfig } from '../src/types.js';
+import type { LLMConnector, LLMResult, LLMConfig, WorkflowResult } from '../src/types.js';
 
 const agentsDir = [
   resolve(import.meta.dirname!, '../node_modules/agency-agents-zh'),
@@ -195,6 +195,31 @@ await test('首次运行 + 保存 metadata', async () => {
 
   const completed = getCompletedStepIds(dir);
   assert(completed.length === 4, `应记录 4 个已完成步骤，实际 ${completed.length}`);
+});
+
+await test('--resume last 只找**这条工作流**自己的上一次运行', async () => {
+  // 以前 "last" = 整个 ao-output 里最新的那个目录，不看是哪条工作流。同一个目录下跑过别的工作流
+  // （设了 AO_HOME、或用桌面端，就都是这样）时，会拿另一条的档案来复用/返工：步骤 id 对不上，
+  // 轻则整条重跑，重则 --feedback 把风马牛不相及的上一版产出递给专家。
+  const { runDirPrefix } = await import('../src/output/reporter.js');
+  const mixed = mkdtempSync(join(tmpdir(), 'ao-mixed-out-'));
+  const mk = (name: string) => saveResults(
+    { name, success: true, steps: [{ id: 'a', role: 'r', status: 'completed', output: 'x', duration: 1, tokens: { input: 1, output: 1 } }], totalDuration: 1, totalTokens: { input: 1, output: 1 } } as unknown as WorkflowResult,
+    mixed,
+  );
+  const mine = mk('我的工作流');
+  await new Promise((r) => setTimeout(r, 1100));   // 时间戳只到秒，隔开两次
+  const other = mk('别人的工作流');
+
+  assert(findLatestOutput(mixed) === other, '不带名字时确实会拿到最新的那条（这正是老行为）');
+  assert(findLatestOutput(mixed, runDirPrefix('我的工作流')) === mine, '带上本工作流的前缀就只找自己的');
+  assert(findLatestOutput(mixed, runDirPrefix('没跑过的工作流')) === null, '自己没跑过就返回 null（由调用方决定退回还是报错）');
+
+  // 前缀算法必须与 saveResults 同源：各写一份的话，改了清洗规则就会"永远筛不到"
+  assert(basename(mine).startsWith(runDirPrefix('我的工作流')), 'runDirPrefix 与 saveResults 的目录名同源');
+  const weird = mk('带 空格/和:非法字符');
+  assert(basename(weird).startsWith(runDirPrefix('带 空格/和:非法字符')), '清洗过的名字也对得上');
+  rmSync(mixed, { recursive: true, force: true });
 });
 
 await test('loadPreviousContext 恢复 inputs + 各步 output', () => {

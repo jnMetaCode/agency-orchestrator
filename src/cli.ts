@@ -230,13 +230,25 @@ async function handleRun(): Promise<void> {
     timeoutMs = parsed;
   }
 
-  // --resume last: 自动找最近一次的输出目录
+  // --resume last: 自动找**这条工作流**最近一次的输出目录。
+  // 以前不筛名字，"last" 是整个 ao-output 里最新的那个——同一个目录下跑过别的工作流（设了
+  // AO_HOME 或用桌面端就是这样）时，会拿另一条工作流的档案来复用/返工：步骤 id 对不上，
+  // 轻则整条重跑，重则 --feedback 把风马牛不相及的上一版产出递给专家。
   if (resumeDir === 'last') {
-    const { findLatestOutput } = await import('./output/reporter.js');
-    const latest = findLatestOutput(outputDir);
+    const { findLatestOutput, runDirPrefix } = await import('./output/reporter.js');
+    let prefix: string | undefined;
+    try {
+      const { parseWorkflow } = await import('./core/parser.js');
+      prefix = runDirPrefix(parseWorkflow(resolveWorkflowArg(filePath)).name);
+    } catch { /* 工作流本身有问题：交给后面的 run() 去报，这里退回旧口径 */ }
+    const latest = findLatestOutput(outputDir, prefix) ?? (prefix ? findLatestOutput(outputDir) : null);
     if (!latest) {
       console.error('找不到上一次的运行输出，请指定具体目录: --resume <dir>');
       process.exit(1);
+    }
+    // 退而求其次用了别条工作流的档案：说一声，别让用户以为复用的是自己那条
+    if (prefix && !basename(latest).startsWith(prefix)) {
+      console.log(`  ⚠️ 这条工作流没有历史运行，改用最近一次运行的档案：${basename(latest)}（步骤 id 对不上的话会整条重跑）`);
     }
     resumeDir = latest;
   }
