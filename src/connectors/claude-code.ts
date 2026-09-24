@@ -13,7 +13,7 @@ import { writeFileSync, unlinkSync, mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { t } from '../i18n.js';
-import { decodeProcessOutput } from './cli-base.js';
+import { decodeProcessOutput, streamProgressEnabled } from './cli-base.js';
 import { spawnCLI } from './spawn-cli.js';
 import type { LLMConnector, LLMResult, LLMConfig } from '../types.js';
 
@@ -209,7 +209,7 @@ export class ClaudeCodeConnector implements LLMConnector {
         stdoutChunks.push(chunk);
         receivedBytes += chunk.length;
         const now = Date.now();
-        if (now - lastProgressTime > 10_000) {
+        if (now - lastProgressTime > 10_000 && streamProgressEnabled()) {
           lastProgressTime = now;
           const kb = (receivedBytes / 1024).toFixed(1);
           process.stderr.write(`  ${t('stream.received', { size: kb })}\n`);

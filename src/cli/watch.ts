@@ -86,6 +86,11 @@ export function createWatchRenderer(
     status: 'waiting',
   }));
 
+  // TTY 下这个框靠「光标上移 N 行」原地重绘，谁往 stderr 插一行都会把行数算错、
+  // 整个框花掉。连接器的「📡 已接收 xKB」正是这种插队者（一步跑过 10 秒就会打），
+  // 告诉它这里有框 UI、别打（非 TTY 不重绘，照打）。
+  if (process.stderr.isTTY) process.env.AO_WATCH_UI = '1';
+
   const startTime = Date.now();
   let lastLineCount = 0;
   let lastPlainLine = '';   // 非 TTY 下用它去重，别把同一行刷一万遍

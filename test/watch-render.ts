@@ -4,6 +4,7 @@
  *  - 非 TTY 下照样写光标转义码，`ao run --watch 2> run.log` 会被 \x1b[…A 糊成一片。
  */
 import { createWatchRenderer, dispWidth } from '../src/cli/watch.js';
+import { streamProgressEnabled } from '../src/connectors/cli-base.js';
 
 let passed = 0;
 let failed = 0;
@@ -66,6 +67,24 @@ console.log('\n─── 非 TTY：不写转义码 ───');
   const text = out.join('');
   assert(!text.includes('\x1b'), '一个转义码都没有');
   assert(/\[\d\/1\]/.test(text), '仍然给出进度（一行一条纯文本）');
+}
+
+console.log('\n─── 框在重绘时，别的地方别往 stderr 插话 ───');
+{
+  // 框靠"光标上移 N 行"原地重绘：连接器那行「📡 已接收 xKB」一插进来，行数就算错、框糊成一片
+  // （一步跑过 10 秒就会打，很常见）。TTY 下开框＝告诉连接器闭嘴；非 TTY 不重绘，那行是唯一的活着信号。
+  const orig = process.env.AO_WATCH_UI;
+  delete process.env.AO_WATCH_UI;
+  assert(streamProgressEnabled(), '平时照打');
+
+  renderLines('框', ['a', 'b'], true);
+  assert(process.env.AO_WATCH_UI === '1' && !streamProgressEnabled(), 'TTY 下开了框 → 连接器闭嘴');
+
+  delete process.env.AO_WATCH_UI;
+  renderLines('框', ['a', 'b'], false);
+  assert(process.env.AO_WATCH_UI === undefined && streamProgressEnabled(), '非 TTY 不重绘 → 照打不误');
+
+  if (orig === undefined) delete process.env.AO_WATCH_UI; else process.env.AO_WATCH_UI = orig;
 }
 
 console.log(`\n  结果: ${passed} 通过, ${failed} 失败\n`);

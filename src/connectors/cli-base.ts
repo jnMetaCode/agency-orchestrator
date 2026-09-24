@@ -64,6 +64,18 @@ export function chooseTransport(
  * 这里先按严格 UTF-8 校验，非法字节序列（真正的 CLI 输出都应该是合法 UTF-8）就
  * 判定为别的代码页，回退按 GBK 解码——对中文 Windows 用户是压倒性最常见的情况。
  */
+/**
+ * 要不要打「📡 已接收 xKB」这行活着信号。
+ *
+ * `--watch` 的框 UI 在 TTY 上靠「光标上移 N 行」原地重绘——中途被插进一行，
+ * 行数就算错了，框会被自己糊成一片（一步跑过 10 秒就会撞上，很常见）。
+ * 那个 UI 本来就一直在刷新耗时与当前步骤，这行进度是多余的，直接闭嘴。
+ * 非 TTY（`2> run.log` / CI）不重绘，照打不误——那是唯一的活着信号。
+ */
+export function streamProgressEnabled(): boolean {
+  return process.env.AO_WATCH_UI !== '1';
+}
+
 export function decodeProcessOutput(chunks: Buffer[]): string {
   const buf = Buffer.concat(chunks);
   if (buf.length === 0) return '';
@@ -181,7 +193,7 @@ export class CLIBaseConnector implements LLMConnector {
         receivedBytes += chunk.length;
         // 每 10 秒最多显示一次接收进度，让用户知道没卡死
         const now = Date.now();
-        if (now - lastProgressTime > 10_000) {
+        if (now - lastProgressTime > 10_000 && streamProgressEnabled()) {
           lastProgressTime = now;
           const kb = (receivedBytes / 1024).toFixed(1);
           process.stderr.write(`  ${t('stream.received', { size: kb })}\n`);
