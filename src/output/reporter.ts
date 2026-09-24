@@ -416,9 +416,22 @@ export function computeResumeSkipIds(
     // 没有依赖信息（旧调用方只给 levels）时退回层级语义
     for (let li = fromLevel; li < dag.levels.length; li++) for (const id of dag.levels[li]) rerun.add(id);
   }
+  // 只留**当前工作流里还存在**的 step：用户改了 id / 删了步骤后，上一次档案里那些名字已经没用了。
+  // 留着不会出错（执行器按 id 查，查不到就是没跳过），但会让"跳过已完成步骤: N 个"虚报——
+  // 真机：把 polish 改名成 polish_v2 再 resume，明明只复用了 1 步，却说跳过 2 个。
+  const known = dag.nodes ? new Set(dag.nodes.keys()) : new Set(dag.levels.flat());
   const skip = new Set<string>();
-  for (const id of completed) if (!rerun.has(id)) skip.add(id);
+  for (const id of completed) if (!rerun.has(id) && known.has(id)) skip.add(id);
   return skip;
+}
+
+/** 上一次档案里已完成、但当前工作流里已经不存在的 step（改名 / 删掉了）——它们不会被复用。 */
+export function vanishedStepIds(
+  dag: { levels: string[][]; nodes?: Map<string, unknown> },
+  completedIds: string[],
+): string[] {
+  const known = dag.nodes ? new Set(dag.nodes.keys()) : new Set(dag.levels.flat());
+  return completedIds.filter((id) => !known.has(id));
 }
 
 /**

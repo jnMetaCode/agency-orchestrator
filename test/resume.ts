@@ -93,6 +93,20 @@ await test('短剧流水线 --from shot3：shot1/shot2/定妆图/剧本全部复
   assert(!skip.has('shot3') && !skip.has('film') && !skip.has('pack'), 'shot3 与下游 film/pack 要重跑');
 });
 
+await test('改过 id / 删掉的步骤不算进"跳过"，并单独点名', async () => {
+  // 真机：把 polish 改名成 polish_v2 再 resume，明明只复用了 1 步，却报"跳过已完成步骤: 2 个"。
+  // 留着这些名字不会出错（执行器按 id 查，查不到就是没跳过），但数字是虚的——
+  // 而这个数字正是用户判断"我那几条付费视频步骤到底复用了没有"的依据。
+  const { vanishedStepIds } = await import('../src/output/reporter.js');
+  const doneWithOldIds = [...allDone, 'polish', 'old_step'];
+  const skip = computeResumeSkipIds(dag, doneWithOldIds, 'final_summary');
+  assert(!skip.has('polish') && !skip.has('old_step'), `当前工作流里没有的 step 不该算进跳过：${[...skip]}`);
+  assert(skip.size === 3, `只数真的能复用的 3 个，实际 ${skip.size}`);
+  const gone = vanishedStepIds(dag, doneWithOldIds);
+  assert(gone.length === 2 && gone.includes('polish') && gone.includes('old_step'), `点名消失的那些：${gone}`);
+  assert(vanishedStepIds(dag, allDone).length === 0, '没改过 id 时不报');
+});
+
 await test('--from analyze：什么都不跳（全部重跑）', () => {
   const skip = computeResumeSkipIds(dag, allDone, 'analyze');
   assert(skip.size === 0, `应跳 0 个，实际: ${[...skip]}`);

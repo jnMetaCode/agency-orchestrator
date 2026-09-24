@@ -93,7 +93,7 @@ import { summarizeMediaSpend } from './media/preflight.js';
 import { createConnector } from './connectors/factory.js';
 import { describePendingVideoTasks } from './connectors/video.js';
 import { loadAgent } from './agents/loader.js';
-import { saveResults, printStepResult, printStepRunning, clearRunningLine, printSummary, loadPreviousContext, getCompletedStepIds, findLatestOutput, computeResumeSkipIds, loadStepOutput } from './output/reporter.js';
+import { saveResults, printStepResult, printStepRunning, clearRunningLine, printSummary, loadPreviousContext, getCompletedStepIds, findLatestOutput, computeResumeSkipIds, vanishedStepIds, loadStepOutput } from './output/reporter.js';
 import { existsSync, readFileSync, writeFileSync, copyFileSync, mkdirSync, readdirSync, rmSync } from 'node:fs';
 import { resolve, dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -306,7 +306,8 @@ export async function run(
       }
     }
 
-    skipStepIds = computeResumeSkipIds(dag, getCompletedStepIds(resumeDir), fromStep);
+    const completedBefore = getCompletedStepIds(resumeDir);
+    skipStepIds = computeResumeSkipIds(dag, completedBefore, fromStep);
     // 被跳过的图片/视频步骤的产物在上一轮的 assets/ 里：读进登记表，下游图生视频 / concat 才拿得到字节
     preloadProducedMedia(join(resumeDir, 'assets'), media);
 
@@ -322,6 +323,12 @@ export async function run(
     if (!options?.quiet) {
       console.log(`  恢复自: ${resumeDir}`);
       console.log(`  跳过已完成步骤: ${skipStepIds.size} 个`);
+      // 改过 step id / 删了步骤后再 resume：那些名字在新工作流里已经没有对应物，复用不了。
+      // 不说的话用户只会看到"跳过 N 个"比预期少，以为是引擎抽风。
+      const vanished = vanishedStepIds(dag, completedBefore);
+      if (vanished.length > 0) {
+        console.log(`  上次运行里有 ${vanished.length} 个步骤在当前工作流里已不存在（改了 id 或删掉了）：${vanished.join(', ')} —— 这些不会被复用`);
+      }
       if (fromStep) console.log(`  从步骤 [${fromStep}] 开始重新执行`);
     }
   }
