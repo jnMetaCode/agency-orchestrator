@@ -24,6 +24,16 @@ export function formatVerification(v: StepVerification | undefined, en = false):
 }
 
 /**
+ * 机械断言的一行摘要。只在**返工过**时才出现——一次就过是常态，不值得在每个步骤头上占一行。
+ * （acceptance 那行一直显示，因为"验收 ✓"本身就是用户想看到的确认。）
+ */
+export function formatAssertion(a: StepVerification | undefined, en = false): string | null {
+  if (!a || !a.reworked) return null;
+  if (en) return a.pass ? 'Assert ✓ (rewritten once to satisfy it)' : `Assert ✗ ${a.failed.length} unmet`;
+  return a.pass ? '机械断言 ✓（返工 1 轮后达标）' : `机械断言 ✗ ${a.failed.length} 条未达标`;
+}
+
+/**
  * 保存工作流执行结果到文件
  */
 export function saveResults(result: WorkflowResult, outputDir: string): string {
@@ -89,7 +99,9 @@ export function saveResults(result: WorkflowResult, outputDir: string): string {
     const verifBlock = verifLine
       ? `> 🔍 ${verifLine}${step.verification!.failed.length ? `\n> ${step.verification!.failed.map(f => `· ${f}`).join('\n> ')}` : ''}\n`
       : '';
-    const header = `> ${emoji} **${name}** | ${stepLabel} ${i + 1}/${result.steps.length}${duration ? ` | ${duration}` : ''}\n${accBlock}${verifBlock}\n---\n\n`;
+    const assertLine = formatAssertion(step.assertion, stepEn);
+    const assertBlock = assertLine ? `> 📏 ${assertLine}\n` : '';
+    const header = `> ${emoji} **${name}** | ${stepLabel} ${i + 1}/${result.steps.length}${duration ? ` | ${duration}` : ''}\n${accBlock}${verifBlock}${assertBlock}\n---\n\n`;
     // 图片引用按运行目录根写（assets/x.png）；步骤 md 落在 steps/ 里，写文件时补一层 ../
     const body = (step.output || step.error || '(无输出)').replace(/\]\(assets\//g, '](../assets/');
     writeFileSync(join(stepsDir, filename), header + body, 'utf-8');

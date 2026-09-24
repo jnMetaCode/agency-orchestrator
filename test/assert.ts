@@ -318,11 +318,16 @@ test('resolveAssert: contains 里的 {{变量}} 要渲染（不渲染就是拿�
   test('一次就过的步骤记 reworked=false（而不是什么都不记）', () => {
     assert(loose?.assertion?.pass === true && loose?.assertion?.reworked === false, `实际 ${JSON.stringify(loose?.assertion)}`);
   });
-  test('assertion 进 metadata.json', () => {
+  test('assertion 进 metadata.json，返工过的步骤文件头也写一行', () => {
     const out = saveResults(res, join(dir, 'out'));
     const meta = JSON.parse(readFileSync(join(out, 'metadata.json'), 'utf-8'));
     const m = meta.steps.find((s: { id: string }) => s.id === 'tight');
     assert(m?.assertion?.reworked === true, `实际 ${JSON.stringify(m?.assertion)}`);
+    const f1 = readFileSync(join(out, 'steps', '1-tight.md'), 'utf-8');
+    assert(/机械断言 ✓/.test(f1), `返工过的步骤头部写一行（实际头部：${f1.split('\n---\n')[0].slice(0, 120)}）`);
+    assert(f1.indexOf('机械断言') < f1.indexOf('\n---\n'), '写在头部引用块里，不混进产出正文');
+    const f2 = readFileSync(join(out, 'steps', '2-loose.md'), 'utf-8');
+    assert(!/机械断言/.test(f2), '一次就过的不占这一行（常态不该刷屏）');
   });
 }
 
