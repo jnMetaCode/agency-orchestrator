@@ -545,7 +545,23 @@ export function validateWorkflow(workflow: WorkflowDefinition, agentsDir?: strin
       if (varName === '_loop_iteration') continue;
       if (reportedVars.has(varName)) continue;
       const inputDef = workflow.inputs?.find(i => i.name === varName);
-      if (inputDef) continue;
+      if (inputDef) {
+        // 输入名被某个 step 的 output 遮蔽时，这个 {{变量}} 到底是"输入"还是"那一步的产出"，
+        // 取决于两者谁先跑完——而那由 concurrency 与层内顺序决定。真机实测：同一份 YAML，
+        // concurrency: 3 时拿到输入值，concurrency: 1 时拿到上一步的产出。静默换含义，不能放过。
+        // 在产出者下游（或本步就是产出者）时含义是确定的，不报。
+        const shadowing = workflow.steps.filter(
+          (p) => p.output === varName && p.id !== step.id && !upStepIds.has(p.id),
+        );
+        if (shadowing.length === 0) continue;
+        errors.push(
+          `step "${step.id}" 里的 {{${varName}}} 含义不确定：它既是输入，又被 step ${shadowing.map((p) => `"${p.id}"`).join(' / ')} 用作 output——`
+          + `本步不在它下游，拿到的是输入值还是它的产出取决于并发与执行顺序（改一下 concurrency 结果就变）。`
+          + `改法二选一：给那个 step 换个 output 名，或把它加进本步的 depends_on`,
+        );
+        reportedVars.add(varName);
+        continue;
+      }
       if (upstreamOutputs.has(varName)) continue;
       // 不在 inputs 也不在上游 outputs：错误
       // 区分两种错误信息，方便 autoFix / repairWithLLM 处理

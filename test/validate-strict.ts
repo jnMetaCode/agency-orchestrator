@@ -36,6 +36,38 @@ console.log('\n─── depends_on 写成单个字符串 ───');
   assert(validateWorkflow(w).length === 0, '校验通过');
 }
 
+console.log('\n─── 输入名被 step 的 output 遮蔽：不在下游就是不确定 ───');
+{
+  // 真机实测过：同一份 YAML，concurrency: 3 时那步拿到输入值，concurrency: 1 时拿到上一步的产出。
+  // 含义随并发设置变化，且没有任何提示——这正是"静默换含义"。
+  const shadow = `${head}inputs:\n  - name: topic\n    required: true\nsteps:\n` +
+    `  - id: a\n    role: "r/x"\n    task: "写 {{topic}}"\n    output: topic\n` +
+    `  - id: c\n    role: "r/x"\n    task: "三写 {{topic}}"\n    output: out_c\n`;
+  const errs = validateWorkflow(parseWorkflow(wf(shadow))).join('\n');
+  assert(/含义不确定/.test(errs) && /"c"/.test(errs) && /"a"/.test(errs), `点名是哪两步（实际：${errs.slice(0, 140)}）`);
+  assert(/depends_on/.test(errs) && /output 名/.test(errs), '给出两条改法');
+
+  // 在产出者下游时含义是确定的（就是它的产出），不该报
+  const downstream = `${head}inputs:\n  - name: topic\n    required: true\nsteps:\n` +
+    `  - id: a\n    role: "r/x"\n    task: "写 {{topic}}"\n    output: topic\n` +
+    `  - id: b\n    role: "r/x"\n    task: "再写 {{topic}}"\n    depends_on: [a]\n    output: out_b\n`;
+  assert(validateWorkflow(parseWorkflow(wf(downstream))).length === 0, '下游引用不报（含义确定）');
+
+  // 产出者自己的 task 里引用同名变量＝引用输入（渲染发生在它跑之前），也不该报
+  const selfRef = `${head}inputs:\n  - name: topic\n    required: true\nsteps:\n` +
+    `  - id: a\n    role: "r/x"\n    task: "写 {{topic}}"\n    output: topic\n`;
+  assert(validateWorkflow(parseWorkflow(wf(selfRef))).length === 0, '产出者自己引用不报');
+
+  // 循环模板里"两步共用一个 output 名"是有意的惯用法（codex-cc-loop 就这么写：fix 带 loop 跳回 review），
+  // 既有的"多个 step 同时产出"规则对带 loop 的所有者本来就放行——别让新规则在这儿误伤。
+  const loopIdiom = `${head}steps:\n` +
+    `  - id: impl\n    role: "r/x"\n    task: "实现"\n    output: code\n` +
+    `  - id: review\n    role: "r/x"\n    task: "审 {{code}}"\n    depends_on: [impl]\n    output: review_result\n` +
+    `  - id: fix\n    role: "r/x"\n    task: "改 {{review_result}} 原码 {{code}}"\n    depends_on: [review]\n    output: code\n` +
+    `    loop:\n      back_to: review\n      max_iterations: 3\n      exit_condition: "{{review_result}} contains APPROVED"\n`;
+  assert(validateWorkflow(parseWorkflow(wf(loopIdiom))).length === 0, `循环里复用 output 名不误伤（实际：${validateWorkflow(parseWorkflow(wf(loopIdiom))).join(' / ').slice(0, 160)}）`);
+}
+
 console.log('\n─── deliverables 写成输出变量名时点破（与 depends_on 同一种手误）───');
 {
   const w = parseWorkflow(wf(`${head}deliverables: [a_out]\nsteps:\n${step('a')}`));
