@@ -33,6 +33,11 @@ export interface ShareReportData {
   deliverables?: string[];
   /** 由调用方传入（如 new Date().toLocaleString()），渲染保持纯函数可测 */
   generatedAt?: string;
+  /**
+   * `--compare` 的存档正文（compare.md）。单独一节渲染，**不混进 steps**：
+   * 混进去会把"N 个专家步骤"数错，没声明 deliverables 时还会把 ⭐ 最终成品抢走。
+   */
+  compare?: string;
   /** 相对资源路径 → data URI；返回 null 表示保持原样 */
   resolveAsset?: (src: string) => string | null;
 }
@@ -133,6 +138,7 @@ export function renderRunDirReport(runDir: string, generatedAt?: string): string
     totalTokens: meta.totalTokens,
     steps,
     deliverables: Array.isArray(meta.deliverables) ? meta.deliverables.map(String) : undefined,
+    compare: existsSync(join(runDir, 'compare.md')) ? readFileSync(join(runDir, 'compare.md'), 'utf-8') : undefined,
     generatedAt,
     resolveAsset,
   });
@@ -169,6 +175,18 @@ export function renderShareReport(d: ShareReportData): string {
     </section>`;
     })
     .join('\n');
+
+  const compareHtml = d.compare
+    ? `
+    <section class="step">
+      <header>
+        <span class="no">vs</span>
+        <h2>多智能体 vs 单次基线</h2>
+        <span class="meta">同一模型、同一输入的单次直答对照</span>
+      </header>
+      <div class="body">${mdToHtml(d.compare, d.resolveAsset)}</div>
+    </section>`
+    : '';
 
   return `<!doctype html>
 <html lang="zh-CN">
@@ -245,6 +263,7 @@ export function renderShareReport(d: ShareReportData): string {
     <ul class="chips">${chips.map((c) => `<li>${c}</li>`).join('')}</ul>
   </header>
 ${stepsHtml}
+${compareHtml}
   <footer>
     <span>本页由 <strong>Agency Orchestrator</strong> 的 AI 专家团队协作生成${d.generatedAt ? ` · ${esc(d.generatedAt)}` : ''}</span>
     <a href="https://github.com/jnMetaCode/agency-orchestrator">github.com/jnMetaCode/agency-orchestrator</a>

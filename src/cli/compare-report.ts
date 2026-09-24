@@ -5,10 +5,13 @@ export interface CompareReportInput {
   multiOutput: string;
   baselineOutput: string;
   verdict: CompareVerdict | null;
+  /** 本次运行的存档目录（基线产出与结论写在它的 compare.md 里）；没有就不提 */
+  outputDir?: string;
 }
 
 const PREVIEW = 800;
-const preview = (s: string) => (s.length > PREVIEW ? s.slice(0, PREVIEW) + '\n…[省略，完整产出见 ao-output]' : s);
+// 截断处必须指到**真的存得下**的地方：以前写"完整产出见 ao-output"，而基线产出压根没存过盘。
+const preview = (s: string, where: string) => (s.length > PREVIEW ? s.slice(0, PREVIEW) + `\n…[省略，完整产出见 ${where}]` : s);
 
 /** 把对比结果格式化成终端可读的报告块。 */
 export function formatCompareReport(r: CompareReportInput): string {
@@ -27,8 +30,10 @@ export function formatCompareReport(r: CompareReportInput): string {
 
   L.push(`  产出长度: 多智能体 ${r.multiOutput.length} 字 / 单次基线 ${r.baselineOutput.length} 字`);
   L.push('─'.repeat(50));
+  const archive = r.outputDir ? `${r.outputDir}/compare.md` : 'ao-output';
   L.push('  单次基线产出（多智能体产出见上方 / ao-output）:');
-  L.push(preview(r.baselineOutput) || '  (空)');
+  L.push(preview(r.baselineOutput, archive) || '  (空)');
+  if (r.outputDir) L.push('─'.repeat(50), `  📄 基线产出与评审结论已存档：${archive}`);
   L.push('═'.repeat(50), '');
   return L.join('\n');
 }

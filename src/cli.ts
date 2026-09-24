@@ -272,7 +272,7 @@ async function handleRun(): Promise<void> {
           ? { provider: judgeProvider, model: judgeModel, timeout: 600_000 } as LLMConfig
           : undefined,
       });
-      console.log(formatCompareReport(cmp));
+      console.log(formatCompareReport({ ...cmp, outputDir: cmp.result.outputDir }));
       // --compare 也是一次完整运行——带 --notify 时同样要推送（此前这里先 exit，通知被静默吞掉）
       await maybeNotifyRun(cmp.result);
       process.exit(cmp.result.success ? 0 : 1);

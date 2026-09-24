@@ -236,6 +236,8 @@ export interface WorkflowResult {
   file?: string;
   /** 工作流声明的交付物步骤 id（见 WorkflowDefinition.deliverables）；随 metadata 存档 */
   deliverables?: string[];
+  /** 本次运行的存档目录（run() 存档后回填；metadata.json 自身不记，免得自我引用） */
+  outputDir?: string;
 }
 
 /**

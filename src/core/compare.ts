@@ -41,6 +41,36 @@ export async function runBaseline(genLlm: LLMConfig, baselineTask: string): Prom
   return res.content;
 }
 
+/**
+ * 把对比的三段产物排成一份可存档的 markdown。
+ *
+ * 为什么必须存档：单次基线是**真跑一次**、盲评是再跑两次，钱都花了，但此前它们只出现在终端里
+ * ——窗口一滚就没了，run 目录里连一个字都没有（`ao report` 也无从渲染）。更别扭的是终端还写着
+ * "完整产出见 ao-output"，而那里根本没有。引擎别处（媒体暂存、取消后仍存档）遵守的都是同一条：
+ * 付过钱的产物不能丢。
+ */
+export function formatCompareArchive(r: {
+  baselineTask: string;
+  baselineOutput: string;
+  multiOutput: string;
+  verdict: CompareVerdict | null;
+}): string {
+  const L: string[] = ['# 多智能体 vs 单次基线', ''];
+  if (r.verdict) {
+    const v = r.verdict;
+    const mark = v.winner === 'multi-agent' ? '多智能体胜' : v.winner === 'baseline' ? '单次基线胜' : '打平';
+    L.push(`- 评审：多智能体 **${v.multiScore.toFixed(1)}** / 单次基线 **${v.baseScore.toFixed(1)}** → **${mark}**（${v.consistent ? '双向一致，高可信' : '双向矛盾，低可信：疑位置偏置'}）`);
+    for (const reason of v.reasons) if (reason) L.push(`  - ${reason}`);
+  } else {
+    L.push('- 评审：无结论（judge 未返回有效 JSON，或对比被取消）。两份产出仍可人工对比。');
+  }
+  L.push(`- 产出长度：多智能体 ${r.multiOutput.length} 字 / 单次基线 ${r.baselineOutput.length} 字`, '');
+  L.push('## 单次基线用的提示词', '', '```text', r.baselineTask, '```', '');
+  L.push('## 单次基线产出（完整）', '', r.baselineOutput || '（空）', '');
+  L.push('## 多智能体产出（完整，另见 steps/ 与 summary.md）', '', r.multiOutput || '（空）', '');
+  return L.join('\n');
+}
+
 export interface JudgeScore {
   scoreA: number;
   scoreB: number;

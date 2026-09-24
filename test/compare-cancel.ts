@@ -15,7 +15,7 @@
  */
 import http from 'node:http';
 import { spawn, type ChildProcess } from 'node:child_process';
-import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, existsSync, rmSync } from 'node:fs';
 import { createServer } from 'node:net';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
@@ -80,6 +80,11 @@ try {
     const r = await compareWorkflowVsBaseline(wf, {}, { quiet: true, outputDir: join(root, 'out2'), shouldContinue: () => true });
     assert(seen.length > 1, `后两段真的跑了（实际 ${seen.length} 次调用）`);
     assert(!!r.baselineOutput && !!r.verdict, '有基线产出、有结论');
+    // 基线跑了一次、盲评跑了两次，钱都花了——不能只活在终端里
+    const archive = join(String(r.result.outputDir), 'compare.md');
+    assert(!!r.result.outputDir && existsSync(archive), `存档目录回填到 result.outputDir，compare.md 落盘（实际：${r.result.outputDir}）`);
+    const body = existsSync(archive) ? readFileSync(archive, 'utf-8') : '';
+    assert(body.includes(r.baselineOutput.slice(0, 40)) && body.includes('多智能体 vs 单次基线'), '存的是基线全文与结论');
   }
 
   console.log('\n─── 真服务端：客户端等着的时候，/api/compare 必须给出结论 ───');

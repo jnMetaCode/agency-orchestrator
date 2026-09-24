@@ -17,10 +17,10 @@ export { OpenAICompatibleConnector } from './connectors/openai-compatible.js';
 export { createConnector } from './connectors/factory.js';
 export { saveResults, loadPreviousContext, findLatestOutput, computeResumeSkipIds } from './output/reporter.js';
 export { composeWorkflow, buildRoleCatalog, extractYamlFromResponse } from './cli/compose.js';
-import { buildBaselineTask, runBaseline, finalOutput, compareOutputs, type CompareVerdict } from './core/compare.js';
+import { buildBaselineTask, runBaseline, finalOutput, compareOutputs, formatCompareArchive, type CompareVerdict } from './core/compare.js';
 import { evaluateCondition } from './core/condition.js';
 import { mergeLlmOverride } from './core/llm-override.js';
-export { buildBaselineTask, runBaseline, finalOutput, compareOutputs, aggregateVerdict } from './core/compare.js';
+export { buildBaselineTask, runBaseline, finalOutput, compareOutputs, aggregateVerdict, formatCompareArchive } from './core/compare.js';
 export type { CompareVerdict } from './core/compare.js';
 
 export type {
@@ -94,7 +94,7 @@ import { createConnector } from './connectors/factory.js';
 import { describePendingVideoTasks } from './connectors/video.js';
 import { loadAgent } from './agents/loader.js';
 import { saveResults, printStepResult, printStepRunning, clearRunningLine, printSummary, loadPreviousContext, getCompletedStepIds, findLatestOutput, computeResumeSkipIds, loadStepOutput } from './output/reporter.js';
-import { existsSync, readFileSync, copyFileSync, mkdirSync, readdirSync, rmSync } from 'node:fs';
+import { existsSync, readFileSync, writeFileSync, copyFileSync, mkdirSync, readdirSync, rmSync } from 'node:fs';
 import { resolve, dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { defaultOutputDir } from './utils/paths.js';
@@ -504,6 +504,7 @@ export async function run(
   // 保存结果（默认目录支持 AO_HOME / AO_OUTPUT_DIR，见 utils/paths）
   const outputDir = options?.outputDir || defaultOutputDir();
   const outputPath = saveResults(result, outputDir);
+  result.outputDir = outputPath;
   settleSpool(outputPath);
   // --resume 复用的媒体步骤没有 base64（它们没重跑），reporter 写不出文件——从上一轮目录复制过来，
   // 否则新目录里 `![cover](assets/cover.png)` 是断链，分享报告和 Studio 都显示不出来
@@ -591,6 +592,12 @@ export async function compareWorkflowVsBaseline(
   const genLlm = options?.genOverride
     ? mergeLlmOverride({ ...workflow.llm }, options.genOverride)
     : { ...workflow.llm } as import('./types.js').LLMConfig;
+  // 基线的"任务目标"只能取 description，没写就退回工作流名——而名字常常是个标签（"短剧流水线"、
+  // "冒烟：两步串行"），基线拿它当目标会被评审批"任务意图不明确"，对比就不公平了。说清楚，别闷着。
+  if (!workflow.description && !options?.quiet) {
+    console.log(`\n  ⚠️ 这条工作流没写 description，单次基线只能拿工作流名「${workflow.name}」当任务目标——`);
+    console.log('     基线因此可能答偏，对比结果会偏向多智能体。补一句 description 再对比更准（存档里有基线的完整提示词）。\n');
+  }
   const baselineTask = buildBaselineTask(workflow.name, workflow.description, effInputs);
   const baselineOutput = await runBaseline(genLlm, baselineTask);
 
@@ -598,6 +605,8 @@ export async function compareWorkflowVsBaseline(
   //    两份产出同一把尺——这正是"验收写成数据"优于再叠一个 Reviewer Agent 的地方）
   if (options?.shouldContinue && !options.shouldContinue()) {
     if (!options?.quiet) console.log('\n  ⏹️  对比已取消（调用方断开）：盲评已跳过\n');
+    // 基线这一段已经花过钱了，照样存档（没有结论就写"无结论"，不假装有）
+    archiveCompare(result, { baselineTask, baselineOutput, multiOutput, verdict: null });
     return { multiOutput, baselineOutput, verdict: null, result };
   }
   const judgeLlm = options?.judgeLlm ?? genLlm;
@@ -605,8 +614,26 @@ export async function compareWorkflowVsBaseline(
   // 往往不是交付物（末尾常挂一个 review / 归档步），拿它的 acceptance 当锚点＝用甲的标准量乙。
   const finalAcceptance = deliverableSteps(result).map(s => s.acceptance).filter(Boolean).join('\n') || undefined;
   const verdict = await compareOutputs(judgeLlm, baselineTask, multiOutput, baselineOutput, finalAcceptance);
+  archiveCompare(result, { baselineTask, baselineOutput, multiOutput, verdict });
 
   return { multiOutput, baselineOutput, verdict, result };
+}
+
+/**
+ * 把基线产出与评审结论写进本次运行的存档目录（compare.md）。
+ * 基线跑了一次、盲评跑了两次，钱都花了，却只存在于终端里——窗口一滚就没，`ao report` 也渲染不到。
+ * 存档失败只警告：对比的结论已经拿到了，不该因为写不进文件把整次运行判死。
+ */
+function archiveCompare(
+  result: import('./types.js').WorkflowResult,
+  data: { baselineTask: string; baselineOutput: string; multiOutput: string; verdict: CompareVerdict | null },
+): void {
+  if (!result.outputDir || !data.baselineOutput) return;
+  try {
+    writeFileSync(join(result.outputDir, 'compare.md'), formatCompareArchive(data), 'utf-8');
+  } catch (e) {
+    console.warn(`  ⚠️ 对比存档写入失败（结论仍在上方）：${e instanceof Error ? e.message : String(e)}`);
+  }
 }
 
 /**

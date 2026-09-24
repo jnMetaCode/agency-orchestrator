@@ -37,6 +37,23 @@ assert(html.includes('github.com/jnMetaCode/agency-orchestrator'), '署名页脚
 assert(html.includes('npm i -g agency-orchestrator'), '署名页脚带安装命令');
 assert(html.includes('prefers-color-scheme'), '带暗色适配');
 
+// ── --compare 的存档单独一节，不混进步骤 ──
+{
+  const h = renderShareReport({
+    name: 'w',
+    steps: [
+      { id: 'a', agentName: '甲', markdown: '甲的产出' },
+      { id: 'b', agentName: '乙', markdown: '乙的产出' },
+    ],
+    compare: '# 多智能体 vs 单次基线\n\n- 评审：多智能体 **8.0** / 单次基线 **5.0**\n\n## 单次基线产出（完整）\n\n基线正文',
+  });
+  assert(h.includes('多智能体 vs 单次基线') && h.includes('基线正文'), '对比存档渲染进报告');
+  assert(h.includes('2 个专家步骤'), '步骤计数不被对比那一节带偏');
+  assert(h.split('⭐ 最终成品').length - 1 === 1 && h.indexOf('⭐ 最终成品') < h.indexOf('多智能体 vs 单次基线'), '⭐ 仍在最后一个专家步骤上，没被对比那节抢走');
+  const none = renderShareReport({ name: 'w', steps: [{ id: 'a', agentName: '甲', markdown: 'x' }] });
+  assert(!none.includes('多智能体 vs 单次基线'), '没跑对比时报告里不出现这一节');
+}
+
 // ── 单步骤不标最终成品 ──
 const single = renderShareReport({ name: 'x', steps: [{ id: 'only', markdown: 'hi' }] });
 assert(!single.includes('⭐ 最终成品'), '单步骤不标最终成品');

@@ -5,6 +5,7 @@
  */
 import { buildBaselineTask, parseJudge, aggregateVerdict, finalOutput } from '../src/core/compare.js';
 import { formatCompareReport } from '../src/cli/compare-report.js';
+import { formatCompareArchive } from '../src/core/compare.js';
 import type { WorkflowResult } from '../src/types.js';
 
 let passed = 0, failed = 0;
@@ -117,6 +118,32 @@ test('verdict 为 null 时报告说明评审失败', () => {
 test('基线产出超长时截断预览', () => {
   const out = formatCompareReport({ multiOutput: 'x', baselineOutput: 'y'.repeat(2000), verdict: null });
   assert(out.includes('…[省略'), '超长基线应截断');
+});
+
+test('报告里的"完整产出见…"指向真存得下的地方', () => {
+  const withDir = formatCompareReport({ multiOutput: 'x', baselineOutput: 'y'.repeat(2000), verdict: null, outputDir: '/runs/r1' });
+  assert(withDir.includes('/runs/r1/compare.md'), `截断处指向存档文件（实际：${withDir.split('\n').find((l) => l.includes('省略'))?.slice(0, 60)}）`);
+  assert(withDir.includes('已存档'), '并单独说一句存档在哪');
+  const noDir = formatCompareReport({ multiOutput: 'x', baselineOutput: 'y'.repeat(2000), verdict: null });
+  assert(!noDir.includes('已存档'), '没有存档目录时不提（不许承诺不存在的文件）');
+});
+
+// ── formatCompareArchive（存档正文，纯函数）──
+test('存档含结论、基线提示词与两份完整产出', () => {
+  const md = formatCompareArchive({
+    baselineTask: '任务目标：写一篇稿',
+    baselineOutput: 'b'.repeat(5000),
+    multiOutput: 'm'.repeat(4000),
+    verdict: { multiScore: 8.2, baseScore: 5.7, winner: 'multi-agent', consistent: true, reasons: ['更完整'] },
+  });
+  assert(md.includes('8.2') && md.includes('5.7') && md.includes('多智能体胜') && md.includes('更完整'), '结论与理由都在');
+  assert(md.includes('任务目标：写一篇稿'), '基线用的提示词也存下来（不然复现不了这次对比）');
+  assert(md.includes('b'.repeat(5000)) && md.includes('m'.repeat(4000)), '两份产出存全文，不截断——终端才截断');
+});
+test('没有结论时存档说明无结论，不假装有', () => {
+  const md = formatCompareArchive({ baselineTask: 't', baselineOutput: 'b', multiOutput: 'm', verdict: null });
+  assert(md.includes('无结论'), '写明无结论');
+  assert(md.includes('b') && md.includes('m'), '产出照存（钱已经花了）');
 });
 
 console.log(`\n  结果: ${passed} 通过, ${failed} 失败\n`);
