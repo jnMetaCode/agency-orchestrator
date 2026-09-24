@@ -36,6 +36,15 @@ console.log('\n─── depends_on 写成单个字符串 ───');
   assert(validateWorkflow(w).length === 0, '校验通过');
 }
 
+console.log('\n─── deliverables 写成输出变量名时点破（与 depends_on 同一种手误）───');
+{
+  const w = parseWorkflow(wf(`${head}deliverables: [a_out]\nsteps:\n${step('a')}`));
+  const errs = validateWorkflow(w).join('\n');
+  assert(/"a_out" 是 step "a" 的输出变量名/.test(errs) && /应写 "a"/.test(errs), `点破并给出该写什么（实际：${errs.slice(0, 120)}）`);
+  const ok = parseWorkflow(wf(`${head}deliverables: [a]\nsteps:\n${step('a')}`));
+  assert(validateWorkflow(ok).length === 0, '写对 step id 时不报');
+}
+
 console.log('\n─── 循环依赖点名 ───');
 {
   const w = parseWorkflow(wf(`${head}steps:\n${step('a', '    depends_on: [c]\n')}${step('b', '    depends_on: [a]\n')}${step('c', '    depends_on: [b]\n')}`));

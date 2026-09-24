@@ -316,7 +316,16 @@ export function validateWorkflow(workflow: WorkflowDefinition, agentsDir?: strin
       errors.push('顶层 deliverables 不能为空列表（不写 = 默认最后一个完成的步骤）');
     }
     for (const id of workflow.deliverables) {
-      if (!stepIds.has(id)) errors.push(`顶层 deliverables 引用不存在的 step: "${id}"`);
+      if (!stepIds.has(id)) {
+        // 与 depends_on 同一种手误：写成了上游的**输出变量名**而不是 step id。那边早就点破了，
+        // 这边没有——自己写冒烟工作流时正好踩到：报"不存在的 step: polished"，而 polished 明明就在文件里。
+        const producer = workflow.steps.find((st) => st.output === id);
+        errors.push(
+          producer
+            ? `顶层 deliverables 引用不存在的 step: "${id}"（"${id}" 是 step "${producer.id}" 的输出变量名，不是 step id —— 这里应写 "${producer.id}"）`
+            : `顶层 deliverables 引用不存在的 step: "${id}"`,
+        );
+      }
     }
   }
 
