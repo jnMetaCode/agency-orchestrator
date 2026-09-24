@@ -69,6 +69,23 @@ console.log('\n─── validate --fix：把 depends_on 写成上游输出变�
   assert(/depends_on: \[analyze\]/.test(body) && /\{\{analysis_result\}\}/.test(body), '只动 depends_on 那一处，task 里同名的 {{变量}} 引用不碰');
 }
 
+console.log('\n─── 命令打错时的三种指路 ───');
+{
+  // ① 整条命令被当成一个参数：包装脚本 / 多包了一层引号。以前按 slice 拼建议，吐出 `ao validate  x.yaml`
+  //    （双空格），照抄过去还是错的。
+  const quoted = ao('validate workflows/tech-blog.yaml');
+  assert(quoted.code === 1 && /引号包多了/.test(quoted.out), `点破是引号问题（实际：${quoted.out.split('\n')[0]?.slice(0, 70)}）`);
+  assert(/ao validate workflows\/tech-blog\.yaml/.test(quoted.out) && !/ao validate {2}/.test(quoted.out), '建议里只有一个空格，能照抄');
+  // ② 真·少空格
+  const glued = ao('planworkflows/x.yaml');
+  assert(glued.code === 1 && /少了个空格/.test(glued.out) && /ao plan workflows\/x\.yaml/.test(glued.out), '粘在一起的照旧提示补空格');
+  // ③ 打错一两个字母：先点名最接近的命令，再给帮助（以前只有一整页帮助，得自己找）
+  const typo = ao('valdiate');
+  assert(typo.code === 1 && /你是不是想写 "ao validate"/.test(typo.out), `拼错点名最接近的（实际：${typo.out.split('\n')[0]?.slice(0, 70)}）`);
+  const nonsense = ao('zzzzzzzz');
+  assert(nonsense.code === 1 && /未知命令/.test(nonsense.out) && !/你是不是想写/.test(nonsense.out), '八竿子打不着就别瞎猜');
+}
+
 rmSync(cwd, { recursive: true, force: true });
 console.log(`\n  结果: ${passed} 通过, ${failed} 失败\n`);
 process.exit(failed > 0 ? 1 : 0);

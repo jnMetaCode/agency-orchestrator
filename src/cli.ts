@@ -12,7 +12,7 @@ import { readFileSync, existsSync, writeFileSync, statSync } from 'node:fs';
 import { resolve, join, dirname, basename } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { spawnSync, execSync, spawn } from 'node:child_process';
-import { parseWorkflow, validateWorkflow } from './core/parser.js';
+import { parseWorkflow, validateWorkflow, closestKey } from './core/parser.js';
 import type { LLMConfig } from './types.js';
 import { buildDAG, formatDAG } from './core/dag.js';
 import { summarizeMediaSpend } from './media/preflight.js';
@@ -156,11 +156,18 @@ async function main(): Promise<void> {
     default: {
       // 容错：用户可能漏了空格，如 "planworkflows/x.yaml"
       const knownCmds = ['run', 'validate', 'plan', 'explain', 'compose', 'doctor', 'report', 'team', 'ledger', 'prompt', 'skills', 'demo', 'roles', 'install', 'init', 'serve', 'web', 'upgrade'];
+      // 整条命令被当成**一个**参数（引号包多了 `ao "run wf.yaml"`，或包装脚本把参数拼成一串）：
+      // 这不是"少了空格"，而是多了引号；原来的分支会照 slice 拼出 `ao run  wf.yaml` 这种双空格的建议。
+      const [head, ...rest] = command.trim().split(/\s+/);
       const match = knownCmds.find(c => command.startsWith(c) && command.length > c.length);
-      if (match) {
+      if (rest.length > 0 && knownCmds.includes(head)) {
+        console.error(`整条命令被当成了一个参数（引号包多了？）。试试:\n  ao ${head} ${rest.join(' ')}\n`);
+      } else if (match) {
         console.error(`看起来少了个空格？试试:\n  ao ${match} ${command.slice(match.length)}\n`);
       } else {
-        console.error(`未知命令: ${command}\n`);
+        // 打错一两个字母（valdiate / instal）时别只甩一整页帮助——先点名最接近的那个
+        const guess = closestKey(command, knownCmds);
+        console.error(guess ? `未知命令: ${command}（你是不是想写 "ao ${guess}"？）\n` : `未知命令: ${command}\n`);
         printHelp();
       }
       process.exit(1);
