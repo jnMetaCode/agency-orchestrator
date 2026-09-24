@@ -1463,8 +1463,14 @@ async function handlePrompt(): Promise<void> {
     }
     return undefined;
   };
+  // 只有真要调模型的子命令才去选 provider：list/show/rm/garden 纯本地读写，
+  // 以前也一样跑 autoProvider，于是 `ao prompt list` 顶上顶着一句「检测到本机已安装 claude-code，
+  // 零配置直接用」——这条命令根本不会调模型，纯属噪声（管道里还多一行）。
+  const needsLLM = sub === 'optimize' || sub === 'test';
   const cliProviders = CLI_PROVIDER_IDS;
-  const provider = autoProvider(getArgValue('--provider') || process.env.AO_PROVIDER, 'deepseek') as LLMConfig['provider'];
+  const provider = (needsLLM
+    ? autoProvider(getArgValue('--provider') || process.env.AO_PROVIDER, 'deepseek')
+    : 'deepseek') as LLMConfig['provider'];
   const model = getArgValue('--model') || process.env.AO_MODEL || (
     cliProviders.includes(provider) ? '' :
     provider === 'claude' ? CLAUDE_DEFAULT_MODEL :
