@@ -48,7 +48,14 @@
       },
       {
         "from": "../node_modules",
-        "to": "app/node_modules"
+        "to": "app/node_modules",
+        "filter": [
+          "**/*",
+          "!typescript/**",
+          "!.bin/tsc",
+          "!.bin/tsserver",
+          "!@types/**"
+        ]
       }
     ],
     "mac": {

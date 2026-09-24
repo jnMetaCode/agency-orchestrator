@@ -105,6 +105,11 @@ jobs:
       - name: Verify frontend landed in packaged app
         run: node scripts/verify-frontend.mjs --packed desktop/release
 
+      # 闸 2.5：安装包里不许带纯构建期依赖（typescript/@types 共 25MB，运行时一行都不 require），
+      #        且 node_modules/.bin 不许有悬空软链——摘包只删目录、不删软链，mac 打包会当场失败（出过一次）
+      - name: Verify desktop payload (no build-only deps, no dangling .bin)
+        run: node scripts/verify-desktop-payload.mjs desktop/release
+
       # 为本平台产物生成 SHA256 校验和（mac 用 shasum，linux/win-gitbash 用 sha256sum）
       # 三件事凑在一起，会让一次「绿」的发布把缺安装包的版本标成 latest：
       #   fail-fast: false（某个平台挂了别的照跑）+ fail_on_unmatched_files: false（没文件也不报错）
