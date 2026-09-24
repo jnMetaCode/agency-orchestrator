@@ -87,10 +87,54 @@ await test('短剧流水线 --from shot3：shot1/shot2/定妆图/剧本全部复
   const { parseWorkflow: pw } = await import('../src/core/parser.js');
   const { buildDAG: bd } = await import('../src/core/dag.js');
   const d = bd(pw('workflows/短剧流水线.yaml'));
-  const done = ['script', 'character_prompt', 'shot1_prompt', 'shot2_prompt', 'shot3_prompt', 'character', 'shot1', 'shot2', 'shot3', 'film', 'pack'];
-  const skip = computeResumeSkipIds(d, done, 'shot3');
+  // 一次「不配旁白」的完整成功运行：无条件步骤全 completed，条件为假的旁白/配音全 skipped。
+  // （这份清单以前漏了 atmosphere_lock —— 而 shot*_prompt 都依赖它，漏写等于假设它没跑过。）
+  const done = ['script', 'atmosphere_lock', 'character_prompt', 'shot1_prompt', 'shot2_prompt', 'shot3_prompt', 'character', 'shot1', 'shot2', 'shot3', 'film', 'pack'];
+  const skippedByCondition = ['narration1', 'narration2', 'narration3', 'vo1', 'vo2', 'vo3'];
+  const skip = computeResumeSkipIds(d, done, 'shot3', skippedByCondition);
   assert(skip.has('shot1') && skip.has('shot2') && skip.has('character') && skip.has('script'), `应复用 shot1/shot2，实际跳过: ${[...skip]}`);
   assert(!skip.has('shot3') && !skip.has('film') && !skip.has('pack'), 'shot3 与下游 film/pack 要重跑');
+});
+
+await test('中间插了一步：下游不能拿旧产物充数', async () => {
+  // 真机撞到的静默错误：两步工作流跑完后在中间插一步、把下游 task 改成引用新变量，再 --resume last。
+  // 新步骤跑了，下游却被当成"已完成"整个跳过 —— 交付物还是没见过新步骤产出的旧货，一个字都不提示。
+  // 而"改完再 resume"正是本项目主推的迭代方式。
+  const { resumeSkipDetail } = await import('../src/output/reporter.js');
+  const inserted = {
+    levels: [['draft'], ['enrich'], ['polish']],
+    nodes: new Map<string, { step: { depends_on?: string[] } }>([
+      ['draft', { step: {} }],
+      ['enrich', { step: { depends_on: ['draft'] } }],
+      ['polish', { step: { depends_on: ['enrich'] } }],
+    ]),
+  };
+  const r = resumeSkipDetail(inserted, ['draft', 'polish']);   // 上一轮没有 enrich
+  assert(r.skip.has('draft') && !r.skip.has('polish'), `polish 的上游变了，不能复用：${[...r.skip]}`);
+  assert(r.staleDownstream.includes('polish'), `要点名说清为什么重跑：${r.staleDownstream}`);
+
+  // 传递性：再挂一步在 polish 下游，也一起作废
+  const deeper = {
+    levels: [['draft'], ['enrich'], ['polish'], ['pack']],
+    nodes: new Map<string, { step: { depends_on?: string[] } }>([
+      ...inserted.nodes,
+      ['pack', { step: { depends_on: ['polish'] } }],
+    ]),
+  };
+  const r2 = resumeSkipDetail(deeper, ['draft', 'polish', 'pack']);
+  assert(!r2.skip.has('pack') && r2.staleDownstream.includes('pack'), `传递作废：${[...r2.skip]}`);
+
+  // 上一轮按 condition 跳过的上游不算"会重跑"——否则短剧流水线里常年为假的配音会让 film 每次重合成
+  const cond = {
+    levels: [['a'], ['vo'], ['film']],
+    nodes: new Map<string, { step: { depends_on?: string[] } }>([
+      ['a', { step: {} }],
+      ['vo', { step: { depends_on: ['a'] } }],
+      ['film', { step: { depends_on: ['a', 'vo'] } }],
+    ]),
+  };
+  assert(resumeSkipDetail(cond, ['a', 'film'], undefined, ['vo']).skip.has('film'), '条件为假的上游不作废下游');
+  assert(!resumeSkipDetail(cond, ['a', 'film']).skip.has('film'), '没说它是被条件跳过的，就照旧保守作废');
 });
 
 await test('改过 id / 删掉的步骤不算进"跳过"，并单独点名', async () => {

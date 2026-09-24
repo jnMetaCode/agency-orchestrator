@@ -93,7 +93,7 @@ import { summarizeMediaSpend } from './media/preflight.js';
 import { createConnector } from './connectors/factory.js';
 import { describePendingVideoTasks } from './connectors/video.js';
 import { loadAgent } from './agents/loader.js';
-import { saveResults, printStepResult, printStepRunning, clearRunningLine, printSummary, loadPreviousContext, getCompletedStepIds, findLatestOutput, computeResumeSkipIds, vanishedStepIds, loadStepOutput } from './output/reporter.js';
+import { saveResults, printStepResult, printStepRunning, clearRunningLine, printSummary, loadPreviousContext, getCompletedStepIds, getSkippedStepIds, findLatestOutput, computeResumeSkipIds, resumeSkipDetail, loadStepOutput } from './output/reporter.js';
 import { existsSync, readFileSync, writeFileSync, copyFileSync, mkdirSync, readdirSync, rmSync } from 'node:fs';
 import { resolve, dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -307,7 +307,8 @@ export async function run(
     }
 
     const completedBefore = getCompletedStepIds(resumeDir);
-    skipStepIds = computeResumeSkipIds(dag, completedBefore, fromStep);
+    const resumePlan = resumeSkipDetail(dag, completedBefore, fromStep, getSkippedStepIds(resumeDir));
+    skipStepIds = resumePlan.skip;
     // 被跳过的图片/视频步骤的产物在上一轮的 assets/ 里：读进登记表，下游图生视频 / concat 才拿得到字节
     preloadProducedMedia(join(resumeDir, 'assets'), media);
 
@@ -325,9 +326,13 @@ export async function run(
       console.log(`  跳过已完成步骤: ${skipStepIds.size} 个`);
       // 改过 step id / 删了步骤后再 resume：那些名字在新工作流里已经没有对应物，复用不了。
       // 不说的话用户只会看到"跳过 N 个"比预期少，以为是引擎抽风。
-      const vanished = vanishedStepIds(dag, completedBefore);
-      if (vanished.length > 0) {
-        console.log(`  上次运行里有 ${vanished.length} 个步骤在当前工作流里已不存在（改了 id 或删掉了）：${vanished.join(', ')} —— 这些不会被复用`);
+      if (resumePlan.vanished.length > 0) {
+        console.log(`  上次运行里有 ${resumePlan.vanished.length} 个步骤在当前工作流里已不存在（改了 id 或删掉了）：${resumePlan.vanished.join(', ')} —— 这些不会被复用`);
+      }
+      // 上游要重跑 → 下游的旧产物作废。不说的话，用户以为"只多跑了新插的那步"，
+      // 实际拿到的是没见过新产出的旧交付物
+      if (resumePlan.staleDownstream.length > 0) {
+        console.log(`  这些步骤上次跑过，但上游这轮要重跑，旧产物已作废，会一起重跑：${resumePlan.staleDownstream.join(', ')}`);
       }
       if (fromStep) console.log(`  从步骤 [${fromStep}] 开始重新执行`);
     }

@@ -371,6 +371,18 @@ export function loadStepOutput(outputDir: string, stepId: string): string | null
 /**
  * 获取上一次运行的步骤 ID 列表（已完成的）
  */
+/** 上一轮按 condition 跳过的步骤 id（resume 计划要用：它们不产出，不该因此作废下游） */
+export function getSkippedStepIds(outputDir: string): string[] {
+  const metadataPath = join(outputDir, 'metadata.json');
+  if (!existsSync(metadataPath)) return [];
+  try {
+    const metadata = JSON.parse(readFileSync(metadataPath, 'utf-8'));
+    return (metadata.steps ?? [])
+      .filter((s: { status: string }) => s.status === 'skipped')
+      .map((s: { id: string }) => s.id);
+  } catch { return []; }
+}
+
 export function getCompletedStepIds(outputDir: string): string[] {
   const metadataPath = join(outputDir, 'metadata.json');
   if (!existsSync(metadataPath)) return [];
@@ -392,37 +404,82 @@ export function computeResumeSkipIds(
   dag: { levels: string[][]; nodes?: Map<string, { step: { depends_on?: string[] } }> },
   completedIds: string[],
   fromStep?: string,
+  skippedBefore: string[] = [],
 ): Set<string> {
-  if (!fromStep) return new Set(completedIds);
-  const fromLevel = dag.levels.findIndex(l => l.includes(fromStep));
-  if (fromLevel < 0) {
-    throw new Error(`--from 指定的步骤 "${fromStep}" 不存在`);
-  }
-  // 语义：重跑 fromStep 及其**下游**，其余已完成的一律复用——按依赖算，不按层级。
-  // 此前按层级跳过（只跳 fromStep 那层之前的），同层兄弟会被一起重跑：短剧流水线 --from shot3
-  // 会把 shot1/shot2 重新出片——云端是白花两条片的钱，本地是白等 8 分钟。真机 2026-08-30 撞到。
+  return resumeSkipDetail(dag, completedIds, fromStep, skippedBefore).skip;
+}
+
+/**
+ * resume 的复用计划。除了"跳哪些"，还要说清**为什么有些跳不了**：
+ *  - vanished：档案里已完成、但当前工作流里已经没有这个 id（改名 / 删了步骤）；
+ *  - staleDownstream：上游这一轮要重跑，它的旧产物就不能再用了。
+ *
+ * 后者是真机撞出来的静默错误：两步工作流跑完后在中间插一步、把下游的 task 改成引用新变量，
+ * 再 `--resume last` —— 新步骤跑了，下游却被当成"已完成"整个跳过，交付物还是**没见过新步骤产出**
+ * 的旧货，而且一个字都不提示。而"改完再 resume"正是本项目主推的迭代方式。
+ */
+export function resumeSkipDetail(
+  dag: { levels: string[][]; nodes?: Map<string, { step: { depends_on?: string[] } }> },
+  completedIds: string[],
+  fromStep?: string,
+  /** 上一轮按 condition 跳过的步骤：这轮跳不跳都不会凭空多出产物，不该因此作废下游 */
+  skippedBefore: string[] = [],
+): { skip: Set<string>; vanished: string[]; staleDownstream: string[] } {
+  const known = dag.nodes ? new Set(dag.nodes.keys()) : new Set(dag.levels.flat());
   const completed = new Set(completedIds);
-  const rerun = new Set<string>([fromStep]);
+  const rerun = new Set<string>();
+  if (fromStep) {
+    const fromLevel = dag.levels.findIndex((l) => l.includes(fromStep));
+    if (fromLevel < 0) {
+      throw new Error(`--from 指定的步骤 "${fromStep}" 不存在`);
+    }
+    // 语义：重跑 fromStep 及其**下游**，其余已完成的一律复用——按依赖算，不按层级。
+    // 此前按层级跳过（只跳 fromStep 那层之前的），同层兄弟会被一起重跑：短剧流水线 --from shot3
+    // 会把 shot1/shot2 重新出片——云端是白花两条片的钱，本地是白等 8 分钟。真机 2026-08-30 撞到。
+    rerun.add(fromStep);
+    if (dag.nodes) {
+      let grew = true;
+      while (grew) {
+        grew = false;
+        for (const [id, node] of dag.nodes) {
+          if (rerun.has(id)) continue;
+          if ((node.step.depends_on ?? []).some((d) => rerun.has(d))) { rerun.add(id); grew = true; }
+        }
+      }
+    } else {
+      // 没有依赖信息（旧调用方只给 levels）时退回层级语义
+      for (let li = fromLevel; li < dag.levels.length; li++) for (const id of dag.levels[li]) rerun.add(id);
+    }
+  }
+
+  // 只留**当前工作流里还存在**的 step：用户改了 id / 删了步骤后，上一次档案里那些名字已经没用了。
+  // 留着不会出错（执行器按 id 查，查不到就是没跳过），但会让"跳过已完成步骤: N 个"虚报。
+  const vanished = [...completed].filter((id) => !known.has(id));
+  const skip = new Set<string>();
+  for (const id of completed) if (!rerun.has(id) && known.has(id)) skip.add(id);
+
+  // 上游这一轮要重跑（新插的步骤、上次没跑成的步骤、--from 点名的那些），下游的旧产物就作废了。
+  // 传递地收：A 重跑 → B 不能复用 → 依赖 B 的 C 也不能复用。
+  const staleDownstream: string[] = [];
+  // 上一轮按 condition 跳过的上游不算"会重跑"：短剧流水线里 vo1/vo2/vo3 常年条件为假，
+  // 若把它们当成会产出，film 每次 resume 都要重合成——而条件没变时那纯属白跑。
+  // 代价是：条件这轮恰好翻真时，下游仍按旧产物复用（用户改了输入通常会整体重跑，这里取轻）。
+  const benign = new Set(skippedBefore);
   if (dag.nodes) {
     let grew = true;
     while (grew) {
       grew = false;
-      for (const [id, node] of dag.nodes) {
-        if (rerun.has(id)) continue;
-        if ((node.step.depends_on ?? []).some((d) => rerun.has(d))) { rerun.add(id); grew = true; }
+      for (const id of [...skip]) {
+        const deps = dag.nodes.get(id)?.step.depends_on ?? [];
+        if (deps.some((d) => known.has(d) && !skip.has(d) && !benign.has(d))) {
+          skip.delete(id);
+          staleDownstream.push(id);
+          grew = true;
+        }
       }
     }
-  } else {
-    // 没有依赖信息（旧调用方只给 levels）时退回层级语义
-    for (let li = fromLevel; li < dag.levels.length; li++) for (const id of dag.levels[li]) rerun.add(id);
   }
-  // 只留**当前工作流里还存在**的 step：用户改了 id / 删了步骤后，上一次档案里那些名字已经没用了。
-  // 留着不会出错（执行器按 id 查，查不到就是没跳过），但会让"跳过已完成步骤: N 个"虚报——
-  // 真机：把 polish 改名成 polish_v2 再 resume，明明只复用了 1 步，却说跳过 2 个。
-  const known = dag.nodes ? new Set(dag.nodes.keys()) : new Set(dag.levels.flat());
-  const skip = new Set<string>();
-  for (const id of completed) if (!rerun.has(id) && known.has(id)) skip.add(id);
-  return skip;
+  return { skip, vanished, staleDownstream };
 }
 
 /** 上一次档案里已完成、但当前工作流里已经不存在的 step（改名 / 删掉了）——它们不会被复用。 */
