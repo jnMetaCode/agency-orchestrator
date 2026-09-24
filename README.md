@@ -422,6 +422,9 @@ ao serve                             # 启动 MCP Server（供 Claude Code / Cur
 | `--feedback "意见"` | 对话式返工：把修改意见交给 `--from` 指定的专家，让它带着「上一版产出 + 你的意见」在原稿基础上修改（不指定 `--resume` 时默认对上一次运行返工） |
 | `--watch` | 实时终端进度显示 |
 | `--quiet` | 静默模式 |
+| `--compare` | 跑完再跑一次「单次基线」并双向盲评，结论与基线产出存进 `<运行目录>/compare.md` |
+| `--export <格式>` | 导出交付物：`docx` / `pdf` / `xlsx` / `pptx`（给人）或 `skill` / `plan`（给编码 agent）。文件写到**当前目录**、按工作流名命名，同名会覆盖上一次 |
+| `--notify <webhook>` | 跑完把结果推到钉钉 / 飞书 / 企业微信 / 通用 webhook（也可用 `AO_NOTIFY_URL`，适合 cron） |
 
 ### AI 智能编排（Compose）
 

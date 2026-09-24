@@ -193,6 +193,7 @@ async function handleRun(): Promise<void> {
     console.error('  或: ao run --team <名字> "你的任务"   # 用已保存的团队跑新任务');
     console.error('  --materialize <目录>     把开发步产出的「### 路径 + 代码围栏」文件块落盘成真实项目脚手架');
     console.error('  --export <格式>          把本次产出导出:docx/pdf/xlsx/pptx(给人)或 skill/plan(给编码 agent 执行)');
+    console.error('                            文件写到当前目录、按工作流名命名(同名会覆盖上一次)');
     console.error('  --no-verify              关闭 acceptance 自动核验（默认：写了 acceptance 的步骤产出后自动核验，未过自动返工一轮）');
     console.error('  --verify-provider/--verify-model  指定验收员模型（默认用文本模型）。图片/视频验收要能看图的模型，DeepSeek 等看不了图时用它换一个');
     console.error('  --compare                跑完后再跑单次基线 + 盲评，并排对比多智能体 vs 单次');

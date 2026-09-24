@@ -238,6 +238,7 @@ const dict: Dict = {
     --feedback "意见"         配合 --from：把上一版产出 + 这条意见交给该步骤改稿（省略 --resume 时默认 last）
     --compare                跑完再跑单次基线 + 盲评，并排对比多智能体 vs 单次
     --export <格式>          导出产出：docx / pdf / xlsx / pptx（给人）或 skill / plan（给编码 agent）
+                            文件写到当前目录、按工作流名命名（同名会覆盖上一次）
     --materialize <目录>     把「### 路径 + 代码围栏」文件块落盘成项目脚手架
     --no-verify              关闭 acceptance 自动核验；--verify-provider/--verify-model 指定验收员模型
     --base-url / --api-key   覆盖端点与密钥（key 也可用环境变量 AO_API_KEY）
@@ -320,6 +321,7 @@ const dict: Dict = {
     --feedback "note"        With --from: hand the previous output + this note to that step for revision (--resume defaults to last)
     --compare                After the run, also run a single-shot baseline + blind judge, side by side
     --export <format>        Export outputs: docx / pdf / xlsx / pptx (for people) or skill / plan (for coding agents)
+                            Written to the CURRENT directory, named after the workflow (overwrites a previous one)
     --materialize <dir>      Write "### path + code fence" blocks to disk as a project scaffold
     --no-verify              Disable acceptance auto-verify; --verify-provider/--verify-model pick the reviewer model
     --base-url / --api-key   Override endpoint and key (key also via AO_API_KEY)
