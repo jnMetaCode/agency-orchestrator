@@ -331,5 +331,18 @@ test('resolveAssert: contains 里的 {{变量}} 要渲染（不渲染就是拿�
   });
 }
 
+// ── Studio 的运行记录也读同一份 metadata：徽标只在返工时出现 ──
+// 前端没有单测环境（同 studio-demo-guard 的做法），按源码钉住这条约定：
+// 删掉那个 `?.reworked` 判断不会有任何构建报错，只会让每个步骤都挂上「断言返工」。
+test('Studio 的断言徽标只在 reworked 时出现', () => {
+  const src = readFileSync('website/src/components/studio/RunsPanel.tsx', 'utf-8');
+  assert(/s\.assertion\?\.reworked &&/.test(src), 'RunsPanel 按 assertion.reworked 判断');
+  const t = readFileSync('website/src/i18n/translations.ts', 'utf-8');
+  assert(/assertReworked:/.test(t) && /assertReworkedTitle:/.test(t), '中英文案都在（title 说清为什么返工）');
+  assert((t.match(/assertReworked:/g) || []).length === 2, `中英各一份（实际 ${(t.match(/assertReworked:/g) || []).length}）`);
+  const lib = readFileSync('website/src/lib/studio.ts', 'utf-8');
+  assert(/assertion\?:/.test(lib), 'RunStep 类型里有 assertion，否则 TS 会把它当不存在');
+});
+
 console.log(`\n  ${passed} passed, ${failed} failed`);
 if (failed > 0) process.exit(1);
