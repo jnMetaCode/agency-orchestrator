@@ -10,6 +10,9 @@ llm:
 
 concurrency: 2
 
+# 交付物：综合安全审计报告（漏洞扫描 / 威胁检测两份是施工图）
+deliverables: [report]
+
 inputs:
   - name: code_or_system
     description: "待审计的代码或系统描述"
@@ -85,4 +88,10 @@ steps:
       4. 修复路线图建议（短期/中期/长期）
       5. 安全改进建议（架构层面）
     depends_on: [vuln_scan, threat_detect]
+    acceptance: |
+      1. 五个小节齐全：执行摘要 / 关键发现 / 详细发现清单 / 修复路线图 / 安全改进建议
+      2. 执行摘要里给出 A-F 之中的一个总体评级
+      3. 关键发现按严重程度排序，每条都标了严重程度
+      4. 详细发现的每一条都带修复建议与优先级
+      5. 只输出这份报告本身，没有开场白、修改说明、向用户提问
     output: final_security_report

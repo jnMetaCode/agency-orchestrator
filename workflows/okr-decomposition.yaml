@@ -12,6 +12,9 @@ llm:
 
 concurrency: 2
 
+# 交付物：最终 OKR 文档（现状分析 / 季度计划 / Q1 行动三份是施工图）
+deliverables: [final_okr]
+
 inputs:
   - name: annual_goal
     description: "年度目标（一句话），如：让产品 MAU 从 5 万做到 50 万"
@@ -166,5 +169,10 @@ steps:
       - [ ] 资源是否到位？
 
       ⚠️ 只输出上面这份 OKR 文档本身：不要开场白/寒暄、不要"我改了什么/复盘/修改说明"、不要向用户提问或请其拍板、不要建议 ao 命令或后续动作、不要"要我继续吗"之类收尾。
+    acceptance: |
+      1. 四个小节齐全：季度 KR 拆解 / Q1 详细方案 / 风险与假设 / 评审检查清单
+      2. 每个 KR 都可量化（有数字或明确可判定的达成条件）
+      3. 评审检查清单是 `- [ ]` 复选框形式，四项齐全
+      4. 只输出这份 OKR 文档本身，没有开场白、修改说明、向用户提问
     output: okr_document
     depends_on: [q1_action_plan]
