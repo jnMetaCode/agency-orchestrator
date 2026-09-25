@@ -33,8 +33,10 @@ export function formatVerification(v: StepVerification | undefined, en = false):
  */
 export function formatAssertion(a: StepVerification | undefined, en = false): string | null {
   if (!a || !a.reworked) return null;
-  if (en) return a.pass ? 'Assert ✓ (rewritten once to satisfy it)' : `Assert ✗ ${a.failed.length} unmet`;
-  return a.pass ? '机械断言 ✓（返工 1 轮后达标）' : `机械断言 ✗ ${a.failed.length} 条未达标`;
+  // 这一行本来就只在返工时出现，顺带点名第一轮是哪条没过——调 assert 阈值时要找的就是它
+  const first = a.pass ? (a.firstFailed ?? [])[0] : undefined;
+  if (en) return a.pass ? `Assert ✓ (rewritten once to satisfy it${first ? `: ${first}` : ''})` : `Assert ✗ ${a.failed.length} unmet`;
+  return a.pass ? `机械断言 ✓（返工 1 轮后达标${first ? `：${first}` : ''}）` : `机械断言 ✗ ${a.failed.length} 条未达标`;
 }
 
 /**

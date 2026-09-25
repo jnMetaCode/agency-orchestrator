@@ -1079,7 +1079,9 @@ async function executeStep(
         throw new Error(`step "${node.step.id}" 机械断言未过且返工生成失败（${msg}）：\n  - ${first.failures.join('\n  - ')}`);
       }
       const second = checkAssert(retried, assertSpec);
-      node.assertion = { pass: second.pass, failed: second.pass ? [] : second.failures, reworked: true };
+      // 同 verification：返工成功后 failed 会清空，"是哪一条逼着它重写的"就此丢失——
+      // 而这正是模板作者调 assert 阈值时要看的（emits_files: 3 到底是不是要高了）
+      node.assertion = { pass: second.pass, failed: second.pass ? [] : second.failures, reworked: true, firstFailed: first.failures };
       if (!second.pass) {
         // 到这里就停。宁可让这一步红着，也不能让缺件的产物流下去——
         // 静默损坏比失败贵得多：失败当场就知道，缺件要等上线后才发现。

@@ -314,6 +314,11 @@ test('resolveAssert: contains 里的 {{变量}} 要渲染（不渲染就是拿�
   const loose = res.steps.find((s) => s.id === 'loose');
   test('返工过的步骤在 StepResult 里留痕', () => {
     assert(tight?.assertion?.reworked === true && tight?.assertion?.pass === true, `实际 ${JSON.stringify(tight?.assertion)}`);
+    // 同 verification.firstFailed：返工成功后 failed 清空，"是哪一条逼着它重写"要留住——
+    // 模板作者调阈值（emits_files: 3 是不是要高了）看的就是它
+    assert(tight?.assertion?.firstFailed?.[0]?.includes('产出太长') === true,
+      `第一轮是哪条不过要留痕（实际 ${JSON.stringify(tight?.assertion?.firstFailed)}）`);
+    assert(loose?.assertion?.firstFailed === undefined, '一次就过的不写这个字段');
   });
   test('一次就过的步骤记 reworked=false（而不是什么都不记）', () => {
     assert(loose?.assertion?.pass === true && loose?.assertion?.reworked === false, `实际 ${JSON.stringify(loose?.assertion)}`);
