@@ -184,10 +184,43 @@ export function extractMarkdownTables(md: string): Array<{ title?: string; rows:
   return tables;
 }
 
+/**
+ * skill 的 name 必须是 ASCII slug：Claude Code / superpowers 那边 name 就是技能 id
+ * （`shortfilm-prompt`、`brainstorming`），中文名进去是装不上的。纯中文工作流名 slug 化后为空，
+ * 退回 `ao-skill`——宁可是个通用 id，也不要一个加载不了的名字。人看的标题在正文里，不丢。
+ */
+export function skillSlug(name: string | undefined): string {
+  const slug = (name || '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .slice(0, 48)
+    .replace(/-+$/, '');
+  return slug || 'ao-skill';
+}
+
+/**
+ * description 是模型**决定要不要加载这个技能**时唯一看得见的东西。原来一律写
+ * "由 Agency Orchestrator 多智能体协作生成的方法论 / 计划"——每个导出的技能都长一样，
+ * 模型没法据此判断何时该用，等于白导。改成"工作流名 —— 正文第一句"。
+ */
+export function skillDescription(md: string, name?: string): string {
+  const firstLine = md
+    .split('\n')
+    .map((l) => l.trim())
+    .find((l) => l && !l.startsWith('#') && !l.startsWith('>') && !l.startsWith('```') && !l.startsWith('|') && !l.startsWith('---'));
+  const gist = (firstLine || '').replace(/[*_`]/g, '').slice(0, 100);
+  const title = (name || '').trim();
+  if (title && gist) return `${title} —— ${gist}`;
+  return title || gist || '由 Agency Orchestrator 多智能体协作生成的方法论 / 计划';
+}
+
 /** 把报告包成可复用 Skill(.md + frontmatter)或可执行计划(交 Claude Code 跑)。 */
 function toSkillOrPlan(md: string, format: 'skill' | 'plan', opts?: { name?: string; description?: string }): ExportResult {
-  const name = (opts?.name || 'generated-plan').replace(/[^一-鿿a-zA-Z0-9_-]/g, '-').replace(/-+/g, '-').toLowerCase();
-  const desc = opts?.description || '由 Agency Orchestrator 多智能体协作生成的方法论 / 计划';
+  const name = format === 'skill'
+    ? skillSlug(opts?.name)
+    : (opts?.name || 'generated-plan').replace(/[^一-鿿a-zA-Z0-9_-]/g, '-').replace(/-+/g, '-').toLowerCase();
+  const desc = opts?.description || (format === 'skill' ? skillDescription(md, opts?.name) : '由 Agency Orchestrator 多智能体协作生成的方法论 / 计划');
   let content: string;
   if (format === 'skill') {
     content = `---\nname: ${name}\ndescription: ${desc}\n---\n\n${md}\n`;

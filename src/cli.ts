@@ -349,6 +349,14 @@ async function handleRun(): Promise<void> {
           const out = resolve(`${safe}.${r.ext}`);
           writeFileSync(out, r.buffer);
           console.log(`\n  📤 已导出 → ${out}（${r.engine}）`);
+          // skill 导出的落点是有讲究的：Claude Code 按 `~/.claude/skills/<id>/SKILL.md` 装，
+          // 只丢一个 .md 在当前目录，用户拿到手也不知道往哪放（frontmatter 里的 name 就是那个 id）
+          if (exportFmt === 'skill') {
+            const { skillSlug } = await import('./export/convert.js');
+            const id = skillSlug(result.name);
+            console.log(`     装给 Claude Code：mkdir -p ~/.claude/skills/${id} && cp "${out}" ~/.claude/skills/${id}/SKILL.md`);
+            console.log(`     装给 AO 自己的步骤（step 里写 skill: "${id}"）：放进 ./skills/${id}/SKILL.md 或 $AO_SKILLS_DIR`);
+          }
           if (r.ext === 'html' && exportFmt === 'pdf') {
             console.log(`     (未检测到 pandoc+LaTeX,已输出打印就绪 HTML;浏览器打开 Ctrl-P 存 PDF,或装 pandoc 获更佳排版)`);
           }

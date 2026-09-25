@@ -100,5 +100,30 @@ assert(['pdf', 'html'].includes(pdf.ext), `pdf 产出 ${pdf.ext}(${pdf.engine})`
   assert(new Set(wb.SheetNames).size === 2, `重名被消歧（实际 ${JSON.stringify(wb.SheetNames)}）`);
 }
 
+console.log('\n─── skill 导出要能真装上 ───');
+{
+  // skill 的 name 就是技能 id（Claude Code / superpowers 那边都是 shortfilm-prompt 这种 slug），
+  // 中文名进去装不上；description 又是模型**决定要不要加载**时唯一看得见的东西，
+  // 以前一律写"由 AO 多智能体协作生成的方法论 / 计划"，每个导出都长一样，等于白导。
+  const body = '# 登录改造方案\n\n本方案把会话从 Cookie 迁到 JWT，并给中间件加统一鉴权。\n\n## 步骤\n\n1. 加 JWT\n';
+  const r = await exportMarkdown(body, 'skill', { name: '登录改造：JWT 迁移' });
+  const text = r.buffer.toString('utf-8');
+  const name = text.match(/^name: (.+)$/m)?.[1] ?? '';
+  const desc = text.match(/^description: (.+)$/m)?.[1] ?? '';
+  assert(/^[a-z0-9-]+$/.test(name), `name 必须是 ASCII slug（实际 ${name}）`);
+  assert(desc.includes('登录改造') && desc.includes('Cookie'), `description 要含工作流名与正文第一句（实际 ${desc}）`);
+  assert(!desc.startsWith('由 Agency Orchestrator'), '不再是那句所有技能都一样的套话');
+  assert(text.includes('# 登录改造方案'), '人看的标题留在正文里，不丢');
+
+  // 纯中文名 slug 化后为空 → 用通用 id，宁可通用也不要一个装不上的名字
+  const zh = await exportMarkdown(body, 'skill', { name: '中文工作流' });
+  assert(/^name: ao-skill$/m.test(zh.buffer.toString('utf-8')), '纯中文名退回 ao-skill');
+
+  // plan 是给编码 agent 直接执行的，不是技能，名字不受 slug 约束
+  const plan = await exportMarkdown(body, 'plan', { name: '中文工作流' });
+  assert(!/^name:/m.test(plan.buffer.toString('utf-8')), 'plan 不带 frontmatter');
+  assert(/严格按下面的计划自动执行/.test(plan.buffer.toString('utf-8')), 'plan 带执行指令');
+}
+
 console.log(`\n  结果: ${passed} 通过, ${failed} 失败\n`);
 if (failed > 0) process.exit(1);
