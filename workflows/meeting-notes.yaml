@@ -12,6 +12,9 @@ llm:
 
 concurrency: 3
 
+# 交付物：可直接发群里的会议纪要（清洗/决策/行动项三份是施工图）
+deliverables: [final_notes]
+
 inputs:
   - name: raw_notes
     description: "原始会议记录（口语/速记/录音转文字都可以）"
@@ -155,5 +158,10 @@ steps:
 
       ## 完整记录
       （从整理后发言转录）
+    acceptance: |
+      1. 有"一句话总结"小节，且总结不超过 30 字
+      2. 有"关键决策"与"行动项"两个小节
+      3. 行动项每条都写明负责人与时间
+      4. 只输出纪要本身，没有开场白、修改说明、向用户提问
     output: meeting_summary
     depends_on: [extract_decisions, extract_todos, extract_concerns]
