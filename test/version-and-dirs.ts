@@ -57,13 +57,18 @@ console.log('\n─── 存档目录建不了：开跑前就报，别跑完才�
   writeFileSync(wf, [
     'name: "写不进去"', `agents_dir: "${resolve('node_modules/agency-agents-zh')}"`, 'verify: false',
     'llm:', '  provider: "deepseek"', '  model: "m"', '  api_key: "k"', '  base_url: "http://127.0.0.1:9/v1"',
+    '  retry: 0', '  timeout: 3000',
     'steps:', '  - id: a', '    role: "marketing/marketing-content-creator"', '    task: "写一句"', '    output: out', '',
   ].join('\n'), 'utf-8');
+  // 造一个"建不出来"的目录：拿一个**文件**当父目录，mkdir 必 ENOTDIR——
+  // 各平台一致（/proc 这种只在 Linux 上存在，写死会变成只在某些机器上成立的用例）
+  const blocker = join(wfDir, 'not-a-dir');
+  writeFileSync(blocker, 'x', 'utf-8');
   const { run } = await import('../src/index.js');
   let msg = '';
   const t0 = Date.now();
   try {
-    await run(wf, {}, { quiet: true, outputDir: '/proc/nonexistent-ao/out' });
+    await run(wf, {}, { quiet: true, outputDir: join(blocker, 'out') });
   } catch (e) {
     msg = e instanceof Error ? e.message : String(e);
   }
