@@ -10,6 +10,9 @@ llm:
 
 concurrency: 2
 
+# 交付物：可直接汇报的竞品分析摘要（数据 / SEO 两份是施工图）
+deliverables: [executive_summary]
+
 inputs:
   - name: product
     description: "你的产品/服务名称和简介"
@@ -96,4 +99,10 @@ steps:
       5. **完整对比表**（保留数据分析中的功能矩阵）
 
       风格：简洁、数据驱动、可直接用于汇报。
+    acceptance: |
+      1. 五个部分齐全：一句话结论 / 核心发现 / 威胁与机会 / 建议行动 / 完整对比表
+      2. 核心发现 3-5 条；威胁与机会各 3 条
+      3. 建议行动按优先级排序，每条都写了负责人建议与时间框架
+      4. 完整对比表是 markdown 表格，保留了数据分析里的功能矩阵
+      5. 只输出这份摘要本身，没有开场白、修改说明、向用户提问
     depends_on: [data_analysis, seo_scan]

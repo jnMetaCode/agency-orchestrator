@@ -10,6 +10,9 @@ llm:
 
 concurrency: 3
 
+# 交付物：最终评审意见（三份分项评审是施工图）
+deliverables: [summary]
+
 inputs:
   - name: pr_diff
     description: "PR 的 diff 内容（代码变更）"
@@ -114,5 +117,10 @@ steps:
 
       ### 亮点
       - 值得肯定的实践
+    acceptance: |
+      1. 有一张评审表格（含代码质量 / 安全性 / 性能三行）
+      2. 三个小节齐全：必须修改（Blocking）/ 建议改进（Non-blocking）/ 亮点
+      3. "必须修改"的每条都标了严重程度并给出修复建议
+      4. 只输出这份评审意见本身，没有开场白、修改说明、向用户提问
     depends_on: [code_quality, security_check, perf_check]
     output: final_review

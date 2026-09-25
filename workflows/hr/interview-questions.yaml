@@ -10,6 +10,9 @@ llm:
 
 concurrency: 2
 
+# 交付物：可直接打印的面试指南（行为题 / 技术题两份是施工图）
+deliverables: [interview_guide]
+
 inputs:
   - name: position
     description: "招聘岗位（如：高级后端工程师、产品经理、数据分析师）"
@@ -105,4 +108,10 @@ steps:
       4. **面试官注意事项**（提问技巧、避免的偏见等）
 
       风格：实用、可直接打印使用。
+    acceptance: |
+      1. 四个部分齐全：面试流程安排 / 完整题目清单 / 评分表模板 / 面试官注意事项
+      2. 流程安排给出了各环节的时间分配（带分钟数）
+      3. 题目清单每题都标了考察维度与建议时间
+      4. 评分表是 markdown 表格，列出各维度的评分标准
+      5. 只输出这份面试指南本身，没有开场白、修改说明、向用户提问
     depends_on: [behavioral_questions, technical_questions]
