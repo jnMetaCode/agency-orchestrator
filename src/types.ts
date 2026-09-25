@@ -196,6 +196,12 @@ export interface StepVerification {
   pass: boolean;              // 最终产出是否通过核验（返工后复核不可用时保守记 false）
   failed: string[];           // 未满足条目（"条目（原因）"），pass=true 时为空
   reworked: boolean;          // 是否触发过自动返工
+  /**
+   * **第一轮**未满足的条目（仅 reworked=true 时有）。返工成功后 failed 会清空，
+   * "到底是哪一条逼着它重写的"就此丢失——而这正是模板作者调 acceptance 时唯一想知道的事
+   * （一条总是触发返工的验收 = 每个用户每次运行都多付一次调用）。
+   */
+  firstFailed?: string[];
 }
 
 /** LLM Connector 相关类型 */

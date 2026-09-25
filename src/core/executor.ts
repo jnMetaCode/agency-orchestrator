@@ -625,7 +625,7 @@ async function executeStep(
               const c2 = await verifyImageAcceptance(judge, judgeCfg, prompt, dataUri(img2.buffer), node.acceptance);
               add(c2.tokens);
               if (c2.verdict?.pass) {
-                node.verification = { pass: true, failed: [], reworked: true };
+                node.verification = { pass: true, failed: [], reworked: true, firstFailed: failed1 };
                 img = img2;
               } else if (c2.verdict) {
                 // 两版都没过：交付第二版（它至少针对了未满足项），如实标未通过
@@ -757,7 +757,7 @@ async function executeStep(
                   if (c2) add(c2.tokens);
                   vid = vid2;
                   if (c2?.verdict?.pass) {
-                    node.verification = { pass: true, failed: [], reworked: true };
+                    node.verification = { pass: true, failed: [], reworked: true, firstFailed: failed1 };
                   } else if (c2?.verdict) {
                     node.verification = { pass: false, failed: formatFailedItems(c2.verdict.failed), reworked: true };
                     process.stderr.write(`\n  ⚠️  ${node.step.id} 重出后仍有 ${c2.verdict.failed.length} 条未满足\n`);
@@ -1140,7 +1140,7 @@ async function executeStep(
   const check2 = await verifyAcceptance(textJudge.connector, textJudge.cfg, renderedTask, reworked, node.acceptance);
   addTokens(check2.tokens);
   if (check2.verdict?.pass) {
-    node.verification = { pass: true, failed: [], reworked: true };
+    node.verification = { pass: true, failed: [], reworked: true, firstFailed: failed1 };
   } else if (check2.verdict) {
     node.verification = { pass: false, failed: formatFailedItems(check2.verdict.failed), reworked: true };
     process.stderr.write(`\n  ⚠️  ${node.step.id} 返工后仍有 ${check2.verdict.failed.length} 条未满足\n`);

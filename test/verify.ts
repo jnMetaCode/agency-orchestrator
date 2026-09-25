@@ -113,6 +113,11 @@ async function runOnce(wf: WorkflowDefinition, mock: ScriptedConnector, verify: 
   const step = result.steps.find(s => s.id === 'a')!;
   assert(step.output === '返工后的成稿', 'A: 最终产出是返工版');
   assert(step.verification?.pass === true && step.verification.reworked === true, 'A: verification = 返工后通过');
+  // 返工成功后 failed 会清空，"到底哪一条逼着它重写"就此丢失——而这正是模板作者调 acceptance 时唯一想知道的事：
+  // 一条总是触发返工的验收，等于每个用户每次运行都多付一次调用。（09-25 自己调 tech-blog 的验收时缺的就是它。）
+  assert(step.verification?.failed.length === 0, 'A: 最终没有未满足条目');
+  assert(step.verification?.firstFailed?.some(f => f.includes('不超过 200 字')) === true,
+    `A: 但第一轮是哪条不过要留痕（实际 ${JSON.stringify(step.verification?.firstFailed)}）`);
   const rework = mock.calls.find(c => c.user.includes('验收核对发现以下条目未满足'));
   assert(!!rework && rework.user.includes('第一版草稿') && rework.user.includes('不超过 200 字'), 'A: 返工请求带上一版产出 + 未满足条目');
   const verifyCall = mock.calls.find(c => c.user.includes('待验收产出'));
@@ -124,6 +129,7 @@ async function runOnce(wf: WorkflowDefinition, mock: ScriptedConnector, verify: 
   const outDir = saveResults(result, join(dir, 'out'));
   const meta = JSON.parse(readFileSync(join(outDir, 'metadata.json'), 'utf-8'));
   assert(meta.steps[0].verification?.pass === true && meta.steps[0].verification?.reworked === true, 'A: metadata.json 带 verification');
+  assert(meta.steps[0].verification?.firstFailed?.[0]?.includes('不超过 200 字') === true, 'A: firstFailed 也进 metadata.json（事后翻档案能看出是被哪条逼的）');
   const summary = readFileSync(join(outDir, 'summary.md'), 'utf-8');
   assert(summary.includes('验收 ✓（返工 1 轮后通过）'), 'A: summary.md 带验收徽章');
   const stepFile = readFileSync(join(outDir, 'steps', '1-a.md'), 'utf-8');
@@ -136,6 +142,7 @@ async function runOnce(wf: WorkflowDefinition, mock: ScriptedConnector, verify: 
   const result = await runOnce(makeWf(), mock, true);
   const step = result.steps.find(s => s.id === 'a')!;
   assert(step.output === '第一版草稿' && step.verification?.pass === true && step.verification.reworked === false, 'B: 首检通过 → 原产出 + pass 不返工');
+  assert(step.verification?.firstFailed === undefined, 'B: 没返工就没有 firstFailed（别给一次就过的步骤添噪音）');
   assert(mock.verifyCount === 1, 'B: 只核验一次');
 }
 
