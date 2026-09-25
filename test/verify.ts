@@ -131,7 +131,8 @@ async function runOnce(wf: WorkflowDefinition, mock: ScriptedConnector, verify: 
   assert(meta.steps[0].verification?.pass === true && meta.steps[0].verification?.reworked === true, 'A: metadata.json 带 verification');
   assert(meta.steps[0].verification?.firstFailed?.[0]?.includes('不超过 200 字') === true, 'A: firstFailed 也进 metadata.json（事后翻档案能看出是被哪条逼的）');
   const summary = readFileSync(join(outDir, 'summary.md'), 'utf-8');
-  assert(summary.includes('验收 ✓（返工 1 轮后通过）'), 'A: summary.md 带验收徽章');
+  // 返工成功那行顺带点名第一轮是哪条没过——这一行本来就会出现，多带一条信息不占新版面
+  assert(/验收 ✓（返工 1 轮后通过：不超过 200 字/.test(summary), `A: summary.md 的验收徽章点名第一轮未过项（实际：${summary.split('\n').find((l) => l.includes('验收 ✓'))?.trim().slice(0, 60)}）`);
   const stepFile = readFileSync(join(outDir, 'steps', '1-a.md'), 'utf-8');
   assert(stepFile.includes('🔍 验收 ✓') && stepFile.indexOf('🔍') < stepFile.indexOf('\n---\n'), 'A: 步骤文件头部展示核验结果（不混入正文）');
 }

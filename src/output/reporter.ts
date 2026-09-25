@@ -15,11 +15,15 @@ import type { DAGNode } from '../types.js';
  */
 export function formatVerification(v: StepVerification | undefined, en = false): string | null {
   if (!v) return null;
+  // 返工成功时顺带说清**是哪一条**逼着它重写的：这一行本来就会出现，多带一条信息不占新版面，
+  // 而模板作者调 acceptance 时要找的恰恰是它（一条总是触发返工的验收 = 每次运行都多付一次调用）。
+  // 只带第一条，别把整份未满足清单铺在步骤头上。
+  const first = v.reworked && v.pass ? (v.firstFailed ?? [])[0] : undefined;
   if (en) {
-    if (v.pass) return v.reworked ? 'Acceptance ✓ (passed after 1 rework)' : 'Acceptance ✓';
+    if (v.pass) return v.reworked ? `Acceptance ✓ (passed after 1 rework${first ? `: ${first}` : ''})` : 'Acceptance ✓';
     return `Acceptance ⚠️ ${v.failed.length} unmet${v.reworked ? ' (reworked once)' : ''}`;
   }
-  if (v.pass) return v.reworked ? '验收 ✓（返工 1 轮后通过）' : '验收 ✓';
+  if (v.pass) return v.reworked ? `验收 ✓（返工 1 轮后通过${first ? `：${first}` : ''}）` : '验收 ✓';
   return `验收 ⚠️ ${v.failed.length} 条未满足${v.reworked ? '（已返工 1 轮）' : ''}`;
 }
 

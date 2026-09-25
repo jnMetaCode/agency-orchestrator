@@ -185,7 +185,12 @@ function DetailPane({ id, provider, onRun }: { id: string; provider: string; onR
                         "shrink-0 rounded-full px-2 py-0.5 text-[11px] font-semibold",
                         s.verification.pass ? "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400" : "bg-amber-500/15 text-amber-600 dark:text-amber-400",
                       )}
-                      title={s.verification.reworked ? t.studio.runs.verifyReworkedTitle : undefined}
+                      title={
+                        s.verification.reworked
+                          // 返工过的话，把「第一轮是哪条没过」放进 title：徽标本身不变长，鼠标停上去才看得到
+                          ? `${t.studio.runs.verifyReworkedTitle}${s.verification.firstFailed?.length ? `：${s.verification.firstFailed.join("；")}` : ""}`
+                          : undefined
+                      }
                     >
                       {s.verification.pass
                         ? `${t.studio.runs.verifyPass}${s.verification.reworked ? t.studio.runs.verifyReworkedSuffix : ""}`

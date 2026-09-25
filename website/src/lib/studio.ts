@@ -85,7 +85,7 @@ export interface RunStepSummary {
   /** 该步声明的验收标准（运行时渲染后），来自 metadata.json */
   acceptance?: string;
   /** acceptance 自动核验结果，来自 metadata.json（未核验的步骤没有该字段） */
-  verification?: { pass: boolean; failed: string[]; reworked: boolean };
+  verification?: { pass: boolean; failed: string[]; reworked: boolean; firstFailed?: string[] };
   /** 机械断言（assert）结果；只有返工过的才值得在列表里标一下 */
   assertion?: { pass: boolean; failed: string[]; reworked: boolean };
   /** 失败原因（含"运行被中断"），来自 metadata.json */
