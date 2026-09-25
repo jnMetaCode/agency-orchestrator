@@ -1568,6 +1568,21 @@ app.post('/api/workflows/graph', async (req, res) => {
     let yamlText = graphToWorkflow({ name: String(name || 'workflow'), nodes, edges }, base);
     // 保存前用引擎校验挡环 / 坏依赖 / 非法 loop（不校验角色文件存在，结构有效即可）。
     let def = yaml.load(yamlText);
+    // 画布里删掉了某个步骤时，顶层 deliverables 可能还指着它——而画布**没有编辑 deliverables 的入口**，
+    // 于是保存被拒、用户在画布里怎么改都救不回来（只能去手改 YAML，而画布正是给不想碰 YAML 的人用的）。
+    // 处理：把指向已不存在步骤的交付物摘掉（全摘光就连键一起删，回到默认口径"最后一个完成的步骤"），
+    // 并在响应里说清摘了哪些——不闷着改用户的文件。
+    let droppedDeliverables = [];
+    if (Array.isArray(def?.deliverables) && def.deliverables.length > 0) {
+      const alive = new Set((def.steps || []).map((s) => s?.id).filter(Boolean));
+      droppedDeliverables = def.deliverables.filter((d) => !alive.has(d));
+      if (droppedDeliverables.length > 0) {
+        const kept = def.deliverables.filter((d) => alive.has(d));
+        if (kept.length > 0) def.deliverables = kept;
+        else delete def.deliverables;
+        yamlText = yaml.dump(def, { lineWidth: -1, noRefs: true });
+      }
+    }
     let errors = validateWorkflow(def);
     // #91：自动组队产物最常见的错是"变量名对、但缺 depends_on 边"——compose 链路已有
     // 确定性补边修复（#87），画布保存之前没接，导致弹窗能跑、进画布却怎么改都存不了。
@@ -1605,7 +1620,7 @@ app.post('/api/workflows/graph', async (req, res) => {
     }
     if (!isInside(outPath, COMPOSED_DIR)) return res.status(400).json({ error: 'bad path' });
     writeFileSync(outPath, yamlText.endsWith('\n') ? yamlText : yamlText + '\n', 'utf-8');
-    res.json({ file: outPath, overwritten: !!overwritePath, autoFixes });
+    res.json({ file: outPath, overwritten: !!overwritePath, autoFixes, ...(droppedDeliverables.length > 0 ? { droppedDeliverables } : {}) });
   } catch (err) { res.status(500).json({ error: err?.message || String(err) }); }
 });
 

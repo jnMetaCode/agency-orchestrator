@@ -236,7 +236,11 @@ export function WorkflowCanvas({ file, name, onClose, onSaved }: { file: string;
       const outEdges: CanvasEdge[] = edges.map((e) => ({ id: e.id, source: e.source, target: e.target }));
       const res = await api.saveWorkflowGraph({ file, name, nodes: outNodes, edges: outEdges });
       const fixNote = res.autoFixes?.length ? tc.autoFixed.replace("{n}", String(res.autoFixes.length)) : "";
-      setMsg(`✅ ${res.overwritten ? tc.savedInPlace : tc.savedAsCopy}${fixNote}`);
+      // 删掉的步骤如果正是声明的交付物，服务端会把它从 deliverables 里摘掉——说一声，别让用户事后才发现
+      const dropNote = res.droppedDeliverables?.length
+        ? tc.deliverableDropped.replace("{ids}", res.droppedDeliverables.join("、"))
+        : "";
+      setMsg(`✅ ${res.overwritten ? tc.savedInPlace : tc.savedAsCopy}${fixNote}${dropNote}`);
       // 服务端补了边的话，把画布同步成落盘后的真实形状（否则用户看到的图少几条线）
       if (res.autoFixes?.length) {
         setEdges((eds) => {

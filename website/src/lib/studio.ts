@@ -795,7 +795,8 @@ export const api = {
   workflowGraph: (file: string) => getJSON<CanvasGraphResponse>(`/workflows/graph?file=${encodeURIComponent(file)}`),
   saveWorkflowGraph: (body: { file?: string; name: string; nodes: CanvasNode[]; edges: CanvasEdge[]; baseYaml?: string }) =>
     // autoFixes：保存时服务端确定性补上的缺失 depends_on 边（#91，同 compose #87 修复链）
-    postJSON<{ file: string; overwritten: boolean; errors?: string[]; autoFixes?: { step: string; addedDep: string }[] }>("/workflows/graph", body),
+    // droppedDeliverables：画布里删掉的步骤正好是声明的交付物时，服务端把它从 deliverables 里摘掉（画布没有编辑该字段的入口）
+    postJSON<{ file: string; overwritten: boolean; errors?: string[]; autoFixes?: { step: string; addedDep: string }[]; droppedDeliverables?: string[] }>("/workflows/graph", body),
   runs: () => getJSON<RunSummary[]>("/runs"),
   run: (id: string) => getJSON<RunSummary>(`/runs/${encodeURIComponent(id)}`),
   deleteRun: (id: string) => delJSON<{ ok: boolean }>(`/runs/${encodeURIComponent(id)}`),
