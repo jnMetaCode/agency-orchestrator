@@ -84,6 +84,23 @@ to satisfy them by automatic verification. That is exactly how the product is us
 acceptance once, the pipeline enforces it), but it is **not a prompt-to-prompt comparison** — for that,
 the baseline prompt would have to carry the same criteria.
 
+**So we ran the control on the spot**: same tier (claude-code on both sides), same day, but a template
+with **no `acceptance` and no declared `deliverables`**:
+
+| Template | Multi-agent | One-shot baseline | Verdict |
+|---|---|---|---|
+| tech-blog (no acceptance) | 8.5 | 8.5 | ➖ tie (**low confidence**: the two directions disagree) |
+
+Neither judge could carry the argument — one preferred the baseline's coverage (profiling, the GIL,
+rayon, NumPy, CI all covered), the other preferred the multi-agent draft's "the first version was
+*slower*" narrative with reproducible timings. Lengths differed by 2× (5,517 vs 11,739 characters).
+
+**Read the pair together** and the picture is cleaner than either half: **at the strong-model tier,
+multi-agent on its own is roughly a tie — which matches this file's earlier finding; the gap opens only
+once the acceptance criteria are written as data.** In other words, the 8.0 vs 4.5 number measures
+"is this way of working worth it", not "are multi-agent pipelines inherently better". Different
+questions, different answers — don't quote one for the other.
+
 ## Conclusion: the relationship is non-monotonic (Goldilocks)
 
 | Generator tier | Multi-agent vs one-shot | Why |
