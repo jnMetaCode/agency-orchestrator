@@ -11,6 +11,9 @@ llm:
 
 concurrency: 2
 
+# 交付物：上线包（PRD / 架构 / 冲刺计划是施工图，留在运行目录里）
+deliverables: [launch_pack]
+
 inputs:
   - name: idea
     description: "你的产品想法（如：帮自由职业者自动记账开发票的小工具）"

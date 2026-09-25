@@ -11,6 +11,9 @@ llm:
 
 concurrency: 2
 
+# 交付物：终稿投研报告（宏观 / 行业 / 基本面 / 风险 / 签字是施工图）
+deliverables: [final_report]
+
 inputs:
   - name: target
     description: "研究对象（赛道或标的，如：新能源储能行业 / 某上市公司）"

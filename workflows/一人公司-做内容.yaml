@@ -11,6 +11,9 @@ llm:
 
 concurrency: 2
 
+# 交付物：内容日历（定位 / 受众 / 选题 / 脚本是施工图）
+deliverables: [calendar]
+
 inputs:
   - name: direction
     description: "账号方向（如：给职场新人讲 AI 工具的抖音号）"
