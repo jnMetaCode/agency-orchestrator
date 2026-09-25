@@ -9,7 +9,8 @@
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import { z } from 'zod';
-import { resolve, relative, dirname } from 'node:path';
+import { resolve, relative, dirname, join } from 'node:path';
+import { aoUserDir, defaultOutputDir, defaultWorkflowsDir } from '../utils/paths.js';
 import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { fileURLToPath } from 'node:url';
@@ -32,6 +33,21 @@ const MCP_PROVIDER_IDS = [...new Set([
   ...CLI_PROVIDER_IDS, 'claude', 'ollama',
   ...API_PROVIDERS.map((p) => p.id), ...ANTHROPIC_PROVIDERS.map((p) => p.id),
 ])] as [string, ...string[]];
+
+/**
+ * MCP 宿主的 cwd 不由用户决定（Claude Desktop 一类常以 `/` 启动），所以产物不能按 cwd 相对落盘：
+ * 真机上 cwd=/ 时，工作流跑完 21.9 秒才在存档那一步报 `mkdir 'ao-output/…'` 失败，产物全丢。
+ * 显式配了 AO_OUTPUT_DIR / AO_WORKFLOWS_DIR / AO_HOME 就听用户的，否则落到用户级的 ~/.ao 下
+ * （teams / prompts / roles 本来就住那儿）。
+ */
+export function mcpOutputDir(): string {
+  if (process.env.AO_OUTPUT_DIR || process.env.AO_HOME) return defaultOutputDir();
+  return join(aoUserDir(), 'ao-output');
+}
+export function mcpWorkflowsDir(): string {
+  if (process.env.AO_WORKFLOWS_DIR || process.env.AO_HOME) return defaultWorkflowsDir('ao-workflows');
+  return join(aoUserDir(), 'ao-workflows');
+}
 
 /** 自动查找 agents 目录 */
 function findAgentsDir(hint?: string): string {
@@ -153,6 +169,7 @@ export async function startServer(verbose = false): Promise<void> {
         const result = await silentCall(() =>
           run(absPath, (inputs || {}) as Record<string, string>, {
             quiet: true,
+            outputDir: mcpOutputDir(),
             llmOverride: Object.keys(llmOverride).length > 0 ? llmOverride : undefined,
           }),
         );
@@ -337,6 +354,7 @@ export async function startServer(verbose = false): Promise<void> {
             description,
             agentsDir,
             llmConfig: { provider: llmProvider, model: llmModel },
+            saveDir: mcpWorkflowsDir(),
           }),
         );
 

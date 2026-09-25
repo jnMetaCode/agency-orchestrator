@@ -404,6 +404,21 @@ export async function run(
     console.log('─'.repeat(50));
   }
 
+  // 开跑前先把存档目录建出来。它本来在跑完之后才建——于是"目录建不了"这件事要等整条工作流
+  // 跑完（token 花了、按秒计费的视频也出了）才暴露，产物当场全丢。
+  // 真机：MCP 宿主常以 cwd=/ 启动服务，21.9 秒跑完后报
+  // `ENOENT: mkdir 'ao-output/…/steps'`，一个字都没留下。
+  const outputBase = options?.outputDir || defaultOutputDir();
+  try {
+    mkdirSync(outputBase, { recursive: true });
+  } catch (err) {
+    const why = err instanceof Error ? err.message : String(err);
+    throw new Error(
+      `存档目录建不了：${resolve(outputBase)}（${why}）。\n`
+      + `  这一步在开跑前检查，免得跑完才发现产物没地方放。换个目录：--output <目录>，或设 AO_OUTPUT_DIR / AO_HOME。`,
+    );
+  }
+
   // SIGTERM/SIGINT 优雅落盘：executor 增量写入 partialSteps，信号来时把
   // 已完成步骤 + 未完成占位存成 metadata 再退出。没有它，网页端"等输入时关页"
   // 或终端 Ctrl-C 的 run 会无痕消失，历史里无法「继续运行」。
@@ -513,9 +528,8 @@ export async function run(
     )
   );
 
-  // 保存结果（默认目录支持 AO_HOME / AO_OUTPUT_DIR，见 utils/paths）
-  const outputDir = options?.outputDir || defaultOutputDir();
-  const outputPath = saveResults(result, outputDir);
+  // 保存结果（目录在开跑前就建好并验过可写，见上面的 outputBase）
+  const outputPath = saveResults(result, outputBase);
   result.outputDir = outputPath;
   settleSpool(outputPath);
   // --resume 复用的媒体步骤没有 base64（它们没重跑），reporter 写不出文件——从上一轮目录复制过来，

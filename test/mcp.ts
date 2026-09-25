@@ -7,6 +7,7 @@ import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js';
 import { resolve, join } from 'node:path';
 import { mkdtempSync, writeFileSync, rmSync } from 'node:fs';
+import { homedir } from 'node:os';
 import { tmpdir } from 'node:os';
 
 let passed = 0;
@@ -142,6 +143,25 @@ await test('compose_workflow 的 provider 与 CLI 同一套零配置选择（不
   const schema = JSON.stringify(compose?.inputSchema ?? {});
   assert(/claude-code/.test(schema), `provider 枚举要含 CLI 类（实际：${schema.slice(0, 200)}）`);
   assert(/codex-cli/.test(schema), 'CLI 名单来自注册表，不是手抄的四个');
+});
+
+await test('MCP 的产物不按 cwd 落盘（宿主的 cwd 不由用户决定）', async () => {
+  // 真机：MCP 宿主常以 cwd=/ 启动服务，工作流跑完 21.9 秒才在存档那步报
+  // `mkdir 'ao-output/…'` 失败，产物全丢。显式配了 env 就听用户的，否则落到用户级 ~/.ao。
+  const { mcpOutputDir, mcpWorkflowsDir } = await import('../src/mcp/server.js');
+  const saved = { out: process.env.AO_OUTPUT_DIR, wf: process.env.AO_WORKFLOWS_DIR, home: process.env.AO_HOME };
+  delete process.env.AO_OUTPUT_DIR; delete process.env.AO_WORKFLOWS_DIR; delete process.env.AO_HOME;
+  try {
+    assert(mcpOutputDir().startsWith(join(homedir(), '.ao')), `默认落用户级目录（实际 ${mcpOutputDir()}）`);
+    assert(mcpWorkflowsDir().startsWith(join(homedir(), '.ao')), `compose 产物同理（实际 ${mcpWorkflowsDir()}）`);
+    assert(!mcpOutputDir().startsWith('ao-output'), '绝不是 cwd 相对路径');
+    process.env.AO_OUTPUT_DIR = '/tmp/ao-explicit';
+    assert(mcpOutputDir() === '/tmp/ao-explicit', '显式配了就听用户的');
+  } finally {
+    for (const [k, v] of [['AO_OUTPUT_DIR', saved.out], ['AO_WORKFLOWS_DIR', saved.wf], ['AO_HOME', saved.home]] as const) {
+      if (v === undefined) delete process.env[k]; else process.env[k] = v;
+    }
+  }
 });
 
 await test('list_roles returns roles', async () => {

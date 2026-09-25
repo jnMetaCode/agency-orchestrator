@@ -48,6 +48,32 @@ console.log('\n─── 同一秒的两次运行不互相覆盖 ───');
   rmSync(out, { recursive: true, force: true });
 }
 
+console.log('\n─── 存档目录建不了：开跑前就报，别跑完才发现 ───');
+{
+  // 真机：MCP 宿主以 cwd=/ 启动时，工作流跑完 21.9 秒（token 花了、按秒计费的视频也出了）
+  // 才在存档那一步报 `mkdir 'ao-output/…'` 失败，产物一个字都没留下。
+  const wfDir = mkdtempSync(join(tmpdir(), 'ao-nowrite-'));
+  const wf = join(wfDir, 'w.yaml');
+  writeFileSync(wf, [
+    'name: "写不进去"', `agents_dir: "${resolve('node_modules/agency-agents-zh')}"`, 'verify: false',
+    'llm:', '  provider: "deepseek"', '  model: "m"', '  api_key: "k"', '  base_url: "http://127.0.0.1:9/v1"',
+    'steps:', '  - id: a', '    role: "marketing/marketing-content-creator"', '    task: "写一句"', '    output: out', '',
+  ].join('\n'), 'utf-8');
+  const { run } = await import('../src/index.js');
+  let msg = '';
+  const t0 = Date.now();
+  try {
+    await run(wf, {}, { quiet: true, outputDir: '/proc/nonexistent-ao/out' });
+  } catch (e) {
+    msg = e instanceof Error ? e.message : String(e);
+  }
+  assert(/存档目录建不了/.test(msg), `先报存档目录（实际：${msg.slice(0, 90)}）`);
+  assert(!/fetch failed|请求失败|ECONNREFUSED/.test(msg), '在任何模型请求之前就拦住——不是先跑一遍再失败');
+  assert(/--output|AO_OUTPUT_DIR/.test(msg), '给出换目录的办法');
+  assert(Date.now() - t0 < 5000, '当场就报，不该等到跑完');
+  rmSync(wfDir, { recursive: true, force: true });
+}
+
 console.log('\n─── 运行目录名按字节截断（Linux 上 255 字节是硬限） ───');
 {
   // Linux（Docker 镜像、NAS 部署）NAME_MAX=255 **字节**：86 个汉字的工作流名就会让 mkdir
