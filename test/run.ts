@@ -2,7 +2,9 @@
  * agency-orchestrator 测试
  * 测试核心逻辑（解析、DAG、模板），不调用 LLM
  */
-import { resolve } from 'node:path';
+import { resolve, join } from 'node:path';
+import { mkdtempSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
 import { existsSync } from 'node:fs';
 import { parseWorkflow, validateWorkflow } from '../src/core/parser.js';
 import { buildDAG, formatDAG } from '../src/core/dag.js';
@@ -55,8 +57,15 @@ test('解析顶层 deliverables（交付物步骤）', () => {
   assert(validateWorkflow(bad).some(e => e.includes('deliverables') && e.includes('nope')), '引用不存在的步骤 → 报错点名 id');
   const empty = { ...wf, deliverables: [] as string[] };
   assert(validateWorkflow(empty).some(e => e.includes('deliverables')), '空列表 → 报错（不写才是默认最后一步）');
-  const none = parseWorkflow(workflowPath);
-  assert(none.deliverables === undefined, '没写 deliverables 的模板解析为 undefined（走旧口径）');
+  // 用临时文件而不是"随便挑一个还没写 deliverables 的模板"——那种写法会在模板补上该字段的当天莫名其妙红掉
+  // （本轮就撞到：product-review 补了 deliverables，这条断言跟着挂）
+  const tmp = join(mkdtempSync(join(tmpdir(), 'ao-deliv-')), 'no-deliv.yaml');
+  writeFileSync(tmp, [
+    'name: "没写交付物"', 'agents_dir: "agency-agents-zh"', 'llm: { provider: "deepseek", model: "m" }',
+    'steps:', '  - id: a', '    role: "x/y"', '    task: "t"', '    output: out_a', '',
+  ].join('\n'), 'utf-8');
+  const none = parseWorkflow(tmp);
+  assert(none.deliverables === undefined, '没写 deliverables 的工作流解析为 undefined（走旧口径）');
 });
 
 test('解析步骤依赖', () => {
