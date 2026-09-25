@@ -49,7 +49,9 @@
   AO 只在 `src/export/convert.ts` 里**写** xlsx、从不解析，暴露面小）。
 
 ### Added
-- **验收返工成功后，第一轮是哪条没过会留在档案里**（`StepVerification.firstFailed`，仅返工过时有，随 metadata 存档）。
+- **验收返工成功后，第一轮是哪条没过会留在档案里，并显示出来**（`StepVerification.firstFailed`，仅返工过时有）：
+  随 metadata 存档，步骤文件头/`summary.md` 那行徽章顺带点名（「验收 ✓（返工 1 轮后通过：不超过 200 字（超长））」，只带第一条），
+  Studio 的徽标本身不变长、把未过项塞进 title。
   返工成功后 `failed` 被清空，事后翻档案只剩 `reworked: true`——而「是哪一条逼着它重写的」恰恰是模板作者唯一想知道的：
   一条**总是**触发返工的验收，等于每个用户的每次运行都多付一次调用。（本轮给模板补 `acceptance` 时，缺的就是它。）
 - **`--compare` 的基线产出与评审结论会存档了**（`<运行目录>/compare.md`，并在 `ao report` 里单独成节）。对比是三段、
