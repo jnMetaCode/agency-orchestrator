@@ -60,6 +60,30 @@ A stable pattern, not noise.**
 decisively (8.2 vs 5.7: DeepSeek's one-shot blogs had bugs and truncation; the pipeline
 shipped complete, publishable posts).
 
+### 2026-09-25 re-run: strong tier, with acceptance criteria written as data (claude-code both sides, story-creation, n=1)
+
+| Template | Multi-agent | One-shot baseline | Verdict |
+|---|---|---|---|
+| story-creation | **8.0** | **4.5** | ✅ multi-agent (both directions agree) |
+
+Same template, same tier. Earlier it was 9.0 vs 8.0 (a squeaker); now it is 8.0 vs 4.5. Both blind
+judges spelled out why — **they were counting acceptance items**:
+
+> A has no title, opens on the action of pulling up the shutter, ends on the image of the glowing
+> watch hands; B added a "# Seven Minutes Fast" title and spelled out the theme in the last line,
+> **violating acceptance items 1, 3 and 4**.
+
+What changed in between: (1) the template now declares `deliverables` plus a full `acceptance` on the
+final step ("no title / within ±30% of the target length / open on a concrete image / don't state the
+theme"); (2) the blind judge now anchors on the **deliverable step's** acceptance (it used to take the
+*last completed* step's — which is a different step whenever a review step runs at the end).
+
+**Read this number with its bias attached**: the baseline never saw those acceptance criteria — it only
+got "goal + inputs + produce the final deliverable". The multi-agent side both saw them and was pushed
+to satisfy them by automatic verification. That is exactly how the product is used (you write the
+acceptance once, the pipeline enforces it), but it is **not a prompt-to-prompt comparison** — for that,
+the baseline prompt would have to carry the same criteria.
+
 ## Conclusion: the relationship is non-monotonic (Goldilocks)
 
 | Generator tier | Multi-agent vs one-shot | Why |
@@ -100,6 +124,9 @@ than a quality lift.
   space between (GPT-class minis, Qwen, larger open models) is untested.
 - Baseline prompts were mechanically synthesized from the workflow goal + inputs — a skilled
   human prompt would make the baseline stronger.
+- **When a template declares `acceptance`, the blind judge anchors on it — and the baseline never saw
+  it** (see the 2026-09-25 entry). That is a fair measure of "is AO less work to get what you wanted",
+  and a biased one for "are multi-agent pipelines inherently better". Know which question you're asking.
 
 ## Reproduce it
 
