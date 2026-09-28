@@ -35,6 +35,22 @@ export interface VerifyVerdict {
   failed: { criterion: string; why: string }[];
 }
 
+/**
+ * 这条 `failed` 条目的 why 是不是在说「它其实满足了」。
+ *
+ * 弱一点的裁判（实测 deepseek-chat，见 #183）不遵守「全部满足时 failed 必须是空数组」的约定，
+ * 会把每一条连同「……满足此条」的理由一起塞进 failed。按字面执行的后果是：每个带 acceptance 的
+ * 步骤都白返工一轮（token 翻倍）、档案里留下失真的「⚠️ N 条未满足」、库调用方拿到的 pass 不可信。
+ *
+ * 先看否定词再看肯定词——「不满足」「未达到」里都含着「满足」「达到」。
+ */
+export function whySaysMet(why: string): boolean {
+  if (!why) return false;
+  const denies = /不满足|未满足|不符合|不合|未达到|没达到|缺少|缺失|欠缺|未见|未出现|未(写|给|列|标|提供|包含)|没有(写|给|列|标|提供|包含|出现)|超(出|过)|不足|不够|仅|只有|部分|not met|missing|lack|fail|absent|incomplete|partial|exceed|short of/i.test(why);
+  if (denies) return false;
+  return /满足|符合|达到|已具备|具备|无问题|没有问题|合规|met\b|satisfie|complies|conforms|passes\b/i.test(why);
+}
+
 /** 从核验回复里抽出 JSON 结论（同 compare.parseJudge：宽松匹配第一个 {...}）。 */
 export function parseVerify(raw: string): VerifyVerdict | null {
   const m = raw.match(/\{[\s\S]*\}/);
@@ -56,11 +72,16 @@ export function parseVerify(raw: string): VerifyVerdict | null {
           })
           .filter((f: { criterion: string; why: string }) => f.criterion || f.why)
       : [];
-    // pass=false 却给不出任何未满足条目 → 无法指导返工，也没法向用户解释"哪里没过"，
+    // 裁判自己在 why 里写「满足此条」，却仍把这条塞进 failed（#183：deepseek-chat 当 judge 时
+    // 稳定复现——四条 acceptance 全部满足，四条 why 全写"满足此条"，却整齐地列在 failed 里）。
+    // 提示词里本来就有这条原则：「举不出原话就说明它其实满足了」。既然它连"不满足在哪"都说不出、
+    // 反而自证满足，这条就不是真未满足——剔除，别拿它去返工，也别在档案里留假的 ⚠️。
+    const real = failed.filter((f: { criterion: string; why: string }) => !whySaysMet(f.why));
+    // pass=false 却给不出任何**真正**未满足的条目 → 无法指导返工，也没法向用户解释"哪里没过"，
     // 视为本次核验不可用（触发第二次尝试/跳过），别带着空清单去返工
-    if (j.pass !== true && failed.length === 0) return null;
+    if (j.pass !== true && real.length === 0) return null;
     // 保守裁决：模型说 pass 但又列了未满足条目 → 以条目为准，算未通过
-    return { pass: j.pass === true && failed.length === 0, failed };
+    return { pass: j.pass === true && real.length === 0, failed: real };
   } catch {
     return null;
   }
@@ -91,7 +112,7 @@ export async function verifyAcceptance(
         '', '验收标准：', acceptance,
         '', '待验收产出：', trunc(output), '',
         '只输出一行 JSON，不要任何额外文字：{"pass": true/false, "failed": [{"criterion": "未满足的条目原文", "why": "一句话原因"}]}',
-        '全部满足时 failed 必须是空数组 []。',
+        '全部满足时 failed 必须是空数组 []。**满足的条目一条都不要放进 failed**——哪怕你想顺便说明它为什么满足。',
       ].join('\n')
     : [
         'You are a strict acceptance reviewer. Check the deliverable against EACH criterion.',
@@ -104,7 +125,7 @@ export async function verifyAcceptance(
         '', 'Acceptance criteria:', acceptance,
         '', 'Deliverable under review:', trunc(output), '',
         'Output exactly one line of JSON, nothing else: {"pass": true/false, "failed": [{"criterion": "the unmet criterion", "why": "one-sentence reason"}]}',
-        'If all criteria are met, failed MUST be an empty array [].',
+        'If all criteria are met, failed MUST be an empty array []. **Never put a met criterion in `failed`** — not even to explain why it is met.',
       ].join('\n');
 
   const tokens = { input: 0, output: 0 };
