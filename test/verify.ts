@@ -10,7 +10,7 @@ import { parseWorkflow, validateWorkflow } from '../src/core/parser.js';
 import { buildDAG } from '../src/core/dag.js';
 import { executeDAG } from '../src/core/executor.js';
 import { saveResults, formatVerification } from '../src/output/reporter.js';
-import { parseVerify, buildReworkBlock, formatFailedItems } from '../src/core/verify.js';
+import { parseVerify, buildReworkBlock, formatFailedItems, whySaysMet } from '../src/core/verify.js';
 import type { LLMConnector, LLMResult, LLMConfig, WorkflowDefinition } from '../src/types.js';
 
 let passed = 0, failed = 0;
@@ -34,6 +34,53 @@ assert(parseVerify('{"pass": false}') === null, 'parseVerify: pass=false 但给�
 assert(parseVerify('{"pass": false, "failed": [{}]}') === null, 'parseVerify: pass=false 且条目全空 → 核验不可用');
 const p3 = parseVerify('{"pass": false, "failed": [{"criterion": "1. 三节\\n2. 标风险", "why": "第\\n二节缺失"}]}');
 assert(p3?.failed[0].criterion === '1. 三节 2. 标风险' && p3.failed[0].why === '第 二节缺失', 'parseVerify: 条目内嵌换行被压平成单行（下游 CLI 行/文件头/SSE 都按单行消费）');
+
+// ── #183：裁判把「满足此条」的条目也写进 failed ──
+// 真机复现（issue #183，deepseek-chat 当裁判跑 workflows/dev/pr-review.yaml）：四条验收标准
+// 全部满足，四条 why 一字不差地写着"满足此条"，却整整齐齐列在 failed 数组里。照单全收的后果：
+// 白返工一轮（token 翻倍、按秒计费的媒体步骤直接翻倍花钱）、档案里留下假的「⚠️ 4 条未满足」。
+{
+  const issue183 = JSON.stringify({
+    pass: false,
+    failed: [
+      { criterion: '1. 给出至少 3 条具体可执行的修改建议', why: '满足此条' },
+      { criterion: '2. 每条建议标注对应的文件与行号', why: '满足此条' },
+      { criterion: '3. 指出是否存在阻塞合并的问题', why: '满足此条' },
+      { criterion: '4. 结论给出明确的合并建议', why: '满足此条' },
+    ],
+  });
+  assert(parseVerify(issue183) === null,
+    '#183: 四条 why 全说"满足此条" → 核验不可用（重试/跳过），不是带着假清单去返工');
+
+  // 反向：真的未满足，一条都不许被吃掉
+  const real = parseVerify('{"pass": false, "failed": [{"criterion": "不超过 200 字", "why": "实际 450 字，超出上限"}]}');
+  assert(real?.pass === false && real.failed.length === 1 && real.failed[0].why === '实际 450 字，超出上限',
+    '#183: 真未满足原样保留（过滤不能顺手把真问题也滤掉）');
+
+  // 混合：只留真的那条，返工提示里就不会混进"满足此条"这种自相矛盾的要求
+  const mixed = parseVerify('{"pass": false, "failed": [{"criterion": "A", "why": "满足此条"}, {"criterion": "B", "why": "缺少「延伸阅读」小节"}]}');
+  assert(mixed?.failed.length === 1 && mixed.failed[0].criterion === 'B',
+    '#183: 混合清单只留真正未满足的那条');
+
+  // pass=true 却顺手把满足项列进 failed（同一个毛病的另一副面孔）→ 该判通过
+  const okAnyway = parseVerify('{"pass": true, "failed": [{"criterion": "A", "why": "符合要求"}]}');
+  assert(okAnyway?.pass === true && okAnyway.failed.length === 0,
+    '#183: pass=true + 全是"满足"说明的条目 → 判通过，不再被保守裁决拉成未过');
+
+  // whySaysMet 的边界：先看否定词再看肯定词——"不满足""未达到"里都含着"满足""达到"
+  for (const [why, want] of [
+    ['满足此条', true], ['符合要求', true], ['已达到', true], ['无问题', true],
+    ['criterion met', true], ['satisfied', true],
+    ['', false], ['不满足', false], ['未满足此条', false], ['未达到 3 条', false],
+    ['缺少风险章节', false], ['超出 200 字', false], ['部分满足', false], ['partially met', false],
+    ['not met', false], ['missing the summary', false],
+    ['第三节写得不够具体', false],          // 说了缺点，别当成满足
+    ['只写了两条', false],                  // 数量不够
+    ['正文共 6 段', false],                 // 纯陈述，既没说满足也没说不满足 → 不动它
+  ] as [string, boolean][]) {
+    assert(whySaysMet(why) === want, `whySaysMet("${why}") = ${want}`);
+  }
+}
 
 // ── buildReworkBlock / formatFailedItems ──
 const rb = buildReworkBlock([{ criterion: '包含风险章节', why: '整段缺失' }], '这是上一版产出全文');
