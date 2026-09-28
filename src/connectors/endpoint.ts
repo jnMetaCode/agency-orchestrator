@@ -278,6 +278,19 @@ export function isModelUnavailable(text: string): boolean {
 }
 
 /**
+ * 429 里分两种完全不同的事，处理方式相反：
+ *  · **限流**（每分钟请求数/并发超了）——等一会儿真的会好，该退避重试；
+ *  · **套餐用量耗尽**（包月 plan 的额度用完、余额/积分为 0）——**重试一万次也一样**，要去充值或换一家。
+ * 两者都回 429，只有正文分得开。#184 真机：MiniMax 包月 key 回
+ * `HTTP 429 已达到 Token Plan 用量上限：请升级 Token Plan 套餐或购买积分补充用量。(2056)`，
+ * 而引擎按限流退避重试了一轮，最后还告诉用户"稍后重试，或降低并发"——两句建议都是错的。
+ * 匹配只认**明说额度/用量耗尽**的说法，不碰"并发超限""请求过快"这类真限流措辞。
+ */
+export function isQuotaExhausted(text: string): boolean {
+  return /insufficient_quota|exceeded your current quota|quota (?:has been )?(?:exceeded|exhausted|used up)|out of credits?|用量上限|额度已用[完尽]|额度不足|额度已耗尽|余额不足|积分不足|欠费/i.test(text);
+}
+
+/**
  * 中转网关明说「只放行官方 Claude Code 客户端」。PackyCode 的 cc 分组（Claude Code 专用）即如此：
  * 直连 /v1/messages 回 403「only accessible via the official Claude CLI」，按 Claude Code 协议手搓的
  * 探测请求回 400「请选择使用正确的 Claude Code 客户端」（2026-09-15 真 key 实测）。
@@ -371,6 +384,11 @@ export function endpointHint(status: number, url: string, baseUrl: string, drift
     lines.push(`${status} = 还在跳转：跳了 ${MAX_REDIRECTS} 次仍没到终点，多为 base_url 指向了会反复重定向的地址，请直接填中转商文档里的最终地址`);
   } else if (status === 401 || status === 403) {
     lines.push('401/403 = 鉴权没过：核对 API key 是否复制完整、是否与该 base_url 属于同一家、账号是否还有额度');
+  } else if (status === 429 && body && isQuotaExhausted(body)) {
+    lines.push(
+      '429 但不是限流：这家明说**套餐用量/额度已耗尽** —— 这是账单问题，不是临时故障，重试无用（引擎也已不再重试）',
+      '去该供应商控制台充值/升级套餐，或在「供应商」里换一家；包月 plan 的额度通常按自然月重置，也可以等下个周期',
+    );
   } else if (status === 429) {
     lines.push('429 = 被限流：稍后重试，或在「供应商」里降低并发/换一家');
   } else if (status >= 500) {
