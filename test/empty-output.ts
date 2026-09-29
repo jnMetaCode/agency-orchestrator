@@ -30,6 +30,10 @@ await test('只流了 reasoning_content、正文为空 → 抛错并点明"只�
     let msg = '';
     try { await c.chat('sys', 'hi', { provider: 'openai', model: 'm' } as LLMConfig); } catch (e) { msg = e instanceof Error ? e.message : String(e); }
     assert(/思考内容/.test(msg) && /reasoning/.test(msg), `应点明只返回了思考内容，实际：${msg.slice(0, 120)}`);
+    // #184：报错只说"关闭 thinking"，用户无从下手（真机：智谱 coding plan 上 GLM 吐了 6 万字符
+    // reasoning、正文 0 字）。要说清**在哪关** —— 工作流里通用的入口是 llm.params 透传
+    assert(/llm\.params/.test(msg) && /thinking/.test(msg),
+      `#184: 要给出可照做的关法（llm.params 透传），实际：${msg.slice(0, 200)}`);
   } finally { srv.close(); }
 });
 

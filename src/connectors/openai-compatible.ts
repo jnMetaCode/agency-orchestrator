@@ -330,7 +330,13 @@ export class OpenAICompatibleConnector implements LLMConnector {
       const why = rc > 0
         ? `模型只返回了思考内容（${rc} 字符 reasoning）没有正文——多半是输出上限被 thinking 吃光，或该模型在这家网关上不回正文`
         : `模型返回了空正文（finish_reason=${lastFinishReason ?? '未知'}）`;
-      throw new Error(`${why}。换一个模型（如非推理模型）或关闭 thinking 后重试；请求地址: ${lastRequestUrl}`);
+      // "关闭 thinking"要说清**在哪关**：各家开关名不同，而工作流里通用的入口是 llm.params 透传
+      // （#184 真机：智谱 coding plan 上 GLM 吐了 6 万字符 reasoning、正文 0 字，用户只看到"关闭 thinking"
+      // 这四个字，无从下手）。
+      const how = rc > 0
+        ? '换一个非推理模型，或在工作流的 `llm.params` 里透传该家的关闭开关（智谱 GLM：`thinking: { type: "disabled" }`；OpenAI/DeepSeek 系：把 reasoning 档位调到最低），再重试'
+        : '换一个模型或稍后重试';
+      throw new Error(`${why}。${how}；请求地址: ${lastRequestUrl}`);
     }
     return {
       content: fullContent,

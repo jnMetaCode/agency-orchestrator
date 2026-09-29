@@ -17,6 +17,7 @@ import { evaluateCondition } from './condition.js';
 import { loadAgent } from '../agents/loader.js';
 import { collectSkillNames, injectSkills } from '../skills/loader.js';
 import { createConnector } from '../connectors/factory.js';
+import { isQuotaExhausted } from '../connectors/endpoint.js';
 import { generateImage } from '../connectors/image.js';
 import { generateVideo , type VideoStepOptions } from '../connectors/video.js';
 import { concatVideos } from '../media/concat.js';
@@ -1350,6 +1351,11 @@ export function classifyError(error: Error): 'rate_limit' | 'server_error' | 'co
   // 中转网关明说「该分组下没有这个模型的可用渠道」：状态码是 503，但属于账号配置问题，重试无用。
   // 必须排在 5xx 判定之前（与 connectors/endpoint.ts 的 isModelUnavailable 同一口径）
   if (/model_not_found|无可用渠道|no available channel/.test(msg))
+    return 'non_retryable';
+  // 429 里「套餐用量/额度耗尽」与「限流」是相反的两件事：前者重试一万次也一样（#184 真机：MiniMax
+  // 包月 key 回 429「已达到 Token Plan 用量上限」，却被按限流退避重试了一轮）。同 endpoint.ts 的
+  // isQuotaExhausted 一个口径；必须排在 429→rate_limit 之前
+  if (isQuotaExhausted(msg))
     return 'non_retryable';
   // 报错里**明说了状态码**就按状态码判，不再猜关键词。此前两种误判都出在这：
   //  · claude-code 的鉴权失败是「… API 错误: API Error: 401 …」，被 `includes('api 错误')` 一律当成
