@@ -2,6 +2,7 @@ import { ArrowRight, Heart } from "lucide-react";
 import { Link } from "react-router-dom";
 import { useLanguage } from "@/i18n/LanguageProvider";
 import { sponsorLogo, sponsorUrl, sponsors } from "@/content/sponsors";
+import { cn } from "@/lib/utils";
 
 export function SponsorStrip() {
   const { t, lang, prefix } = useLanguage();
@@ -28,8 +29,17 @@ export function SponsorStrip() {
               className="flex w-[260px] items-center gap-3 rounded-2xl border border-border/70 bg-card/60 p-4 transition-colors hover:border-primary/40"
             >
               {s.logo ? (
-                <span className="grid h-11 w-11 shrink-0 place-items-center overflow-hidden rounded-xl border border-border/60 bg-white">
-                  <img src={sponsorLogo(s, lang)} alt={s.name} className="h-8 w-8 object-contain" />
+                <span
+                  className={cn(
+                    "grid h-11 shrink-0 place-items-center overflow-hidden rounded-xl border border-border/60 bg-white",
+                    s.logoShape === "wide" ? "w-20 px-1.5" : "w-11",
+                  )}
+                >
+                  <img
+                    src={sponsorLogo(s, lang)}
+                    alt={s.name}
+                    className={cn("object-contain", s.logoShape === "wide" ? "h-9 w-16" : "h-8 w-8")}
+                  />
                 </span>
               ) : (
                 <span className={`grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-gradient-to-br text-xl ${s.accent ?? "from-primary to-fuchsia-500"}`}>

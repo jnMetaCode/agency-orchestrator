@@ -62,8 +62,17 @@ export function SponsorCard({ sponsor }: { sponsor: Sponsor }) {
       {/* 紧凑卡：logo + 名称 + 一句话，一行 4 张；完整介绍在悬停浮层里 */}
       <div className="flex items-center gap-3 pr-6">
         {s.logo ? (
-          <span className="grid h-12 w-12 shrink-0 place-items-center overflow-hidden rounded-xl border border-border/60 bg-white shadow-sm">
-            <img src={sponsorLogo(s, lang)} alt={s.name} className="h-9 w-9 object-contain" />
+          <span
+            className={cn(
+              "grid h-12 shrink-0 place-items-center overflow-hidden rounded-xl border border-border/60 bg-white shadow-sm",
+              s.logoShape === "wide" ? "w-20 px-1.5" : "w-12",
+            )}
+          >
+            <img
+              src={sponsorLogo(s, lang)}
+              alt={s.name}
+              className={cn("object-contain", s.logoShape === "wide" ? "h-10 w-16" : "h-9 w-9")}
+            />
           </span>
         ) : (
           <span

@@ -3,7 +3,7 @@ import type { Language } from "@/i18n/translations";
 /**
  * 赞助商数据。
  *
- * 当前赞助商：APINEBULA（旗舰，银河录像局旗下 AI 聚合平台）、优云智算（UCloud 旗下 AI 云平台）、Cubence（API 中转服务商）、火山引擎（字节跳动云服务，中英文分别对应 volcengine.com / byteplus.com 两个不同站点）、LanoX AI（全球模型聚合，500+ 模型）、胜算云（面向 AI 原生团队的模型 API 聚合 + 企业级网关）、APIMart（AI 图片/视频生成低价 API）、秘塔科技（MiniMax H3 视频生成 API）、PackyCode（API 中转，统一域名统一密钥）。
+ * 当前赞助商：APINEBULA（旗舰，银河录像局旗下 AI 聚合平台）、优云智算（UCloud 旗下 AI 云平台）、Cubence（API 中转服务商）、火山引擎（字节跳动云服务，中英文分别对应 volcengine.com / byteplus.com 两个不同站点）、LanoX AI（全球模型聚合，500+ 模型）、胜算云（面向 AI 原生团队的模型 API 聚合 + 企业级网关）、APIMart（AI 图片/视频生成低价 API）、秘塔科技（MiniMax H3 视频生成 API）、PackyCode（API 中转，统一域名统一密钥）、Fluxion AI（全球主流 AI 模型统一 API）。
  * 均为真实付费赞助，非占位样例。新增赞助商时按 Sponsor 结构追加即可。
  * 已下架：RootFlowAI、CCSub（2026-08）、多元探索（2026-08-17，赞助到期）、AICodeMirror（2026-09-14）——赞助身份与
  * 曝光位一并摘除，但它们在 Studio 里仍是可用供应商（已配过 key 的用户不该被搞坏）。
@@ -22,6 +22,8 @@ export interface Sponsor {
   accent?: string;
   /** 小 logo 图（public 目录下的路径），优先于 badge 作为头像。中英文品牌不同时传 LocalizedText（如火山引擎/BytePlus） */
   logo?: string | LocalizedText;
+  /** 横版品牌图使用更宽的白色承载区，避免暗色主题下深色字标看不清 */
+  logoShape?: "square" | "wide";
   /** 大屏 banner 图（public 目录下的路径）。旗舰赞助商用,全宽展示 */
   banner?: string;
   /** 跳转链接。多数赞助商中英文共用同一个链接；少数品牌中国大陆站点和国际站点是不同域名（如火山引擎/BytePlus），此时传 LocalizedText，按当前语言取值 */
@@ -258,6 +260,30 @@ export const sponsors: Sponsor[] = [
     perk: {
       zh: "新用户首充立享折扣 + $1 免费体验额度",
       en: "$1 in free credits plus a discount on your first top-up",
+    },
+  },
+  {
+    id: "fluxionai",
+    name: "Fluxion AI",
+    badge: "F",
+    accent: "from-blue-600 to-violet-600",
+    logo: "/sponsors/logo-fluxionai-icon.png",
+    logoShape: "wide",
+    url: "https://fluxionai.space/register?source=github&campaign=agencyagents&promo=agencyagents",
+    tier: "standard",
+    since: "2026-09",
+    featured: false,
+    tagline: {
+      zh: "一个入口，接入并管理全球主流 AI 模型",
+      en: "One gateway to access and manage the world’s leading AI models",
+    },
+    description: {
+      zh: "感谢 Fluxion AI 赞助本项目！Fluxion AI 面向个人开发者、技术团队与企业，通过统一 API 接入并管理全球主流 AI 模型；通过多线路动态调度提升可用性，模型表现、响应时间与费用透明可查。根据不同模型与线路，API 调用成本较官方或基准价格可降低 40%—98%。",
+      en: "Thanks to Fluxion AI for sponsoring this project! Fluxion AI gives individual developers, engineering teams and enterprises one unified API for accessing and managing leading AI models worldwide. Dynamic routing across multiple channels improves availability, while model performance, latency and costs remain transparent. Depending on the model and route, API costs can be 40%–98% lower than official or benchmark pricing.",
+    },
+    perk: {
+      zh: "通过专属链接注册，即可获得 $3.88 API 额度",
+      en: "Sign up via our exclusive link to receive $3.88 in API credit",
     },
   },
 ];
