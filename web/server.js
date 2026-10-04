@@ -42,6 +42,7 @@ import { BUDGET_CAPABLE_PROVIDERS } from '../dist/cli/compose.js';
 import { checkRequestSource, parseAllowedHosts, timingSafeEqual, tokenFromRequest, isLoopbackHost } from './request-guard.js';
 import { installEnvProxy, reinstallEnvProxy, envProxyStatus, maskProxyUrl } from '../dist/utils/env-proxy.js';
 import { normalizeProxyInput, readProxySetting, writeProxySetting, snapshotProxyEnv, applyProxySetting } from '../dist/utils/proxy-setting.js';
+import { registerShengsuanyunBatchRoutes } from './shengsuanyun-batch.js';
 
 // Codex 没有环境变量覆盖机制，中转配置写在 ~/.codex/config.toml + auth.json 里，
 // 用固定的内部 provider id（不管用户填的是哪家中转商），避免还要在 UI 里加个
@@ -148,6 +149,16 @@ const ALLOWED_WORKFLOW_DIRS = [WORKFLOWS_DIR, WORKFLOWS_DIR_EN, USER_WORKFLOWS_D
 // 多元探索赞助到期下架）。AO_PROVIDER 环境变量永远优先于它。
 const DEFAULT_PROVIDER_ID = 'apinebula';
 const CLI_PROVIDERS = CLI_PROVIDER_IDS; // 唯一来源：src/providers/detect.ts
+const SHENGSUANYUN_TEXT_FALLBACK_MODEL = 'deepseek/deepseek-v4-flash';
+
+// 胜算云的多媒体模型不支持 chat/completions。用户常为了创意库出图，
+// 把这类模型填到供应商的“模型”字段；如果文本功能也直接继承它，
+// 提示词生成/对话就会稳定报 400。这里只识别胜算云公开命名中的稳定能力词；
+// 未知模型不猜，仍按用户配置运行。
+function isShengsuanyunMediaModel(model) {
+  return /(?:gpt-image|seedream|seededit|jimeng|qwen-image|z-image|flux|imagen|gemini[^/]*image|seedance|\bveo\b|sora|\bt2v\b|\bi2v\b|tts|speech)/i.test(String(model || ''));
+}
+
 // LLM config: provider + (model/base_url where the runtime needs them). Reads any
 // per-provider overrides the user saved in the Studio (model name, custom base_url).
 // Already YAML-safe (no undefined fields) — used for compose, run args and run-role.
@@ -165,7 +176,12 @@ function buildLLMConfig(provider) {
   const override = providerOverrideSpec(p);
   const defModel = override?.defaultModel
     || (p === 'claude' ? 'claude-sonnet-5' : API_PROVIDER_MAP[p]?.defaultModel || ANTHROPIC_PROVIDER_MAP[p]?.defaultModel || remote?.defaultModel); // ollama / custom: model must come from saved config
-  const model = saved.model || defModel;
+  const selectedModel = saved.model || defModel;
+  // 文本调用不能把 Seedream/Seedance 等多媒体模型发到 chat/completions。
+  // 图片/视频生成会在各自连接器中显式覆盖 model，因此不受这个文本兜底影响。
+  const model = p === 'shengsuanyun' && isShengsuanyunMediaModel(selectedModel)
+    ? SHENGSUANYUN_TEXT_FALLBACK_MODEL
+    : selectedModel;
   if (model) cfg.model = model;
   const defBase = p === 'ollama' ? (saved.baseUrl || process.env.OLLAMA_BASE_URL || 'http://localhost:11434')
     : (ANTHROPIC_PROVIDER_MAP[p]?.defaultBaseUrl || remote?.baseUrl);
@@ -488,6 +504,12 @@ app.use((err, req, res, next) => {
   res.status(tooLarge ? 413 : 400).json({
     error: tooLarge ? '请求体过大（上限 5MB）' : `请求体不是合法 JSON：${String(err.message || err).slice(0, 200)}`,
   });
+});
+// 胜算云 LoomLoom 批量出图：默认关闭，只有专属模板 ID + 字段完成双方验收后才显式开启。
+// 路由放在统一来源守卫 / AO_WEB_TOKEN / JSON 解析之后，复用现有安全边界。
+registerShengsuanyunBatchRoutes(app, {
+  dataDir: DATA_DIR,
+  getToken: () => readKeys().shengsuanyun?.apiKey || process.env.SHENGSUANYUN_API_KEY || '',
 });
 // Prefer the new React Studio build when present; fall back to the legacy vanilla UI.
 if (HAS_NEW_UI) app.use(express.static(WEBSITE_DIST));
@@ -1854,6 +1876,12 @@ app.get('/api/config', async (_req, res) => {
       fromEnv: !saved[provider]?.apiKey && !!process.env[cfg.key],
       baseUrl: saved[provider]?.baseUrl || (cfg.base ? process.env[cfg.base] : '') || '',
       model: saved[provider]?.model || '',
+      // model 是用户填写的原值（配置表单需要回显）；effectiveModel 才是
+      // 提示词/对话等文本功能真正使用的模型。
+      effectiveModel: buildLLMConfig(provider).model || '',
+      ...(provider === 'shengsuanyun' && isShengsuanyunMediaModel(saved[provider]?.model)
+        ? { textFallbackFrom: saved[provider].model }
+        : {}),
       supportsBaseUrl: !!cfg.base,
       // 账户用量查询（NewAPI 系，如 PackyCode）：只回显「令牌已存」与用户 ID，访问令牌本身绝不下发
       ...(USAGE_QUERY_PROVIDERS[provider]
@@ -2354,6 +2382,7 @@ app.post('/api/test-provider', async (req, res) => {
     let baseUsed = ''; // 本次测试用的 base_url（规整后）
     let drift;         // 与用户填的 base_url 不一致时的说明
     let cliProbeNote = ''; // claude-code 中转：直连探测被拒后用本机 claude CLI 复测仍失败时的补充说明
+    let mediaModelNote = ''; // 胜算云图片/视频模型不能拿去打 chat/completions
     if (provider === 'claude' || provider === 'claude-code' || ANTHROPIC_PROVIDER_MAP[provider]) {
       // 两条链路都走 Anthropic 原生协议（POST {base}/v1/messages），用 OpenAI 格式测会误报失败。
       //
@@ -2414,7 +2443,22 @@ app.post('/api/test-provider', async (req, res) => {
       const spec = API_PROVIDER_MAP[provider];
       const remote = remoteProviderSpec(provider);
       const base = normalizeBaseUrl((typeof overrideBase === 'string' && overrideBase.trim()) || saved.baseUrl || (spec && process.env[spec.envBase]) || spec?.defaultBaseUrl || remote?.baseUrl || process.env.OPENAI_BASE_URL || 'https://api.openai.com/v1');
-      const model = (typeof overrideModel === 'string' && overrideModel.trim()) || saved.model || spec?.defaultModel || remote?.defaultModel || 'gpt-4o-mini';
+      const selectedModel = (typeof overrideModel === 'string' && overrideModel.trim()) || saved.model || spec?.defaultModel || remote?.defaultModel || 'gpt-4o-mini';
+      let model = selectedModel;
+      // 胜算云把图片/视频/音频模型放在独立多媒体目录；这些模型不支持 chat/completions。
+      // “测试连接”测的是 key + base 的连通性，不应拿用户选中的图片模型硬撞聊天端点后误报配置失败。
+      // 用官方当前 quick-start 默认文本模型做一条极短探测，并把替换行为明确告诉用户。
+      if (provider === 'shengsuanyun') {
+        // 连接测试只有 12 秒预算，不能为了判定类型现拉整份多媒体目录（目录逐模型取详情，
+        // 本身可能超过 12 秒，导致真正的 chat 探测还没发出就超时）。已有缓存优先；冷启动时
+        // 用胜算云公开模型命名中的稳定能力词判断。未知模型仍按原逻辑测试，不乱判成功。
+        const knownMedia = ssyCatalogCache.models.includes(selectedModel)
+          || isShengsuanyunMediaModel(selectedModel);
+        if (knownMedia) {
+          model = SHENGSUANYUN_TEXT_FALLBACK_MODEL;
+          mediaModelNote = `当前选择的是多媒体模型 ${selectedModel}，它不支持 chat/completions；已改用 ${model} 验证 Key 与 Base URL，图片能力请通过“生成”按钮验证。`;
+        }
+      }
       // Azure OpenAI 用 api-key 头鉴权（Bearer 仅 AAD token 时有效）；Azure 及 o系列/gpt-5 推理模型只认
       // max_completion_tokens，且最小有效值不能是 1（会被推理吃光返回空/400），用 16。issue #99
       const isAzureBase = /\.azure\.com|azure/i.test(base);
@@ -2463,7 +2507,8 @@ app.post('/api/test-provider', async (req, res) => {
       return res.json({ ok: false, error: `HTTP ${r.status} ${String(msg).slice(0, 300)}${hint}${cliProbeNote}` });
     }
     // 通过了但地址有漂移：提醒用户把 base_url 改成最终地址（CLI/其它工具没有这层兜底）
-    return res.json({ ok: true, latencyMs, ...(drift ? { note: `已连通，但实际请求地址是 ${hitUrl}（${drift}）——建议把 base_url 改成这个最终地址` } : {}) });
+    const notes = [mediaModelNote, drift ? `已连通，但实际请求地址是 ${hitUrl}（${drift}）——建议把 base_url 改成这个最终地址` : ''].filter(Boolean);
+    return res.json({ ok: true, latencyMs, ...(notes.length ? { note: notes.join('\n') } : {}) });
   } catch (e) {
     return res.json({ ok: false, error: e?.name === 'AbortError' ? '超时（12s）' : (e?.message || String(e)) });
   } finally {
@@ -2510,6 +2555,63 @@ app.post('/api/image/generate', async (req, res) => {
     res.status(400).json({ ok: false, error: err?.message || String(err) });
   }
 });
+
+// ── 胜算云的多媒体模型目录（出图/出视频/出音频的模型不在 /v1/models 里）──────────────
+// 这是一条**必须单独走**的路：胜算云的 GET /api/v1/models 只收录 chat 模型
+// （2026-09-08 实拉 204 条，`architecture.output` 全是 text），出图/出视频/出音频模型
+// 一个都没有。后果不是"少几个选项"，而是**用户按提示去点「获取模型列表」，翻遍全表
+// 也挑不出一个图片模型**，只能从文本模型里蒙一个（实测蒙中 ali/qwen3-max 后必然 429）。
+//
+// 另一半的坑在 architecture 字段：`input` 里的 `text+image+video` 是**能读**不是**能生成**，
+// 拿它当能力判据会得出"这家支持出视频"的错结论——显示支持、一选没模型，正是这个来的。
+//
+// 目录在另一台主机上（api.shengsuanyun.com，与 router 不是一个），**免鉴权**：
+//   GET /modelrouter/outputmodalities                → text / image / video / audio
+//   GET /modelrouter/modalities/list?output_names=X  → 该模态的模型（只给 id，没有 api_name）
+//   GET /modelrouter/modalities/info?model_id=<id>   → api_name + class_names + input_schema
+// **api_name 只能逐条问**（试过 /v1/models 带模态参数、modelusage、companies，都拿不到批量），
+// 所以整份目录拉一次缓存住，别每次点按钮打上百个请求。
+// 主机可用 AO_SSY_CATALOG_HOST 覆盖：一是测试要能不联网，二是这个域名是从前端 bundle 里
+// 挖出来的、不在任何公开文档里，哪天它变了得有个不改代码的逃生口。
+const SSY_CATALOG_HOST = (process.env.AO_SSY_CATALOG_HOST || 'https://api.shengsuanyun.com').replace(/\/+$/, '');
+const SSY_CATALOG_TTL_MS = 6 * 60 * 60 * 1000;
+let ssyCatalogCache = { at: 0, models: [], vendors: {} };
+
+async function shengsuanyunMediaModels() {
+  if (ssyCatalogCache.models.length && Date.now() - ssyCatalogCache.at < SSY_CATALOG_TTL_MS) {
+    return ssyCatalogCache;
+  }
+  const ua = { 'user-agent': `agency-orchestrator/${PKG_VERSION}` };
+  const getJson = async (url, ms = 15000) => {
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), ms);
+    try {
+      const r = await fetch(url, { headers: ua, signal: ctrl.signal });
+      return r.ok ? await r.json() : null;
+    } catch { return null; } finally { clearTimeout(timer); }
+  };
+  const models = [];
+  const vendors = {};
+  for (const modality of ['image', 'video', 'audio']) {
+    const listed = await getJson(`${SSY_CATALOG_HOST}/modelrouter/modalities/list?page=1&page_size=100&output_names=${modality}`);
+    const infos = listed?.data?.infos;
+    if (!Array.isArray(infos) || !infos.length) continue;
+    // 并发问详情，但压住并发数——这是别人家的公开接口，不该被我们打成 DDoS
+    const ids = infos.map((x) => x?.id).filter((x) => Number.isFinite(x));
+    for (let i = 0; i < ids.length; i += 6) {
+      const batch = await Promise.all(ids.slice(i, i + 6).map((id) => getJson(`${SSY_CATALOG_HOST}/modelrouter/modalities/info?model_id=${id}`)));
+      for (const d of batch) {
+        const info = d?.data;
+        if (!info || typeof info.api_name !== 'string' || !info.api_name) continue;
+        models.push(info.api_name);
+        if (typeof info.company_name === 'string' && info.company_name.trim()) vendors[info.api_name] = info.company_name.trim();
+      }
+    }
+  }
+  // 一条都没拉到就不覆盖旧缓存：目录站临时抽风时，宁可给上次的结果，也别把下拉清空
+  if (models.length) ssyCatalogCache = { at: Date.now(), models: [...new Set(models)].sort(), vendors };
+  return ssyCatalogCache;
+}
 
 // ── 拉取供应商的真实可用模型列表（OpenAI 兼容 GET /models；claude 走 Anthropic 原生端点）──
 // body 可带 baseUrl/apiKey 覆盖：add-custom 场景用户刚填了还没保存也能先拉列表。
@@ -2617,6 +2719,16 @@ app.post('/api/provider-models', async (req, res) => {
           const owner = typeof m.owned_by === 'string' && m.owned_by.trim() ? m.owned_by.trim()
             : typeof m.provider === 'string' && m.provider.trim() ? m.provider.trim() : '';
           if (owner && !PLACEHOLDER_OWNER.test(owner)) vendors[m.id] = owner;
+        }
+        // 胜算云：把多媒体模型并进来（它们不在 /v1/models 里，见 shengsuanyunMediaModels 的说明）。
+        // 目录拉失败就当没有——多媒体模型少几个，总好过整个列表拿不到。
+        if (provider === 'shengsuanyun' || /router\.shengsuanyun\.com/i.test(base)) {
+          const media = await shengsuanyunMediaModels().catch(() => null);
+          if (media?.models?.length) {
+            for (const id of media.models) if (!models.includes(id)) models.push(id);
+            models.sort();
+            Object.assign(vendors, media.vendors);
+          }
         }
         if (models.length) return res.json({ ok: true, models, ...(Object.keys(vendors).length ? { vendors } : {}) });
         lastErr = 'empty model list';

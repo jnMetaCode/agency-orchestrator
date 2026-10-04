@@ -2,7 +2,7 @@ import { Bookmark, Check, Copy, FlaskConical, Loader2, Scale, Sparkles, Sprout, 
 import { useEffect, useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { useLanguage } from "@/i18n/LanguageProvider";
-import { api, type GardenSeed, type PromptMode, type PromptRecord, type ScoreResult } from "@/lib/studio";
+import { API_PROVIDER_MAP, api, type GardenSeed, type PromptMode, type PromptRecord, type ScoreResult } from "@/lib/studio";
 import { cn } from "@/lib/utils";
 
 const STR = {
@@ -20,6 +20,8 @@ const STR = {
     needRaw: "请先输入原始提示词", fav: "收藏",
     saveAsRole: "存为我的角色", roleNamePh: "角色名称，如：朋友圈文案专家", roleSaving: "保存中…",
     roleSaved: "已存为角色——在「角色组队 → 我的」里就能用它组队", roleSaveFailed: "存为角色失败",
+    execution: "执行配置", provider: "服务商", model: "文本模型",
+    mediaFallback: "已检测到图片/视频模型，提示词生成将自动使用上方文本模型。",
   },
   en: {
     title: "Prompt Generator", sub: "Turn a rough idea into a working prompt — test · compare · save as an asset",
@@ -35,6 +37,8 @@ const STR = {
     needRaw: "Enter a raw prompt first", fav: "Favorite",
     saveAsRole: "Save as my role", roleNamePh: "Role name, e.g. Tweet copywriter", roleSaving: "Saving…",
     roleSaved: "Saved as a role — use it under Build a Team → My Roles", roleSaveFailed: "Failed to save as role",
+    execution: "Execution", provider: "Provider", model: "Text model",
+    mediaFallback: "An image/video model was configured; prompt generation will automatically use the text model shown above.",
   },
 };
 
@@ -42,7 +46,7 @@ function slug(name: string) {
   return name.trim().replace(/[\s/\\:*?"<>|]+/g, "-").replace(/-+/g, "-").replace(/^-|-$/g, "") || "prompt";
 }
 
-export function PromptLab({ provider, demo, onInstallPrompt, hideHeader }: { provider: string; demo?: boolean; onInstallPrompt?: () => void; hideHeader?: boolean }) {
+export function PromptLab({ provider, demo, onInstallPrompt, hideHeader, configRevision = 0 }: { provider: string; demo?: boolean; onInstallPrompt?: () => void; hideHeader?: boolean; configRevision?: number }) {
   const { lang } = useLanguage();
   const L = STR[lang === "en" ? "en" : "zh"];
 
@@ -73,10 +77,27 @@ export function PromptLab({ provider, demo, onInstallPrompt, hideHeader }: { pro
   const [garden, setGarden] = useState<GardenSeed[]>([]);
   const [copiedKey, setCopiedKey] = useState<string | null>(null);
   const [showGarden, setShowGarden] = useState(false);
+  const [execution, setExecution] = useState<{ provider: string; model: string; fallbackFrom?: string } | null>(null);
 
   const refresh = () => { if (!demo) api.prompts().then(setPrompts).catch(() => setPrompts([])); };
   useEffect(refresh, [demo]);
   useEffect(() => { api.promptGarden().then(setGarden).catch(() => setGarden([])); }, []);
+  useEffect(() => {
+    if (demo) { setExecution(null); return; }
+    let alive = true;
+    api.config().then((cfg) => {
+      if (!alive) return;
+      const status = cfg.providers[provider];
+      const remote = cfg.remoteProviders?.find((item) => item.id === provider);
+      const custom = cfg.customProviders?.find((item) => item.id === provider);
+      setExecution({
+        provider: API_PROVIDER_MAP[provider]?.shortName || API_PROVIDER_MAP[provider]?.name || remote?.name || custom?.name || provider,
+        model: status?.effectiveModel || status?.model || (lang === "en" ? "Engine default" : "引擎默认"),
+        fallbackFrom: status?.textFallbackFrom,
+      });
+    }).catch(() => { if (alive) setExecution(null); });
+    return () => { alive = false; };
+  }, [demo, provider, lang, configRevision]);
 
   const gardenForMode = useMemo(
     () => garden.filter((s) => s.mode === mode && (s.lang === (lang === "en" ? "en" : "zh"))),
@@ -238,6 +259,17 @@ export function PromptLab({ provider, demo, onInstallPrompt, hideHeader }: { pro
             )}
           </div>
         </div>
+
+        {!demo && execution && (
+          <div className="mb-3 rounded-xl border border-border/70 bg-muted/30 px-3 py-2 text-xs">
+            <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
+              <strong>{L.execution}</strong>
+              <span className="text-muted-foreground">{L.provider}：<span className="font-medium text-foreground">{execution.provider}</span></span>
+              <span className="min-w-0 text-muted-foreground">{L.model}：<span className="break-all font-mono font-medium text-foreground">{execution.model}</span></span>
+            </div>
+            {execution.fallbackFrom && <p className="mt-1 text-amber-600 dark:text-amber-400">{L.mediaFallback}</p>}
+          </div>
+        )}
 
         <textarea value={raw} onChange={(e) => setRaw(e.target.value)} placeholder={L.rawPlaceholder}
           className="h-32 w-full resize-y rounded-xl border border-border/70 bg-card/60 p-3 text-sm outline-none focus:border-primary/50" />

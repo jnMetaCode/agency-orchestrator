@@ -191,6 +191,31 @@ await test('两条协议都不通时，报错说清试过哪两条路', async ()
   srv.close();
 });
 
+await test('胜算云同步图片回执 image_urls[] 能被识别，不误走第二条付费协议', async () => {
+  const seen: string[] = [];
+  const srv = http.createServer((req, res) => {
+    seen.push(String(req.url));
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ image_urls: [`data:image/png;base64,${PNG_B64}`], progress: 100 }));
+  });
+  const port = await listen(srv);
+  const r = await generateImage(cfg({ base_url: `http://127.0.0.1:${port}/v1` }), 'p', { model: 'bytedance/doubao-seedream-4.0' });
+  assert(r.via === 'images-api' && r.buffer.equals(PNG_BYTES), '应从 image_urls[] 取回图片');
+  assert(seen.length === 1 && /images\/generations/.test(seen[0]), `不应误走 responses：${JSON.stringify(seen)}`);
+  srv.close();
+});
+
+await test('胜算云 body 字符串包裹的 image_urls[] 也能识别', async () => {
+  const srv = http.createServer((_req, res) => {
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ body: JSON.stringify({ image_urls: [`data:image/png;base64,${PNG_B64}`] }) }));
+  });
+  const port = await listen(srv);
+  const r = await generateImage(cfg({ base_url: `http://127.0.0.1:${port}/v1` }), 'p', { model: 'openai/gpt-image-2' });
+  assert(r.buffer.equals(PNG_BYTES), '应解开 body JSON 并取得图片');
+  srv.close();
+});
+
 await test('B 回 200 却没有图片时，报错要带上 A 说的那句原因（真机最常见的形态）', async () => {
   // 实测胜算云：A 明说 `model "X" does not support request path "/v1/images/generations"`，
   // B 则被网关当普通文本请求跑了 —— HTTP 200、正文里压根没有 image_generation_call。

@@ -149,6 +149,48 @@ function openaiVideoSize(opts: VideoStepOptions): string | undefined {
 }
 
 const SHAPES: Record<string, VideoShapeAdapter> = {
+  // ── 胜算云：自家任务接口（真机核实见 api-providers.ts 的 shengsuanyun 条目）────────────
+  //   建任务 POST {base}/tasks/generations、轮询 GET {base}/tasks/generations/{request_id}。
+  //   **拿 request_id 当任务 id**：回执里 task_id 建任务那一刻还是空串，只有 request_id 是立刻可用的，
+  //   而轮询路径吃的正是它。照 task_id 写会拿到空 id，然后轮询一个 /tasks/generations/ 空路径。
+  //   状态词大写（SUBMITTING/SUBMITTED/IN_PROGRESS/COMPLETED/FAILED/CANCELLED），统一转小写再判。
+  //   **失败信息在 fail_reason 里**，写得很具体（模型不存在 / 参数缺失 / 余额不足含预扣金额），原样带出去。
+  shengsuanyun: {
+    createPath: 'tasks/generations',
+    createBody: (opts, prompt, imageUrl) => {
+      const spec = VIDEO_PROVIDER_MAP[(opts.provider || '').trim()];
+      const m = spec?.models?.find((x) => x.id.toLowerCase() === (opts.model || '').toLowerCase());
+      // 一个端点转发多家上游的原生请求体：豆包/MiniMax 系吃 content 数组，通义万相系吃 prompt 字符串
+      const usePrompt = m?.promptField === 'prompt';
+      const ratioField = m?.fields?.ratio ?? 'ratio';
+      const imageField = m?.fields?.image ?? 'first_frame_image';
+      const body: Record<string, unknown> = { model: opts.model };
+      if (usePrompt) body.prompt = prompt;
+      else body.content = [{ type: 'text', text: prompt }];
+      if (opts.resolution) body.resolution = opts.resolution;
+      if (opts.duration) body.duration = opts.duration;
+      if (opts.ratio) body[ratioField] = opts.ratio;
+      if (imageUrl) body[imageField] = imageUrl;
+      return JSON.stringify(body);
+    },
+    // request_id 在 data 下；建任务同时也可能直接带回 code!=success 的错误
+    parseCreate: (j) => String((j as { data?: { request_id?: string } })?.data?.request_id ?? ''),
+    queryUrl: (base, id) => `${base}/tasks/generations/${encodeURIComponent(id)}`,
+    parseQuery: (json) => {
+      const v = (json as { data?: { status?: string; fail_reason?: string; data?: { video_urls?: string[] } } })?.data;
+      if (!v || typeof v !== 'object' || !v.status) return undefined;
+      const status = String(v.status).toLowerCase();
+      const phase = phaseOf(status);
+      const reason = (v.fail_reason || '').trim();
+      return {
+        phase,
+        url: v.data?.video_urls?.[0],
+        // fail_reason 在**没失败时也可能非空**（进度提示），只有判定失败才当错误报
+        error: phase === 'failed' ? reason || status : undefined,
+      };
+    },
+  },
+
   // ── 火山方舟：自家任务接口（真机核实见 api-providers.ts 的 volcengine 条目）────────────────
   //   首帧图：content 里加 {type:"image_url", image_url:{url}, role:"first_frame"}（方舟文档格式；公网 URL 或 data URL）。
   //   本地图片以 data URL 内联——**未真机验证**，被拒会在建任务前收到 400，不花钱。

@@ -51,7 +51,7 @@
     ]
   },
   "version": 2,
-  "updatedAt": "2026-09-16",
+  "updatedAt": "2026-10-03",
   "providers": [],
   "relayPresets": [
     {
@@ -81,6 +81,15 @@
         "claude-code": "https://www.packyapi.ai",
         "gemini-cli": "https://www.packyapi.ai",
         "codex-cli": "https://www.packyapi.ai/v1"
+      }
+    },
+    {
+      "name": "Fluxion AI",
+      "sponsor": true,
+      "signupUrl": "https://fluxionai.space/register?source=github&campaign=agencyagents&promo=agencyagents",
+      "baseUrls": {
+        "claude-code": "https://fluxionai.space",
+        "codex-cli": "https://fluxionai.space/v1"
       }
     }
   ],
@@ -126,6 +135,12 @@
       "name": "PackyCode",
       "bonus": "新用户首充折扣 + $1 体验额度",
       "url": "https://www.packyapi.ai/register?aff=js5W"
+    },
+    {
+      "providerId": "fluxionai",
+      "name": "Fluxion AI",
+      "bonus": "专属链接注册送 $3.88 API 额度",
+      "url": "https://fluxionai.space/register?source=github&campaign=agencyagents&promo=agencyagents"
     }
   ],
   "removedProviders": [

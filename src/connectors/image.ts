@@ -75,6 +75,32 @@ function settle(
 }
 
 /**
+ * 同步图片端点并不都返回 OpenAI 的 data[0].url：胜算云按上游原生形状返回
+ * image_urls[]，部分代理还会把这层 JSON 放进 body 字符串。统一在这里提取，避免
+ * 图片已经计费生成、AO 却因为没认出回执而报“没有图片”。
+ */
+function firstImageResult(value: unknown): string | undefined {
+  if (!value || typeof value !== 'object') return undefined;
+  const obj = value as Record<string, unknown>;
+  const data = Array.isArray(obj.data) ? obj.data[0] as Record<string, unknown> | undefined
+    : obj.data && typeof obj.data === 'object' ? obj.data as Record<string, unknown> : undefined;
+  const direct = data?.b64_json || data?.url
+    || (Array.isArray(obj.image_urls) ? obj.image_urls[0] : undefined)
+    || (Array.isArray(data?.image_urls) ? data.image_urls[0] : undefined);
+  if (typeof direct === 'string' && direct.trim()) return direct;
+  for (const key of ['body', 'output', 'result']) {
+    const nested = obj[key];
+    if (typeof nested === 'string' && nested.trim().startsWith('{')) {
+      try { const found = firstImageResult(JSON.parse(nested)); if (found) return found; } catch { /* not JSON */ }
+    } else if (nested && typeof nested === 'object') {
+      const found = firstImageResult(nested);
+      if (found) return found;
+    }
+  }
+  return undefined;
+}
+
+/**
  * 解析出"打哪 + 用什么 key"。图片步骤只支持 OpenAI 兼容的 API provider ——
  * CLI（claude-code / agy…）是编码工具不是图片端点，claude 原生协议也没有图片 API。
  * 报错必须把这条说清，别让用户拿 CLI provider 撞一头雾水。
@@ -173,9 +199,7 @@ export async function generateImage(
     aStatus = a.response.status;
     aText = await a.response.text();
     if (a.response.ok && !isGatewayRouteMissShell(aText)) {
-      const j = JSON.parse(aText) as { data?: Array<{ b64_json?: string; url?: string }> };
-      const item = j.data?.[0];
-      const raw = item?.b64_json || item?.url;
+      const raw = firstImageResult(JSON.parse(aText));
       if (raw) return settle(await toBuffer(raw), 'images-api', opts, onNotice);
       // 200 但没有图片字段 → 当路由未命中处理，去试协议 B（有网关这么干）
     }

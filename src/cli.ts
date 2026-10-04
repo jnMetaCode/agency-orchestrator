@@ -1127,7 +1127,7 @@ function printFirstRunGuide(provider: string): void {
   L('');
   L(`  ② 用「送额度」的聚合/中转（几十秒拿 key，一个 key 通 Claude/GPT/Gemini 全家桶）：`);
   // 赞助商位规则（src/utils/sponsor-guide.ts）：进阶档持有默认 provider 位、不占此处，
-  // 但该档位自 2026-08-17 起无人持有（多元探索下架），所以此处就是全部 7 家
+  // 但该档位自 2026-08-17 起无人持有（多元探索下架），所以此处就是全部 8 家
   // （旗舰+标准）按天轮换 2 家
   const rots = rotatingSponsors();
   for (const s of rots) {

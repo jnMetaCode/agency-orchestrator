@@ -37,5 +37,10 @@ assert(withImg / data.prompts.length > 0.8, `多数条目有预览图 URL (${wit
 const cats = new Set(data.prompts.map((p: any) => p.category));
 assert(cats.size >= 5, `分类数量合理 (${cats.size} 类)`);
 
+// 作者是版权署名，不是站内社交账号：卡片只显示纯文本，不能加 @ 或做成外链。
+const creativePage = readFileSync(resolve('website/src/pages/CreativeLibrary.tsx'), 'utf-8');
+assert(!/\@\{p\.author\}/.test(creativePage), '作者名不带 @，避免误解为可提及账号');
+assert(!/<a[^>]+href=\{p\.authorUrl/.test(creativePage), '作者署名只显示文本，不提供点击跳转');
+
 console.log(`\n  结果: ${passed} 通过, ${failed} 失败\n`);
 if (failed > 0) process.exit(1);

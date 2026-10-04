@@ -715,6 +715,94 @@ await test('mp4 落到 assets/，base64 绝不进 metadata.json', () => {
   rmSync(dir, { recursive: true, force: true });
 });
 
+console.log('\n─── 胜算云 shengsuanyun 形状（2026-09-08 真机核实的响应）───');
+
+/**
+ * 假服务端照抄真机响应：建任务只回 request_id（**task_id 那一刻是空串**），
+ * 轮询走 GET /tasks/generations/{request_id}，状态词大写，成品在 data.data.video_urls[]。
+ */
+function fakeShengSuanYun(opts: { failReason?: string } = {}) {
+  const seen: { create?: any; polls: number } = { polls: 0 };
+  const MP4S = Buffer.from('0000001c66747970535359', 'hex');
+  const srv = http.createServer((req, res) => {
+    const url = new URL(req.url || '/', 'http://x');
+    if (req.method === 'POST' && url.pathname === '/api/v1/tasks/generations') {
+      let body = ''; req.on('data', (c) => { body += c; });
+      req.on('end', () => {
+        try { seen.create = JSON.parse(body); } catch { seen.create = { raw: body.slice(0, 400) }; }
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        // 真机：task_id 空、status 大写 SUBMITTING、request_id 才是能用的那个
+        res.end(JSON.stringify({ code: 'success', message: '', data: { request_id: '355625880296427520', task_id: '', action: '', status: 'SUBMITTING', fail_reason: '', progress: '0%', cost: 0, data: null } }));
+      });
+      return;
+    }
+    if (req.method === 'GET' && url.pathname === '/api/v1/tasks/generations/355625880296427520') {
+      seen.polls++;
+      const done = seen.polls >= 2;
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      if (opts.failReason && done) {
+        return res.end(JSON.stringify({ code: 'success', data: { request_id: '355625880296427520', status: 'FAILED', fail_reason: opts.failReason, progress: '100%', data: {} } }));
+      }
+      return res.end(JSON.stringify({ code: 'success', data: { request_id: '355625880296427520', status: done ? 'COMPLETED' : 'IN_PROGRESS', fail_reason: '', progress: done ? '100%' : '40%', data: done ? { video_urls: [`http://127.0.0.1:${(srv.address() as { port: number }).port}/dl.mp4`], progress: 100 } : { progress: 40 } } }));
+    }
+    if (req.method === 'GET' && url.pathname === '/dl.mp4') { res.writeHead(200, { 'Content-Type': 'video/mp4' }); return res.end(MP4S); }
+    res.writeHead(404).end('{}');
+  });
+  return { srv, seen, MP4S };
+}
+
+await test('胜算云：拿 request_id 当任务 id（task_id 建任务时是空串），大写状态词，成品在 data.data.video_urls[]', async () => {
+  const fake = fakeShengSuanYun();
+  const port = await listen(fake.srv);
+  try {
+    const v = await generateVideo(
+      { provider: 'shengsuanyun', api_key: 'ssy-t', base_url: `http://127.0.0.1:${port}/api/v1` } as unknown as LLMConfig,
+      '一只橘猫在窗台看日落',
+      { provider: 'shengsuanyun', model: 'bytedance/doubao-seedance-2-5', resolution: '720p', ratio: '16:9', poll_interval: 10 },
+    );
+    assert(v.buffer.equals(fake.MP4S), 'mp4 字节应完整');
+    assert(v.taskId === '355625880296427520', `任务 id 应是 request_id，实际 ${v.taskId}`);
+    const b = fake.seen.create;
+    assert(b.model === 'bytedance/doubao-seedance-2-5' && b.resolution === '720p' && b.ratio === '16:9', `字段：${JSON.stringify(b)}`);
+    // 豆包系走 content 数组（不是 prompt 字符串）
+    assert(Array.isArray(b.content) && b.content[0].type === 'text' && b.content[0].text === '一只橘猫在窗台看日落', `content 形状不对：${JSON.stringify(b.content)}`);
+    assert(b.prompt === undefined, 'content 形状的模型不该再带 prompt 字段');
+  } finally { fake.srv.close(); }
+});
+
+await test('胜算云：通义万相系走 prompt 字符串 + size 字段（同一端点、不同上游原生形状）', async () => {
+  const fake = fakeShengSuanYun();
+  const port = await listen(fake.srv);
+  try {
+    await generateVideo(
+      { provider: 'shengsuanyun', api_key: 'ssy-t', base_url: `http://127.0.0.1:${port}/api/v1` } as unknown as LLMConfig,
+      '雨夜街头的跑鞋广告',
+      { provider: 'shengsuanyun', model: 'ali/wan2.5-t2v-preview', duration: 5, ratio: '1280*720', poll_interval: 10 },
+    );
+    const b = fake.seen.create;
+    assert(b.prompt === '雨夜街头的跑鞋广告', `应走 prompt 字符串，实际 ${JSON.stringify(b)}`);
+    assert(b.content === undefined, 'prompt 形状的模型不该再带 content 数组');
+    assert(b.size === '1280*720' && b.ratio === undefined, `宽高比应写进 size，实际 ${JSON.stringify(b)}`);
+  } finally { fake.srv.close(); }
+});
+
+await test('胜算云：失败时把 fail_reason 原样带出来（余额不足这类信息比"生成失败"有用得多）', async () => {
+  const reason = 'billing checked pre-consume quota: 余额不足: 可用额度 2.1855 元，本次预扣 80.0000000 元';
+  const fake = fakeShengSuanYun({ failReason: reason });
+  const port = await listen(fake.srv);
+  try {
+    let msg = '';
+    try {
+      await generateVideo(
+        { provider: 'shengsuanyun', api_key: 'ssy-t', base_url: `http://127.0.0.1:${port}/api/v1` } as unknown as LLMConfig,
+        '一只橘猫',
+        { provider: 'shengsuanyun', model: 'bytedance/doubao-seedance-2-5', poll_interval: 10 },
+      );
+    } catch (e) { msg = e instanceof Error ? e.message : String(e); }
+    assert(msg.includes('余额不足') && msg.includes('80'), `错误信息应带上 fail_reason 原文，实际：${msg}`);
+  } finally { fake.srv.close(); }
+});
+
 // 这家只吃图片字节（JSON data URI / multipart），没有"传公网 URL 当首帧"的入口。以前 createBody 连
 // imageUrl 都不接 → `video.image: "https://…"` 被**静默丢掉**，出的是纯文生视频、按秒照付，
 // 用户拿到的片子跟他要的首帧毫无关系。宁可当场报错，而且**一个建任务请求都别发**（没花钱）。

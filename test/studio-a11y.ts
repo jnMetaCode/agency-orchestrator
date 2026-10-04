@@ -15,7 +15,7 @@ function assert(c: boolean, m: string): void {
   if (c) { console.log(`  ✅ ${m}`); passed++; } else { console.log(`  ❌ ${m}`); failed++; }
 }
 
-const dirs = ['website/src/components/studio', 'website/src/components/ui'];
+const dirs = ['website/src/components/studio', 'website/src/components/ui', 'website/src/components/creative-batch'];
 const files = dirs.flatMap((d) => readdirSync(d).filter((f) => f.endsWith('.tsx')).map((f) => join(d, f)));
 
 // 这些不是对话框：ChatPanel / RolesPicker 是内嵌面板，InstallPrompt / RoleDetail 自己早就写了 role=dialog

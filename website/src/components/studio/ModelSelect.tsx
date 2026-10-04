@@ -19,7 +19,7 @@ import { cn } from "@/lib/utils";
  * 全量目录里单独成组置顶——推荐集是我们替用户挑的,常用是用户替自己挑的,两者并存。
  * CLI provider(claude-code 等)用各自工具的登录态选模型,这里不显示。
  */
-export function ModelSelect({ provider }: { provider: string }) {
+export function ModelSelect({ provider, onModelChange }: { provider: string; onModelChange?: (model: string) => void }) {
   const { t } = useLanguage();
   const p = t.studio.providers;
   const eff = provider || DEFAULT_PROVIDER;
@@ -108,6 +108,7 @@ export function ModelSelect({ provider }: { provider: string }) {
     try {
       await api.saveConfig({ provider: eff, model: m });
       setCurrent(m);
+      onModelChange?.(m);
     } catch (e) {
       // 以前只有 finally：保存失败时下拉关掉、模型没变、一句话都没有，用户以为换好了，
       // 下一次运行还是用旧模型

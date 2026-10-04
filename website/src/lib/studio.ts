@@ -190,6 +190,39 @@ export interface ScoreResult {
   best: string | null;
 }
 
+// ── 创意库批量出图（AO 稳定契约；上游胜算云字段只存在于服务端适配器）──
+export interface CreativeBatchItem { promptId: string; title: string; prompt: string }
+export interface CreativeBatchConfig { promptMode: "passthrough" | "optimize"; model?: string; size?: string; outputsPerPrompt: number }
+export interface CreativeBatchCapability {
+  ok: boolean;
+  available: boolean;
+  demo?: boolean;
+  reasonCode?: string;
+  message?: string;
+  provider?: { id: string; name: string; logo: string; learnMoreUrl: string };
+  template?: { id: string; name?: string; promptModes: Array<"passthrough" | "optimize">; modelPolicy?: "fixed" | "configurable" | "template_managed" };
+  limits?: { maxPrompts: number; maxOutputsPerPrompt: number };
+  fixed?: { model?: string; size?: string };
+  configurable?: { model: boolean; size: boolean };
+}
+export interface CreativeBatchQuote {
+  ok: boolean; quoteId: string; validUntil: string; currency: "CNY"; estimatedCost?: number;
+  availableBalance?: number; sufficient: boolean; itemCount: number; warnings: string[];
+}
+export interface CreativeBatchRun {
+  id: string; status: "pending" | "running" | "completed" | "partial" | "failed" | "cancelled" | "unknown";
+  parentRunId?: string;
+  acceptedAt?: string; itemCount?: number; total?: number; completed?: number; failed?: number;
+  actualCost?: number; currency?: "CNY"; createdAt?: string; updatedAt?: string;
+}
+export interface CreativeBatchRunItem {
+  taskId: string; sourceRowIndex: number; promptId?: string; title?: string;
+  status: CreativeBatchRun["status"]; error?: string; artifactCount: number;
+}
+export interface CreativeBatchArtifact {
+  artifactId: string; sourceRowIndex: number; promptId?: string; accessUrl?: string; inlineText?: string; mimeType?: string;
+}
+
 // ── 普通对话（闲聊不组队）──
 export interface ChatMessage {
   role: "user" | "assistant";
@@ -326,6 +359,10 @@ export interface ProviderKeyStatus {
   fromEnv?: boolean;
   baseUrl: string;
   model?: string;
+  /** 文本功能真正使用的模型；可能与用户填的多媒体 model 不同。 */
+  effectiveModel?: string;
+  /** 填入多媒体模型时，文本功能已自动改用 effectiveModel。 */
+  textFallbackFrom?: string;
   supportsBaseUrl?: boolean;
   configured?: boolean;
   /** 远程清单 providerOverrides 下发的换代模型建议（比打包进前端的静态建议新） */
@@ -723,7 +760,7 @@ export function groupModelsByVendor(models: string[], vendors?: Record<string, s
 
 // 有正方形图标素材的赞助商/供应商 → website/public/sponsors/logo-<id>-icon.png（served at /sponsors/…）。
 // 只对确有文件的 id 返回路径，避免其它供应商拿到 404 的 <img>。
-const PROVIDER_LOGO_IDS = new Set(["compshare", "cubence", "apinebula", "rootflowai", "ccsub", "volcengine", "duoyuanx", "aicodemirror", "lanox", "shengsuanyun", "apimart", "metaso", "packycode"]);
+const PROVIDER_LOGO_IDS = new Set(["compshare", "cubence", "apinebula", "rootflowai", "ccsub", "volcengine", "duoyuanx", "aicodemirror", "lanox", "shengsuanyun", "apimart", "metaso", "packycode", "fluxionai"]);
 /** 少数供应商的 logo 是 svg（AICodeMirror），其余是 png —— 硬编码扩展名会 404 */
 const PROVIDER_LOGO_SVG_IDS = new Set(["aicodemirror"]);
 export function providerLogo(id: string): string | undefined {
@@ -763,6 +800,19 @@ export const api = {
   generateImage: (body: { provider?: string; model: string; prompt: string; size?: string; quality?: string }) =>
     // width/height：从 PNG 头量出的真实尺寸（不少服务商把 size 当建议，实际尺寸会不一样）
     postJSON<{ ok: boolean; dataUrl?: string; via?: string; width?: number; height?: number; error?: string }>("/image/generate", body),
+  creativeBatchCapability: () => getJSON<CreativeBatchCapability>("/batch/providers/shengsuanyun/capabilities"),
+  creativeBatchPrecheck: (body: { items: CreativeBatchItem[]; config: CreativeBatchConfig }) =>
+    postJSON<CreativeBatchQuote>("/batch/providers/shengsuanyun/precheck", body),
+  creativeBatchSubmit: (body: { quoteId: string; idempotencyKey: string; items: CreativeBatchItem[]; config: CreativeBatchConfig }) =>
+    postJSON<{ ok: boolean; run: CreativeBatchRun }>("/batch/providers/shengsuanyun/runs", body),
+  creativeBatchRuns: () => getJSON<{ ok: boolean; runs: CreativeBatchRun[] }>("/batch/providers/shengsuanyun/runs"),
+  creativeBatchRun: (runId: string) => getJSON<{ ok: boolean; run: CreativeBatchRun }>(`/batch/providers/shengsuanyun/runs/${encodeURIComponent(runId)}`),
+  creativeBatchItems: (runId: string) => getJSON<{ ok: boolean; items: CreativeBatchRunItem[] }>(`/batch/providers/shengsuanyun/runs/${encodeURIComponent(runId)}/items`),
+  creativeBatchArtifacts: (runId: string) => getJSON<{ ok: boolean; artifacts: CreativeBatchArtifact[] }>(`/batch/providers/shengsuanyun/runs/${encodeURIComponent(runId)}/artifacts`),
+  creativeBatchRetryPrecheck: (runId: string) =>
+    postJSON<CreativeBatchQuote & { retryOf: string }>(`/batch/providers/shengsuanyun/runs/${encodeURIComponent(runId)}/retry-precheck`, {}),
+  creativeBatchRetryFailed: (runId: string, body: { quoteId: string; idempotencyKey: string }) =>
+    postJSON<{ ok: boolean; run: CreativeBatchRun }>(`/batch/providers/shengsuanyun/runs/${encodeURIComponent(runId)}/retry-failed`, body),
   // 本机 cc-switch 已配供应商（一键导入 key 用；key 只回脱敏预览，原文不出后端）
   ccswitchProviders: () =>
     getJSON<{ ok: boolean; providers?: { id: string; name: string; appType: string; baseUrl: string; keyPreview: string; isCurrent: boolean }[] }>("/ccswitch-providers"),
@@ -1042,6 +1092,10 @@ export const API_PROVIDERS: ApiProviderMeta[] = [
   // **不在** PackyCode 价目表里，没照抄。备用主机 cf.api.fan / slb-v1.api.fan / www.packyapi.com 也逐条探过：
   // /v1/models、chat/completions、messages、responses 均 401「无效的令牌」、乱写路径 404，是同一网关。
   { id: "packycode", name: "PackyCode", hint: "www.packyapi.ai · 人民币 1:1 充值 · 新用户送 $1 体验额度", defaultBaseUrl: "https://www.packyapi.ai/v1", signupUrl: "https://www.packyapi.ai/register?aff=js5W", sponsor: true, modelSuggestions: ["qwen3.8-max", "glm-5", "kimi-k2.5", "claude-sonnet-5", "claude-opus-5", "gpt-5.6-sol"], imageModels: ["gpt-image-2"], usageQuery: "newapi" },
+  // Fluxion AI（赞助商）——官方 OpenAI 兼容地址为 /v1。模型受 key 分组限制，绝不设
+  // 全局默认值；测试连接会先用 key 拉 /models 再选真实模型。静态建议覆盖官方文档中的
+  // Claude / GPT / Grok 示例；图片模型仅对开通相应图片能力的 key 有效。
+  { id: "fluxionai", name: "Fluxion AI", hint: "fluxionai.space · 模型随 Key 分组变化，配好后先获取模型列表 · 注册送 $3.88", defaultBaseUrl: "https://fluxionai.space/v1", signupUrl: "https://fluxionai.space/register?source=github&campaign=agencyagents&promo=agencyagents", sponsor: true, modelSuggestions: ["claude-sonnet-4-6", "claude-sonnet-5", "claude-opus-4-8", "gpt-5.6-sol", "gpt-6-astra", "grok-4.5"], imageModels: ["gpt-image-2"] },
   { id: "deepseek", name: "DeepSeek", hint: "platform.deepseek.com", defaultBaseUrl: "https://api.deepseek.com/v1", vendor: true, modelSuggestions: ["deepseek-chat", "deepseek-reasoner"] },
   // 默认端点**不带 /v1**：Anthropic 客户端（SDK / claude CLI）自己会接 /v1/messages，
   // base 里再写一遍就成了 /v1/v1/messages。这里是用户配中转时照抄的形状样板，写错等于
@@ -1229,6 +1283,19 @@ export const CLI_RELAY_PRESETS: CliRelayPreset[] = [
       "claude-code": "https://www.packyapi.ai",
       "gemini-cli": "https://www.packyapi.ai",
       "codex-cli": "https://www.packyapi.ai/v1",
+    },
+  },
+  // Fluxion AI：官方文档区分 key 分组协议。Claude Code 用 Anthropic 根地址，
+  // Codex 用 OpenAI Responses 的 /v1 根地址。Gemini 只在特定蓝色分组下走
+  // /v1beta，不能用同一预设欺骗所有 key，因此不列。
+  {
+    name: "Fluxion AI",
+    sponsor: true,
+    signupUrl: "https://fluxionai.space/register?source=github&campaign=agencyagents&promo=agencyagents",
+    anthropicApiBaseUrl: "https://fluxionai.space",
+    baseUrls: {
+      "claude-code": "https://fluxionai.space",
+      "codex-cli": "https://fluxionai.space/v1",
     },
   },
 ];

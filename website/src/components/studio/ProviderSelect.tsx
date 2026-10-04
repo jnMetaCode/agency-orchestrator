@@ -103,8 +103,9 @@ export function ProviderSelect({ value, onChange, onOpenProviders }: { value: st
         ))}
       </>
     ) : null;
-  // 组内排序按**层级**：旗舰 → 进阶 → 赞助商 → 普通 → 已下架；每层内已配 key 的在前。
-  // 上一版只按"有 key 在前"，把配过 key 的已下架多元探索和非赞助的 Agnes 顶到了赞助商前面。
+  // 组内排序按**层级**：旗舰 → 进阶 → 赞助商 → 普通 → 已下架。
+  // 旗舰/进阶/赞助商的组内顺序是商务约定，不能因为某家已配 key 就提前；
+  // 只有普通和已下架条目才用“已配 key 在前”提升可用性。
   // 已下架的（内置 delisted / 远程清单 removedProviders）只对配过 key 或当前正选中的用户露出，排最后。
   const [removed, setRemoved] = useState<string[]>([]);
   const isDelisted = (p: string) => !!API_PROVIDERS.find((x) => x.id === p)?.delisted || removed.includes(p);
@@ -113,7 +114,13 @@ export function ProviderSelect({ value, onChange, onOpenProviders }: { value: st
     ids
       .filter((p) => !isDelisted(p) || keyed.has(p) || p === value)
       .map((p, i) => ({ p, i }))
-      .sort((a, b) => tier(a.p) - tier(b.p) || Number(keyed.has(b.p)) - Number(keyed.has(a.p)) || a.i - b.i)
+      .sort((a, b) => {
+        const ta = tier(a.p);
+        const tb = tier(b.p);
+        if (ta !== tb) return ta - tb;
+        if (ta <= 2) return a.i - b.i;
+        return Number(keyed.has(b.p)) - Number(keyed.has(a.p)) || a.i - b.i;
+      })
       .map((x) => x.p);
   // 只做图/视频的供应商（秘塔等）没有对话端点，不能当文本供应商选——但它们是赞助商，必须在这里看得见：
   // 单独一组，带标，点了去它的配置页；真正选用是在「出图 / 出片」胶囊里。

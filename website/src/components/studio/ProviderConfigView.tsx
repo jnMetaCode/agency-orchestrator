@@ -244,13 +244,30 @@ export function ProviderConfigView({
     setTest({ status: "testing" });
     try {
       // 带上当前输入框里的值:填了就能测,不用先保存。
-      // 模型没填时用该供应商自己的第一个建议模型——后端的兜底 gpt-4o-mini 对聚合商常常根本没上架
-      // （PackyCode 实测：测试连接打出去的就是 gpt-4o-mini，报的错跟用户要用的模型毫无关系）
+      // 模型没填时**先用当前 key 拉真实 /models**。聚合商的不同 key 往往属于不同分组：
+      // Fluxion AI 的 Claude key 只返回 Claude 模型，而 GPT key 返回另一套；拿静态建议的第一个
+      // 模型去测，会把有效 key 误报成「模型不存在」。拉取失败才退回静态建议。
+      let discoveredModel = fetchedModels?.[0];
+      if (!model.trim() && !discoveredModel && target.kind === "api") {
+        const rawBase = (baseUrl.trim() || target.defaultBaseUrl || "").replace(/\/+$/, "");
+        const listed = await api.providerModels({
+          provider: providerId,
+          baseUrl: rawBase || undefined,
+          apiKey: key.trim() || undefined,
+        }).catch(() => null);
+        if (listed?.ok && listed.models?.length) {
+          setFetchedModels(listed.models);
+          setFetchedVendors(listed.vendors);
+          discoveredModel = listed.models[0];
+        }
+      }
+      // 后端的通用兜底 gpt-4o-mini 对聚合商常常根本没上架；真实目录不可用时才使用
+      // 供应商自己的静态建议（PackyCode 曾因直接测 gpt-4o-mini 误报配置失败）。
       const fallbackModel = target.kind === "api" ? target.suggestions?.[0] : undefined;
       const r = await api.testProvider(providerId, {
         apiKey: key.trim() || undefined,
         baseUrl: baseUrl.trim() || undefined,
-        model: model.trim() || fallbackModel || undefined,
+        model: model.trim() || discoveredModel || fallbackModel || undefined,
       });
       setTest(r.ok ? { status: "ok", msg: r.note || `${r.latencyMs}ms` } : { status: "fail", msg: r.error });
     } catch (e: any) {

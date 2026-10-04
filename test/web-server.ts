@@ -510,6 +510,31 @@ const modelsSrv = http.createServer((req, res) => {
 await new Promise<void>((r) => modelsSrv.listen(0, '127.0.0.1', () => r()));
 const modelsPort = (modelsSrv.address() as { port: number }).port;
 
+// 胜算云多媒体目录的假上游（真实主机是 api.shengsuanyun.com，免鉴权，由 AO_SSY_CATALOG_HOST 指过来）。
+// 形状照抄真机：list 只给 id（**没有 api_name**），api_name 要逐条问 info——
+// 这正是"出图模型挑不出来"的根：/v1/models 里一个多媒体模型都没有。
+const ssyCatalogSrv = http.createServer((req, res) => {
+  const u = new URL(req.url || '/', 'http://x');
+  const json = (o: unknown) => { res.writeHead(200, { 'Content-Type': 'application/json' }); res.end(JSON.stringify(o)); };
+  if (u.pathname === '/modelrouter/modalities/list') {
+    const mod = u.searchParams.get('output_names');
+    const infos = mod === 'image' ? [{ id: 901 }, { id: 902 }] : mod === 'audio' ? [{ id: 903 }] : [];
+    return json({ code: 0, data: { infos, total: infos.length } });
+  }
+  if (u.pathname === '/modelrouter/modalities/info') {
+    const id = u.searchParams.get('model_id');
+    const table: Record<string, { api_name: string; company_name: string }> = {
+      '901': { api_name: 'bytedance/doubao-seedream-5-0-pro', company_name: 'Bytedance' },
+      '902': { api_name: 'google/gemini-3-pro-image', company_name: 'Google' },
+      '903': { api_name: 'runway/eleven_multilingual_v2', company_name: 'Runway' },
+    };
+    return table[id!] ? json({ code: 0, data: table[id!] }) : json({ code: 10000, data: {}, msg: '请求数据无效' });
+  }
+  res.writeHead(404).end('{}');
+});
+await new Promise<void>((r) => ssyCatalogSrv.listen(0, '127.0.0.1', () => r()));
+const ssyCatalogPort = (ssyCatalogSrv.address() as { port: number }).port;
+
 const port3 = await freePort();
 const dataDir3 = mkdtempSync(join(tmpdir(), 'ao-web-endpoint-'));
 const base3 = `http://127.0.0.1:${port3}`;
@@ -522,7 +547,7 @@ const postJson = async (path: string, body: unknown) => {
 try {
   server3 = spawn(process.execPath, [resolve('web/server.js')], {
     // 清单拉取指向死地址：离线/CI 下不等 3s 超时，也不受远程清单内容影响
-    env: { ...process.env, PORT: String(port3), HOST: '127.0.0.1', AO_NODE: process.execPath, AO_DATA_DIR: dataDir3, AO_MANIFEST_URL: 'http://127.0.0.1:1/none.json' },
+    env: { ...process.env, PORT: String(port3), HOST: '127.0.0.1', AO_NODE: process.execPath, AO_DATA_DIR: dataDir3, AO_MANIFEST_URL: 'http://127.0.0.1:1/none.json', AO_SSY_CATALOG_HOST: `http://127.0.0.1:${ssyCatalogPort}` },
     stdio: 'ignore',
   });
   let up3 = false;
@@ -598,6 +623,23 @@ try {
     assert(!('mystery-1' in vendors) && (m2.body.models as string[]).includes('mystery-1'),
       '占位厂商(api-transfer-server)被过滤，但模型本身照常列出');
 
+    // 9.2) 胜算云：多媒体模型不在 /v1/models 里，必须从 modelrouter 目录并进来。
+    //      不并的话用户按提示点「获取模型列表」，翻遍全表也挑不出一个图片模型，
+    //      只能从文本模型里蒙一个（实测蒙中 ali/qwen3-max 后必然 429）。
+    const m3 = await postJson('/api/provider-models', { provider: 'shengsuanyun', baseUrl: `http://127.0.0.1:${modelsPort}/v1`, apiKey: 'sk-test' });
+    const m3models = (m3.body.models ?? []) as string[];
+    assert(m3models.includes('bytedance/doubao-seedream-5-0-pro') && m3models.includes('google/gemini-3-pro-image'),
+      '胜算云：图片模型从 modelrouter 目录并进模型列表（/v1/models 里一个都没有）');
+    assert(m3models.includes('runway/eleven_multilingual_v2'), '胜算云：音频模型也并进来');
+    assert(m3models.includes('gpt-5.6-sol'), '胜算云：并入多媒体模型不能挤掉原本的 chat 模型');
+    assert(((m3.body.vendors ?? {}) as Record<string, string>)['google/gemini-3-pro-image'] === 'Google',
+      '胜算云：多媒体模型的厂商归属用目录里的 company_name');
+
+    // 9.3) 别家不受影响：只有胜算云才去打那个目录
+    const m4 = await postJson('/api/provider-models', { provider: 'openai', baseUrl: `http://127.0.0.1:${modelsPort}/v1`, apiKey: 'sk-test' });
+    assert(!((m4.body.models ?? []) as string[]).includes('bytedance/doubao-seedream-5-0-pro'),
+      '非胜算云的供应商不该被并入胜算云的模型');
+
     // 9.5) 文生图接口：baseUrl 覆盖打到假图片上游 → data URL；缺模型 → 400 且说人话
     let lastImgBody = '';
     const imgUp = http.createServer((req2, res2) => {
@@ -652,7 +694,9 @@ try {
   }
 } finally {
   if (server3) server3.kill('SIGTERM');
-  upstream.close(); redirector.close(); anthropic.close(); anthRedirector.close(); modelsSrv.close();
+  // ssyCatalogSrv 也要关——漏掉任何一个，测试跑完（结果都打完了）进程也不会退出，
+  // 表现成整条 npm test 卡死在这一步，很难看出是"少 close 一个 http server"
+  upstream.close(); redirector.close(); anthropic.close(); anthRedirector.close(); modelsSrv.close(); ssyCatalogSrv.close();
   rmSync(dataDir3, { recursive: true, force: true });
 }
 

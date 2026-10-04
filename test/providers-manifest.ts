@@ -156,6 +156,28 @@ test('PackyCode 的中转预设已上架，且端点与内置预设一致（2026
   assert(pc!.signupUrl === 'https://www.packyapi.ai/register?aff=js5W', `返利链接不对: ${pc!.signupUrl}`);
 });
 
+test('Fluxion AI 的 API 与 CLI 中转预设已完整上架（2026-10-03 补齐）', () => {
+  const api = API_PROVIDERS.find((p) => p.id === 'fluxionai');
+  assert(!!api, 'Fluxion AI 必须是可运行的内置 API provider，不能只有赞助卡片');
+  assert(api!.defaultBaseUrl === 'https://fluxionai.space/v1', `OpenAI 兼容地址不对: ${api!.defaultBaseUrl}`);
+  assert(api!.envKey === 'FLUXION_API_KEY' && api!.envBase === 'FLUXION_BASE_URL', 'Fluxion AI 环境变量映射不完整');
+  assert(!api!.defaultModel, 'Fluxion AI 模型受 key 分组限制，不应猜一个全局默认模型');
+
+  const relay = (m.relayPresets ?? []).find((r) => /fluxion/i.test(r.name));
+  assert(!!relay, '清单里应有 Fluxion AI CLI 中转预设');
+  assert(relay!.baseUrls['claude-code'] === 'https://fluxionai.space', `Claude Code 根地址不对: ${relay!.baseUrls['claude-code']}`);
+  assert(relay!.baseUrls['codex-cli'] === 'https://fluxionai.space/v1', `Codex 根地址不对: ${relay!.baseUrls['codex-cli']}`);
+  assert(!relay!.baseUrls['gemini-cli'], 'Gemini 依赖特定 key 分组，不应冒充通用预设');
+
+  const studio = readFileSync('website/src/lib/studio.ts', 'utf-8');
+  const line = studio.split('\n').find((s) => s.includes('{ id: "fluxionai"')) || '';
+  assert(line.includes('claude-sonnet-4-6') && line.includes('gpt-5.6-sol'), 'Fluxion 静态兜底应同时覆盖 Claude/GPT 分组，不得只展示一类');
+
+  const configView = readFileSync('website/src/components/studio/ProviderConfigView.tsx', 'utf-8');
+  const runTest = configView.slice(configView.indexOf('const runTest = async'), configView.indexOf('const save = async'));
+  assert(/api\.providerModels\(/.test(runTest) && /discoveredModel/.test(runTest), '测试连接在模型为空时必须先拉该 key 的真实模型，不能拿静态 GPT 模型误测 Claude key');
+});
+
 test('轮换池与代码里的那份逐条一致（清单配了就整池替换，漏一家=那家线上零曝光）', () => {
   const pool = m.sponsorRotation ?? [];
   assert(pool.length === SPONSOR_ROTATION.length,
@@ -235,10 +257,16 @@ test('在架供应商不受影响', () => {
 // 于是这个非赞助条目排在了 LanoX / APIMart 等赞助商前面，白占一个赞助位。
 {
   const panel = readFileSync('website/src/components/studio/ProvidersPanel.tsx', 'utf-8');
+  const picker = readFileSync('website/src/components/studio/ProviderSelect.tsx', 'utf-8');
 
   test('Studio 供应商列表按赞助层级排序（旗舰 → 赞助商 → 其余）', () => {
     assert(/\.sort\(\s*\(a, b\)\s*=>\s*\(a\.flagship \? 0 : a\.sponsor \? 1 : 2\)/.test(panel),
       'ProvidersPanel 必须在渲染前按赞助层级排序，否则任何插在赞助商中间的非赞助条目都会占掉赞助位');
+  });
+
+  test('顶栏供应商下拉不能因已配 key 打乱赞助商约定顺序', () => {
+    assert(/if \(ta <= 2\) return a\.i - b\.i/.test(picker),
+      '旗舰/进阶/赞助商层内必须保持声明顺序，已配 key 只能影响普通条目');
   });
 
   // 用**前端**的供应商表：flagship / sponsor 标只在 website/src/lib/studio.ts 里，引擎的 API_PROVIDERS 没有这两个字段——
@@ -274,6 +302,12 @@ test('在架供应商不受影响', () => {
     const rendered = sorted.filter((x) => rank(x) === 1).map((x) => x.id);
     assert(JSON.stringify(declared) === JSON.stringify(rendered),
       `赞助商组内顺序被打乱了：声明 ${declared.join(',')} → 渲染 ${rendered.join(',')}`);
+  });
+
+  test('胜算云在旗舰+赞助商队列中保持第 6 位', () => {
+    const promoted = FE_PROVIDERS.filter((x) => x.flagship || x.sponsor).map((x) => x.id);
+    assert(promoted.indexOf('shengsuanyun') === 5,
+      `胜算云应为第 6 位，实际：${promoted.join(',')}`);
   });
 }
 

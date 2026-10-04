@@ -5,8 +5,10 @@ import EXTRA_INDEX_JSON from "@/content/creative-extra/index.json";
 // 扩充池切片：按分类懒加载（见 scripts/split-creative-extra.mjs）。glob 惰性导入，点到才拉那一片。
 const EXTRA_INDEX = EXTRA_INDEX_JSON as { total: number; chunks: { category: string; file: string; count: number }[] };
 const EXTRA_CHUNKS = import.meta.glob("/src/content/creative-extra/cat-*.json") as Record<string, () => Promise<unknown>>;
-import { Check, ChevronLeft, ChevronRight, Copy, ExternalLink, Search, Download, Loader2, Sparkles } from "lucide-react";
+import { Check, CheckSquare, ChevronLeft, ChevronRight, Copy, ExternalLink, Search, Download, Loader2, Sparkles, Square, X } from "lucide-react";
 import { SiteFooter } from "@/components/layout/SiteFooter";
+import { BatchConfigDialog } from "@/components/creative-batch/BatchConfigDialog";
+import { BatchHistoryDialog } from "@/components/creative-batch/BatchHistoryDialog";
 import { useLanguage } from "@/i18n/LanguageProvider";
 import { useSeo } from "@/lib/useSeo";
 import { track } from "@/lib/track";
@@ -251,7 +253,10 @@ function VideoCard({ t }: { t: VideoTemplate }) {
   );
 }
 
-function PromptCard({ p, gen, onOpenGen }: { p: CreativePrompt; gen: GenEnv | null; onOpenGen: () => void }) {
+function PromptCard({ p, gen, onOpenGen, batchMode, selected, onToggleSelected }: {
+  p: CreativePrompt; gen: GenEnv | null; onOpenGen: () => void;
+  batchMode: boolean; selected: boolean; onToggleSelected: () => void;
+}) {
   const { lang } = useLanguage();
   const en = lang === "en";
   const [copied, setCopied] = useState(false);
@@ -294,7 +299,18 @@ function PromptCard({ p, gen, onOpenGen }: { p: CreativePrompt; gen: GenEnv | nu
     try { await navigator.clipboard.writeText(p.prompt); setCopied(true); track("creative_prompt_copy", { id: p.id, category: p.category, source: p.source }); setTimeout(() => setCopied(false), 1500); } catch { /* noop */ }
   };
   return (
-    <div className="flex flex-col overflow-hidden rounded-2xl border border-border/70 bg-card/60">
+    <div className={cn("relative flex flex-col overflow-hidden rounded-2xl border bg-card/60 transition-colors", selected ? "border-primary ring-2 ring-primary/20" : "border-border/70")}>
+      {batchMode && (
+        <button
+          type="button"
+          aria-pressed={selected}
+          aria-label={selected ? (en ? "Remove from batch" : "移出批量选择") : (en ? "Add to batch" : "加入批量选择")}
+          onClick={onToggleSelected}
+          className={cn("absolute left-3 top-3 z-10 inline-flex size-8 items-center justify-center rounded-lg border shadow-sm backdrop-blur", selected ? "border-primary bg-primary text-primary-foreground" : "border-white/70 bg-background/90 text-foreground")}
+        >
+          {selected ? <CheckSquare className="size-4" /> : <Square className="size-4" />}
+        </button>
+      )}
       {p.image && (
         <img
           src={p.image}
@@ -317,9 +333,7 @@ function PromptCard({ p, gen, onOpenGen }: { p: CreativePrompt; gen: GenEnv | nu
       <pre className="mt-3 max-h-32 overflow-y-auto whitespace-pre-wrap rounded-lg bg-muted/50 p-2.5 text-[11px] leading-relaxed text-foreground/90">{p.prompt}</pre>
       <div className="mt-3 flex items-center justify-between gap-2">
         {p.author ? (
-          <a href={p.authorUrl || undefined} target="_blank" rel="noreferrer" className="truncate text-[11px] text-muted-foreground hover:text-foreground">
-            @{p.author}
-          </a>
+          <span className="truncate text-[11px] text-muted-foreground">{p.author}</span>
         ) : <span />}
         <span className="flex shrink-0 items-center gap-1.5">
           <button
@@ -440,6 +454,29 @@ export default function CreativeLibrary() {
   );
   const [q, setQ] = useState("");
   const [cat, setCat] = useState("all");
+  const [batchMode, setBatchMode] = useState(false);
+  const [batchSelected, setBatchSelected] = useState<Set<string>>(() => new Set());
+  const [batchDialogOpen, setBatchDialogOpen] = useState(false);
+  const [batchDialogRunId, setBatchDialogRunId] = useState<string | undefined>();
+  const [batchHistoryOpen, setBatchHistoryOpen] = useState(false);
+  const [batchMax, setBatchMax] = useState(24);
+  // 公网站必须构建时显式打开；localhost 保留开发入口。这样功能开关关闭时不会在官网露出死按钮，
+  // 又不需要为每个只来复制提示词的访客额外请求一次 /api capability。
+  const batchUiEnabled = import.meta.env.VITE_SSY_BATCH_ENABLED === "1"
+    || (typeof window !== "undefined" && ["localhost", "127.0.0.1"].includes(window.location.hostname));
+  const [lastBatchRunId, setLastBatchRunId] = useState(() => {
+    try { return localStorage.getItem("ao.creative.batch.lastRun") || ""; } catch { return ""; }
+  });
+  useEffect(() => {
+    if (!batchUiEnabled || !lastBatchRunId) return;
+    let alive = true;
+    api.creativeBatchRuns().then((value) => {
+      if (!alive || value.runs.some((run) => run.id === lastBatchRunId)) return;
+      setLastBatchRunId("");
+      try { localStorage.removeItem("ao.creative.batch.lastRun"); } catch { /* noop */ }
+    }).catch(() => { /* 后端离线时保留，避免把可恢复任务误清掉 */ });
+    return () => { alive = false; };
+  }, [batchUiEnabled, lastBatchRunId]);
   // 图片 / 视频两个页签。视频那份数据 200KB+，**按需 import**——这是一张公开 SEO 页，
   // 绝大多数访客只是来复制图片提示词的，不该为他们把首包撑大一倍。
   const [media, setMedia] = useState<"image" | "video">("image");
@@ -533,6 +570,10 @@ export default function CreativeLibrary() {
     );
   }, [videoItems, q, cat]);
   useEffect(() => { setCat("all"); setPage(1); }, [media]);
+  useEffect(() => {
+    if (media === "image") return;
+    setBatchMode(false); setBatchSelected(new Set()); setBatchDialogOpen(false);
+  }, [media]);
 
   // 一键生成的运行环境：本地 Studio 有引擎（可真生成），公开演示站没有（/api/* 落到 SPA
   // 兜底回 HTML，解析必失败 → 走 catch，按钮降级成"怎么在本机跑"的提示）。
@@ -589,6 +630,27 @@ export default function CreativeLibrary() {
   const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
   const safePage = Math.min(page, totalPages);
   const pageItems = filtered.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE);
+  const batchItems = useMemo(() => imagePrompts
+    .filter((p) => batchSelected.has(p.id))
+    .map((p) => ({ promptId: p.id, title: (lang !== "en" && p.titleZh) || p.title, prompt: p.prompt })), [imagePrompts, batchSelected, lang]);
+  const toggleBatchItem = useCallback((id: string) => {
+    setBatchSelected((current) => {
+      const next = new Set(current);
+      if (next.has(id)) next.delete(id); else if (next.size < batchMax) next.add(id);
+      return next;
+    });
+  }, [batchMax]);
+  const togglePage = useCallback(() => {
+    setBatchSelected((current) => {
+      const next = new Set(current);
+      const allSelected = pageItems.length > 0 && pageItems.every((p) => next.has(p.id));
+      for (const p of pageItems) {
+        if (allSelected) next.delete(p.id);
+        else if (next.size < batchMax) next.add(p.id);
+      }
+      return next;
+    });
+  }, [pageItems, batchMax]);
 
   return (
     <>
@@ -671,11 +733,53 @@ export default function CreativeLibrary() {
             </button>
           )}
 
+          {media === "image" && batchUiEnabled && (
+            <div className="mt-3 flex flex-wrap items-center gap-2">
+              <button
+                onClick={() => {
+                  if (batchMode) { setBatchMode(false); setBatchSelected(new Set()); }
+                  else {
+                    setBatchMode(true);
+                    void api.creativeBatchCapability().then((value) => { if (value.available && value.limits?.maxPrompts) setBatchMax(value.limits.maxPrompts); }).catch(() => {});
+                    track("creative_batch_enter", { category: cat, query_present: !!q.trim(), source: "creative-toolbar" });
+                  }
+                }}
+                className={cn("inline-flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-medium transition-colors", batchMode ? "border-primary bg-primary text-primary-foreground" : "border-border/70 bg-card hover:border-primary/50 hover:text-primary")}
+              >
+                {batchMode ? <X className="size-3.5" /> : <CheckSquare className="size-3.5" />}
+                {batchMode ? (lang === "en" ? "Exit batch mode" : "退出批量") : (lang === "en" ? "Batch generate" : "批量出图")}
+              </button>
+              {!batchMode && (
+                <>
+                  <span className="inline-flex items-center gap-1 text-[11px] text-muted-foreground">
+                    <img src="/sponsors/logo-shengsuanyun-icon.png" alt="" className="size-3.5 rounded" />
+                    {lang === "en" ? "Powered by ShengSuanYun" : "由胜算云提供批量能力"}
+                  </span>
+                  {lastBatchRunId && (
+                    <button onClick={() => { setBatchDialogRunId(lastBatchRunId); setBatchDialogOpen(true); }} className="text-xs text-primary hover:underline">
+                      {lang === "en" ? "View recent task" : "查看最近任务"}
+                    </button>
+                  )}
+                  <button onClick={() => setBatchHistoryOpen(true)} className="text-xs text-muted-foreground hover:text-primary hover:underline">
+                    {lang === "en" ? "Task history" : "任务历史"}
+                  </button>
+                </>
+              )}
+              {batchMode && (
+                <button onClick={togglePage} className="text-xs text-primary hover:underline">
+                  {pageItems.length > 0 && pageItems.every((p) => batchSelected.has(p.id))
+                    ? (lang === "en" ? "Deselect this page" : "取消本页")
+                    : (lang === "en" ? "Select this page" : "全选本页")}
+                </button>
+              )}
+            </div>
+          )}
+
           {/* 卡片 */}
           {media === "image" ? (
             <>
               <div className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                {pageItems.map((p) => <PromptCard key={p.id} p={p} gen={gen} onOpenGen={ensureGen} />)}
+                {pageItems.map((p) => <PromptCard key={p.id} p={p} gen={gen} onOpenGen={ensureGen} batchMode={batchMode} selected={batchSelected.has(p.id)} onToggleSelected={() => toggleBatchItem(p.id)} />)}
               </div>
               {filtered.length === 0 && <p className="mt-10 text-center text-sm text-muted-foreground">{lang === "en" ? "No matching prompts" : "没有匹配的提示词"}</p>}
             </>
@@ -782,6 +886,21 @@ export default function CreativeLibrary() {
           )}
         </div>
       </main>
+      {batchMode && (
+        <div className="fixed inset-x-0 bottom-0 z-50 border-t border-border bg-background/95 px-4 py-3 shadow-2xl backdrop-blur" style={{ paddingBottom: "max(0.75rem, env(safe-area-inset-bottom))" }}>
+          <div className="container-page flex items-center justify-between gap-3">
+            <p className="text-sm"><strong>{batchSelected.size}</strong> {lang === "en" ? `prompts selected (max ${batchMax})` : `条提示词已选择（最多 ${batchMax} 条）`}</p>
+            <div className="flex items-center gap-2">
+              {batchSelected.size > 0 && <button onClick={() => setBatchSelected(new Set())} className="px-2 py-1.5 text-xs text-muted-foreground hover:text-foreground">{lang === "en" ? "Clear" : "清空"}</button>}
+              <button disabled={batchSelected.size === 0} onClick={() => { setBatchDialogRunId(undefined); setBatchDialogOpen(true); }} className="inline-flex items-center gap-1.5 rounded-lg bg-primary px-3 py-2 text-xs font-medium text-primary-foreground disabled:opacity-40">
+                <Sparkles className="size-3.5" />{lang === "en" ? "Continue" : "下一步：批量出图"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      {batchDialogOpen && <BatchConfigDialog items={batchDialogRunId ? [] : batchItems} initialRunId={batchDialogRunId} onClose={() => setBatchDialogOpen(false)} onSubmitted={(id) => setLastBatchRunId(id)} />}
+      {batchHistoryOpen && <BatchHistoryDialog onClose={() => setBatchHistoryOpen(false)} onOpenRun={(id) => { setBatchHistoryOpen(false); setBatchDialogRunId(id); setBatchDialogOpen(true); }} />}
       <SiteFooter />
     </>
   );
