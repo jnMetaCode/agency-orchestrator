@@ -64,3 +64,32 @@ jobs:
           tags: ao-ci-test:latest
       - name: "ffmpeg 必须在镜像里（type: concat 的硬依赖）"
         run: docker run --rm --entrypoint ffmpeg ao-ci-test:latest -version | head -1
+
+  # 桌面安装包以前只在 desktop-v* tag 后构建，资源遗漏/白屏只能到发版时才发现。
+  # PR 上用 Linux dir target 做一次不压缩、不上传的快速冒烟，覆盖同一套 extraResources。
+  desktop-smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install root deps & build engine
+        run: |
+          npm ci
+          npm run build
+          npm run build:studio
+
+      - name: Install desktop deps
+        working-directory: desktop
+        run: npm ci
+
+      - name: Package unpacked Linux app
+        working-directory: desktop
+        run: npx electron-builder --linux dir --config electron-builder.config.cjs --publish never
+
+      - name: Verify packaged frontend and runtime payload
+        run: |
+          node scripts/verify-frontend.mjs --packed desktop/release
+          node scripts/verify-desktop-payload.mjs desktop/release

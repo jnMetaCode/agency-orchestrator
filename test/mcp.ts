@@ -9,6 +9,7 @@ import { resolve, join } from 'node:path';
 import { mkdtempSync, writeFileSync, rmSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { tmpdir } from 'node:os';
+import process from 'node:process';
 
 let passed = 0;
 let failed = 0;
@@ -34,8 +35,8 @@ console.log('\n─── MCP Server ───');
 
 // Start server as child process via MCP client
 const transport = new StdioClientTransport({
-  command: 'npx',
-  args: ['tsx', resolve('src/cli.ts'), 'serve'],
+  command: process.execPath,
+  args: ['--import', 'tsx', resolve('src/cli.ts'), 'serve'],
 });
 
 const client = new Client({ name: 'test-client', version: '1.0.0' });

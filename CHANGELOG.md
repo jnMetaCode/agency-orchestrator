@@ -4,6 +4,18 @@
 
 ## [Unreleased]
 
+### Security
+- `undici` 升级到已修复版本 `6.29.x`，消除 WebSocket 解压拒绝服务、未请求子协议拒绝服务和
+  retry interceptor 下游响应拆分问题；审计剩余项为无上游修复的 `xlsx`，以及需要跨版本评估的
+  `pptxgenjs → image-size` 传递依赖。
+
+### Fixed
+- 测试与评测不再依赖 `npx` 临时下载未锁定的 `tsx`：根项目锁定 `tsx`，统一通过
+  `node --import tsx` 运行；MCP 集成测试的子进程也走同一入口，离线和受限环境下更可复现。
+- Studio 构建改用 `npm ci`，避免 CI / 发版过程中依赖解析漂移或改写锁文件。
+- PR CI 新增桌面端 Linux unpacked 冒烟打包，并校验前端资源与运行时载荷；新增的
+  `tsx` / `esbuild` 构建依赖明确从桌面安装包剔除，防止安装包无意义增肥约 20MB。
+
 ## [0.20.0] - 2026-10-04
 
 ### Security

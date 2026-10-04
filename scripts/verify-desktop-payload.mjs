@@ -17,7 +17,7 @@ import { existsSync, readdirSync, lstatSync, statSync, readlinkSync } from 'node
 import { join, resolve, dirname } from 'node:path';
 
 /** 运行时一行都不 require、只在构建期用的包：进了安装包就是纯浪费 */
-const BUILD_ONLY = ['typescript', '@types'];
+const BUILD_ONLY = ['typescript', '@types', 'tsx', 'esbuild', '@esbuild'];
 
 function fail(msg, hint) {
   console.error(`\n❌ 桌面端产物校验失败：${msg}`);

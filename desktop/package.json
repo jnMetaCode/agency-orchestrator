@@ -54,7 +54,12 @@
           "!typescript/**",
           "!.bin/tsc",
           "!.bin/tsserver",
-          "!@types/**"
+          "!@types/**",
+          "!tsx/**",
+          "!esbuild/**",
+          "!@esbuild/**",
+          "!.bin/tsx",
+          "!.bin/esbuild"
         ]
       }
     ],
