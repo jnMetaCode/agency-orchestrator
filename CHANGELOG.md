@@ -132,6 +132,7 @@
   章标题用 `## Chapter N: Title`；审校多一条"大纲自身的矛盾要指出并给出正文该怎么处理"（中文版真跑时审校自己挑出过这类问题）。
 
 ### Changed
+- **桌面安装包升级到 `0.4.11`**：内置 Agency Orchestrator 引擎 `0.20.0` 与本版本 Studio，三平台安装文件由 `desktop-v0.4.11` 流水线生成（macOS Apple Silicon / Intel、Windows、Linux）。
 - **旗舰模板补上 `deliverables` + 交付步的 `acceptance`，并附前后实测**。`compose` 的提示词一直教用户「至少给
   最终交付步骤写 `acceptance`」，可 `tech-blog` / `ai-opinion-article` / `product-review` 这三个最早的模板自己没写。
   同一模板、同一档位（claude-code 两侧）、同一主题，`--compare` 量的前后：**8.5 : 8.5 打平（低可信）→ 9.0 : 7.0
