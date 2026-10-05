@@ -8,6 +8,9 @@
 - Studio 的 OpenAI-compatible 供应商配置新增高级模型参数：Thinking（默认/开启/关闭）、
   reasoning effort（minimal 到 xhigh）与最大输出 tokens。配置保存在本机并真实透传到对话、提示词实验室、
   自动组队、工作流运行和对比评测；Anthropic 原生协议、本地 CLI、Ollama 与纯视频供应商不会显示或误收这组参数。
+- 桌面端「设置 → 供应商」新增数据目录管理：显示并打开当前目录、用系统原生选择器切换、恢复默认，
+  校验目标可写后自动重启本地引擎。目录设置保存在固定的 Electron userData 中，`AO_DATA_DIR` 仍有最高优先级；
+  切换不会静默移动或删除旧目录，并明确列出需要手动复制的配置、工作流、历史产物与脚手架目录。
 
 ### Security
 - `undici` 升级到已修复版本 `6.29.x`，消除 WebSocket 解压拒绝服务、未请求子协议拒绝服务和

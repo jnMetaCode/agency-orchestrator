@@ -6,6 +6,7 @@ import { api, API_PROVIDERS, CLI_PROVIDER_NOTES, CLI_RELAY_GLOBAL_WRITE, CLI_REL
 import { cn } from "@/lib/utils";
 import { ClaudeHealthCard } from "./ClaudeHealthCard";
 import { NetworkProxyCard } from "./NetworkProxyCard";
+import { DesktopStorageCard } from "./DesktopStorageCard";
 import { ProviderConfigView, type ConfigTarget } from "./ProviderConfigView";
 
 // provider 列表/模型建议的唯一来源是 lib/studio.ts 的 API_PROVIDERS —— 新增一家 provider 只用改那一处。
@@ -281,6 +282,9 @@ export function ProvidersPanel({ active, onSetActive, offline = false }: { activ
 
       {/* AO 自己的网络代理（#105）：桌面版拿不到 shell 里的 HTTPS_PROXY，只能在这里配 */}
       <NetworkProxyCard />
+
+      {/* Electron 专属：原生目录选择器 + 引擎重启；普通浏览器中 bridge 不存在，自动隐藏。 */}
+      <DesktopStorageCard />
 
       {/* 零配置推荐：探测到本机已装订阅制 CLI 时，引导一键切换，绕开 key 墙 */}
       {showRecommend && (

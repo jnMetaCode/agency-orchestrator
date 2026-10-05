@@ -52,5 +52,20 @@ console.log('\n─── engine.log 轮转 ───');
   rmSync(dir, { recursive: true, force: true });
 }
 
+console.log('\n─── 桌面数据目录设置 ───');
+{
+  const preload = readFileSync(resolve('desktop/preload.cjs'), 'utf-8');
+  const pkg = JSON.parse(readFileSync(resolve('desktop/package.json'), 'utf-8')) as { build?: { files?: string[] } };
+  assert(pkg.build?.files?.includes('preload.cjs') === true, 'preload bridge 被打进桌面安装包');
+  assert(/preload:\s*path\.join\(__dirname,\s*["']preload\.cjs["']\)/.test(src), 'BrowserWindow 显式加载 preload bridge');
+  assert(/AO_DATA_DIR:\s*desktopDataDir\(\)/.test(src), '后端使用用户选择的数据目录，而非写死 userData');
+  assert(/AO_DATA_DIR is set by the environment/.test(src), '环境变量覆盖时禁止界面制造假切换');
+  for (const channel of ['storage-status', 'choose-data-dir', 'reset-data-dir', 'open-data-dir']) {
+    assert(preload.includes(`ao-desktop:${channel}`) && src.includes(`ao-desktop:${channel}`), `IPC 通道两端一致：${channel}`);
+  }
+  assert(/contextIsolation:\s*true/.test(src) && /nodeIntegration:\s*false/.test(src), 'renderer 保持 contextIsolation，未开启 Node 权限');
+  assert(/untrusted renderer/.test(src), 'IPC 只接受本地 Studio renderer');
+}
+
 console.log(`\n  结果: ${passed} 通过, ${failed} 失败\n`);
 process.exit(failed > 0 ? 1 : 0);

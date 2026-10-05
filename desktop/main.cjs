@@ -2,7 +2,7 @@
 // Launches the existing Node backend (web/server.js) using Electron's bundled
 // Node (ELECTRON_RUN_AS_NODE), then opens a native window onto the local UI.
 // No system Node install required.
-const { app, BrowserWindow, shell, dialog, Menu } = require("electron");
+const { app, BrowserWindow, shell, dialog, Menu, ipcMain } = require("electron");
 const { spawn, execFileSync } = require("node:child_process");
 const path = require("node:path");
 const os = require("node:os");
@@ -21,6 +21,57 @@ let logStream = null;
 let logPath = "";
 let stderrTail = "";
 let backendExit = null;
+
+// 数据目录设置本身必须留在 Electron 的固定 userData 下，否则一切换目录，连“当前切到哪”
+// 都会跟着旧目录一起失联。AO 的业务数据仍写到所选目录。
+function desktopSettingsFile() {
+  return path.join(app.getPath("userData"), "desktop-settings.json");
+}
+
+function readDesktopSettings() {
+  try {
+    const parsed = JSON.parse(fs.readFileSync(desktopSettingsFile(), "utf8"));
+    return parsed && typeof parsed === "object" ? parsed : {};
+  } catch {
+    return {};
+  }
+}
+
+function writeDesktopSettings(next) {
+  const file = desktopSettingsFile();
+  fs.mkdirSync(path.dirname(file), { recursive: true });
+  const tmp = `${file}.${process.pid}.tmp`;
+  fs.writeFileSync(tmp, JSON.stringify(next, null, 2) + "\n", { mode: 0o600 });
+  fs.renameSync(tmp, file);
+  try { fs.chmodSync(file, 0o600); } catch { /* Windows / 不支持 chmod */ }
+}
+
+function desktopDataDir() {
+  const envDir = String(process.env.AO_DATA_DIR || "").trim();
+  if (envDir) return path.resolve(envDir);
+  const saved = readDesktopSettings().dataDir;
+  return typeof saved === "string" && saved.trim() ? path.resolve(saved) : app.getPath("userData");
+}
+
+function desktopStorageStatus() {
+  const defaultDir = app.getPath("userData");
+  const envDir = String(process.env.AO_DATA_DIR || "").trim();
+  const activeDir = desktopDataDir();
+  return {
+    activeDir,
+    defaultDir,
+    source: envDir ? "environment" : activeDir === defaultDir ? "default" : "settings",
+    canChange: !envDir,
+  };
+}
+
+function ensureWritableDirectory(dir) {
+  fs.mkdirSync(dir, { recursive: true });
+  fs.accessSync(dir, fs.constants.W_OK);
+  const probe = path.join(dir, `.ao-write-test-${process.pid}-${Date.now()}`);
+  fs.writeFileSync(probe, "ok", { flag: "wx" });
+  fs.unlinkSync(probe);
+}
 
 const base = () => `http://127.0.0.1:${port}/`;
 const studioUrl = () => {
@@ -165,7 +216,7 @@ function startBackend() {
       ...process.env,
       ELECTRON_RUN_AS_NODE: "1", // run the backend (and its engine children) as plain Node
       AO_NODE: process.execPath, // engine binary the server should spawn
-      AO_DATA_DIR: app.getPath("userData"), // writable dir for outputs / keys (bundle is read-only)
+      AO_DATA_DIR: desktopDataDir(), // writable dir for outputs / keys (bundle is read-only)
       PATH: resolvedPath(), // so CLI providers (claude/codex/gemini) are found (issue #41)
       PORT: String(port),
       HOST: "127.0.0.1",
@@ -351,7 +402,11 @@ function createWindow() {
     title: "Agency Orchestrator",
     backgroundColor: "#0b0e14",
     autoHideMenuBar: true,
-    webPreferences: { contextIsolation: true },
+    webPreferences: {
+      contextIsolation: true,
+      nodeIntegration: false,
+      preload: path.join(__dirname, "preload.cjs"),
+    },
   });
   mainWindow = win;
   win.on("closed", () => {
@@ -402,6 +457,86 @@ if (!gotLock) {
   });
 
   app.whenReady().then(() => {
+    const trusted = (event) => event.senderFrame?.url?.startsWith(base());
+    ipcMain.handle("ao-desktop:storage-status", (event) => {
+      if (!trusted(event)) throw new Error("untrusted renderer");
+      return desktopStorageStatus();
+    });
+    ipcMain.handle("ao-desktop:open-data-dir", async (event) => {
+      if (!trusted(event)) throw new Error("untrusted renderer");
+      const error = await shell.openPath(desktopDataDir());
+      if (error) return { ok: false, error };
+      return { ok: true };
+    });
+    ipcMain.handle("ao-desktop:choose-data-dir", async (event, lang) => {
+      if (!trusted(event)) throw new Error("untrusted renderer");
+      const en = lang === "en";
+      const status = desktopStorageStatus();
+      if (!status.canChange) return { ok: false, error: "AO_DATA_DIR is set by the environment" };
+      const picked = await dialog.showOpenDialog(mainWindow, {
+        title: en ? "Choose Agency Orchestrator data directory" : "选择 Agency Orchestrator 数据目录",
+        defaultPath: status.activeDir,
+        properties: ["openDirectory", "createDirectory"],
+      });
+      if (picked.canceled || !picked.filePaths[0]) return { ok: false, canceled: true };
+      const nextDir = path.resolve(picked.filePaths[0]);
+      try { ensureWritableDirectory(nextDir); }
+      catch (err) { return { ok: false, error: `${en ? "Directory is not writable" : "目录不可写"}：${err?.message || err}` }; }
+      if (nextDir === status.activeDir) return { ok: true, status };
+      const confirm = await dialog.showMessageBox(mainWindow, {
+        type: "warning",
+        title: en ? "Switch data directory" : "切换数据目录",
+        message: en ? "The local engine will restart after switching" : "切换后将重启本地引擎",
+        detail: en
+          ? `Current: ${status.activeDir}\nNew: ${nextDir}\n\nThe old directory will not be deleted or moved. To keep existing keys, workflows, and run history, copy .local, ao-workflows, ao-output, and scaffold into the new directory.`
+          : `当前：${status.activeDir}\n新目录：${nextDir}\n\n旧目录不会被删除或自动搬动。若要保留已有密钥、工作流和运行历史，请将 .local、ao-workflows、ao-output、scaffold 复制到新目录。`,
+        buttons: en ? ["Switch and restart", "Cancel"] : ["切换并重启", "取消"],
+        defaultId: 1,
+        cancelId: 1,
+        noLink: true,
+      });
+      if (confirm.response !== 0) return { ok: false, canceled: true };
+      const settings = readDesktopSettings();
+      if (nextDir === status.defaultDir) delete settings.dataDir;
+      else settings.dataDir = nextDir;
+      writeDesktopSettings(settings);
+      // 先回 IPC，再重启；否则页面导航销毁 renderer，调用方只会得到一个无意义的 rejected promise。
+      setTimeout(() => {
+        if (!mainWindow || mainWindow.isDestroyed()) return;
+        stopBackend();
+        boot(mainWindow);
+      }, 100);
+      return { ok: true, status: desktopStorageStatus(), restarting: true };
+    });
+    ipcMain.handle("ao-desktop:reset-data-dir", async (event, lang) => {
+      if (!trusted(event)) throw new Error("untrusted renderer");
+      const en = lang === "en";
+      const status = desktopStorageStatus();
+      if (!status.canChange) return { ok: false, error: "AO_DATA_DIR is set by the environment" };
+      if (status.source === "default") return { ok: true, status };
+      const confirm = await dialog.showMessageBox(mainWindow, {
+        type: "warning",
+        title: en ? "Restore default data directory" : "恢复默认数据目录",
+        message: en ? "The local engine will restart after restoring" : "恢复后将重启本地引擎",
+        detail: en
+          ? `Current: ${status.activeDir}\nDefault: ${status.defaultDir}\n\nFiles in the current directory will not be deleted or moved.`
+          : `当前：${status.activeDir}\n默认：${status.defaultDir}\n\n当前目录中的文件不会被删除或自动搬动。`,
+        buttons: en ? ["Restore and restart", "Cancel"] : ["恢复并重启", "取消"],
+        defaultId: 1,
+        cancelId: 1,
+        noLink: true,
+      });
+      if (confirm.response !== 0) return { ok: false, canceled: true };
+      const settings = readDesktopSettings();
+      delete settings.dataDir;
+      writeDesktopSettings(settings);
+      setTimeout(() => {
+        if (!mainWindow || mainWindow.isDestroyed()) return;
+        stopBackend();
+        boot(mainWindow);
+      }, 100);
+      return { ok: true, status: desktopStorageStatus(), restarting: true };
+    });
     Menu.setApplicationMenu(null);
     createWindow();
     app.on("activate", () => {
