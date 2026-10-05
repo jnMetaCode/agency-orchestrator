@@ -4,6 +4,11 @@
 
 ## [Unreleased]
 
+### Added
+- Studio 的 OpenAI-compatible 供应商配置新增高级模型参数：Thinking（默认/开启/关闭）、
+  reasoning effort（minimal 到 xhigh）与最大输出 tokens。配置保存在本机并真实透传到对话、提示词实验室、
+  自动组队、工作流运行和对比评测；Anthropic 原生协议、本地 CLI、Ollama 与纯视频供应商不会显示或误收这组参数。
+
 ### Security
 - `undici` 升级到已修复版本 `6.29.x`，消除 WebSocket 解压拒绝服务、未请求子协议拒绝服务和
   retry interceptor 下游响应拆分问题；审计剩余项为无上游修复的 `xlsx`，以及需要跨版本评估的

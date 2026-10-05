@@ -359,6 +359,11 @@ export interface ProviderKeyStatus {
   fromEnv?: boolean;
   baseUrl: string;
   model?: string;
+  /** OpenAI-compatible 文本请求的高级参数；空值表示沿用引擎默认。 */
+  maxTokens?: number;
+  reasoningEffort?: "" | "minimal" | "low" | "medium" | "high" | "xhigh";
+  thinkingMode?: "default" | "enabled" | "disabled";
+  supportsAdvancedParams?: boolean;
   /** 文本功能真正使用的模型；可能与用户填的多媒体 model 不同。 */
   effectiveModel?: string;
   /** 填入多媒体模型时，文本功能已自动改用 effectiveModel。 */
@@ -775,7 +780,18 @@ export const api = {
   usage: () => getJSON<UsageResponse>("/usage"),
   config: () => getJSON<ConfigResponse>("/config"),
   // sonnetModel/opusModel/haikuModel 仅 claude-code 用（模型映射，对齐 cc-switch）
-  saveConfig: (body: { provider: string; apiKey?: string; baseUrl?: string; model?: string; sonnetModel?: string; opusModel?: string; haikuModel?: string }) =>
+  saveConfig: (body: {
+    provider: string;
+    apiKey?: string;
+    baseUrl?: string;
+    model?: string;
+    maxTokens?: number | null;
+    reasoningEffort?: "" | "minimal" | "low" | "medium" | "high" | "xhigh";
+    thinkingMode?: "default" | "enabled" | "disabled";
+    sonnetModel?: string;
+    opusModel?: string;
+    haikuModel?: string;
+  }) =>
     // backups 只有 codex-cli 这条中转会带（写了 ~/.codex 前自动备份的原文件路径）；
     // baseUrl 是后端规整后的地址（去掉误贴的 /chat/completions 等），前端据此回填输入框
     postJSON<{ ok: boolean; backups?: string[]; baseUrl?: string }>("/config", body),

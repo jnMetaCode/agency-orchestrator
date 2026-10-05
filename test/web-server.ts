@@ -448,10 +448,12 @@ try {
 // 降级成 GET，中转回 405 Method Not Allowed。这里用假中转把整条链路钉死在 CI 里。
 console.log('\n─── 供应商地址容错（405 / 跳转 / 规整）───');
 
+let lastChatBody = '';
 const upstream = http.createServer((req, res) => {
   let b = ''; req.on('data', (d) => (b += d));
   req.on('end', () => {
     if (req.url === '/v1/chat/completions' && req.method === 'POST') {
+      lastChatBody = b;
       res.writeHead(200, { 'Content-Type': 'application/json' });
       return res.end(JSON.stringify({ choices: [{ message: { content: 'hi' } }] }));
     }
@@ -571,6 +573,33 @@ try {
     // 2) 编辑保存也规整，并把规整后的地址回给前端回填输入框
     const saved = await postJson('/api/config', { provider: 'relaytest', baseUrl: `http://127.0.0.1:${redirPort}/v1/chat/completions` });
     assert(saved.body.baseUrl === `http://127.0.0.1:${redirPort}/v1`, '保存接口回传规整后的地址（供前端回填）');
+
+    // 2.5) 高级模型参数不能只停在表单：保存 → 回显 → 真正进入聊天请求体。
+    const advanced = await postJson('/api/config', {
+      provider: 'relaytest',
+      baseUrl: `http://127.0.0.1:${upPort}/v1`,
+      model: 'plain-model',
+      maxTokens: 1234,
+      reasoningEffort: 'high',
+      thinkingMode: 'disabled',
+    });
+    assert(advanced.status === 200, '高级模型参数可保存');
+    const advancedCfg = (await (await fetch(base3 + '/api/config')).json()).providers?.relaytest;
+    assert(advancedCfg?.maxTokens === 1234 && advancedCfg?.reasoningEffort === 'high' && advancedCfg?.thinkingMode === 'disabled',
+      '高级模型参数从 /api/config 原样回显');
+    lastChatBody = '';
+    const advancedChat = await postJson('/api/chat', { provider: 'relaytest', messages: [{ role: 'user', content: 'hi' }] });
+    const sentAdvanced = lastChatBody ? JSON.parse(lastChatBody) : {};
+    assert(advancedChat.status === 200
+      && sentAdvanced.max_tokens === 1234
+      && sentAdvanced.reasoning_effort === 'high'
+      && sentAdvanced.thinking?.type === 'disabled',
+    `高级参数进入真实 chat/completions 请求（实际 ${lastChatBody.slice(0, 180)}）`);
+    const badAdvanced = await postJson('/api/config', { provider: 'relaytest', maxTokens: 0 });
+    assert(badAdvanced.status === 400, '非法 max tokens 被后端拒绝');
+
+    // 后续跳转测试仍需使用 redirector 地址。
+    await postJson('/api/config', { provider: 'relaytest', baseUrl: `http://127.0.0.1:${redirPort}/v1` });
 
     // 3) 测试连接：地址被 302 跳转时不再 405，且提示用户把 base_url 改成最终地址
     const t1 = await postJson('/api/test-provider', { provider: 'relaytest' });

@@ -79,6 +79,9 @@ export function ProviderConfigView({
   // 其次已保存配置，最后空。注意不能用 ??——存过一次空字符串就会永远吞掉预设预填。
   const relayInit = isRelay ? (target as { initialSonnetModel?: string; initialOpusModel?: string; initialHaikuModel?: string; initialModel?: string }) : {};
   const [model, setModel] = useState(relayInit.initialModel || status?.model || addPrefill?.model || "");
+  const [maxTokens, setMaxTokens] = useState(status?.maxTokens ? String(status.maxTokens) : "");
+  const [reasoningEffort, setReasoningEffort] = useState<"" | "minimal" | "low" | "medium" | "high" | "xhigh">(status?.reasoningEffort || "");
+  const [thinkingMode, setThinkingMode] = useState<"default" | "enabled" | "disabled">(status?.thinkingMode || "default");
   // claude-code 中转的模型映射（Sonnet/Opus/Haiku 档位 → 中转商实际模型，对齐 cc-switch）
   const isCcRelay = isRelay && target.kind === "cli-relay" && target.id === "claude-code";
   const [sonnetModel, setSonnetModel] = useState(relayInit.initialSonnetModel || status?.sonnetModel || "");
@@ -278,6 +281,10 @@ export function ProviderConfigView({
   const save = async () => {
     setError(null);
     if (offline) return setError(p.demoNeedsEngineShort);
+    if (maxTokens.trim()) {
+      const n = Number(maxTokens);
+      if (!Number.isInteger(n) || n < 1 || n > 1_000_000) return setError(p.maxTokensInvalid);
+    }
     if (isAdd) {
       if (!customId.trim()) return setError(p.customProviderIdRequired);
       if (!customName.trim()) return setError(p.customProviderNameRequired);
@@ -314,7 +321,19 @@ export function ProviderConfigView({
         isOllama ? { provider: "ollama", baseUrl, model }
         // claude-code 中转：默认模型 + 三档映射一起保存（空串=清掉该档）
         : isCcRelay ? { provider: providerId, apiKey: key, baseUrl, model, sonnetModel, opusModel, haikuModel }
-        : { provider: providerId, apiKey: key, baseUrl, model: isRelay ? undefined : model },
+        : {
+            provider: providerId,
+            apiKey: key,
+            baseUrl,
+            model: isRelay ? undefined : model,
+            ...(target.kind === "api" && status?.supportsAdvancedParams !== false
+              ? {
+                  maxTokens: maxTokens.trim() ? Number(maxTokens) : null,
+                  reasoningEffort,
+                  thinkingMode,
+                }
+              : {}),
+          },
       );
       setKey("");
       // 后端会规整地址（如把误贴的 .../v1/chat/completions 收成 .../v1）——回填，
@@ -336,6 +355,9 @@ export function ProviderConfigView({
       setKey("");
       setBaseUrl("");
       setModel("");
+      setMaxTokens("");
+      setReasoningEffort("");
+      setThinkingMode("default");
       setBackups(null);
       onSaved();
     } finally {
@@ -836,6 +858,47 @@ export function ProviderConfigView({
                   ) : (
                     <div className="mt-1.5 flex max-h-44 flex-wrap gap-1.5 overflow-auto">{pinnedFirst.map(chip)}</div>
                   ))}
+              </div>
+            </Section>
+          )}
+
+          {target.kind === "api" && status?.supportsAdvancedParams !== false && (
+            <Section title={p.sectionAdvancedParams}>
+              <p className="text-xs leading-relaxed text-muted-foreground">{p.advancedParamsHint}</p>
+              <div className="grid gap-3 sm:grid-cols-2">
+                <div>
+                  <label className={labelCls}>{p.thinkingModeLabel}</label>
+                  <select value={thinkingMode} onChange={(e) => setThinkingMode(e.target.value as typeof thinkingMode)} className={inputCls}>
+                    <option value="default">{p.advancedDefault}</option>
+                    <option value="enabled">{p.thinkingEnabled}</option>
+                    <option value="disabled">{p.thinkingDisabled}</option>
+                  </select>
+                </div>
+                <div>
+                  <label className={labelCls}>{p.reasoningEffortLabel}</label>
+                  <select value={reasoningEffort} onChange={(e) => setReasoningEffort(e.target.value as typeof reasoningEffort)} className={inputCls}>
+                    <option value="">{p.advancedDefault}</option>
+                    <option value="minimal">Minimal</option>
+                    <option value="low">Low</option>
+                    <option value="medium">Medium</option>
+                    <option value="high">High</option>
+                    <option value="xhigh">XHigh</option>
+                  </select>
+                </div>
+              </div>
+              <div>
+                <label className={labelCls}>{p.maxTokensLabel}</label>
+                <input
+                  type="number"
+                  min={1}
+                  max={1_000_000}
+                  step={1}
+                  value={maxTokens}
+                  onChange={(e) => setMaxTokens(e.target.value)}
+                  placeholder="4096"
+                  className={inputCls}
+                />
+                <p className="mt-1 text-[11px] text-muted-foreground">{p.maxTokensHint}</p>
               </div>
             </Section>
           )}

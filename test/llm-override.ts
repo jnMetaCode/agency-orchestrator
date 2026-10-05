@@ -2,7 +2,7 @@
  * --provider 换成 CLI 类时的超时合并：600s 是下限，不能把 YAML 里显式写的长超时压回去。
  * 真机（2026-09-15）：模板写 timeout: 2700000，`--provider claude-code` 跑时仍在 600s、900s 连续超时重试。
  */
-import { mergeLlmOverride, isCliProvider, CLI_TIMEOUT_FLOOR_MS } from '../src/core/llm-override.js';
+import { mergeLlmOverride, isCliProvider, CLI_TIMEOUT_FLOOR_MS, llmOverrideFromEnv } from '../src/core/llm-override.js';
 import type { LLMConfig } from '../src/types.js';
 
 let passed = 0, failed = 0;
@@ -46,6 +46,21 @@ test('换成 API provider：不套 CLI 下限，YAML 超时原样保留', () => 
 
 test('isCliProvider：claude-code 与 *-cli 是，API provider 不是', () => {
   assert(isCliProvider('claude-code') && isCliProvider('codex-cli') && !isCliProvider('deepseek') && !isCliProvider(undefined), '判定错误');
+});
+
+test('Studio 子进程环境可传 max_tokens 与供应商高级参数', () => {
+  const r = llmOverrideFromEnv({
+    AO_LLM_MAX_TOKENS: '1234',
+    AO_LLM_PARAMS_JSON: '{"reasoning_effort":"high","thinking":{"type":"disabled"}}',
+  });
+  assert(r.max_tokens === 1234, `max_tokens 实际 ${r.max_tokens}`);
+  assert(r.params?.reasoning_effort === 'high', 'reasoning_effort 应保留');
+  assert((r.params?.thinking as { type?: string })?.type === 'disabled', 'thinking 应保留');
+});
+
+test('Studio 子进程环境坏值安全忽略', () => {
+  const r = llmOverrideFromEnv({ AO_LLM_MAX_TOKENS: '0', AO_LLM_PARAMS_JSON: '[]' });
+  assert(r.max_tokens === undefined && r.params === undefined, '非法值不应进入覆盖配置');
 });
 
 console.log(`\n  ${passed} 通过, ${failed} 失败\n`);

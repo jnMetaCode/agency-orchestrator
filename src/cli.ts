@@ -35,6 +35,7 @@ import { scheduleUpdateCheck, fetchLatestVersion, isNewer, detectUpgradeCommand,
 import { t, detectLang } from './i18n.js';
 import { loadEnvFile, writeEnvFile, ensureEnvGitignored } from './utils/env-loader.js';
 import { parseDuration } from './utils/duration.js';
+import { llmOverrideFromEnv } from './core/llm-override.js';
 import { defaultOutputDir, defaultWorkflowsDir, aoUserDir } from './utils/paths.js';
 import { rotatingSponsors, guideProviderId } from './utils/sponsor-guide.js';
 
@@ -258,8 +259,9 @@ async function handleRun(): Promise<void> {
     const cliProviders = CLI_PROVIDER_IDS;
     const runTemperature = parseTemperatureArg();
     let llmOverride: Partial<LLMConfig> | undefined;
-    if (provider || model || baseUrl || apiKey || timeoutMs !== undefined || runTemperature !== undefined) {
-      llmOverride = {};
+    const envLlmOverride = llmOverrideFromEnv();
+    if (provider || model || baseUrl || apiKey || timeoutMs !== undefined || runTemperature !== undefined || Object.keys(envLlmOverride).length) {
+      llmOverride = { ...envLlmOverride };
       if (provider) {
         llmOverride.provider = provider;
         // CLI provider 不指定 model 时清空（避免 YAML 里的 deepseek-chat 传给 claude CLI）

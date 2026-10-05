@@ -20,6 +20,27 @@ export function isCliProvider(provider: string | undefined): boolean {
   return !!provider && (provider.endsWith('-cli') || provider === 'claude-code');
 }
 
+/**
+ * Studio 通过子进程环境传递不适合出现在 argv 的高级参数。JSON 只接受普通对象；
+ * 值不合法时忽略，让 YAML / 引擎默认继续生效，而不是把一次运行直接搞挂。
+ */
+export function llmOverrideFromEnv(env: NodeJS.ProcessEnv = process.env): Partial<LLMConfig> {
+  const out: Partial<LLMConfig> = {};
+  const maxRaw = env.AO_LLM_MAX_TOKENS?.trim();
+  if (maxRaw) {
+    const max = Number(maxRaw);
+    if (Number.isInteger(max) && max >= 1 && max <= 1_000_000) out.max_tokens = max;
+  }
+  const paramsRaw = env.AO_LLM_PARAMS_JSON?.trim();
+  if (paramsRaw) {
+    try {
+      const params = JSON.parse(paramsRaw);
+      if (params && typeof params === 'object' && !Array.isArray(params)) out.params = params;
+    } catch { /* 忽略坏值，保留 YAML / 默认配置 */ }
+  }
+  return out;
+}
+
 export function mergeLlmOverride(base: LLMConfig, override: Partial<LLMConfig>): LLMConfig {
   const yamlTimeout = base.timeout;
   const merged = Object.assign(base, override);

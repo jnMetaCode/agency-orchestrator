@@ -159,15 +159,29 @@ function isShengsuanyunMediaModel(model) {
   return /(?:gpt-image|seedream|seededit|jimeng|qwen-image|z-image|flux|imagen|gemini[^/]*image|seedance|\bveo\b|sora|\bt2v\b|\bi2v\b|tts|speech)/i.test(String(model || ''));
 }
 
+// Studio 的高级模型参数面向 OpenAI-compatible 文本端点。Anthropic 原生协议、
+// 本地 CLI / Ollama 与纯视频 provider 的参数形状不同，不能把同一组字段盲发过去。
+function supportsAdvancedModelParams(provider) {
+  return !!provider
+    && !CLI_PROVIDERS.includes(provider)
+    && provider !== 'ollama'
+    && provider !== 'claude'
+    && !ANTHROPIC_PROVIDER_MAP[provider]
+    && !(VIDEO_PROVIDER_MAP[provider] && !API_PROVIDER_MAP[provider]);
+}
+
 // LLM config: provider + (model/base_url where the runtime needs them). Reads any
 // per-provider overrides the user saved in the Studio (model name, custom base_url).
 // Already YAML-safe (no undefined fields) — used for compose, run args and run-role.
 function buildLLMConfig(provider) {
   const p = provider || process.env.AO_PROVIDER || DEFAULT_PROVIDER_ID;
-  const cfg = { provider: p, max_tokens: 4096 };
-  if (CLI_PROVIDERS.includes(p)) return cfg; // local CLI: no model/key/base needed
   let saved = {};
   try { saved = readKeys()[p] || {}; } catch {}
+  const cfg = {
+    provider: p,
+    max_tokens: Number.isInteger(saved.maxTokens) ? saved.maxTokens : 4096,
+  };
+  if (CLI_PROVIDERS.includes(p)) return cfg; // local CLI: no model/key/base needed
   // deepseek/openai/apinebula/agnes/rootflowai 等聚合 API 的默认模型统一在 api-providers.ts
   // 注册,新增一家不用改这里;claude 走原生 SDK,不在那张表里,单独判断;
   // 远程清单上架的赞助商(remoteProviderSpec)默认模型/端点来自清单。
@@ -191,6 +205,14 @@ function buildLLMConfig(provider) {
   // LLMConfig 对象,factory.ts 的 config.api_key 优先于 env 变量,注册过的 provider
   // 也一样能走这条路(不冲突,等于多了一条更直接的传递方式)。
   if (saved.apiKey) cfg.api_key = saved.apiKey;
+  if (supportsAdvancedModelParams(p)) {
+    const params = {};
+    if (saved.reasoningEffort) params.reasoning_effort = saved.reasoningEffort;
+    if (saved.thinkingMode === 'enabled' || saved.thinkingMode === 'disabled') {
+      params.thinking = { type: saved.thinkingMode };
+    }
+    if (Object.keys(params).length) cfg.params = params;
+  }
   return cfg;
 }
 const cleanLLMConfig = buildLLMConfig;
@@ -947,6 +969,7 @@ app.post('/api/run', (req, res) => {
 
   const args = [CLI, 'run', resolvedFile];
   let childApiKey = '';
+  let childLlmEnv = {};
   if (provider) {
     args.push('--provider', provider);
     // A bare --provider override clears the YAML model/base → supply them so
@@ -958,6 +981,10 @@ app.post('/api/run', (req, res) => {
     // （桌面版把它追加进 engine.log，用户贴日志报 bug 时就把 key 贴出去了）、会随 SSE start 事件
     // 显示在界面上、`ps` 也看得见。只放进这个子进程的 env，不写 process.env。
     if (llm.api_key) childApiKey = llm.api_key;
+    childLlmEnv = {
+      ...(llm.max_tokens ? { AO_LLM_MAX_TOKENS: String(llm.max_tokens) } : {}),
+      ...(llm.params ? { AO_LLM_PARAMS_JSON: JSON.stringify(llm.params) } : {}),
+    };
   }
   if (resume) {
     let resumeArg = resume === true ? 'last' : String(resume);
@@ -1001,7 +1028,7 @@ app.post('/api/run', (req, res) => {
     cwd: DATA_DIR,
     // AO_WEB_INPUT=1 → 引擎遇到 human_input/approval 会发机器标记而非在终端等输入
     // AO_NO_AT_FILE=1 → 关闭 -i k=@file 文件展开，防止网页请求读取本机任意文件（如 API key）
-    env: { ...process.env, FORCE_COLOR: '0', AO_WEB_INPUT: '1', AO_NO_AT_FILE: '1', ...(childApiKey ? { AO_API_KEY: childApiKey } : {}) },
+    env: { ...process.env, FORCE_COLOR: '0', AO_WEB_INPUT: '1', AO_NO_AT_FILE: '1', ...childLlmEnv, ...(childApiKey ? { AO_API_KEY: childApiKey } : {}) },
   });
   activeRuns.set(runId, child);
 
@@ -1076,7 +1103,7 @@ app.post('/api/compare', async (req, res) => {
       quiet: true,
       shouldContinue: () => alive,
       outputDir: OUTPUT_DIR,
-      genOverride: { provider: llm.provider, model: llm.model, base_url: llm.base_url, api_key: llm.api_key },
+      genOverride: llm,
     });
     res.json({ multiOutput: cmp.multiOutput, baselineOutput: cmp.baselineOutput, verdict: cmp.verdict });
   } catch (err) {
@@ -1876,6 +1903,10 @@ app.get('/api/config', async (_req, res) => {
       fromEnv: !saved[provider]?.apiKey && !!process.env[cfg.key],
       baseUrl: saved[provider]?.baseUrl || (cfg.base ? process.env[cfg.base] : '') || '',
       model: saved[provider]?.model || '',
+      maxTokens: Number.isInteger(saved[provider]?.maxTokens) ? saved[provider].maxTokens : undefined,
+      reasoningEffort: saved[provider]?.reasoningEffort || '',
+      thinkingMode: saved[provider]?.thinkingMode || 'default',
+      supportsAdvancedParams: supportsAdvancedModelParams(provider),
       // model 是用户填写的原值（配置表单需要回显）；effectiveModel 才是
       // 提示词/对话等文本功能真正使用的模型。
       effectiveModel: buildLLMConfig(provider).model || '',
@@ -1936,6 +1967,10 @@ app.get('/api/config', async (_req, res) => {
       baseUrl: saved[meta.id]?.baseUrl || '',
       model: saved[meta.id]?.model || '',
       supportsBaseUrl: true,
+      maxTokens: Number.isInteger(saved[meta.id]?.maxTokens) ? saved[meta.id].maxTokens : undefined,
+      reasoningEffort: saved[meta.id]?.reasoningEffort || '',
+      thinkingMode: saved[meta.id]?.thinkingMode || 'default',
+      supportsAdvancedParams: supportsAdvancedModelParams(meta.id),
     };
   }
   // 远程清单上架的赞助商：默认端点/模型来自清单,用户没自定义时直接回显清单值,
@@ -1949,6 +1984,10 @@ app.get('/api/config', async (_req, res) => {
       baseUrl: saved[meta.id]?.baseUrl || meta.baseUrl,
       model: saved[meta.id]?.model || meta.defaultModel || '',
       supportsBaseUrl: true,
+      maxTokens: Number.isInteger(saved[meta.id]?.maxTokens) ? saved[meta.id].maxTokens : undefined,
+      reasoningEffort: saved[meta.id]?.reasoningEffort || '',
+      thinkingMode: saved[meta.id]?.thinkingMode || 'default',
+      supportsAdvancedParams: supportsAdvancedModelParams(meta.id),
     };
   }
   // 探测本机已安装的订阅制 CLI（可零配置直接用，无需在 AO 配 key）。
@@ -2035,7 +2074,7 @@ app.post('/api/providers/video-probe', async (req, res) => {
 });
 
 app.post('/api/config', (req, res) => {
-  const { provider, apiKey, baseUrl, model } = req.body || {};
+  const { provider, apiKey, baseUrl, model, maxTokens, reasoningEffort, thinkingMode } = req.body || {};
   if (typeof apiKey === 'string' && apiKey.trim() && /[^\x20-\x7E]/.test(apiKey)) {
     return res.status(400).json({ error: 'API key 含中文/全角字符——通常是复制时把旁边的说明文字一起带上了，请只粘贴 key 本身（重新复制或删掉多余字符）' });
   }
@@ -2068,6 +2107,23 @@ app.post('/api/config', (req, res) => {
   const isCustom = readCustomProviders(CUSTOM_PROVIDERS_FILE).some((p) => p.id === provider) || !!remoteProviderSpec(provider);
   const isKeyed = !!KEY_ENV[provider] || isCustom;
   if (!provider || (!isKeyed && provider !== 'ollama')) return res.status(400).json({ error: `unknown provider: ${provider || '(空)'}（引擎不认识该供应商——若刚更新过 AO 或重新构建，请重启引擎后重试）` });
+  const hasAdvancedUpdate = maxTokens !== undefined || reasoningEffort !== undefined || thinkingMode !== undefined;
+  if (hasAdvancedUpdate && !supportsAdvancedModelParams(provider)) {
+    return res.status(400).json({ error: '该供应商不是 OpenAI-compatible 文本端点，不支持这组高级模型参数' });
+  }
+  if (maxTokens !== undefined && maxTokens !== '' && maxTokens !== null) {
+    const n = Number(maxTokens);
+    if (!Number.isInteger(n) || n < 1 || n > 1_000_000) {
+      return res.status(400).json({ error: 'max tokens 必须是 1–1000000 的整数' });
+    }
+  }
+  const allowedReasoningEfforts = new Set(['', 'minimal', 'low', 'medium', 'high', 'xhigh']);
+  if (reasoningEffort !== undefined && (typeof reasoningEffort !== 'string' || !allowedReasoningEfforts.has(reasoningEffort))) {
+    return res.status(400).json({ error: 'reasoning effort 必须是 default / minimal / low / medium / high / xhigh' });
+  }
+  if (thinkingMode !== undefined && !['default', 'enabled', 'disabled'].includes(thinkingMode)) {
+    return res.status(400).json({ error: 'thinking mode 必须是 default / enabled / disabled' });
+  }
   const saved = readKeys();
   // explicit clear (empty apiKey for keyed / empty model for ollama, nothing else)
   const clearing = isKeyed
@@ -2091,6 +2147,18 @@ app.post('/api/config', (req, res) => {
         : normalizeBaseUrl(raw);
     }
     if (typeof model === 'string') saved[provider].model = model.trim();
+    if (maxTokens !== undefined) {
+      if (maxTokens === '' || maxTokens === null) delete saved[provider].maxTokens;
+      else saved[provider].maxTokens = Number(maxTokens);
+    }
+    if (reasoningEffort !== undefined) {
+      if (reasoningEffort === '') delete saved[provider].reasoningEffort;
+      else saved[provider].reasoningEffort = reasoningEffort;
+    }
+    if (thinkingMode !== undefined) {
+      if (thinkingMode === 'default') delete saved[provider].thinkingMode;
+      else saved[provider].thinkingMode = thinkingMode;
+    }
     // Claude Code 模型映射（Sonnet/Opus/Haiku 档位 → 中转商实际模型）；传空串 = 清掉该档位
     if (provider === 'claude-code') {
       for (const field of ['sonnetModel', 'opusModel', 'haikuModel']) {
