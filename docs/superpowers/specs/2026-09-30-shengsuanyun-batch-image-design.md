@@ -6,10 +6,10 @@
 > 合作方：胜算云（LoomLoom Batch API）
 > 首期页面：`/creative` 图片提示词库
 
-### 当前实施状态（更新于 2026-10-01）
+### 当前实施状态（更新于 2026-10-08）
 
 - 已完成需求与接口反向评审；
-- 已完成默认关闭的胜算云批量服务端适配器；
+- 已完成默认开启的胜算云批量服务端适配器；默认接入官方 `text-image-v1` 模板和当前 `/loom/v1` 接口，显式旧地址保留兼容；
 - 已完成 capability、校验/估价、幂等提交、整批状态、逐条任务和产物接口；
 - 已完成本地 runId 包装与任务映射持久化；
 - 已完成创意库批量选择、费用确认、提交、进度和结果预览的首版 UI；
@@ -17,7 +17,7 @@
 - 已完成刷新后恢复最近任务，以及“重新估价 → 仅重试失败项 → 建立子任务”的链路；
 - 已完成最近 20 条任务历史、手动刷新和终态任务 30 天清理；
 - 尚未完成真实专属模板联调和 ZIP 下载；
-- `AO_SSY_BATCH_ENABLED` 缺省关闭，P0 契约未关闭前不得在生产开启。
+- `AO_SSY_BATCH_ENABLED` 缺省开启，设置 `0` 可关闭；真实接口仍待有凭据的联调验证。
 
 ## 1. 摘要
 
@@ -378,15 +378,15 @@ AO Web Backend / BFF
 
 ### 8.3 功能开关与部署配置
 
-首期必须显式开启，不能因为用户已经配置胜算云普通 API Key 就自动出现可用入口：
+后端默认开启（2026-10-08 调整）；仍需配置模板和字段，仅有普通 API Key 不足以使用批量接口。可设置 `AO_SSY_BATCH_ENABLED=0` 关闭：
 
 | 环境变量 | 必填 | 说明 |
 |---|---:|---|
 | `VITE_SSY_BATCH_ENABLED=1` | 官网构建时是 | 前端入口构建开关；localhost 开发环境自动显示 |
-| `AO_SSY_BATCH_ENABLED=1` | 是 | 总开关；缺省关闭 |
-| `AO_SSY_BATCH_TEMPLATE_ID` | 是 | 双方验收过的专属模板 ID |
-| `AO_SSY_BATCH_PROMPT_FIELD` | 是 | schema 中接收原提示词的稳定字段标签 |
-| `AO_SSY_BATCH_BASE_URL` | 否 | 缺省 `https://loomloom.shengsuanyun.com/batch/v1`；仅用于测试/迁移 |
+| `AO_SSY_BATCH_ENABLED` | 否 | 总开关；缺省开启，`0` 关闭 |
+| `AO_SSY_BATCH_TEMPLATE_ID` | 否 | 默认 `text-image-v1`；可覆盖为已验收模板 |
+| `AO_SSY_BATCH_PROMPT_FIELD` | 否 | 官方图片模板默认 `图片提示词`；自定义模板需指定 |
+| `AO_SSY_BATCH_BASE_URL` | 否 | 缺省 `https://loomloom.shengsuanyun.com/loom/v1`；显式旧地址保留兼容 |
 | `AO_SSY_BATCH_MODEL_FIELD` | 否 | 模板允许外部选模型时才设置 |
 | `AO_SSY_BATCH_SIZE_FIELD` | 否 | 模板允许外部选尺寸时才设置 |
 | `AO_SSY_BATCH_PROMPT_MODE_FIELD` | 否 | 模板支持 passthrough/optimize 切换时才设置 |

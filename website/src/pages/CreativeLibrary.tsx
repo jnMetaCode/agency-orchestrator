@@ -5,7 +5,7 @@ import EXTRA_INDEX_JSON from "@/content/creative-extra/index.json";
 // 扩充池切片：按分类懒加载（见 scripts/split-creative-extra.mjs）。glob 惰性导入，点到才拉那一片。
 const EXTRA_INDEX = EXTRA_INDEX_JSON as { total: number; chunks: { category: string; file: string; count: number }[] };
 const EXTRA_CHUNKS = import.meta.glob("/src/content/creative-extra/cat-*.json") as Record<string, () => Promise<unknown>>;
-import { Check, CheckSquare, ChevronLeft, ChevronRight, Copy, ExternalLink, Search, Download, Loader2, Sparkles, Square, X } from "lucide-react";
+import { Check, CheckSquare, ChevronLeft, ChevronRight, Copy, ExternalLink, Search, Download, History, Loader2, Sparkles, Square, X } from "lucide-react";
 import { SiteFooter } from "@/components/layout/SiteFooter";
 import { BatchConfigDialog } from "@/components/creative-batch/BatchConfigDialog";
 import { BatchHistoryDialog } from "@/components/creative-batch/BatchHistoryDialog";
@@ -755,15 +755,16 @@ export default function CreativeLibrary() {
                     <img src="/sponsors/logo-shengsuanyun-icon.png" alt="" className="size-3.5 rounded" />
                     {lang === "en" ? "Powered by ShengSuanYun" : "由胜算云提供批量能力"}
                   </span>
-                  {lastBatchRunId && (
-                    <button onClick={() => { setBatchDialogRunId(lastBatchRunId); setBatchDialogOpen(true); }} className="text-xs text-primary hover:underline">
-                      {lang === "en" ? "View recent task" : "查看最近任务"}
-                    </button>
-                  )}
-                  <button onClick={() => setBatchHistoryOpen(true)} className="text-xs text-muted-foreground hover:text-primary hover:underline">
-                    {lang === "en" ? "Task history" : "任务历史"}
-                  </button>
                 </>
+              )}
+              <button onClick={() => setBatchHistoryOpen(true)} className="inline-flex items-center gap-1.5 rounded-lg border border-border/70 bg-card px-3 py-1.5 text-xs font-medium transition-colors hover:border-primary/50 hover:text-primary">
+                <History className="size-3.5" />
+                {lang === "en" ? "Generation history" : "生成记录"}
+              </button>
+              {lastBatchRunId && (
+                <button onClick={() => { setBatchDialogRunId(lastBatchRunId); setBatchDialogOpen(true); }} className="inline-flex items-center gap-1.5 rounded-lg border border-primary/30 bg-primary/5 px-3 py-1.5 text-xs font-medium text-primary hover:bg-primary/10">
+                  {lang === "en" ? "View progress / results" : "查看进度 / 结果"}
+                </button>
               )}
               {batchMode && (
                 <button onClick={togglePage} className="text-xs text-primary hover:underline">

@@ -65,14 +65,19 @@ export function BatchConfigDialog({ items, initialRunId, onClose, onSubmitted }:
   useEffect(() => {
     if (!run || terminal.has(run.status)) return;
     let cancelled = false;
-    const timer = window.setTimeout(async () => {
+    let querying = false;
+    const timer = window.setInterval(async () => {
+      if (querying) return;
+      querying = true;
       try {
         const value = await api.creativeBatchRun(run.id);
-        if (!cancelled) setRun(value.run);
-      } catch { /* 网络抖动不把远端任务误判为失败，下一轮或手动重开继续查 */ }
+        if (!cancelled) { setRun(value.run); setError(""); }
+      } catch (value) {
+        if (!cancelled) setError(value instanceof Error ? value.message : String(value));
+      } finally { querying = false; }
     }, 5000);
-    return () => { cancelled = true; window.clearTimeout(timer); };
-  }, [run]);
+    return () => { cancelled = true; window.clearInterval(timer); };
+  }, [run?.id, run?.status]);
 
   useEffect(() => {
     if (!run || !terminal.has(run.status)) return;
@@ -84,20 +89,24 @@ export function BatchConfigDialog({ items, initialRunId, onClose, onSubmitted }:
   const precheck = async () => {
     setBusy(true); setError(""); setQuote(null);
     track("creative_batch_precheck", { selected_count: items.length, prompt_mode: promptMode });
-    try { setQuote(await api.creativeBatchPrecheck({ items, config })); }
+    try {
+      const checked = await api.creativeBatchPrecheck({ items, config });
+      setQuote(checked);
+      if (checked.estimatedCost == null && checked.sufficient) await submit(checked);
+    }
     catch (value) { setError(value instanceof Error ? value.message : String(value)); }
     finally { setBusy(false); }
   };
 
-  const submit = async () => {
-    if (!quote) return;
+  const submit = async (checked = quote) => {
+    if (!checked) return;
     setBusy(true); setError("");
     try {
-      const value = await api.creativeBatchSubmit({ quoteId: quote.quoteId, idempotencyKey, items, config });
+      const value = await api.creativeBatchSubmit({ quoteId: checked.quoteId, idempotencyKey, items, config });
       setRun(value.run);
       onSubmitted?.(value.run.id);
       try { localStorage.setItem("ao.creative.batch.lastRun", value.run.id); } catch { /* noop */ }
-      track("creative_batch_submit", { selected_count: items.length, estimated_cost: quote.estimatedCost, result: "ok" });
+      track("creative_batch_submit", { selected_count: items.length, estimated_cost: checked.estimatedCost, result: "ok" });
     } catch (value) {
       setError(value instanceof Error ? value.message : String(value));
       track("creative_batch_submit", { selected_count: items.length, result: "error" });
@@ -184,6 +193,7 @@ export function BatchConfigDialog({ items, initialRunId, onClose, onSubmitted }:
                 <button onClick={refreshRun} disabled={busy} className="inline-flex items-center gap-1 text-[11px] text-primary disabled:opacity-50"><RefreshCw className={busy ? "size-3 animate-spin" : "size-3"} />{en ? "Refresh" : "刷新"}</button>
               </div>
             </div>
+            {error && <p className="whitespace-pre-line break-words rounded-lg bg-red-500/10 p-3 text-xs text-red-600 dark:text-red-400">{error}</p>}
             {runItems.some((item) => item.error) && (
               <div className="space-y-2">
                 {runItems.filter((item) => item.error).map((item) => <p key={item.taskId} className="rounded-lg bg-red-500/10 p-2 text-xs text-red-600 dark:text-red-400">{item.title || item.promptId}：{item.error}</p>)}
@@ -208,7 +218,7 @@ export function BatchConfigDialog({ items, initialRunId, onClose, onSubmitted }:
               <div className="rounded-xl border border-border/70 p-4 text-sm">
                 <div className="flex items-center justify-between gap-3">
                   <span>{en ? "Retry failed items only" : "仅重试失败项"}</span>
-                  {retryQuote && <strong>{money(retryQuote.estimatedCost)}</strong>}
+                  {retryQuote?.estimatedCost != null && <strong>{money(retryQuote.estimatedCost)}</strong>}
                 </div>
                 <p className="mt-1 text-xs text-muted-foreground">{en ? "A new child run will be created; the original run stays unchanged." : "将创建一个新的子任务，原任务记录保持不变。"}</p>
                 {!retryQuote ? (
@@ -217,7 +227,7 @@ export function BatchConfigDialog({ items, initialRunId, onClose, onSubmitted }:
                   </button>
                 ) : (
                   <button onClick={retryFailed} disabled={busy || !retryQuote.sufficient} className="mt-3 inline-flex h-9 w-full items-center justify-center gap-1.5 rounded-lg bg-primary text-xs font-medium text-primary-foreground disabled:opacity-50">
-                    {busy && <Loader2 className="size-3.5 animate-spin" />}{en ? "Confirm retry" : "确认重试"} · {money(retryQuote.estimatedCost)}
+                    {busy && <Loader2 className="size-3.5 animate-spin" />}{en ? "Confirm retry" : "确认重试"}{retryQuote.estimatedCost != null && ` · ${money(retryQuote.estimatedCost)}`}
                   </button>
                 )}
               </div>
@@ -241,9 +251,9 @@ export function BatchConfigDialog({ items, initialRunId, onClose, onSubmitted }:
             </div>
             {promptMode === "optimize" && <p className="rounded-lg bg-amber-500/10 p-3 text-xs leading-relaxed text-amber-700 dark:text-amber-300">{en ? "This ShengSuanYun template organizes each prompt before image generation, so the final prompt may differ from the selected text." : "当前胜算云通用文生图模板会先整理每条提示词再出图，最终使用的提示词可能与所选文本不同。"}</p>}
             <p className="text-xs leading-relaxed text-muted-foreground">{en ? "You are selecting prompt text, not the sample images shown on the cards. Sample images are not sent as references. In production, prompts are sent to ShengSuanYun and the underlying model provider, and stored locally so the task can be recovered." : "这里选择的是提示词文本，不是卡片上的案例图片；案例图不会作为参考图发送。正式环境会将提示词发送给胜算云及实际模型服务商，并在本机保存以便恢复任务。"}</p>
-            {quote && (
+            {quote && (quote.estimatedCost != null || quote.availableBalance != null || !quote.sufficient) && (
               <div className="rounded-xl border border-primary/30 bg-primary/5 p-4 text-sm">
-                <div className="flex justify-between"><span>{en ? "Estimated cost" : "预计费用"}</span><strong>{money(quote.estimatedCost)}</strong></div>
+                {quote.estimatedCost != null && <div className="flex justify-between"><span>{en ? "Estimated cost" : "预计费用"}</span><strong>{money(quote.estimatedCost)}</strong></div>}
                 {quote.availableBalance != null && <div className="mt-2 flex justify-between text-xs text-muted-foreground"><span>{en ? "Available balance" : "可用余额"}</span><span>{money(quote.availableBalance)}</span></div>}
                 {!quote.sufficient && <p className="mt-2 text-xs text-red-500">{en ? "Insufficient balance" : "余额不足，暂时无法提交"}</p>}
               </div>
@@ -254,8 +264,8 @@ export function BatchConfigDialog({ items, initialRunId, onClose, onSubmitted }:
                 {busy ? <Loader2 className="size-4 animate-spin" /> : <Sparkles className="size-4" />}{busy ? (en ? "Checking…" : "正在校验并估价…") : (en ? "Estimate cost" : "校验并预估费用")}
               </button>
             ) : (
-              <button onClick={submit} disabled={busy || !quote.sufficient} className="inline-flex h-10 w-full items-center justify-center gap-2 rounded-xl bg-primary font-medium text-primary-foreground disabled:opacity-50">
-                {busy ? <Loader2 className="size-4 animate-spin" /> : <Sparkles className="size-4" />}{busy ? (en ? "Submitting…" : "正在提交…") : `${en ? "Confirm and submit" : "确认并提交"} · ${money(quote.estimatedCost)}`}
+              <button onClick={() => submit()} disabled={busy || !quote.sufficient} className="inline-flex h-10 w-full items-center justify-center gap-2 rounded-xl bg-primary font-medium text-primary-foreground disabled:opacity-50">
+                {busy ? <Loader2 className="size-4 animate-spin" /> : <Sparkles className="size-4" />}{busy ? (en ? "Submitting…" : "正在提交…") : `${en ? "Confirm and submit" : "确认并提交"}${quote.estimatedCost != null ? ` · ${money(quote.estimatedCost)}` : ""}`}
               </button>
             )}
             <a href={capability.provider?.learnMoreUrl} target="_blank" rel="noreferrer" className="flex items-center justify-center gap-1 text-xs text-muted-foreground hover:text-primary">{en ? "Learn about ShengSuanYun" : "了解胜算云"}<ExternalLink className="size-3" /></a>

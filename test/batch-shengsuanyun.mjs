@@ -60,8 +60,21 @@ const items = [
 ];
 const config = { promptMode: 'passthrough', outputsPerPrompt: 1 };
 
-await test('缺少显式开关时 capability 只报告不可用，不影响服务器启动', async () => {
-  const off = createShengsuanyunBatchService({ dataDir, env: {}, getToken: () => '', fetchImpl: fakeFetch });
+await test('官方模板默认配置齐全，缺少 Key 提示凭据缺失', async () => {
+  const unconfigured = createShengsuanyunBatchService({ dataDir, env: {}, getToken: () => '', fetchImpl: fakeFetch });
+  const capability = await unconfigured.capabilities();
+  assert(capability.available === false && capability.reasonCode === 'missing_credentials', JSON.stringify(capability));
+});
+
+await test('无需开启变量，模板和凭据齐全即可使用', async () => {
+  const { AO_SSY_BATCH_ENABLED, ...defaultEnv } = env;
+  const enabled = createShengsuanyunBatchService({ dataDir, env: defaultEnv, getToken: () => 'secret', fetchImpl: fakeFetch });
+  const capability = await enabled.capabilities();
+  assert(capability.available === true, JSON.stringify(capability));
+});
+
+await test('显式设置 0 可以关闭批量出图', async () => {
+  const off = createShengsuanyunBatchService({ dataDir, env: { ...env, AO_SSY_BATCH_ENABLED: '0' }, getToken: () => 'secret', fetchImpl: fakeFetch });
   const capability = await off.capabilities();
   assert(capability.available === false && capability.reasonCode === 'feature_disabled', JSON.stringify(capability));
 });
@@ -279,6 +292,85 @@ await test('上线探针发现字段不匹配时在 precheck 前停止', async (
   } catch (caught) { error = caught; }
   assert(error instanceof ProbeError && error.code === 'schema_mismatch', `实际错误：${error?.code}`);
   assert(paths.length === 2, `字段不匹配后不应继续请求：${paths.join(', ')}`);
+});
+
+await test('默认官方模板使用当前接口、必填比例、计价版本和幂等契约', async () => {
+  const requests = [];
+  const official = createShengsuanyunBatchService({
+    dataDir, env: {}, getToken: () => 'test-token',
+    fetchImpl: async (url, init) => {
+      const path = new URL(url).pathname;
+      const body = init.body ? JSON.parse(init.body) : undefined;
+      requests.push({ path, body });
+      if (body) {
+        assert(Array.isArray(body.rows), '官方接口 rows 必须是数组');
+        for (const row of body.rows) {
+          assert(row && typeof row === 'object' && !Array.isArray(row), '官方接口每行必须是字段对象');
+          assert(Object.values(row).every(value => typeof value === 'string'), 'Go map[string]string 不接受嵌套对象或非字符串值');
+          assert(!('values' in row), '官方接口不接受 values 包装');
+        }
+      }
+      if (path.endsWith('/schema')) return json({ fields: [{ label: '图片提示词' }, { label: '图片比例', required: true }] });
+      if (path.endsWith(':validateRows')) return json({ valid: true });
+      if (path.endsWith(':precheckRows')) return json({ estimatedTotalCost: 1000000, pricingRevision: 'price-1', balanceCheck: { isSufficient: true } });
+      if (path.endsWith(':runRows')) return json({ runId: 'official-run', status: 'pending' });
+      if (path.endsWith('/resultRows')) return json({ items: [
+        { rowIndex: 0, status: 'completed', artifacts: [{ artifactId: 'text-1' }, { artifactId: 'image-1' }] },
+        { rowIndex: 1, status: 'completed', artifacts: [{ artifactId: 'text-2' }, { artifactId: 'image-2' }] },
+      ], totalCount: 2 });
+      if (path.endsWith('/artifacts')) return json({ items: [
+        { artifactId: 'text-1', sourceRowIndex: 0, mimeType: 'text/plain' },
+        { artifactId: 'image-1', sourceRowIndex: 0, mimeType: 'image/png' },
+        { artifactId: 'text-2', sourceRowIndex: 1, mimeType: 'text/plain' },
+        { artifactId: 'image-2', sourceRowIndex: 1, mimeType: 'image/png' },
+      ], totalCount: 4 });
+      if (path.endsWith('/users/me/runs/official-run')) return json({
+        run: { status: 'completed', totalTasks: 2, completedTasks: 2, failedTasks: 0, actualCostT: 2000000, actualCost: { amount: '0.2', currency: 'CNY' } },
+        tasks: [{ sourceRowIndex: 0, status: 'completed' }, { sourceRowIndex: 1, status: 'completed' }],
+      });
+      throw new Error(`Unexpected official endpoint: ${path}`);
+    },
+  });
+  const capability = await official.capabilities();
+  assert(capability.available && capability.template.id === 'text-image-v1', JSON.stringify(capability));
+  assert(capability.template.promptModes[0] === 'optimize', '官方模板必须明示提示词整理');
+  const quote = await official.precheck({ items, config: { promptMode: 'optimize' } });
+  const validation = requests.find(r => r.path.endsWith(':validateRows'));
+  assert(validation.path === '/loom/v1/officialTemplates/text-image-v1:validateRows', validation.path);
+  const firstRow = validation.body.rows[0];
+  assert(firstRow['图片提示词'] === items[0].prompt && firstRow['图片比例'] === '1:1', JSON.stringify(validation.body));
+  const result = await official.submit({ quoteId: quote.quoteId, idempotencyKey: 'official-order', items, config: { promptMode: 'optimize' } });
+  const submission = requests.find(r => r.path.endsWith(':runRows'));
+  assert(submission.body.clientRequestId === 'official-order' && submission.body.pricingRevision === 'price-1', JSON.stringify(submission.body));
+  assert(!('templateId' in submission.body) && !('idempotencyKey' in submission.body), '旧接口参数不应进入官方请求');
+  const tasks = await official.getItems(result.run.id);
+  const artifacts = await official.getArtifacts(result.run.id);
+  const detail = await official.getRun(result.run.id);
+  assert(detail.run.status === 'completed' && detail.run.completed === 2 && detail.run.total === 2 && detail.run.failed === 0, '真实 run 包装响应必须显示已完成 2/2');
+  assert(detail.run.actualCost === 0.2, '实际费用优先使用整数 actualCostT');
+  assert(official.listRuns().runs.find(run => run.id === result.run.id)?.status === 'completed', '详情查询后历史任务状态应持久化');
+  assert(tasks.items.length === 2 && tasks.items.every((task, index) => task.promptId === items[index].promptId && task.artifactCount === 2), 'resultRows.items 使用零基索引恢复提示词及产物数量');
+  assert(artifacts.artifacts.length === 4 && artifacts.artifacts.filter(a => a.mimeType.startsWith('image/')).length === 2, '产物 items 包装应恢复两张图片和两条中间文本');
+  assert(artifacts.artifacts.every((artifact) => artifact.promptId === items[artifact.sourceRowIndex].promptId), '产物必须映射到正确提示词');
+});
+
+await test('官方模板 schema 缺少必填比例时不标为可用', async () => {
+  const official = createShengsuanyunBatchService({ dataDir, env: {}, getToken: () => 'test-token', fetchImpl: async () => json({ fields: [{ label: '图片提示词' }] }) });
+  const capability = await official.capabilities();
+  assert(!capability.available && capability.reasonCode === 'schema_mismatch', JSON.stringify(capability));
+});
+
+await test('费用缺失或无法识别不阻断提交，也不伪造零元费用', async () => {
+  for (const amount of [undefined, { amount: '0.1', currency: 'CNY' }, 'unknown', -1, 0.5]) {
+    const unknownCost = createShengsuanyunBatchService({ dataDir, env, getToken: () => 'secret', fetchImpl: async (url, init) => {
+      if (String(url).endsWith('templates:precheck-rows')) return json({ estimatedTotalCost: amount, balanceCheck: { availableBalance: amount, isSufficient: true } });
+      return fakeFetch(url, init);
+    } });
+    const quote = await unknownCost.precheck({ items, config });
+    assert(quote.estimatedCost === undefined && quote.availableBalance === undefined, '未知金额不能显示成零元或阻断');
+    const result = await unknownCost.submit({ quoteId: quote.quoteId, idempotencyKey: 'unknown-cost-order', items, config });
+    assert(result.ok, '没有费用金额也应允许提交');
+  }
 });
 
 rmSync(dataDir, { recursive: true, force: true });

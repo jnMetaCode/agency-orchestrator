@@ -7,7 +7,7 @@
  */
 import { pathToFileURL } from 'node:url';
 
-const DEFAULT_BASE_URL = 'https://loomloom.shengsuanyun.com/batch/v1';
+const DEFAULT_BASE_URL = 'https://loomloom.shengsuanyun.com/loom/v1';
 const DEFAULT_TIMEOUT_MS = 20_000;
 
 export class ProbeError extends Error {
@@ -67,8 +67,8 @@ function validationSummary(value) {
 /** Run the probe. Dependency injection keeps it testable without the network. */
 export async function runProbe({ env = process.env, fetchImpl = fetch, now = () => new Date(), timeoutMs = DEFAULT_TIMEOUT_MS } = {}) {
   const token = requireValue(env.SHENGSUANYUN_API_KEY, 'SHENGSUANYUN_API_KEY');
-  const templateId = requireValue(env.AO_SSY_BATCH_TEMPLATE_ID, 'AO_SSY_BATCH_TEMPLATE_ID');
-  const promptField = requireValue(env.AO_SSY_BATCH_PROMPT_FIELD, 'AO_SSY_BATCH_PROMPT_FIELD');
+  const templateId = requireValue(env.AO_SSY_BATCH_TEMPLATE_ID ?? 'text-image-v1', 'AO_SSY_BATCH_TEMPLATE_ID');
+  const promptField = requireValue(env.AO_SSY_BATCH_PROMPT_FIELD ?? (templateId === 'text-image-v1' ? '图片提示词' : ''), 'AO_SSY_BATCH_PROMPT_FIELD');
   const base = normalizeBaseUrl(env.AO_SSY_BATCH_BASE_URL);
   const report = {
     ok: false,
@@ -82,6 +82,16 @@ export async function runProbe({ env = process.env, fetchImpl = fetch, now = () 
   };
 
   async function request(stage, path, init = {}) {
+    if (new URL(base.value).pathname.replace(/\/$/, '') === '/loom/v1') {
+      const templatePath = `officialTemplates/${encodeURIComponent(templateId)}`;
+      if (path === 'health') path = 'users/me/balance';
+      else if (stage === 'schema') path = `${templatePath}/schema`;
+      else if (stage === 'validate-rows' || stage === 'precheck-rows') {
+        path = `${templatePath}:${stage === 'validate-rows' ? 'validateRows' : 'precheckRows'}`;
+        const { templateId, ...body } = JSON.parse(init.body);
+        init = { ...init, body: JSON.stringify({ ...body, rows: body.rows.map(row => row.values) }) };
+      }
+    }
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), timeoutMs);
     try {
@@ -125,7 +135,9 @@ export async function runProbe({ env = process.env, fetchImpl = fetch, now = () 
   if (!matched) throw new ProbeError('schema_mismatch', `模板 Schema 中找不到提示词字段「${promptField}」`, report);
 
   // 固定的无害样例仅用于字段校验和费用预估，不提交生成。
-  const payload = { templateId, rows: [{ values: { [promptField]: 'A simple blue circle on a white background.' } }] };
+  const values = { [promptField]: 'A simple blue circle on a white background.' };
+  if (templateId === 'text-image-v1') values[env.AO_SSY_BATCH_SIZE_FIELD || '图片比例'] = env.AO_SSY_BATCH_FIXED_SIZE || '1:1';
+  const payload = { templateId, rows: [{ values }] };
   const validation = await request('validate-rows', 'templates:validate-rows', { method: 'POST', body: JSON.stringify(payload) });
   report.stages.validation = validationSummary(validation);
   if (!report.stages.validation.valid) throw new ProbeError('validation_failed', '探针样例未通过模板行校验', report);

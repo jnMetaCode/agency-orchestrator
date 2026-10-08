@@ -1,15 +1,16 @@
 /**
  * 胜算云 LoomLoom 批处理适配器。
  *
- * 这层只暴露 AO 自己的稳定契约；模板字段全部来自显式环境配置，绝不猜中文 label。
- * 功能默认关闭，只有专属模板完成双方验收后才通过 AO_SSY_BATCH_ENABLED=1 打开。
+ * 这层只暴露 AO 自己的稳定契约；默认使用官方图片模板及文档字段，支持显式覆盖。
+ * 功能默认开启；AO_SSY_BATCH_ENABLED=0 可关闭，凭据从供应商设置读取。
  */
 import { createHash, randomUUID } from 'node:crypto';
 import { chmodSync, mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 
-const DEFAULT_BASE_URL = 'https://loomloom.shengsuanyun.com/batch/v1';
+const DEFAULT_BASE_URL = 'https://loomloom.shengsuanyun.com/loom/v1';
 const DEFAULT_MAX_ITEMS = 24;
+const ADAPTER_VERSION = '2026-10-08-run-results-v4';
 const MAX_PROMPT_CHARS = 20_000;
 const QUOTE_TTL_MS = 60_000;
 const SCHEMA_TTL_MS = 5 * 60_000;
@@ -44,9 +45,10 @@ function positiveInt(value, fallback, max = 1000) {
 }
 
 export function readShengsuanyunBatchConfig(env = process.env) {
-  const enabled = env.AO_SSY_BATCH_ENABLED === '1';
-  const templateId = String(env.AO_SSY_BATCH_TEMPLATE_ID || '').trim();
-  const promptField = String(env.AO_SSY_BATCH_PROMPT_FIELD || '').trim();
+  const enabled = env.AO_SSY_BATCH_ENABLED !== '0';
+  const templateId = String(env.AO_SSY_BATCH_TEMPLATE_ID ?? 'text-image-v1').trim();
+  const officialImage = templateId === 'text-image-v1';
+  const promptField = String(env.AO_SSY_BATCH_PROMPT_FIELD ?? (officialImage ? '图片提示词' : '')).trim();
   let baseUrl = DEFAULT_BASE_URL;
   let configError = '';
   try { baseUrl = cleanBaseUrl(env.AO_SSY_BATCH_BASE_URL); }
@@ -58,13 +60,14 @@ export function readShengsuanyunBatchConfig(env = process.env) {
     templateId,
     promptField,
     baseUrl,
+    officialApi: new URL(baseUrl).pathname.replace(/\/$/, '') === '/loom/v1',
     configError,
     modelField: String(env.AO_SSY_BATCH_MODEL_FIELD || '').trim(),
-    sizeField: String(env.AO_SSY_BATCH_SIZE_FIELD || '').trim(),
+    sizeField: String(env.AO_SSY_BATCH_SIZE_FIELD ?? (officialImage ? '图片比例' : '')).trim(),
     promptModeField: String(env.AO_SSY_BATCH_PROMPT_MODE_FIELD || '').trim(),
-    fixedPromptMode: env.AO_SSY_BATCH_FIXED_PROMPT_MODE === 'optimize' ? 'optimize' : 'passthrough',
+    fixedPromptMode: officialImage || env.AO_SSY_BATCH_FIXED_PROMPT_MODE === 'optimize' ? 'optimize' : 'passthrough',
     fixedModel: String(env.AO_SSY_BATCH_FIXED_MODEL || '').trim(),
-    fixedSize: String(env.AO_SSY_BATCH_FIXED_SIZE || '').trim(),
+    fixedSize: String(env.AO_SSY_BATCH_FIXED_SIZE ?? (officialImage ? '1:1' : '')).trim(),
     maxItems: positiveInt(env.AO_SSY_BATCH_MAX_ITEMS, DEFAULT_MAX_ITEMS, 100),
     artifactHosts: String(env.AO_SSY_BATCH_ARTIFACT_HOSTS || 'aliyuncs.com,shengsuanyun.com')
       .split(',').map((value) => value.trim().toLowerCase()).filter(Boolean),
@@ -133,7 +136,7 @@ function makeRows(items, generation, config) {
     const values = { [config.promptField]: item.prompt };
     if (config.promptModeField) values[config.promptModeField] = generation.promptMode;
     if (config.modelField && generation.model) values[config.modelField] = generation.model;
-    if (config.sizeField && generation.size) values[config.sizeField] = generation.size;
+    if (config.sizeField && (generation.size || config.fixedSize)) values[config.sizeField] = generation.size || config.fixedSize;
     return { values };
   });
 }
@@ -142,7 +145,7 @@ function costUnitsToCny(value) {
   if (value == null || value === '') return undefined;
   const raw = typeof value === 'number' ? value : Number(String(value));
   if (!Number.isFinite(raw) || raw < 0 || !Number.isSafeInteger(raw)) {
-    throw new BatchApiError(502, 'invalid_upstream_cost', '胜算云返回了无法识别的费用金额');
+    return undefined;
   }
   return raw / 10_000_000;
 }
@@ -224,6 +227,21 @@ export function createShengsuanyunBatchService(options) {
 
   async function request(path, init = {}, timeoutMs = 20_000) {
     requireAvailable();
+    if (config.officialApi) {
+      const templatePath = `officialTemplates/${encodeURIComponent(config.templateId)}`;
+      const actions = { 'templates:validate-rows': 'validateRows', 'templates:precheck-rows': 'precheckRows', 'templates:submit-rows': 'runRows' };
+      if (actions[path]) {
+        path = `${templatePath}:${actions[path]}`;
+        const { templateId, idempotencyKey, ...body } = JSON.parse(init.body);
+        // Go officialTemplateRowsRequest 接收 []map[string]string。
+        // AO 内部及旧 Batch API 保留 values 包装，官方接口只接收扁平字段。
+        init = { ...init, body: JSON.stringify({ ...body, rows: body.rows.map(row => row.values), ...(idempotencyKey ? { clientRequestId: idempotencyKey } : {}) }) };
+      } else if (path.startsWith('templates/')) {
+        path = `${templatePath}/schema`;
+      } else {
+        path = path.replace(/^batch\/workflow-runs\//, 'users/me/runs/').replace(/\/tasks$/, '/resultRows');
+      }
+    }
     const ctrl = new AbortController();
     const timer = setTimeout(() => ctrl.abort(), timeoutMs);
     try {
@@ -256,20 +274,24 @@ export function createShengsuanyunBatchService(options) {
 
   async function capabilities({ verifySchema = true } = {}) {
     const a = availability();
-    if (!a.available) return { ok: true, ...a };
+    if (!a.available) return { ok: true, adapterVersion: ADAPTER_VERSION, ...a };
     let schemaValue = null;
     if (verifySchema) {
       const value = await schema();
       schemaValue = value;
       const fields = Array.isArray(value?.fields) ? value.fields : Array.isArray(value?.data?.fields) ? value.data.fields : [];
       const names = new Set(fields.flatMap((field) => [field?.key, field?.label]).filter(Boolean));
-      if (fields.length && !names.has(config.promptField)) {
+      if (!names.has(config.promptField)) {
         return { ok: true, available: false, reasonCode: 'schema_mismatch', message: `批量模板缺少提示词字段「${config.promptField}」` };
+      }
+      if (config.sizeField && !names.has(config.sizeField)) {
+        return { ok: true, available: false, reasonCode: 'schema_mismatch', message: `批量模板缺少比例字段「${config.sizeField}」` };
       }
     }
     return {
       ok: true,
       available: true,
+      adapterVersion: ADAPTER_VERSION,
       demo: config.demo,
       provider: { id: 'shengsuanyun', name: '胜算云', logo: '/sponsors/logo-shengsuanyun-icon.png', learnMoreUrl: 'https://www.shengsuanyun.com/?from=CH_QKH696UI' },
       template: {
@@ -301,7 +323,8 @@ export function createShengsuanyunBatchService(options) {
     const balance = estimate?.balanceCheck || estimate?.data?.balanceCheck || {};
     const availableBalance = costUnitsToCny(balance.availableBalance);
     const sufficient = balance.isSufficient !== false;
-    quotes.set(quoteId, { digest, expiresAt: now() + QUOTE_TTL_MS, payload, items, generation, sufficient, idempotencyKey: '' });
+    const pricingRevision = estimate?.pricingRevision ?? estimate?.data?.pricingRevision;
+    quotes.set(quoteId, { digest, expiresAt: now() + QUOTE_TTL_MS, payload: { ...payload, ...(pricingRevision != null ? { pricingRevision } : {}) }, items, generation, sufficient, idempotencyKey: '' });
     return { ok: true, quoteId, validUntil: new Date(now() + QUOTE_TTL_MS).toISOString(), currency: 'CNY', estimatedCost, availableBalance, sufficient, itemCount: items.length, warnings: [] };
   }
 
@@ -350,35 +373,38 @@ export function createShengsuanyunBatchService(options) {
   async function getRun(id) {
     const record = ownedRun(id);
     const value = await request(`batch/workflow-runs/${encodeURIComponent(record.providerRunId)}`);
-    const data = value?.data || value;
+    const envelope = value?.data || value;
+    const data = envelope?.run || envelope;
     const counts = { completed: Number(data.completedTasks || 0), failed: Number(data.failedTasks || 0) };
     const status = normalizeStatus(data.status, counts);
     const records = store.read();
     if (records[id]) { records[id].status = status; records[id].updatedAt = new Date(now()).toISOString(); store.write(records); }
-    return { ok: true, run: { id, status, total: Number(data.totalTasks || record.items.length), completed: counts.completed, failed: counts.failed, actualCost: costUnitsToCny(data.actualCost), currency: 'CNY', createdAt: record.createdAt, updatedAt: records[id]?.updatedAt } };
+    return { ok: true, run: { id, status, total: Number(data.totalTasks ?? record.items.length), completed: counts.completed, failed: counts.failed, actualCost: costUnitsToCny(data.actualCostT ?? data.actualCost), currency: 'CNY', createdAt: record.createdAt, updatedAt: records[id]?.updatedAt } };
   }
 
   async function getItems(id) {
     const record = ownedRun(id);
     const value = await request(`batch/workflow-runs/${encodeURIComponent(record.providerRunId)}/tasks`);
-    const tasks = Array.isArray(value) ? value : Array.isArray(value?.tasks) ? value.tasks : Array.isArray(value?.data?.tasks) ? value.data.tasks : [];
+    const data = value?.data || value;
+    const tasks = Array.isArray(data) ? data : data?.tasks || data?.items || data?.rows || data?.resultRows || [];
     return { ok: true, items: tasks.map((task) => {
-      const sourceRowIndex = Number(task.sourceRowIndex);
+      const sourceRowIndex = Number(task.sourceRowIndex ?? task.rowIndex);
       const source = record.items[sourceRowIndex];
-      return { taskId: String(task.taskId || ''), sourceRowIndex, promptId: source?.promptId, title: source?.title, status: normalizeStatus(task.status), error: typeof task.errorMessage === 'string' ? task.errorMessage.slice(0, 500) : undefined, artifactCount: Number(task.artifactCount || 0) };
+      return { taskId: String(task.taskId || `row-${sourceRowIndex}`), sourceRowIndex, promptId: source?.promptId, title: source?.title, status: normalizeStatus(task.status), error: typeof task.errorMessage === 'string' ? task.errorMessage.slice(0, 500) : undefined, artifactCount: Number(task.artifactCount ?? task.artifacts?.length ?? 0) };
     }) };
   }
 
   async function providerArtifacts(record) {
     const value = await request(`batch/workflow-runs/${encodeURIComponent(record.providerRunId)}/artifacts`);
-    return Array.isArray(value?.artifacts) ? value.artifacts : Array.isArray(value?.data?.artifacts) ? value.data.artifacts : [];
+    const data = value?.data || value;
+    return Array.isArray(data) ? data : Array.isArray(data?.items) ? data.items : Array.isArray(data?.artifacts) ? data.artifacts : [];
   }
 
   async function getArtifacts(id) {
     const record = ownedRun(id);
     const artifacts = await providerArtifacts(record);
     return { ok: true, artifacts: artifacts.map((artifact) => {
-      const sourceRowIndex = Number(artifact.sourceRowIndex);
+      const sourceRowIndex = Number(artifact.sourceRowIndex ?? artifact.rowIndex);
       const artifactId = String(artifact.artifactId || '');
       return {
         artifactId, sourceRowIndex, promptId: record.items[sourceRowIndex]?.promptId,
@@ -413,7 +439,7 @@ export function createShengsuanyunBatchService(options) {
       if (buffer.length > MAX_ARTIFACT_BYTES) throw new BatchApiError(413, 'artifact_too_large', '产物超过本地代理下载上限');
       const mimeType = String(artifact.mimeType || response.headers.get('content-type') || 'application/octet-stream').split(';')[0];
       const extension = mimeType === 'image/png' ? 'png' : mimeType === 'image/jpeg' ? 'jpg' : mimeType === 'image/webp' ? 'webp' : mimeType.startsWith('text/') ? 'txt' : 'bin';
-      const source = record.items[Number(artifact.sourceRowIndex)];
+      const source = record.items[Number(artifact.sourceRowIndex ?? artifact.rowIndex)];
       const baseName = String(source?.title || source?.promptId || artifactId).replace(/[^一-龥a-zA-Z0-9._-]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 80) || 'artifact';
       return { buffer, mimeType, filename: `${baseName}.${extension}` };
     } catch (error) {
@@ -479,7 +505,10 @@ function sendError(res, error) {
 export function registerShengsuanyunBatchRoutes(app, options) {
   const service = createShengsuanyunBatchService(options);
   const route = (handler) => async (req, res) => { try { await handler(req, res); } catch (error) { sendError(res, error); } };
-  app.get('/api/batch/providers/shengsuanyun/capabilities', route(async (_req, res) => res.json(await service.capabilities())));
+  app.get('/api/batch/providers/shengsuanyun/capabilities', route(async (_req, res) => {
+    res.set('Cache-Control', 'no-store');
+    res.json(await service.capabilities());
+  }));
   app.post('/api/batch/providers/shengsuanyun/precheck', route(async (req, res) => res.json(await service.precheck(req.body))));
   app.post('/api/batch/providers/shengsuanyun/runs', route(async (req, res) => res.json(await service.submit(req.body))));
   app.get('/api/batch/providers/shengsuanyun/runs', route(async (_req, res) => res.json(service.listRuns())));
