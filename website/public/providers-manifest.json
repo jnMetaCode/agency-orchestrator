@@ -84,9 +84,9 @@
       }
     },
     {
-      "name": "Fluxion AI",
+      "name": "Sidrune AI",
       "sponsor": true,
-      "signupUrl": "https://fluxionai.space/register?source=github&campaign=agencyagents&promo=agencyagents",
+      "signupUrl": "https://sidrune.ai/register?source=github&campaign=agencyagents&promo=agencyagents&aff=RQHWKAMQLX2S",
       "baseUrls": {
         "claude-code": "https://fluxionai.space",
         "codex-cli": "https://fluxionai.space/v1"
@@ -138,9 +138,9 @@
     },
     {
       "providerId": "fluxionai",
-      "name": "Fluxion AI",
-      "bonus": "专属链接注册送 $3.88 API 额度",
-      "url": "https://fluxionai.space/register?source=github&campaign=agencyagents&promo=agencyagents"
+      "name": "Sidrune AI",
+      "bonus": "专属链接注册送 $3 API 额度",
+      "url": "https://sidrune.ai/register?source=github&campaign=agencyagents&promo=agencyagents&aff=RQHWKAMQLX2S"
     }
   ],
   "removedProviders": [

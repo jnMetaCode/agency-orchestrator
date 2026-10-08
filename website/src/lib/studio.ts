@@ -771,6 +771,7 @@ const PROVIDER_LOGO_SVG_IDS = new Set(["aicodemirror"]);
 export function providerLogo(id: string): string | undefined {
   // 同一家的多个条目共用 logo（方舟套餐 = 火山引擎）
   const base = id === "volcengine-plan" ? "volcengine" : id;
+  if (base === "fluxionai") return "/sponsors/logo-sidruneai-icon.png";
   if (!PROVIDER_LOGO_IDS.has(base)) return undefined;
   return `/sponsors/logo-${base}-icon.${PROVIDER_LOGO_SVG_IDS.has(base) ? "svg" : "png"}`;
 }
@@ -1097,7 +1098,7 @@ export const API_PROVIDERS: ApiProviderMeta[] = [
   // MiniMax-H3 文生视频，768P 0.09 元/秒、2K 0.15 元/秒。端点是 MiniMax 官方 API 换了 Host，
   // 建任务/查状态两条路径已用真 key 实探核实（见引擎 VIDEO_PROVIDERS 的说明）。
   // videoOnly：它没有 chat/images 端点，进了模型下拉就是给用户挖坑。
-  { id: "metaso", name: "秘塔科技", shortName: "秘塔", hint: "metaso.cn · MiniMax-H3 文生视频 · 768P 0.09 元/秒", defaultBaseUrl: "https://metaso.cn/api/minimax", signupUrl: "https://metaso.cn/minimax-h3/?s=gt533367", sponsor: true, videoOnly: true, modelSuggestions: ["MiniMax-H3"] },
+  { id: "metaso", name: "秘塔科技", shortName: "秘塔", hint: "metaso.cn · MiniMax-H3 文生视频 · 768P 0.09 元/秒", defaultBaseUrl: "https://metaso.cn/api/minimax", signupUrl: "https://metaso.cn/minimax-h3/?s=gt533367", sponsor: false, delisted: true, videoOnly: true, modelSuggestions: ["MiniMax-H3"] },
   // 赞助商 PackyCode（2026-09-14 上架，按约定排赞助商组最后一位）—— API 中转，统一域名 www.packyapi.ai。
   // 直连走 OpenAI 兼容 /v1（端点探测见引擎 API_PROVIDERS 的说明）；编码 CLI 中转见 CLI_RELAY_PRESETS。
   // modelSuggestions / imageModels 取自它公开的 GET /api/pricing（无需 key，2026-09-14 实拉），
@@ -1112,10 +1113,10 @@ export const API_PROVIDERS: ApiProviderMeta[] = [
   // **不在** PackyCode 价目表里，没照抄。备用主机 cf.api.fan / slb-v1.api.fan / www.packyapi.com 也逐条探过：
   // /v1/models、chat/completions、messages、responses 均 401「无效的令牌」、乱写路径 404，是同一网关。
   { id: "packycode", name: "PackyCode", hint: "www.packyapi.ai · 人民币 1:1 充值 · 新用户送 $1 体验额度", defaultBaseUrl: "https://www.packyapi.ai/v1", signupUrl: "https://www.packyapi.ai/register?aff=js5W", sponsor: true, modelSuggestions: ["qwen3.8-max", "glm-5", "kimi-k2.5", "claude-sonnet-5", "claude-opus-5", "gpt-5.6-sol"], imageModels: ["gpt-image-2"], usageQuery: "newapi" },
-  // Fluxion AI（赞助商）——官方 OpenAI 兼容地址为 /v1。模型受 key 分组限制，绝不设
+  // Sidrune AI（赞助商）——官方 OpenAI 兼容地址为 /v1。模型受 key 分组限制，绝不设
   // 全局默认值；测试连接会先用 key 拉 /models 再选真实模型。静态建议覆盖官方文档中的
   // Claude / GPT / Grok 示例；图片模型仅对开通相应图片能力的 key 有效。
-  { id: "fluxionai", name: "Fluxion AI", hint: "fluxionai.space · 模型随 Key 分组变化，配好后先获取模型列表 · 注册送 $3.88", defaultBaseUrl: "https://fluxionai.space/v1", signupUrl: "https://fluxionai.space/register?source=github&campaign=agencyagents&promo=agencyagents", sponsor: true, modelSuggestions: ["claude-sonnet-4-6", "claude-sonnet-5", "claude-opus-4-8", "gpt-5.6-sol", "gpt-6-astra", "grok-4.5"], imageModels: ["gpt-image-2"] },
+  { id: "fluxionai", name: "Sidrune AI", hint: "Sidrune AI · 模型随 Key 分组变化，配好后先获取模型列表 · 注册送 $3", defaultBaseUrl: "https://fluxionai.space/v1", signupUrl: "https://sidrune.ai/register?source=github&campaign=agencyagents&promo=agencyagents&aff=RQHWKAMQLX2S", sponsor: true, modelSuggestions: ["claude-sonnet-4-6", "claude-sonnet-5", "claude-opus-4-8", "gpt-5.6-sol", "gpt-6-astra", "grok-4.5"], imageModels: ["gpt-image-2"] },
   { id: "deepseek", name: "DeepSeek", hint: "platform.deepseek.com", defaultBaseUrl: "https://api.deepseek.com/v1", vendor: true, modelSuggestions: ["deepseek-chat", "deepseek-reasoner"] },
   // 默认端点**不带 /v1**：Anthropic 客户端（SDK / claude CLI）自己会接 /v1/messages，
   // base 里再写一遍就成了 /v1/v1/messages。这里是用户配中转时照抄的形状样板，写错等于
@@ -1305,13 +1306,13 @@ export const CLI_RELAY_PRESETS: CliRelayPreset[] = [
       "codex-cli": "https://www.packyapi.ai/v1",
     },
   },
-  // Fluxion AI：官方文档区分 key 分组协议。Claude Code 用 Anthropic 根地址，
+  // Sidrune AI：官方文档区分 key 分组协议。Claude Code 用 Anthropic 根地址，
   // Codex 用 OpenAI Responses 的 /v1 根地址。Gemini 只在特定蓝色分组下走
   // /v1beta，不能用同一预设欺骗所有 key，因此不列。
   {
-    name: "Fluxion AI",
+    name: "Sidrune AI",
     sponsor: true,
-    signupUrl: "https://fluxionai.space/register?source=github&campaign=agencyagents&promo=agencyagents",
+    signupUrl: "https://sidrune.ai/register?source=github&campaign=agencyagents&promo=agencyagents&aff=RQHWKAMQLX2S",
     anthropicApiBaseUrl: "https://fluxionai.space",
     baseUrls: {
       "claude-code": "https://fluxionai.space",

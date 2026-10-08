@@ -3,9 +3,9 @@ import type { Language } from "@/i18n/translations";
 /**
  * 赞助商数据。
  *
- * 当前赞助商：APINEBULA（旗舰，银河录像局旗下 AI 聚合平台）、优云智算（UCloud 旗下 AI 云平台）、Cubence（API 中转服务商）、火山引擎（字节跳动云服务，中英文分别对应 volcengine.com / byteplus.com 两个不同站点）、LanoX AI（全球模型聚合，500+ 模型）、胜算云（面向 AI 原生团队的模型 API 聚合 + 企业级网关）、APIMart（AI 图片/视频生成低价 API）、秘塔科技（MiniMax H3 视频生成 API）、PackyCode（API 中转，统一域名统一密钥）、Fluxion AI（全球主流 AI 模型统一 API）。
+ * 当前赞助商：APINEBULA（旗舰，银河录像局旗下 AI 聚合平台）、优云智算（UCloud 旗下 AI 云平台）、Cubence（API 中转服务商）、火山引擎（字节跳动云服务，中英文分别对应 volcengine.com / byteplus.com 两个不同站点）、LanoX AI（全球模型聚合，500+ 模型）、胜算云（面向 AI 原生团队的模型 API 聚合 + 企业级网关）、APIMart（AI 图片/视频生成低价 API）、PackyCode（API 中转，统一域名统一密钥）、Sidrune AI（全球主流 AI 模型统一 API）。
  * 均为真实付费赞助，非占位样例。新增赞助商时按 Sponsor 结构追加即可。
- * 已下架：RootFlowAI、CCSub（2026-08）、多元探索（2026-08-17，赞助到期）、AICodeMirror（2026-09-14）——赞助身份与
+ * 已下架：秘塔科技（2026-10-08）、RootFlowAI、CCSub（2026-08）、多元探索（2026-08-17，赞助到期）、AICodeMirror（2026-09-14）——赞助身份与
  * 曝光位一并摘除，但它们在 Studio 里仍是可用供应商（已配过 key 的用户不该被搞坏）。
  */
 
@@ -217,29 +217,6 @@ export const sponsors: Sponsor[] = [
     },
   },
   {
-    id: "metaso",
-    name: "秘塔科技",
-    badge: "Ai",
-    accent: "from-blue-700 to-blue-500",
-    logo: "/sponsors/logo-metaso-icon.png",
-    url: "https://metaso.cn/minimax-h3/?s=gt533367",
-    tier: "standard",
-    since: "2026-08",
-    featured: false,
-    tagline: {
-      zh: "MiniMax H3 视频生成 API · 768P 0.09 元/秒，2K 0.15 元/秒",
-      en: "MiniMax H3 video generation API · 768P ¥0.09/s, 2K ¥0.15/s",
-    },
-    description: {
-      zh: "感谢秘塔科技赞助了本项目！秘塔科技提供高性价比的 MiniMax H3 API 服务，适合漫剧、营销视频及批量视频生成：768P 0.09 元/秒、2K 0.15 元/秒，原生 2K 画质、支持音画同步。API 兼容 OpenAI 协议，支持 ComfyUI，无需自行部署模型和 GPU，开箱即用。",
-      en: "Thanks to MetaSota for sponsoring this project! MetaSota offers cost-effective MiniMax H3 API service for animated series, marketing videos and batch video generation: ¥0.09/s at 768P and ¥0.15/s at 2K, with native 2K quality and synchronized audio. The API is OpenAI-protocol compatible and works with ComfyUI — no model deployment or GPU of your own required, ready to use out of the box.",
-    },
-    perk: {
-      zh: "通过专属链接注册，即可享受赠送额度及专属优惠",
-      en: "Sign up via our link to get bonus credit and an exclusive discount",
-    },
-  },
-  {
     id: "packycode",
     name: "PackyCode",
     badge: "P",
@@ -264,12 +241,12 @@ export const sponsors: Sponsor[] = [
   },
   {
     id: "fluxionai",
-    name: "Fluxion AI",
-    badge: "F",
+    name: "Sidrune AI",
+    badge: "S",
     accent: "from-blue-600 to-violet-600",
-    logo: "/sponsors/logo-fluxionai-icon.png",
+    logo: "/sponsors/logo-sidrune-ai.png",
     logoShape: "wide",
-    url: "https://fluxionai.space/register?source=github&campaign=agencyagents&promo=agencyagents",
+    url: "https://sidrune.ai/register?source=github&campaign=agencyagents&promo=agencyagents&aff=RQHWKAMQLX2S",
     tier: "standard",
     since: "2026-09",
     featured: false,
@@ -278,12 +255,12 @@ export const sponsors: Sponsor[] = [
       en: "One gateway to access and manage the world’s leading AI models",
     },
     description: {
-      zh: "感谢 Fluxion AI 赞助本项目！Fluxion AI 面向个人开发者、技术团队与企业，通过统一 API 接入并管理全球主流 AI 模型；通过多线路动态调度提升可用性，模型表现、响应时间与费用透明可查。根据不同模型与线路，API 调用成本较官方或基准价格可降低 40%—98%。",
-      en: "Thanks to Fluxion AI for sponsoring this project! Fluxion AI gives individual developers, engineering teams and enterprises one unified API for accessing and managing leading AI models worldwide. Dynamic routing across multiple channels improves availability, while model performance, latency and costs remain transparent. Depending on the model and route, API costs can be 40%–98% lower than official or benchmark pricing.",
+      zh: "感谢 Sidrune AI 赞助本项目！Sidrune AI 面向个人开发者、技术团队与企业，通过统一 API 接入并管理全球主流 AI 模型；通过多线路动态调度提升可用性，模型表现、响应时间与费用透明可查。根据不同模型与线路，API 调用成本较官方或基准价格可降低 40%—98%。",
+      en: "Thanks to Sidrune AI for sponsoring this project! Sidrune AI gives individual developers, engineering teams and enterprises one unified API for accessing and managing leading AI models worldwide. Dynamic routing across multiple channels improves availability, while model performance, latency and costs remain transparent. Depending on the model and route, API costs can be 40%–98% lower than official or benchmark pricing.",
     },
     perk: {
-      zh: "通过专属链接注册，即可获得 $3.88 API 额度",
-      en: "Sign up via our exclusive link to receive $3.88 in API credit",
+      zh: "通过专属链接注册，即可获得 $3 API 额度",
+      en: "Sign up via our exclusive link to receive $3 in API credit",
     },
   },
 ];

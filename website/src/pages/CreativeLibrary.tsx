@@ -96,7 +96,7 @@ function AutoVideo({ src, local, expanded, onExpand }: { src: string; local: boo
 //     对价是创意库 21 条题材示例成片的金色角标 + 返利链接（本表），以及用其积分产出的
 //     视频课程 / 教程文章带同样的标注。续约就改到期日，不续就把 promoted 删掉。
 const PREVIEW_VENDORS: Record<string, { name: string; nameEn: string; url: string; logo?: string; promoted?: boolean; until?: string }> = {
-  metaso: { name: "秘塔科技", nameEn: "MetaSota", url: "https://metaso.cn/minimax-h3/?s=gt533367", logo: "/sponsors/logo-metaso-icon.png", promoted: true, until: "2026-11-28" },
+  metaso: { name: "秘塔科技", nameEn: "MetaSota", url: "https://metaso.cn/minimax-h3/?s=gt533367", logo: "/sponsors/logo-metaso-icon.png", promoted: false, until: "2026-10-08" },
   volcengine: { name: "火山引擎", nameEn: "Volcengine", url: "https://www.volcengine.com/activity/ai618?utm_campaign=hw&utm_content=hw&utm_medium=devrel_tool_web&utm_source=OWO&utm_term=agency-agents-zh" },
   apimart: { name: "APIMart", nameEn: "APIMart", url: "https://apimart.ai" },
   agnes: { name: "Agnes AI", nameEn: "Agnes AI", url: "https://agnes-ai.com" },
@@ -476,10 +476,9 @@ export default function CreativeLibrary() {
   const [batchDialogRunId, setBatchDialogRunId] = useState<string | undefined>();
   const [batchHistoryOpen, setBatchHistoryOpen] = useState(false);
   const [batchMax, setBatchMax] = useState(24);
-  // 公网站必须构建时显式打开；localhost 保留开发入口。这样功能开关关闭时不会在官网露出死按钮，
-  // 又不需要为每个只来复制提示词的访客额外请求一次 /api capability。
-  const batchUiEnabled = import.meta.env.VITE_SSY_BATCH_ENABLED === "1"
-    || (typeof window !== "undefined" && ["localhost", "127.0.0.1"].includes(window.location.hostname));
+  // 官网也展示功能入口；没有引擎时由弹窗引导下载桌面版。
+  // 仅用户打开批量功能或历史时探测后端，普通浏览不增加请求。
+  const batchUiEnabled = import.meta.env.VITE_SSY_BATCH_ENABLED !== "0";
   const [lastBatchRunId, setLastBatchRunId] = useState(() => {
     try { return localStorage.getItem("ao.creative.batch.lastRun") || ""; } catch { return ""; }
   });

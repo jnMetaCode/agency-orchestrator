@@ -168,7 +168,13 @@ export function BatchConfigDialog({ items, initialRunId, onClose, onSubmitted }:
         ) : !capability.available ? (
           <div className="mt-8 rounded-xl border border-amber-500/30 bg-amber-500/10 p-4 text-sm">
             <p className="flex items-start gap-2 text-amber-700 dark:text-amber-300"><AlertCircle className="mt-0.5 size-4 shrink-0" />{capability.message || (en ? "Batch generation is not available." : "批量出图暂不可用。")}</p>
-            <a href="/studio?tab=providers" className="mt-3 inline-flex text-primary hover:underline">{en ? "Open provider settings" : "打开供应商配置"}</a>
+            {capability.reasonCode === "no_engine" ? (
+              <>
+                <p className="mt-3 leading-relaxed">{en ? "Select multiple prompts, generate images in a batch, and reopen saved tasks to view progress and results. Use the desktop app or local Studio to run this feature; the public website introduces it." : "勾选多条提示词即可批量出图，生成记录支持查看进度和结果。请在桌面 App 或本地工作台使用，官网提供功能介绍。"}</p>
+                <a href="https://github.com/jnMetaCode/agency-orchestrator/releases/latest" target="_blank" rel="noreferrer" className="mt-3 inline-flex items-center gap-1 text-primary hover:underline"><Download className="size-4" />{en ? "Download desktop app" : "下载桌面版"}</a>
+                <p className="mt-2 text-xs text-muted-foreground">{en ? "CLI users: run ao web, then open the Creative Library on your local site." : "命令行用户可运行 ao web，再打开本地站点的创意库。"}</p>
+              </>
+            ) : <a href="/studio?tab=providers" className="mt-3 inline-flex text-primary hover:underline">{en ? "Open provider settings" : "打开供应商配置"}</a>}
           </div>
         ) : run ? (
           <div className="mt-6 space-y-4">

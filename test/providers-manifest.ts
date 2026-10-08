@@ -156,15 +156,15 @@ test('PackyCode 的中转预设已上架，且端点与内置预设一致（2026
   assert(pc!.signupUrl === 'https://www.packyapi.ai/register?aff=js5W', `返利链接不对: ${pc!.signupUrl}`);
 });
 
-test('Fluxion AI 的 API 与 CLI 中转预设已完整上架（2026-10-03 补齐）', () => {
+test('Sidrune AI 的 API 与 CLI 中转预设已完整上架（2026-10-03 补齐）', () => {
   const api = API_PROVIDERS.find((p) => p.id === 'fluxionai');
-  assert(!!api, 'Fluxion AI 必须是可运行的内置 API provider，不能只有赞助卡片');
+  assert(!!api, 'Sidrune AI 必须是可运行的内置 API provider，不能只有赞助卡片');
   assert(api!.defaultBaseUrl === 'https://fluxionai.space/v1', `OpenAI 兼容地址不对: ${api!.defaultBaseUrl}`);
-  assert(api!.envKey === 'FLUXION_API_KEY' && api!.envBase === 'FLUXION_BASE_URL', 'Fluxion AI 环境变量映射不完整');
-  assert(!api!.defaultModel, 'Fluxion AI 模型受 key 分组限制，不应猜一个全局默认模型');
+  assert(api!.envKey === 'FLUXION_API_KEY' && api!.envBase === 'FLUXION_BASE_URL', 'Sidrune AI 环境变量映射不完整');
+  assert(!api!.defaultModel, 'Sidrune AI 模型受 key 分组限制，不应猜一个全局默认模型');
 
-  const relay = (m.relayPresets ?? []).find((r) => /fluxion/i.test(r.name));
-  assert(!!relay, '清单里应有 Fluxion AI CLI 中转预设');
+  const relay = (m.relayPresets ?? []).find((r) => /sidrune/i.test(r.name));
+  assert(!!relay, '清单里应有 Sidrune AI CLI 中转预设');
   assert(relay!.baseUrls['claude-code'] === 'https://fluxionai.space', `Claude Code 根地址不对: ${relay!.baseUrls['claude-code']}`);
   assert(relay!.baseUrls['codex-cli'] === 'https://fluxionai.space/v1', `Codex 根地址不对: ${relay!.baseUrls['codex-cli']}`);
   assert(!relay!.baseUrls['gemini-cli'], 'Gemini 依赖特定 key 分组，不应冒充通用预设');
