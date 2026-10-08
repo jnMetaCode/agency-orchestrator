@@ -1,7 +1,7 @@
 {
   "name": "agency-orchestrator-desktop",
   "private": true,
-  "version": "0.4.11",
+  "version": "0.4.12",
   "description": "Agency Orchestrator — desktop app (Electron)",
   "main": "main.cjs",
   "scripts": {
@@ -44,6 +44,10 @@
         "to": "app/workflows"
       },
       {
+        "from": "../agency-agents",
+        "to": "app/agency-agents"
+      },
+      {
         "from": "../package.json",
         "to": "app/package.json"
       },
@@ -60,7 +64,12 @@
           "!esbuild/**",
           "!@esbuild/**",
           "!.bin/tsx",
-          "!.bin/esbuild"
+          "!.bin/esbuild",
+          "!agency-agents-ar/**",
+          "!agency-agents-id/**",
+          "!agency-agents-ko/**",
+          "!agency-agents-pt-br/**",
+          "!agency-agents-ru/**"
         ]
       }
     ],

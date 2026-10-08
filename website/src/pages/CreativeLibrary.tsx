@@ -14,7 +14,7 @@ import { useSeo } from "@/lib/useSeo";
 import { track } from "@/lib/track";
 import { cn } from "@/lib/utils";
 import dataset from "@/content/creative-prompts.json";
-import { API_PROVIDER_MAP, api } from "@/lib/studio";
+import { API_PROVIDER_MAP, api, getMediaDefaults, setMediaDefaults } from "@/lib/studio";
 
 interface CreativePrompt {
   id: string;
@@ -137,10 +137,17 @@ function PreviewCredit({ by, en }: { by: NonNullable<VideoTemplate["previewBy"]>
 }
 
 function readGenPref(): GenPref {
-  try { return JSON.parse(localStorage.getItem(GEN_PREF_KEY) || "{}") as GenPref; } catch { return {}; }
+  let legacy: GenPref = {};
+  try { legacy = JSON.parse(localStorage.getItem(GEN_PREF_KEY) || "{}") as GenPref; } catch { /* noop */ }
+  const shared = getMediaDefaults().image;
+  return { ...legacy, ...(shared.provider ? { provider: shared.provider, model: shared.model } : {}) };
 }
 function writeGenPref(patch: GenPref): void {
   try { localStorage.setItem(GEN_PREF_KEY, JSON.stringify({ ...readGenPref(), ...patch })); } catch { /* noop */ }
+  if (patch.provider !== undefined || patch.model !== undefined) {
+    const shared = getMediaDefaults();
+    try { setMediaDefaults({ ...shared, image: { ...shared.image, ...(patch.provider !== undefined ? { provider: patch.provider } : {}), ...(patch.model !== undefined ? { model: patch.model } : {}) } }); } catch { /* noop */ }
+  }
 }
 // 尺寸原样透传给各家 API；"默认"= 不发这个字段（各家默认档不同，不替用户选）
 const SIZES = ["", "1024x1024", "1536x1024", "1024x1536"];
@@ -265,6 +272,15 @@ function PromptCard({ p, gen, onOpenGen, batchMode, selected, onToggleSelected }
   const [genProvider, setGenProvider] = useState(() => readGenPref().provider ?? "");
   const [genModel, setGenModel] = useState(() => readGenPref().model ?? "");
   const [genSize, setGenSize] = useState(() => readGenPref().size ?? "");
+  useEffect(() => {
+    const sync = () => {
+      const pref = readGenPref();
+      setGenProvider(pref.provider ?? "");
+      setGenModel(pref.model ?? "");
+    };
+    window.addEventListener("ao-media-defaults", sync);
+    return () => window.removeEventListener("ao-media-defaults", sync);
+  }, []);
   const [busy, setBusy] = useState(false);
   const [genImg, setGenImg] = useState<string | null>(null);
   // 真实出图尺寸（从 PNG 头量的）——不少服务商把 size 当建议，照实显示，

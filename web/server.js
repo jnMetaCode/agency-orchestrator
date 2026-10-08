@@ -43,6 +43,7 @@ import { checkRequestSource, parseAllowedHosts, timingSafeEqual, tokenFromReques
 import { installEnvProxy, reinstallEnvProxy, envProxyStatus, maskProxyUrl } from '../dist/utils/env-proxy.js';
 import { normalizeProxyInput, readProxySetting, writeProxySetting, snapshotProxyEnv, applyProxySetting } from '../dist/utils/proxy-setting.js';
 import { registerShengsuanyunBatchRoutes } from './shengsuanyun-batch.js';
+import { OPTIONAL_ROLE_LIBRARIES, findOptionalRoleLibrary, installOptionalRoleLibrary } from './role-libraries.js';
 
 // Codex 没有环境变量覆盖机制，中转配置写在 ~/.codex/config.toml + auth.json 里，
 // 用固定的内部 provider id（不管用户填的是哪家中转商），避免还要在 UI 里加个
@@ -86,18 +87,8 @@ const USER_ROLES_DIR = process.env.AO_USER_ROLES_DIR
   : join(homedir(), '.ao', 'roles');
 // 官方多语言角色库（npm 包）。装了才出现在 Studio「角色库」下拉里；zh/en 内置必有。
 // 只认 node_modules（生产与开发一致），不做同级仓兜底——避免本地副本掩盖已发布包的问题。
-const LANG_LIBS = [
-  { id: 'pt-br', pkg: 'agency-agents-pt-br', label: 'Português (BR)' },
-  { id: 'ko', pkg: 'agency-agents-ko', label: '한국어' },
-  { id: 'ar', pkg: 'agency-agents-ar', label: 'العربية' },
-  { id: 'id', pkg: 'agency-agents-id', label: 'Bahasa Indonesia' },
-  { id: 'ru', pkg: 'agency-agents-ru', label: 'Русский' },
-];
 function langLibDir(id) {
-  const lib = LANG_LIBS.find(l => l.id === id);
-  if (!lib) return '';
-  const dir = join(ROOT, 'node_modules', lib.pkg);
-  return existsSync(dir) ? dir : '';
+  return findOptionalRoleLibrary(ROOT, DATA_DIR, id);
 }
 /** 归一化角色库语言：zh/en 或已安装的语言包 id；其余一律回落 zh。 */
 function normalizeRoleLang(lang) {
@@ -105,12 +96,12 @@ function normalizeRoleLang(lang) {
   if (typeof lang === 'string' && langLibDir(lang)) return lang;
   return 'zh';
 }
-/** Studio「角色库」下拉的可选项（zh/en + 已安装语言包）。 */
+/** Studio「角色库」下拉：中英文内置，其他官方语言包展示安装状态并可按需下载。 */
 function installedRoleLibs() {
   return [
-    { id: 'zh', label: '中文' },
-    { id: 'en', label: 'English' },
-    ...LANG_LIBS.filter(l => langLibDir(l.id)).map(l => ({ id: l.id, label: l.label })),
+    { id: 'zh', label: '中文', installed: existsSync(AGENTS_DIR), builtIn: true },
+    { id: 'en', label: 'English', installed: existsSync(AGENTS_DIR_EN), builtIn: true },
+    ...OPTIONAL_ROLE_LIBRARIES.map(l => ({ id: l.id, label: l.label, installed: !!langLibDir(l.id), builtIn: false })),
   ];
 }
 function agentsDirFor(lang) {
@@ -527,7 +518,7 @@ app.use((err, req, res, next) => {
     error: tooLarge ? '请求体过大（上限 5MB）' : `请求体不是合法 JSON：${String(err.message || err).slice(0, 200)}`,
   });
 });
-// 胜算云 LoomLoom 批量出图：默认关闭，只有专属模板 ID + 字段完成双方验收后才显式开启。
+// 胜算云 LoomLoom 批量出图：默认开启，模板 ID、字段和凭据需配置；可显式关闭。
 // 路由放在统一来源守卫 / AO_WEB_TOKEN / JSON 解析之后，复用现有安全边界。
 registerShengsuanyunBatchRoutes(app, {
   dataDir: DATA_DIR,
@@ -1222,6 +1213,30 @@ function loadRoles(lang) {
 }
 
 const rolesCache = {};
+const roleLibraryInstalls = new Map();
+
+app.post('/api/roles/libraries/:id/install', async (req, res) => {
+  const id = String(req.params.id || '');
+  if (!OPTIONAL_ROLE_LIBRARIES.some((lib) => lib.id === id)) {
+    return res.status(400).json({ error: '不支持的角色库' });
+  }
+  try {
+    let job = roleLibraryInstalls.get(id);
+    if (!job) {
+      job = installOptionalRoleLibrary(id, { dataDir: DATA_DIR })
+        .finally(() => roleLibraryInstalls.delete(id));
+      roleLibraryInstalls.set(id, job);
+    }
+    const result = await job;
+    delete rolesCache[id];
+    res.json({ ok: true, library: result, roleLibs: installedRoleLibs() });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    const proxyNote = /fetch failed|timeout|超时|ENOTFOUND|ECONNREFUSED/i.test(message) ? envProxyHint() : '';
+    res.status(502).json({ error: proxyNote ? `${message}\n${proxyNote}` : message });
+  }
+});
+
 app.get('/api/roles', (req, res) => {
   const lang = normalizeRoleLang(req.query.lang);
   if (!rolesCache[lang]) rolesCache[lang] = loadRoles(lang);

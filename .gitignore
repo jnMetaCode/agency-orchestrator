@@ -1,6 +1,7 @@
 node_modules/
 dist/
 desktop/release/
+desktop/release-local/
 desktop/dist/
 ao-output/
 .ao-output/

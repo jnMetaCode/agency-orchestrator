@@ -55,7 +55,8 @@ export function RolesPicker({
   // 角色库语言：默认跟随站点语言(zh/en)，装了官方语言包(agency-agents-ko 等)后可切换。
   // 选择存 localStorage；下拉只在有额外语言包时出现。
   const defaultLib = lang === "en" ? "en" : "zh";
-  const [roleLibs, setRoleLibs] = useState<{ id: string; label: string }[]>([]);
+  const [roleLibs, setRoleLibs] = useState<{ id: string; label: string; installed: boolean; builtIn: boolean }[]>([]);
+  const [installingLib, setInstallingLib] = useState<string | null>(null);
   const [roleLib, setRoleLibState] = useState<string>(() =>
     (typeof window !== "undefined" && window.localStorage.getItem("ao-role-lib")) || "",
   );
@@ -66,8 +67,33 @@ export function RolesPicker({
   };
   useEffect(() => {
     if (demo) return;
-    api.config().then((c) => { setRoleLibs(c.roleLibs ?? []); setBudgetProviders(c.budgetProviders ?? null); }).catch(() => setRoleLibs([]));
+    api.config().then((c) => {
+      const libs = c.roleLibs ?? [];
+      setRoleLibs(libs);
+      setRoleLibState((current) => {
+        if (!current || libs.some((lib) => lib.id === current && lib.installed)) return current;
+        window.localStorage.removeItem("ao-role-lib");
+        return "";
+      });
+      setBudgetProviders(c.budgetProviders ?? null);
+    }).catch(() => setRoleLibs([]));
   }, [demo]);
+
+  const selectRoleLib = async (id: string) => {
+    const target = roleLibs.find((lib) => lib.id === id);
+    if (!target || target.installed) { setRoleLib(id); return; }
+    setInstallingLib(id);
+    setErr(null);
+    try {
+      const result = await api.installRoleLibrary(id);
+      setRoleLibs(result.roleLibs);
+      setRoleLib(id);
+    } catch (error) {
+      setErr(`${t.studio.roles.libInstallFailed}${error instanceof Error ? error.message : String(error)}`);
+    } finally {
+      setInstallingLib(null);
+    }
+  };
 
   // 用户自选「常用」角色：点星收藏（localStorage，与工作流的 ☆ 同一交互）
   const [favs, setFavs] = useState<Set<string>>(() => getFavRoles());
@@ -526,15 +552,17 @@ export function RolesPicker({
         {roleLibs.length > 2 && (
           <select
             value={effLib}
-            onChange={(e) => setRoleLib(e.target.value)}
+            onChange={(e) => void selectRoleLib(e.target.value)}
             title={t.studio.roles.libLabel}
+            disabled={!!installingLib}
             className="h-10 rounded-xl border border-border/70 bg-card/60 px-2.5 text-sm outline-none focus:border-primary/50"
           >
             {roleLibs.map((l) => (
-              <option key={l.id} value={l.id}>{l.label}</option>
+              <option key={l.id} value={l.id}>{l.label}{l.installed ? "" : ` · ${t.studio.roles.libDownload}`}</option>
             ))}
           </select>
         )}
+        {installingLib && <span className="inline-flex items-center gap-1.5 text-xs text-primary"><Loader2 className="size-3.5 animate-spin" />{t.studio.roles.libInstalling}</span>}
         <span className="text-sm text-muted-foreground">{filtered.length} {t.studio.roles.rolesCountSuffix}</span>
       </div>
 

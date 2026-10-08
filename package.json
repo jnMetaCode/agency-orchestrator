@@ -109,6 +109,7 @@
     "pptxgenjs": "^4.0.1",
     "smol-toml": "^1.7.0",
     "superpowers-zh": "^1.5.0",
+    "tar": "^7.5.22",
     "undici": "^6.29.0",
     "xlsx": "^0.18.5"
   },

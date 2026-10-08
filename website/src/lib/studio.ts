@@ -445,8 +445,8 @@ export interface ConfigResponse {
   relayPresets?: CliRelayPreset[];
   removedProviders?: string[];
   defaultProvider: string;
-  /** 角色库下拉可选项:zh/en + 已安装的官方语言包(agency-agents-ko 等) */
-  roleLibs?: { id: string; label: string }[];
+  /** 角色库下拉：zh/en 内置；其他官方语言包带安装状态，可在桌面/Studio 按需下载。 */
+  roleLibs?: { id: string; label: string; installed: boolean; builtIn: boolean }[];
 }
 
 /**
@@ -838,6 +838,10 @@ export const api = {
   updateCustomProvider: (id: string, body: { name?: string; note?: string; homepageUrl?: string }) =>
     putJSON<{ ok: boolean }>(`/custom-providers/${encodeURIComponent(id)}`, body),
   roles: (lang?: string) => getJSON<Role[]>(`/roles${lang && lang !== "zh" ? `?lang=${encodeURIComponent(lang)}` : ""}`),
+  installRoleLibrary: (id: string) =>
+    postJSON<{ ok: boolean; library: { id: string; version?: string; roles?: number }; roleLibs: NonNullable<ConfigResponse["roleLibs"]> }>(
+      `/roles/libraries/${encodeURIComponent(id)}/install`, {},
+    ),
   // 我的角色（用户自建，~/.ao/roles）：创建后即出现在角色组队「我的」分类里，可组队/单聊/存团队
   createMyRole: (body: { name: string; description?: string; systemPrompt: string; color?: string; emoji?: string }) =>
     postJSON<{ id: string; role: string; name: string }>("/roles/my", body),
