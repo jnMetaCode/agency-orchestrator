@@ -22,6 +22,7 @@ export function SiteNavbar() {
     { to: prefix("/studio"), label: t.nav.studio },
     { to: prefix("/experts"), label: t.nav.experts },
     { to: prefix("/creative"), label: t.nav.creative },
+    { to: prefix("/business"), label: lang === "en" ? "AI Business" : "AI 商业库" },
     { to: prefix("/prompt"), label: t.nav.prompt },
     { to: "https://aiolaola.com/", label: t.nav.learn, external: true },
     { id: "help", label: t.nav.help, children: [

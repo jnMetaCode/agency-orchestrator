@@ -320,7 +320,7 @@ npm install && npm run eval</code></pre>
 }
 
 // ── sitemap：核心路由 + 全部生成页 ──
-const core = ["", "experts", "creative", "prompt", "studio", "docs", "tutorials", "sponsors", "changelog"]
+const core = ["", "experts", "creative", "business", "business/companies", "business/investors", "business/contacts", "business/arr", "prompt", "studio", "docs", "tutorials", "sponsors", "changelog"]
   .map((p) => `${ORIGIN}/${p}${p ? "" : ""}`);
 const xml = `<?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">

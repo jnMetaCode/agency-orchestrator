@@ -5,6 +5,7 @@ import { BackToTop } from "@/components/layout/BackToTop";
 import { LanguageProvider, useLanguage } from "@/i18n/LanguageProvider";
 
 const Home = lazy(() => import("@/pages/Home"));
+const BusinessLibrary = lazy(() => import("@/pages/BusinessLibrary"));
 const Sponsors = lazy(() => import("@/pages/Sponsors"));
 const Studio = lazy(() => import("@/pages/Studio"));
 const Experts = lazy(() => import("@/pages/Experts"));
@@ -90,6 +91,7 @@ export default function App() {
           {["/changelog", "/zh/changelog", "/en/changelog"].map((p) => (
             <Route key={p} path={p} element={<Changelog />} />
           ))}
+          {["/business", "/zh/business", "/en/business", "/business/:dataset", "/zh/business/:dataset", "/en/business/:dataset"].map(p => <Route key={p} path={p} element={<BusinessLibrary />} />)}
           <Route path="*" element={<NotFound />} />
         </Routes>
       </Suspense>
