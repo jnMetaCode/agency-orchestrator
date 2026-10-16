@@ -1067,16 +1067,16 @@ export const API_PROVIDERS: ApiProviderMeta[] = [
   // 赞助商 Cubence —— API 中转：一个 key 通用多家模型（此为直连 API 用法；
   // 给本地 CLI 配中转的另一用法见 CLI_RELAY_PRESETS，两者共用同一账号）
   { id: "cubence", name: "Cubence", hint: "api.cubence.com", defaultBaseUrl: "https://api.cubence.com/v1", signupUrl: "https://cubence.com/signup?code=SCW29JP9&source=agency", sponsor: true, modelSuggestions: COMMON_RELAY_MODELS },
-  // 火山引擎（赞助商）—— 字节跳动火山方舟：豆包/Kimi/GLM 等，注册领 2500 万 Tokens；
+  // 火山引擎（2026-10-16 下架赞助）—— 字节跳动火山方舟：豆包/Kimi/GLM 等，注册领 2500 万 Tokens；
   // 直连走 OpenAI 兼容 /api/v3（配 key 后可点「获取模型列表」拉全量），Claude Code 中转见 CLI_RELAY_PRESETS
   // Agent Plan 套餐（2026-08-26 真机）：专属 key + 专属 base **/api/plan/v3**（别用 /api/v3，会按量扣费）；Medium 含图片
 // doubao-seedream-5.0-lite（size 用 2k），**视频要 Large 及以上**（Medium 调 seedance 回 UnsupportedModel）。按量 key 走 /api/v3。
-{ id: "volcengine", name: "火山引擎", hint: "ark.cn-beijing.volces.com · 按量付费 key", defaultBaseUrl: "https://ark.cn-beijing.volces.com/api/v3", signupUrl: "https://www.volcengine.com/activity/ai618?utm_campaign=hw&utm_content=hw&utm_medium=devrel_tool_web&utm_source=OWO&utm_term=agency-agents-zh", sponsor: true, modelSuggestions: ["doubao-seed-2-1-pro-260628"], imageModels: ["doubao-seedream-5-0-260128", "doubao-seedream-5-0-pro-260628"] },
+{ id: "volcengine", name: "火山引擎", hint: "ark.cn-beijing.volces.com · 按量付费 key", defaultBaseUrl: "https://ark.cn-beijing.volces.com/api/v3", signupUrl: "https://www.volcengine.com/activity/ai618?utm_campaign=hw&utm_content=hw&utm_medium=devrel_tool_web&utm_source=OWO&utm_term=agency-agents-zh", sponsor: false, delisted: true, modelSuggestions: ["doubao-seed-2-1-pro-260628"], imageModels: ["doubao-seedream-5-0-260128", "doubao-seedream-5-0-pro-260628"] },
   // Agent Plan 套餐（专属 key + 专属 base /api/plan/v3）：Medium 含文本与图片（seedream-5.0-lite 真机通，size 用 2k），视频要 Large 起。
   // 不标 sponsor：它是火山引擎（赞助商）的套餐通道，同一家不能在赞助商列表里出现两次（用户 2026-08-27 指出）
-  { id: "volcengine-plan", name: "火山引擎 · Agent Plan 套餐", shortName: "方舟套餐", hint: "火山引擎的套餐通道 · base …/api/plan/v3 · 套餐专属 key · 图片 seedream-5.0-lite（size 2k）", defaultBaseUrl: "https://ark.cn-beijing.volces.com/api/plan/v3", signupUrl: "https://www.volcengine.com/activity/ai618?utm_campaign=hw&utm_content=hw&utm_medium=devrel_tool_web&utm_source=OWO&utm_term=agency-agents-zh", modelSuggestions: ["ark-code-latest", "doubao-seed-2.1-turbo", "doubao-seed-2.0-lite", "deepseek-v4-flash", "deepseek-v4-pro", "glm-5.3", "kimi-k2.7-code", "minimax-m3"], imageModels: ["doubao-seedream-5.0-lite"] },
-  // 普通赞助商 CompShare（优云智算）—— 排在赞助商组最后一位
-  { id: "compshare", name: "CompShare", hint: "console.compshare.cn", defaultBaseUrl: "https://api.modelverse.cn/v1", signupUrl: "https://passport.compshare.cn/register?referral_code=ETD3L5JBM13CtKARkMORot&ytag=GPU_YY_YX_git_agency-agents", sponsor: true, modelSuggestions: ["deepseek-ai/DeepSeek-V3.2", "deepseek-ai/DeepSeek-R1", "Qwen/Qwen3-Coder-480B-A35B-Instruct", "MiniMaxAI/MiniMax-M2.7"] },
+  { id: "volcengine-plan", name: "火山引擎 · Agent Plan 套餐", shortName: "方舟套餐", hint: "火山引擎的套餐通道 · base …/api/plan/v3 · 套餐专属 key · 图片 seedream-5.0-lite（size 2k）", defaultBaseUrl: "https://ark.cn-beijing.volces.com/api/plan/v3", signupUrl: "https://www.volcengine.com/activity/ai618?utm_campaign=hw&utm_content=hw&utm_medium=devrel_tool_web&utm_source=OWO&utm_term=agency-agents-zh", delisted: true, modelSuggestions: ["ark-code-latest", "doubao-seed-2.1-turbo", "doubao-seed-2.0-lite", "deepseek-v4-flash", "deepseek-v4-pro", "glm-5.3", "kimi-k2.7-code", "minimax-m3"], imageModels: ["doubao-seedream-5.0-lite"] },
+  // CompShare（优云智算，2026-10-16 下架赞助）：保留已配置用户的接入
+  { id: "compshare", name: "CompShare", hint: "console.compshare.cn", defaultBaseUrl: "https://api.modelverse.cn/v1", signupUrl: "https://passport.compshare.cn/register?referral_code=ETD3L5JBM13CtKARkMORot&ytag=GPU_YY_YX_git_agency-agents", sponsor: false, delisted: true, modelSuggestions: ["deepseek-ai/DeepSeek-V3.2", "deepseek-ai/DeepSeek-R1", "Qwen/Qwen3-Coder-480B-A35B-Instruct", "MiniMaxAI/MiniMax-M2.7"] },
   // 赞助商 LanoX AI（2026-08 新增，按约定排赞助商组最后一位）—— 全球模型聚合，500+ 模型；
   // 直连走 OpenAI 兼容 api.lanox.ai/v1（引擎侧在 API_PROVIDERS 注册，无默认模型：见那边的说明）。
   // 同一端点也兼容 Anthropic Messages，给编码 CLI 配中转见下方 CLI_RELAY_PRESETS。
@@ -1231,21 +1231,6 @@ export const CLI_RELAY_PRESETS: CliRelayPreset[] = [
       "gemini-cli": "https://api.cubence.com",
       "codex-cli": "https://api.cubence.com/v1",
     },
-  },
-  // 火山引擎（赞助商）—— 火山方舟给 Claude Code 配中转走 Anthropic 兼容端点 /api/compatible，
-  // Codex 走主数据面 /api/v3（原生 Responses API）；豆包模型名 ≠ claude 官方名，三档统一映射
-  // doubao-seed-2-1-pro（端点与模型对齐 cc-switch 的「豆包 Seed」预设）。gemini-cli 无对应端点，不列。
-  {
-    name: "火山引擎",
-    sponsor: true,
-    signupUrl: "https://www.volcengine.com/activity/ai618?utm_campaign=hw&utm_content=hw&utm_medium=devrel_tool_web&utm_source=OWO&utm_term=agency-agents-zh",
-    baseUrls: {
-      "claude-code": "https://ark.cn-beijing.volces.com/api/compatible",
-      "codex-cli": "https://ark.cn-beijing.volces.com/api/v3",
-    },
-    sonnetModel: "doubao-seed-2-1-pro-260628",
-    opusModel: "doubao-seed-2-1-pro-260628",
-    haikuModel: "doubao-seed-2-1-pro-260628",
   },
   // LanoX AI（赞助商）—— 一个 key 通 GPT / Claude / Gemini / Qwen / Grok 等，官网明列
   // Claude Code、Codex CLI、Cursor、Cline 为支持的客户端。端点布局是常见那种：

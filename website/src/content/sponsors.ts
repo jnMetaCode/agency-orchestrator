@@ -3,9 +3,9 @@ import type { Language } from "@/i18n/translations";
 /**
  * 赞助商数据。
  *
- * 当前赞助商：APINEBULA（旗舰，银河录像局旗下 AI 聚合平台）、优云智算（UCloud 旗下 AI 云平台）、Cubence（API 中转服务商）、火山引擎（字节跳动云服务，中英文分别对应 volcengine.com / byteplus.com 两个不同站点）、LanoX AI（全球模型聚合，500+ 模型）、胜算云（面向 AI 原生团队的模型 API 聚合 + 企业级网关）、APIMart（AI 图片/视频生成低价 API）、PackyCode（API 中转，统一域名统一密钥）、Sidrune AI（全球主流 AI 模型统一 API）。
+ * 当前赞助商：星图 AstraFlow（UCloud 出品的大模型与视频统一调用平台）、APINEBULA（旗舰，银河录像局旗下 AI 聚合平台）、Cubence（API 中转服务商）、LanoX AI（全球模型聚合，500+ 模型）、胜算云（面向 AI 原生团队的模型 API 聚合 + 企业级网关）、APIMart（AI 图片/视频生成低价 API）、PackyCode（API 中转，统一域名统一密钥）、Sidrune AI（全球主流 AI 模型统一 API）。
  * 均为真实付费赞助，非占位样例。新增赞助商时按 Sponsor 结构追加即可。
- * 已下架：秘塔科技（2026-10-08）、RootFlowAI、CCSub（2026-08）、多元探索（2026-08-17，赞助到期）、AICodeMirror（2026-09-14）——赞助身份与
+ * 已下架：优云智算、火山引擎（2026-10-16）、秘塔科技（2026-10-08）、RootFlowAI、CCSub（2026-08）、多元探索（2026-08-17，赞助到期）、AICodeMirror（2026-09-14）——赞助身份与
  * 曝光位一并摘除，但它们在 Studio 里仍是可用供应商（已配过 key 的用户不该被搞坏）。
  */
 
@@ -94,58 +94,6 @@ export const sponsors: Sponsor[] = [
       en: "10% off your first purchase",
     },
     couponCode: "AGENCY",
-  },
-  {
-    id: "volcengine",
-    name: "火山引擎",
-    badge: "🌋",
-    accent: "from-blue-600 to-cyan-400",
-    logo: {
-      zh: "/sponsors/logo-volcengine-icon.png",
-      en: "/sponsors/logo-byteplus-icon.png",
-    },
-    url: {
-      zh: "https://www.volcengine.com/activity/ai618?utm_campaign=hw&utm_content=hw&utm_medium=devrel_tool_web&utm_source=OWO&utm_term=agency-agents-zh",
-      en: "https://www.byteplus.com/en/product/modelark?utm_campaign=hw&utm_content=jnMetaCode&utm_medium=devrel_tool_web&utm_source=OWO&utm_term=jnMetaCode",
-    },
-    tier: "standard",
-    since: "2026-07",
-    featured: false,
-    tagline: {
-      zh: "火山方舟 Agent/Coding Plan 国模套餐首购 9.9 · 注册免费领 2500 万 Token",
-      en: "Dola Seed 2.0 — ByteDance's full-modal general large model, on the ModelArk platform",
-    },
-    description: {
-      zh: "感谢字节火山引擎赞助本项目！火山方舟 Agent/Coding Plan 国模套餐首购 9.9，支持 GLM-5.3、Kimi-K3、DeepSeek、MiniMax、Doubao 等，注册免费领 2500w Token，统一 API，适配编码与智能体开发。",
-      en: "Thanks to Dola Seed for sponsoring this project! Dola Seed 2.0 is a full-modal general large model independently developed by ByteDance for the global market. Built on a unified multimodal architecture, it supports joint understanding and generation of text, images, audio and video. It natively enables agent collaboration, with strong reasoning, long-task execution, tool integration and coding capabilities — widely applicable to smart cockpits, personal assistants, education, customer support, marketing, retail and more. It excels in multimodal perception, end-to-end complex task delivery, stable interaction and data security, and is readily accessible and deployable via the ModelArk platform.",
-    },
-    perk: {
-      zh: "注册免费领 2500w Token，Agent/Coding Plan 国模套餐首购 9.9 元",
-      en: "Register via the link to get 500,000 tokens of free inference quota per model",
-    },
-  },
-  {
-    id: "youyun",
-    name: "优云智算",
-    badge: "☁️",
-    accent: "from-sky-500 to-indigo-500",
-    logo: "/sponsors/logo-compshare-icon.png",
-    url: "https://passport.compshare.cn/register?referral_code=ETD3L5JBM13CtKARkMORot&ytag=GPU_YY_YX_git_agency-agents",
-    tier: "standard",
-    since: "2026-06",
-    featured: false,
-    tagline: {
-      zh: "UCloud 旗下 AI 云平台 · 高性价比国产模型 Agent Plan",
-      en: "AI cloud platform by UCloud · cost-effective Agent Plans",
-    },
-    description: {
-      zh: "感谢优云智算赞助本项目！优云智算是 UCloud 旗下 AI 云平台，主打包月、按次的高性价比国模 Agent Plan 套餐，支持 GLM-5.2，低至 49 元/月起。最新上线 H3 视频生成套餐包，768P 低至 8 分/秒，支持 2K 画质，最长 30s 视频生成。支持企业高并发、7×24 技术支持、自助开票。🎁 通过此链接注册的用户，可得免费 5 元平台体验金！",
-      en: "Thanks to CompShare (优云智算) for sponsoring this project! CompShare is UCloud's AI cloud platform, offering cost-effective monthly / pay-per-call Agent Plans for Chinese models — now with GLM-5.2 — from ¥49/mo. New: an H3 video generation bundle from ¥0.08/s at 768P, with 2K quality and videos up to 30s. Enterprise-grade concurrency, 24/7 support and self-service invoicing. 🎁 Sign up through this link to get ¥5 in free platform credit!",
-    },
-    perk: {
-      zh: "新用户注册立得 5 元平台体验金",
-      en: "¥5 free platform credit for new sign-ups",
-    },
   },
   {
     id: "lanox",
@@ -261,6 +209,29 @@ export const sponsors: Sponsor[] = [
     perk: {
       zh: "通过专属链接注册，即可获得 $3 API 额度",
       en: "Sign up via our exclusive link to receive $3 in API credit",
+    },
+  },
+  {
+    id: "astraflow",
+    name: "星图 AstraFlow",
+    badge: "✦",
+    accent: "from-indigo-500 to-violet-500",
+    logo: "/sponsors/logo-astraflow.png",
+    url: "https://www.ucloud.cn/site/active/astraflow-credit?ytag=geo_waituo_agencyagentszh",
+    tier: "standard",
+    since: "2026-10",
+    featured: false,
+    tagline: {
+      zh: "UCloud 出品 · 视频与 200+ 大模型一站式调用",
+      en: "By UCloud · one platform for video generation and 200+ AI models",
+    },
+    description: {
+      zh: "感谢星图 AstraFlow 赞助本项目！星图由上市公司 UCloud 出品，聚合 MiniMax-H3、Seedance 2.5 等主流视频生成模型，以及 DeepSeek、Kimi、Qwen、GLM、GPT、Claude 等 200+ 大模型，文案与视频生成一个平台全搞定，无需多端注册、多处对接。新模型上线当天即可接入，支持按 Key 级别计费，调用明细全程可查。通过本项目专属推广链接注册，即可领取 50 元算力金，开箱即用！",
+      en: "Thanks to AstraFlow for sponsoring this project! Built by publicly listed UCloud, AstraFlow brings together video generation models such as MiniMax-H3 and Seedance 2.5, plus 200+ AI models including DeepSeek, Kimi, Qwen, GLM, GPT and Claude. Generate text and video on one platform without managing multiple registrations and integrations. Access new models on launch day, with per-key billing and transparent usage records. Register through our exclusive link to claim ¥50 in compute credit and get started!",
+    },
+    perk: {
+      zh: "专属链接注册，领取 50 元算力金",
+      en: "Register via our link to claim ¥50 in compute credit",
     },
   },
 ];

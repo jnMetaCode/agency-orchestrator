@@ -10,7 +10,7 @@
  * 这里测的是「文件本身是否符合那份约束」，以及下架/上架的意图有没有真的写进去。
  */
 import { readFileSync } from 'node:fs';
-import { API_PROVIDERS, ANTHROPIC_PROVIDERS } from '../src/connectors/api-providers.js';
+import { API_PROVIDERS, ANTHROPIC_PROVIDERS, VIDEO_PROVIDERS } from '../src/connectors/api-providers.js';
 import { SPONSOR_ROTATION } from '../src/utils/sponsor-guide.js';
 
 let passed = 0;
@@ -76,7 +76,7 @@ test('增量上架的 id 不能覆盖内置 provider（服务端会拒，这里�
 
 test('要下架的 id 必须真的是内置 provider（写错等于什么都没下架）', () => {
   // Anthropic 协议的内置 provider（如 aicodemirror）同样出现在 Studio 列表里，也能被下架
-  const builtin = new Set([...API_PROVIDERS, ...ANTHROPIC_PROVIDERS].map((p) => p.id));
+  const builtin = new Set([...API_PROVIDERS, ...ANTHROPIC_PROVIDERS, ...VIDEO_PROVIDERS].map((p) => p.id));
   for (const id of m.removedProviders ?? []) {
     assert(builtin.has(id), `removedProviders 里的 "${id}" 不是内置 provider id，下架不会生效`);
   }
@@ -116,7 +116,7 @@ test('RootFlowAI / CCSub 已下架（2026-08）', () => {
 });
 
 test('下架只隐藏列表，不动引擎——已下架的仍是可用 provider', () => {
-  const builtin = new Set([...API_PROVIDERS, ...ANTHROPIC_PROVIDERS].map((p) => p.id));
+  const builtin = new Set([...API_PROVIDERS, ...ANTHROPIC_PROVIDERS, ...VIDEO_PROVIDERS].map((p) => p.id));
   for (const id of ['rootflowai', 'ccsub', 'aicodemirror']) {
     assert(builtin.has(id), `${id} 不该从引擎里删掉：已配好 key 的用户还要能跑`);
   }
@@ -304,10 +304,10 @@ test('在架供应商不受影响', () => {
       `赞助商组内顺序被打乱了：声明 ${declared.join(',')} → 渲染 ${rendered.join(',')}`);
   });
 
-  test('胜算云在旗舰+赞助商队列中保持第 6 位', () => {
+  test('胜算云在下架调整后的旗舰+赞助商队列中保持第 4 位', () => {
     const promoted = FE_PROVIDERS.filter((x) => x.flagship || x.sponsor).map((x) => x.id);
-    assert(promoted.indexOf('shengsuanyun') === 5,
-      `胜算云应为第 6 位，实际：${promoted.join(',')}`);
+    assert(promoted.indexOf('shengsuanyun') === 3,
+      `胜算云应为第 4 位，实际：${promoted.join(',')}`);
   });
 }
 
