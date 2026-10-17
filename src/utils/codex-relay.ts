@@ -15,9 +15,10 @@ import { existsSync, readFileSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
 import { isDeepStrictEqual } from 'node:util';
-import { parse, stringify } from 'smol-toml';
+import { parse } from 'smol-toml';
 import { withConfigTransaction } from './config-transaction.js';
 import { describeParseError } from './config-safety.js';
+import { rewriteToml } from './toml-edit.js';
 
 const CODEX_DIR = process.env.AO_CODEX_DIR || join(homedir(), '.codex');
 const CONFIG_TOML = join(CODEX_DIR, 'config.toml');
@@ -51,6 +52,9 @@ function readTomlSafe(path: string): Record<string, any> {
  * auth.json 更要命——里面除了 OPENAI_API_KEY 还有 Codex 的 OAuth tokens，覆盖掉就是把登录态删了。
  * 宁可当场停手让用户自己看一眼。
  */
+/** 事务基线校验保证这里读到的就是 readForWrite 解析的那份 */
+const readText = (path: string): string => existsSync(path) ? readFileSync(path, 'utf-8') : '';
+
 function readForWrite(path: string, kind: 'toml' | 'json'): Record<string, any> {
   if (!existsSync(path)) return {};
   const text = readFileSync(path, 'utf-8');
@@ -171,7 +175,7 @@ export function applyCodexRelay(cfg: CodexRelayConfig): { backups: string[] } {
     update('auth', ['OPENAI_API_KEY'], { present: true, value: cfg.apiKey });
     state.providerId = cfg.providerId;
     return { backups: commit([
-      { name: 'config.toml', text: stringify(doc) },
+      { name: 'config.toml', text: rewriteToml(readText(CONFIG_TOML), doc) },
       { name: 'auth.json', text: JSON.stringify(auth, null, 2) },
       { name: STATE_NAME, text: JSON.stringify(state, null, 2) },
     ]) };
@@ -191,7 +195,7 @@ export function clearCodexRelay(providerId: string): void {
     for (const field of [...state.fields].reverse()) setField(field.file === 'config' ? doc : auth, field.path, field.before);
     if (state.providersCreated && doc.model_providers && Object.keys(doc.model_providers).length === 0) delete doc.model_providers;
     commit([
-      { name: 'config.toml', text: stringify(doc) },
+      { name: 'config.toml', text: rewriteToml(readText(CONFIG_TOML), doc) },
       { name: 'auth.json', text: JSON.stringify(auth, null, 2) },
       { name: STATE_NAME, text: null },
     ]);
@@ -229,7 +233,7 @@ export function removeLegacyCodexRelay(providerId: string, opts: LegacyRemoveOpt
       delete doc.model_providers[providerId];
       if (Object.keys(doc.model_providers).length === 0) delete doc.model_providers;
     }
-    const updates = [{ name: 'config.toml', text: stringify(doc) as string | null }];
+    const updates = [{ name: 'config.toml', text: rewriteToml(readText(CONFIG_TOML), doc) as string | null }];
     let keyDeleted = false;
     if (opts.deleteKey) {
       const auth = readForWrite(AUTH_JSON, 'json');

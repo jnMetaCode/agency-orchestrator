@@ -71,7 +71,7 @@
     "build:studio": "npm --prefix website ci && npm --prefix website run build",
     "verify:release": "node scripts/verify-cli.mjs && node scripts/verify-frontend.mjs",
     "typecheck:test": "tsc -p tsconfig.test.json",
-    "test:config": "node --import tsx test/config-transaction.ts && node --import tsx test/codex-relay.ts && node --import tsx test/claude-apply.ts",
+    "test:config": "node --import tsx test/config-transaction.ts && node --import tsx test/toml-edit.ts && node --import tsx test/codex-relay.ts && node --import tsx test/claude-apply.ts",
     "test:batch": "node test/batch-shengsuanyun.mjs",
     "probe:ssy-batch": "node scripts/probe-shengsuanyun-batch.mjs",
     "preview:ssy-mock": "node scripts/mock-shengsuanyun-batch.mjs",

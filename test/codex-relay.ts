@@ -258,6 +258,23 @@ try {
     rmSync(d, { recursive: true, force: true });
   }
 
+  console.log('\n─── config.toml 排版：切换再恢复后逐字还原 ───');
+  {
+    const d = mkdtempSync(join(tmpdir(), 'ao-codex-format-'));
+    process.env.AO_CODEX_DIR = d;
+    const m = await import(`../src/utils/codex-relay.js?format=${Date.now()}`);
+    const original = '# 我的配置\nmodel = "gpt-5"  # 平时用的\n\n# 公司网关\n[model_providers.corp]\nname = "Corp"\nbase_url = "https://corp.invalid/v1"\n';
+    writeFileSync(join(d, 'config.toml'), original);
+    m.applyCodexRelay({ providerId: 'ao-relay', name: 'AO', baseUrl: 'https://x.invalid/v1', apiKey: 'sk-1', model: 'relay-model' });
+    const mid = readFileSync(join(d, 'config.toml'), 'utf-8');
+    assert(mid.includes('# 我的配置') && mid.includes('# 公司网关') && (parse(mid) as any).model_provider === 'ao-relay', '切换后注释还在');
+    m.applyCodexRelay({ providerId: 'ao-relay', name: 'AO', baseUrl: 'https://y.invalid/v1', apiKey: 'sk-2' });
+    m.clearCodexRelay('ao-relay');
+    assert(readFileSync(join(d, 'config.toml'), 'utf-8') === original, '两次切换后恢复：config.toml 与原文逐字一致');
+    rmSync(d, { recursive: true, force: true });
+    process.env.AO_CODEX_DIR = sandbox;
+  }
+
   console.log('\n─── 旧版 AO 配置（无所有权记录）：只能移除，不能恢复 ───');
   {
     const d = mkdtempSync(join(tmpdir(), 'ao-codex-legacy-'));
