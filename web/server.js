@@ -85,6 +85,14 @@ const CUSTOM_AGENTS_DIR = process.env.AO_AGENTS_DIR ? resolve(process.env.AO_AGE
 const USER_ROLES_DIR = process.env.AO_USER_ROLES_DIR
   ? resolve(process.env.AO_USER_ROLES_DIR)
   : join(homedir(), '.ao', 'roles');
+// 角色库语言 -> npm 包名：zh/en 为内置库，其余为按需安装的官方语言包。
+// /api/compose 会把它写进生成 YAML 的 agents_dir，供 findAgentsDir 在 node_modules 里解析。
+const LANG_LIBS = [
+  { id: 'zh', pkg: 'agency-agents-zh' },
+  { id: 'en', pkg: 'agency-agents' },
+  ...OPTIONAL_ROLE_LIBRARIES,
+];
+
 // 官方多语言角色库（npm 包）。装了才出现在 Studio「角色库」下拉里；zh/en 内置必有。
 // 只认 node_modules（生产与开发一致），不做同级仓兜底——避免本地副本掩盖已发布包的问题。
 function langLibDir(id) {
