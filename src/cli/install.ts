@@ -47,12 +47,12 @@ export function collectRoleFiles(agentsDir: string): RoleFile[] {
   const out: RoleFile[] = [];
   const walk = (dir: string, category: string) => {
     for (const entry of readdirSync(dir)) {
-      if (SKIP_DIRS.has(entry)) continue;
+      if (entry.startsWith('.') || SKIP_DIRS.has(entry)) continue;
       const full = join(dir, entry);
       const st = statSync(full);
       if (st.isDirectory()) {
         walk(full, category ? `${category}/${entry}` : entry); // 用完整相对目录作 category，避免嵌套分类重名
-      } else if (entry.endsWith('.md') && !/^(README|CONTRIBUTING|LICENSE|SECURITY)/i.test(entry)) {
+      } else if (entry.endsWith('.md') && !/^(README(?:[.-][^.]+)*|CONTRIBUTING|LICENSE|SECURITY)\.md$/i.test(entry)) {
         const head = readFileSync(full, 'utf-8').slice(0, 400);
         if (!/^---[\s\S]*?\bname\s*:/.test(head)) continue; // 必须有 name frontmatter
         const id = entry.replace(/\.md$/, '');

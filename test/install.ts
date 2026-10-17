@@ -36,6 +36,30 @@ test('collectRoleFiles 只收真角色，跳过 README/无 frontmatter/examples'
   assert(!paths.some((p) => p.includes('notes') || p.includes('demo') || p.includes('README')), '不应含非角色');
 });
 
+test('安全角色保留，隐藏目录与安全说明文档排除', () => {
+  const fixture = mkdtempSync(join(tmpdir(), 'ao-install-security-'));
+  try {
+    for (const dir of ['security', '.github/ISSUE_TEMPLATE', 'engineering/.drafts']) {
+      mkdirSync(join(fixture, dir), { recursive: true });
+    }
+    writeFileSync(join(fixture, 'security', 'security-architect.md'), role('安全架构师'));
+    writeFileSync(join(fixture, 'security', 'security-appsec-engineer.md'), role('应用安全工程师'));
+    writeFileSync(join(fixture, 'SECURITY.md'), role('安全说明'));
+    writeFileSync(join(fixture, 'README.zh-CN.md'), role('说明'));
+    writeFileSync(join(fixture, '.hidden.md'), role('隐藏角色'));
+    writeFileSync(join(fixture, '.github', 'ISSUE_TEMPLATE', 'bug_report.md'), role('Bug report'));
+    writeFileSync(join(fixture, 'engineering', '.drafts', 'draft.md'), role('草稿'));
+    const roles = collectRoleFiles(fixture);
+    assert(roles.length === 2, `只应保留 2 个安全角色，实际 ${roles.map(r => r.rolePath).join(',')}`);
+    assert(roles.every(r => r.category === 'security'), '不应收录模板或隐藏草稿');
+    const result = installRoles(fixture, INSTALL_TARGETS.cursor, { home: fixture, cwd: fixture, category: 'security', dryRun: true });
+    assert(result.installed === 2, 'security 分类安装预演应包含安全角色');
+    assert(!existsSync(join(fixture, '.cursor')), '预演不应创建目标目录');
+  } finally {
+    rmSync(fixture, { recursive: true, force: true });
+  }
+});
+
 test('installRoles 写入目标目录(claude-code .md, 文件名 category-id)', () => {
   const dest = mkdtempSync(join(tmpdir(), 'ao-install-dest-'));
   const res = installRoles(src, INSTALL_TARGETS['claude-code'], { home: dest, cwd: dest });
