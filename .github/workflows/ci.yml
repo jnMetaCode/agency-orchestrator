@@ -37,6 +37,9 @@ jobs:
       - name: Build Studio
         run: npm run build:studio
 
+      - name: Typecheck Studio
+        run: npm --prefix website run typecheck
+
       # 确认构建出的 dist/cli.js 实现了源码声明的所有命令（防 #80：发布陈旧 dist）
       - name: Verify CLI command parity
         run: node scripts/verify-cli.mjs

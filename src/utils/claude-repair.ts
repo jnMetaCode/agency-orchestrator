@@ -19,6 +19,7 @@
  */
 import { existsSync, readFileSync, writeFileSync, copyFileSync, renameSync, chmodSync, readdirSync, unlinkSync, mkdirSync } from 'node:fs';
 import { homedir } from 'node:os';
+import { assertNotSymlink, describeParseError } from './config-safety.js';
 import { join, dirname, basename } from 'node:path';
 
 /** 凭据 / 端点类劫持键：任何模式下出现在 settings 里都是劫持，修复 = 删掉。 */
@@ -145,7 +146,7 @@ function readSettings(path: string): { path: string; exists: boolean; parseError
     const env = obj && typeof obj === 'object' && obj.env && typeof obj.env === 'object' ? obj.env : undefined;
     return { path, exists: true, ...(env ? { env } : {}) };
   } catch (err: any) {
-    return { path, exists: true, parseError: err?.message || String(err) };
+    return { path, exists: true, parseError: describeParseError(err) }; // 原文里可能就是 token
   }
 }
 
@@ -250,6 +251,7 @@ function writeSecretJson(path: string, obj: unknown): void {
   // 目录可能还不存在（机器上从没跑过 Claude Code）——原来的直写也会在这里 ENOENT，只是多数人
   // 的 ~/.claude 早就有了才没暴露
   mkdirSync(dirname(path), { recursive: true });
+  assertNotSymlink(path);
   const tmp = `${path}.ao-tmp`;
   writeFileSync(tmp, JSON.stringify(obj, null, 2) + '\n', { encoding: 'utf-8', mode: 0o600 });
   renameSync(tmp, path);
@@ -275,9 +277,11 @@ export function repairClaudeConfig(opts: ShellEnvOptions = {}): RepairResult {
       obj = JSON.parse(readFileSync(path, 'utf-8'));
     } catch (err: any) {
       // 解析不了绝不覆写 —— 宁可让用户手动看，也不销毁可能有救的内容。
-      skipped.push({ path, reason: err?.message || String(err) });
+      skipped.push({ path, reason: describeParseError(err) });
       continue;
     }
+    try { assertNotSymlink(path); }
+    catch (err: any) { skipped.push({ path, reason: err?.message || String(err) }); continue; }
     const env = obj && typeof obj === 'object' ? obj.env : undefined;
     if (!env || typeof env !== 'object') continue;
 

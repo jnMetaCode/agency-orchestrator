@@ -26,7 +26,7 @@ import { probeVideoEndpoints } from '../dist/media/probe-video.js';
 import { normalizeBaseUrl, postChatCompletions, postApiEndpoint, endpointHint, joinEndpoint } from '../dist/connectors/openai-compatible.js';
 // Anthropic 协议的 base 归一化（客户端会自己接 /v1/messages，base 不能自带 /v1）
 import { normalizeAnthropicBaseUrl } from '../dist/connectors/claude.js';
-import { applyCodexRelay, clearCodexRelay, readCodexRelayStatus } from '../dist/utils/codex-relay.js';
+import { applyCodexRelay, clearCodexRelay, readCodexRelayStatus, removeLegacyCodexRelay } from '../dist/utils/codex-relay.js';
 import { diagnoseClaudeConfig, SNAPSHOT_ENV_KEYS } from '../dist/utils/claude-repair.js';
 import { applyClaudeProvider, restoreClaudeToOfficial, readClaudeSwitchStatus, readClaudeProxyStatus, probeProxyReachable, clearClaudeProxy, syncClaudeProxy, detectSystemProxy } from '../dist/utils/claude-apply.js';
 import { validateCustomProviderId, readCustomProviders, addCustomProvider, removeCustomProvider, updateCustomProvider } from '../dist/utils/custom-providers.js';
@@ -1969,6 +1969,10 @@ app.get('/api/config', async (_req, res) => {
     family: 'api',
     hasKey: codexRelay.configured,
     baseUrl: codexRelay.baseUrl || '',
+    configManaged: codexRelay.managed,
+    configConflict: codexRelay.conflict,
+    configRecoveryPending: codexRelay.recoveryPending,
+    configModel: codexRelay.model || '',
     supportsBaseUrl: true,
   };
   // 自定义供应商：连接信息（key/base_url/model）跟内置 provider 一样存在 saved[id] 里，
@@ -2202,6 +2206,20 @@ app.get('/api/claude/health', (_req, res) => {
     res.status(500).json({ error: err?.message || String(err) });
   }
 });
+// 旧版 AO 写入、没有所有权记录的 Codex 中转：只能「退出」，不能「恢复」——见 removeLegacyCodexRelay。
+// expectedBaseUrl = 用户确认时看到的值，确认后配置变了就拒绝，不按旧确认去改新配置。
+app.post('/api/codex/legacy-remove', (req, res) => {
+  const { deleteKey, expectedBaseUrl } = req.body || {};
+  try {
+    res.json({ ok: true, ...removeLegacyCodexRelay(CODEX_RELAY_ID, {
+      deleteKey: deleteKey === true,
+      expectedBaseUrl: typeof expectedBaseUrl === 'string' ? expectedBaseUrl : undefined,
+    }) });
+  } catch (err) {
+    res.status(500).json({ error: err?.message || String(err) });
+  }
+});
+
 app.post('/api/claude/repair', (_req, res) => {
   try {
     // 恢复官方登录的同时，把 macOS 当前系统代理（如 Clash）同步给 Claude Code，

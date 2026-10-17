@@ -91,6 +91,10 @@ export function ProviderConfigView({
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [backups, setBackups] = useState<string[] | null>(null);
+  // 旧版 AO 写入的 Codex 中转：先展开预览再确认，key 是否删除单独勾选（默认保留）
+  const [legacyOpen, setLegacyOpen] = useState(false);
+  const [legacyDeleteKey, setLegacyDeleteKey] = useState(false);
+  const [legacyDone, setLegacyDone] = useState<string | null>(null);
 
   // add-custom / edit-custom 共用的元数据字段（编辑内置供应商时这些是只读展示,不用 state）
   const [customId, setCustomId] = useState(addPrefill?.id ?? "");
@@ -349,6 +353,7 @@ export function ProviderConfigView({
   };
 
   const clear = async () => {
+    setError(null);
     setSaving(true);
     try {
       await api.saveConfig({ provider: providerId, apiKey: "" });
@@ -360,6 +365,26 @@ export function ProviderConfigView({
       setThinkingMode("default");
       setBackups(null);
       onSaved();
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const removeLegacy = async () => {
+    setError(null);
+    setSaving(true);
+    try {
+      const r = await api.removeLegacyCodexRelay({ deleteKey: legacyDeleteKey, expectedBaseUrl: status?.baseUrl || undefined });
+      setLegacyOpen(false);
+      setBackups(r.backups.length > 0 ? r.backups : null);
+      // 只说做了什么；官方登录能不能用取决于登录态，这里不打"已恢复官方"的勾
+      setLegacyDone([p.codexLegacyRemoved, r.keyDeleted ? p.codexLegacyKeyDeleted : p.codexLegacyKeyKept,
+        r.keptModel ? p.codexLegacyModelKept.replace("{model}", r.keptModel) : ""].filter(Boolean).join(" "));
+      onSaved();
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : String(e));
     } finally {
       setSaving(false);
     }
@@ -570,6 +595,35 @@ export function ProviderConfigView({
           {isRelay && (
             <Section title={p.cliRelayToggle}>
               <p className="text-xs text-muted-foreground">{p.cliRelayHint}</p>
+              {providerId === 'codex-cli' && (status?.configRecoveryPending || status?.configConflict || status?.hasKey && status?.configManaged === false) && (
+                <p role="status" className="text-xs text-amber-600 dark:text-amber-400">
+                  {status?.configRecoveryPending ? p.codexRecoveryPending : status?.configConflict ? p.codexConflict : p.codexLegacy}
+                </p>
+              )}
+              {providerId === 'codex-cli' && status?.hasKey && status?.configManaged === false && !status?.configConflict && !status?.configRecoveryPending && (
+                legacyOpen ? (
+                  <div className="space-y-1.5 rounded-lg border border-border/70 p-2.5 text-xs">
+                    <p className="font-medium">{p.codexLegacyPreviewTitle}</p>
+                    <ul className="list-disc space-y-0.5 pl-4 text-muted-foreground">
+                      <li>{p.codexLegacyPreviewRoute.replace("{url}", status?.baseUrl || "-")}</li>
+                      <li>{p.codexLegacyPreviewKeep}</li>
+                      {status?.configModel && <li>{p.codexLegacyPreviewModel.replace("{model}", status.configModel)}</li>}
+                    </ul>
+                    <label className="flex items-center gap-1.5">
+                      <input type="checkbox" checked={legacyDeleteKey} onChange={(e) => setLegacyDeleteKey(e.target.checked)} />
+                      {p.codexLegacyDeleteKey}
+                    </label>
+                    <p className="text-muted-foreground">{p.codexLegacyNotOfficial}</p>
+                    <div className="flex gap-2">
+                      <button onClick={removeLegacy} disabled={saving} className="rounded-md bg-red-500/90 px-2.5 py-1 text-white hover:bg-red-500 disabled:opacity-50">{p.codexLegacyConfirm}</button>
+                      <button onClick={() => setLegacyOpen(false)} disabled={saving} className="rounded-md border border-border/70 px-2.5 py-1">{p.codexLegacyCancel}</button>
+                    </div>
+                  </div>
+                ) : (
+                  <button onClick={() => { setLegacyDone(null); setLegacyOpen(true); }} className="text-xs text-primary underline-offset-2 hover:underline">{p.codexLegacyRemove}</button>
+                )
+              )}
+              {legacyDone && <p role="status" className="text-xs text-muted-foreground">{legacyDone}</p>}
               {(target as { globalWrite?: boolean }).globalWrite && (
                 <p className="flex items-start gap-1 text-xs text-amber-600 dark:text-amber-400">
                   <TriangleAlert className="mt-0.5 size-3.5 shrink-0" /> {p.cliRelayGlobalWarning}
@@ -980,9 +1034,10 @@ export function ProviderConfigView({
                 <span className="max-h-40 min-w-0 overflow-y-auto whitespace-pre-line break-words" title={test.msg}>{test.msg}</span>
               </span>
             )}
-            {!isAdd && !isOllama && status?.hasKey && !status.fromEnv && (
-              <button onClick={clear} className="ml-auto text-xs text-muted-foreground hover:text-red-500">
-                {p.clear}
+            {!isAdd && !isOllama && status?.hasKey && !status.fromEnv
+              && !(providerId === 'codex-cli' && status.configManaged === false && !status.configConflict && !status.configRecoveryPending) && (
+              <button onClick={clear} disabled={saving} className="ml-auto text-xs text-muted-foreground hover:text-red-500 disabled:opacity-50">
+                {providerId === 'codex-cli' ? p.codexRestore : p.clear}
               </button>
             )}
           </div>

@@ -15,9 +15,11 @@
  *      —— 标记在顶层、不在 env 里，不影响 Claude Code 运行。
  */
 import { execFileSync } from 'node:child_process';
+import { createHash } from 'node:crypto';
 import { connect as netConnect } from 'node:net';
 import { existsSync, readFileSync, writeFileSync, copyFileSync, mkdirSync, renameSync, chmodSync, readdirSync, unlinkSync } from 'node:fs';
 import { homedir } from 'node:os';
+import { assertNotSymlink, describeParseError } from './config-safety.js';
 import { join, dirname, basename } from 'node:path';
 import { repairClaudeConfig, type RepairResult, type ShellEnvOptions } from './claude-repair.js';
 
@@ -30,6 +32,12 @@ export const AO_MANAGED_KEY = '_aoManagedProvider';
  * 当"AO 切的"放行，必须走劫持红灯。只有 AO 自己写才知道这个值，外部工具无从伪造。
  */
 export const AO_MANAGED_BASEURL_KEY = '_aoManagedBaseUrl';
+
+/** 只记录受管字段的摘要，切换时不删除用户在外部改过的值。 */
+const AO_MANAGED_ENV_KEY = '_aoManagedEnvHashes';
+const MANAGED_ENV_KEYS = ['ANTHROPIC_BASE_URL', 'ANTHROPIC_API_KEY', 'ANTHROPIC_AUTH_TOKEN',
+  'ANTHROPIC_MODEL', 'ANTHROPIC_DEFAULT_SONNET_MODEL', 'ANTHROPIC_DEFAULT_OPUS_MODEL', 'ANTHROPIC_DEFAULT_HAIKU_MODEL'];
+const envHash = (value: string): string => createHash('sha256').update(value).digest('hex');
 
 function claudeDir(): string {
   // 与 claude-repair 一致，允许测试 / 自定义 profile 覆盖。
@@ -75,6 +83,7 @@ function writeSecretJson(path: string, obj: unknown): void {
   // 目录可能还不存在（机器上从没跑过 Claude Code）——原来的直写也会在这里 ENOENT，只是多数人
   // 的 ~/.claude 早就有了才没暴露
   mkdirSync(dirname(path), { recursive: true });
+  assertNotSymlink(path); // rename 会把 dotfiles 链接换成普通文件
   const tmp = `${path}.ao-tmp`;
   writeFileSync(tmp, JSON.stringify(obj, null, 2) + '\n', { encoding: 'utf-8', mode: 0o600 });
   renameSync(tmp, path);
@@ -88,7 +97,8 @@ function readJsonOrThrow(path: string): Record<string, any> {
     const o = JSON.parse(readFileSync(path, 'utf-8'));
     return o && typeof o === 'object' ? o : {};
   } catch (err: any) {
-    throw new Error(`settings.json 解析失败，为安全起见不写入：${path}（${err?.message || err}）`);
+    // 不拼解析器原文：settings.json 的 env 里就是 token
+    throw new Error(`settings.json 解析失败，为安全起见不写入：${path}（${describeParseError(err)}）`);
   }
 }
 
@@ -126,6 +136,12 @@ export function applyClaudeProvider(cfg: ClaudeApplyConfig): ClaudeApplyResult {
 
   const env = obj.env && typeof obj.env === 'object' ? obj.env : (obj.env = {});
   const keyField = cfg.apiKeyField ?? 'ANTHROPIC_AUTH_TOKEN';
+  const previous = obj[AO_MANAGED_ENV_KEY];
+  if (obj[AO_MANAGED_KEY] != null && previous && typeof previous === 'object') {
+    for (const key of MANAGED_ENV_KEYS) {
+      if (typeof env[key] === 'string' && previous[key] === envHash(env[key])) delete env[key];
+    }
+  }
   const written: string[] = [];
   const setEnv = (k: string, v?: string) => { if (v) { env[k] = v; written.push(k); } };
 
@@ -138,6 +154,7 @@ export function applyClaudeProvider(cfg: ClaudeApplyConfig): ClaudeApplyResult {
 
   obj[AO_MANAGED_KEY] = cfg.providerId;     // 打 AO 管理标记
   obj[AO_MANAGED_BASEURL_KEY] = cfg.baseUrl; // 记指纹：体检时验 env 有没有被别的工具改走
+  obj[AO_MANAGED_ENV_KEY] = Object.fromEntries(written.map(key => [key, envHash(env[key])]));
 
   writeSecretJson(path, obj);
   return { path, backup, writtenKeys: written };
@@ -307,7 +324,7 @@ export function syncClaudeProxy(proxyUrl?: string): ClaudeProxySyncResult {
 
   const path = settingsPath();
   let obj: Record<string, any>;
-  try { obj = readJsonOrThrow(path); }
+  try { obj = readJsonOrThrow(path); assertNotSymlink(path); }
   catch (err: any) {
     return { configured: false, changed: false, backup: null, reason: err?.message || String(err) };
   }
@@ -341,6 +358,7 @@ export function restoreClaudeToOfficial(options: RestoreOptions = {}): RestoreRe
       if (obj && typeof obj === 'object' && (obj[AO_MANAGED_KEY] != null || obj[AO_MANAGED_BASEURL_KEY] != null)) {
         delete obj[AO_MANAGED_KEY];
         delete obj[AO_MANAGED_BASEURL_KEY]; // 指纹跟标记成对，一起清，别留孤儿
+        delete obj[AO_MANAGED_ENV_KEY];
         writeSecretJson(path, obj);
         removedAoMarker = true;
       }

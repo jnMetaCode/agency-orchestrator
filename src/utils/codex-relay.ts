@@ -11,14 +11,20 @@
  *      保留用户自己在 config.toml 里已有的其它内容（其它 provider、其它配置项）
  *   3. auth.json 同理，只更新 OPENAI_API_KEY 字段，不动其它可能存在的字段
  */
-import { existsSync, readFileSync, writeFileSync, copyFileSync, mkdirSync, renameSync, chmodSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
+import { isDeepStrictEqual } from 'node:util';
 import { parse, stringify } from 'smol-toml';
+import { withConfigTransaction } from './config-transaction.js';
+import { describeParseError } from './config-safety.js';
 
-const CODEX_DIR = join(homedir(), '.codex');
+const CODEX_DIR = process.env.AO_CODEX_DIR || join(homedir(), '.codex');
 const CONFIG_TOML = join(CODEX_DIR, 'config.toml');
 const AUTH_JSON = join(CODEX_DIR, 'auth.json');
+const STATE_NAME = '.ao-relay-state.json';
+const STATE_JSON = join(CODEX_DIR, STATE_NAME);
+const FILES = ['config.toml', 'auth.json', STATE_NAME] as const;
 
 export interface CodexRelayConfig {
   /** provider 标识，写进 config.toml 的 [model_providers.<id>] 表名，如 "cubence" */
@@ -28,14 +34,6 @@ export interface CodexRelayConfig {
   baseUrl: string;
   apiKey: string;
   model?: string;
-}
-
-function backupIfExists(path: string): string | null {
-  if (!existsSync(path)) return null;
-  const backupPath = `${path}.ao-backup-${Date.now()}`;
-  copyFileSync(path, backupPath);
-  try { chmodSync(backupPath, 0o600); } catch { /* 不支持权限位的文件系统 */ }   // 备份是凭证的明文副本
-  return backupPath;
 }
 
 function readTomlSafe(path: string): Record<string, any> {
@@ -57,21 +55,84 @@ function readForWrite(path: string, kind: 'toml' | 'json'): Record<string, any> 
   if (!existsSync(path)) return {};
   const text = readFileSync(path, 'utf-8');
   try {
-    return (kind === 'toml' ? parse(text) : JSON.parse(text)) as Record<string, any>;
+    const doc = kind === 'toml' ? parse(text) : JSON.parse(text);
+    if (!doc || typeof doc !== 'object' || Array.isArray(doc)) throw new Error('配置必须是对象');
+    return doc as Record<string, any>;
   } catch (err) {
     throw new Error(
-      `${path} 解析失败，为避免把你的 Codex 配置覆盖成空的，这次不动它：${err instanceof Error ? err.message.slice(0, 120) : err}\n`
+      // 不拼解析器原文：auth.json 写坏时，那段原文就是 key
+      `${path} 解析失败，为避免把你的 Codex 配置覆盖成空的，这次不动它：${describeParseError(err)}\n`
       + `  请先手动修好这个文件（或把它挪走让 Codex 重新生成）再试。`,
     );
   }
 }
 
-/** 凭证文件：原子写 + 0600。直接 writeFileSync 是先截断——中途崩了就剩个半截的 settings/auth。 */
-function writeSecret(path: string, text: string): void {
-  const tmp = `${path}.ao-tmp`;
-  writeFileSync(tmp, text, { encoding: 'utf-8', mode: 0o600 });
-  renameSync(tmp, path);
-  try { chmodSync(path, 0o600); } catch { /* 不支持权限位的文件系统 */ }
+interface SavedValue { present: boolean; value?: unknown }
+interface ManagedField {
+  file: 'config' | 'auth';
+  path: string[];
+  before: SavedValue;
+  after: SavedValue;
+}
+interface RelayState {
+  version: 1;
+  providerId: string;
+  providersCreated: boolean;
+  fields: ManagedField[];
+}
+const reserved = new Set(['__proto__', 'prototype', 'constructor']);
+
+function readState(): RelayState | null {
+  if (!existsSync(STATE_JSON)) return null;
+  const state = readForWrite(STATE_JSON, 'json') as unknown as RelayState;
+  const saved = (v: SavedValue) => v && typeof v.present === 'boolean' && (!v.present || Object.hasOwn(v, 'value'));
+  if (state.version !== 1 || typeof state.providerId !== 'string' || typeof state.providersCreated !== 'boolean'
+    || !Array.isArray(state.fields) || !state.fields.length || state.fields.some(f => !f || !Array.isArray(f.path)
+      || f.path.some(p => typeof p !== 'string' || reserved.has(p)) || !saved(f.before) || !saved(f.after)
+      || !(f.file === 'auth' && f.path.length === 1 && f.path[0] === 'OPENAI_API_KEY'
+        || f.file === 'config' && (f.path.length === 1 && ['model_provider', 'model'].includes(f.path[0])
+          || f.path.length === 2 && f.path[0] === 'model_providers')))
+    || new Set(state.fields.map(f => JSON.stringify([f.file, f.path]))).size !== state.fields.length) {
+    throw new Error('AO Codex 受管字段记录无效，为安全起见不修改配置');
+  }
+  const provider = state.fields.find(f => f.file === 'config' && f.path.length === 1 && f.path[0] === 'model_provider');
+  const key = state.fields.find(f => f.file === 'auth' && f.path[0] === 'OPENAI_API_KEY');
+  if (!provider?.after.present || provider.after.value !== state.providerId || !key?.after.present || typeof key.after.value !== 'string') {
+    throw new Error('AO Codex 受管字段记录不完整，为安全起见不修改配置');
+  }
+  return state;
+}
+
+function getField(doc: Record<string, any>, path: string[]): SavedValue {
+  let object = doc;
+  for (const key of path.slice(0, -1)) {
+    if (!object || typeof object !== 'object' || !Object.hasOwn(object, key)) return { present: false };
+    object = object[key];
+  }
+  const key = path[path.length - 1];
+  return object && typeof object === 'object' && Object.hasOwn(object, key)
+    ? { present: true, value: object[key] } : { present: false };
+}
+
+function setField(doc: Record<string, any>, path: string[], saved: SavedValue): void {
+  let object = doc;
+  for (const key of path.slice(0, -1)) {
+    if (!object[key] || typeof object[key] !== 'object') {
+      if (!saved.present) return;
+      object[key] = {};
+    }
+    object = object[key];
+  }
+  if (saved.present) object[path[path.length - 1]] = saved.value;
+  else delete object[path[path.length - 1]];
+}
+
+function checkOwnership(state: RelayState, doc: Record<string, any>, auth: Record<string, any>): void {
+  for (const field of state.fields) {
+    if (!isDeepStrictEqual(getField(field.file === 'config' ? doc : auth, field.path), field.after)) {
+      throw new Error(`Codex 配置已由外部修改，请先处理冲突：${field.file === 'config' ? 'config.toml' : 'auth.json'} ${field.path.join('.')}`);
+    }
+  }
 }
 
 /**
@@ -79,63 +140,132 @@ function writeSecret(path: string, text: string): void {
  * 返回本次实际产生的备份文件路径（供上层提示用户"已备份到 xxx"）。
  */
 export function applyCodexRelay(cfg: CodexRelayConfig): { backups: string[] } {
-  mkdirSync(CODEX_DIR, { recursive: true });
-  const backups: string[] = [];
+  if (!cfg.providerId || reserved.has(cfg.providerId) || !cfg.baseUrl || !cfg.apiKey) throw new Error('providerId、baseUrl 和 apiKey 无效或为空');
+  return withConfigTransaction(CODEX_DIR, FILES, commit => {
+    const doc = readForWrite(CONFIG_TOML, 'toml');
+    const auth = readForWrite(AUTH_JSON, 'json');
+    if (Object.hasOwn(doc, 'model_providers') && (!doc.model_providers || typeof doc.model_providers !== 'object' || Array.isArray(doc.model_providers))) {
+      throw new Error('Codex model_providers 必须是配置表，为安全起见不修改配置');
+    }
+    const state = readState() ?? {
+      version: 1 as const, providerId: cfg.providerId,
+      providersCreated: !Object.hasOwn(doc, 'model_providers'), fields: [],
+    };
+    checkOwnership(state, doc, auth);
+    const update = (file: 'config' | 'auth', path: string[], after: SavedValue) => {
+      const target = file === 'config' ? doc : auth;
+      const previous = state.fields.find(f => f.file === file && isDeepStrictEqual(f.path, path));
+      if (previous) previous.after = after;
+      else state.fields.push({ file, path, before: getField(target, path), after });
+      setField(target, path, after);
+    };
+    update('config', ['model_provider'], { present: true, value: cfg.providerId });
+    if (cfg.model) update('config', ['model'], { present: true, value: cfg.model });
+    else {
+      const previousModel = state.fields.find(f => f.file === 'config' && f.path.length === 1 && f.path[0] === 'model');
+      if (previousModel) update('config', ['model'], previousModel.before);
+    }
+    update('config', ['model_providers', cfg.providerId], { present: true, value: {
+      name: cfg.name, base_url: cfg.baseUrl.replace(/\/+$/, ''), wire_api: 'responses', requires_openai_auth: true,
+    } });
+    update('auth', ['OPENAI_API_KEY'], { present: true, value: cfg.apiKey });
+    state.providerId = cfg.providerId;
+    return { backups: commit([
+      { name: 'config.toml', text: stringify(doc) },
+      { name: 'auth.json', text: JSON.stringify(auth, null, 2) },
+      { name: STATE_NAME, text: JSON.stringify(state, null, 2) },
+    ]) };
+  });
+}
 
-  const configBackup = backupIfExists(CONFIG_TOML);
-  if (configBackup) backups.push(configBackup);
-  const doc = readForWrite(CONFIG_TOML, 'toml');
-  doc.model_provider = cfg.providerId;
-  if (cfg.model) doc.model = cfg.model;
-  doc.model_providers = doc.model_providers && typeof doc.model_providers === 'object' ? doc.model_providers : {};
-  doc.model_providers[cfg.providerId] = {
-    name: cfg.name,
-    base_url: cfg.baseUrl.replace(/\/+$/, ''),
-    wire_api: 'responses',
-    requires_openai_auth: true,
-  };
-  writeSecret(CONFIG_TOML, stringify(doc));
+/** Restore only fields written by AO; unknown legacy ownership requires explicit resolution. */
+export function clearCodexRelay(providerId: string): void {
+  if (!providerId) throw new Error('providerId 不能为空');
+  withConfigTransaction(CODEX_DIR, FILES, commit => {
+    const doc = readForWrite(CONFIG_TOML, 'toml');
+    if (doc.model_provider !== providerId) return;
+    const auth = readForWrite(AUTH_JSON, 'json');
+    const state = readState();
+    if (!state || state.providerId !== providerId) throw new Error('历史 Codex 配置缺少 AO 字段所有权记录，请先检查备份，不自动删除凭据');
+    checkOwnership(state, doc, auth);
+    for (const field of [...state.fields].reverse()) setField(field.file === 'config' ? doc : auth, field.path, field.before);
+    if (state.providersCreated && doc.model_providers && Object.keys(doc.model_providers).length === 0) delete doc.model_providers;
+    commit([
+      { name: 'config.toml', text: stringify(doc) },
+      { name: 'auth.json', text: JSON.stringify(auth, null, 2) },
+      { name: STATE_NAME, text: null },
+    ]);
+  });
+}
 
-  const authBackup = backupIfExists(AUTH_JSON);
-  if (authBackup) backups.push(authBackup);
-  const auth = readForWrite(AUTH_JSON, 'json');
-  auth.OPENAI_API_KEY = cfg.apiKey;
-  writeSecret(AUTH_JSON, JSON.stringify(auth, null, 2));
-
-  return { backups };
+export interface LegacyRemoveOptions {
+  /** 同时删除 auth.json 的 OPENAI_API_KEY；默认保留，由用户决定 */
+  deleteKey?: boolean;
+  /** 用户确认时看到的 base_url；执行时不一致说明配置在确认后变了，拒绝 */
+  expectedBaseUrl?: string;
 }
 
 /**
- * 清除 AO 写入的中转配置：把 config.toml 的 model_provider 顶层覆盖去掉（不删除
- * model_providers.<id> 这张表本身，避免用户下次想切回来还得重填 base_url），
- * auth.json 里的 key 置空。不影响用户自己其它的 provider 配置。
+ * 旧版 AO 写入、没有所有权记录的中转：只移除 AO 约定 id 的路由选择和它那张 provider 表。
+ * 和 clearCodexRelay 不是一回事——没有记录就找不回"切换前"，这里只是退出，不是恢复：
+ *   - model 不动（不知道是谁设的），返回给调用方提示用户自己看；
+ *   - key 默认保留；OAuth tokens 和其它字段从不碰；
+ *   - 移除路由 ≠ 官方登录可用，那还取决于登录态，调用方不能据此显示"已恢复官方"。
  */
-export function clearCodexRelay(providerId: string): void {
-  if (existsSync(CONFIG_TOML)) {
-    // 和 apply 一样先备份：这条路径以前**一个备份都不留**，而它照样在整份重写用户的配置
-    backupIfExists(CONFIG_TOML);
+export function removeLegacyCodexRelay(providerId: string, opts: LegacyRemoveOptions = {}): {
+  backups: string[]; keptModel?: string; keyDeleted: boolean;
+} {
+  if (!providerId || reserved.has(providerId)) throw new Error('providerId 无效');
+  return withConfigTransaction(CODEX_DIR, FILES, commit => {
+    if (readState()) throw new Error('这份 Codex 配置有 AO 所有权记录，请用「恢复切换前配置」');
     const doc = readForWrite(CONFIG_TOML, 'toml');
-    if (doc.model_provider === providerId) delete doc.model_provider;
-    if (doc.model_providers && typeof doc.model_providers === 'object') {
-      delete doc.model_providers[providerId];
+    if (doc.model_provider !== providerId) throw new Error('当前 Codex 没有在使用 AO 中转，无需移除');
+    const table = doc.model_providers?.[providerId];
+    if (opts.expectedBaseUrl !== undefined && table?.base_url !== opts.expectedBaseUrl) {
+      throw new Error('Codex 配置在确认后发生了变化，请刷新后重新确认');
     }
-    writeSecret(CONFIG_TOML, stringify(doc));
-  }
-  if (existsSync(AUTH_JSON)) {
-    backupIfExists(AUTH_JSON);
-    const auth = readForWrite(AUTH_JSON, 'json');
-    delete auth.OPENAI_API_KEY;
-    writeSecret(AUTH_JSON, JSON.stringify(auth, null, 2));
-  }
+    delete doc.model_provider;
+    if (doc.model_providers && typeof doc.model_providers === 'object' && !Array.isArray(doc.model_providers)) {
+      delete doc.model_providers[providerId];
+      if (Object.keys(doc.model_providers).length === 0) delete doc.model_providers;
+    }
+    const updates = [{ name: 'config.toml', text: stringify(doc) as string | null }];
+    let keyDeleted = false;
+    if (opts.deleteKey) {
+      const auth = readForWrite(AUTH_JSON, 'json');
+      if (Object.hasOwn(auth, 'OPENAI_API_KEY')) {
+        delete auth.OPENAI_API_KEY;
+        updates.push({ name: 'auth.json', text: JSON.stringify(auth, null, 2) });
+        keyDeleted = true;
+      }
+    }
+    const backups = commit(updates);
+    return { backups, keptModel: typeof doc.model === 'string' ? doc.model : undefined, keyDeleted };
+  });
 }
 
 /** 当前是否已配置了给定 provider 的中转（供 UI 展示状态用）。 */
-export function readCodexRelayStatus(providerId: string): { configured: boolean; baseUrl?: string } {
+export function readCodexRelayStatus(providerId: string): {
+  configured: boolean; baseUrl?: string; model?: string; managed: boolean; conflict: boolean; recoveryPending: boolean;
+} {
   const doc = readTomlSafe(CONFIG_TOML);
   const active = doc.model_provider === providerId;
   const providerCfg = doc.model_providers?.[providerId];
+  const recoveryPending = existsSync(join(CODEX_DIR, '.ao-config-transaction.json'));
+  let managed = false, conflict = false;
+  try {
+    const state = readState();
+    if (state) {
+      checkOwnership(state, doc, readForWrite(AUTH_JSON, 'json'));
+      managed = state.providerId === providerId;
+    }
+  } catch { conflict = true; }
   return {
     configured: active && !!providerCfg,
     baseUrl: providerCfg?.base_url,
+    model: typeof doc.model === 'string' ? doc.model : undefined,
+    managed: managed && !recoveryPending,
+    conflict,
+    recoveryPending,
   };
 }

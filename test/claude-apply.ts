@@ -2,7 +2,7 @@
  * 测试 Claude Code 全局安全切换写入器（claude-apply）。
  * 全程走 AO_CLAUDE_DIR 沙箱临时目录，绝不触碰真实 ~/.claude。
  */
-import { mkdtempSync, rmSync, writeFileSync, readFileSync, existsSync, readdirSync, statSync, mkdirSync } from 'node:fs';
+import { mkdtempSync, rmSync, writeFileSync, readFileSync, existsSync, readdirSync, statSync, mkdirSync, symlinkSync, lstatSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import {
@@ -121,6 +121,24 @@ try {
   try { applyClaudeProvider(cfg); } catch { threw = true; }
   assert(threw === true, '坏 JSON：apply 抛错');
   assert(readFileSync(settings, 'utf-8') === broken, '坏 JSON：原文件未被覆写');
+  writeFileSync(settings, '{"env": {"ANTHROPIC_AUTH_TOKEN": sk-secret}}', 'utf-8');
+  let leaked = '';
+  try { applyClaudeProvider(cfg); } catch (e) { leaked = String(e); }
+  const diag = diagnoseClaudeConfig({ shellEnv: {} });
+  const rep = repairClaudeConfig({ shellEnv: {} });
+  assert(/解析失败/.test(leaked) && !/secret/.test(leaked) && !JSON.stringify(diag).includes('secret')
+    && !JSON.stringify(rep).includes('secret'), '坏 JSON：apply / 体检 / 修复的报错都不回显原文里的 token');
+  if (process.platform !== 'win32') {
+    const real = join(sandbox, 'dotfiles-settings.json');
+    writeFileSync(real, JSON.stringify({ theme: 'light' }), 'utf-8');
+    rmSync(settings);
+    symlinkSync(real, settings);
+    let linkErr = '';
+    try { applyClaudeProvider(cfg); } catch (e) { linkErr = String(e); }
+    assert(/符号链接/.test(linkErr) && lstatSync(settings).isSymbolicLink() && readFileSync(real, 'utf-8') === JSON.stringify({ theme: 'light' }),
+      'settings.json 是符号链接：apply 拒绝，链接与目标都不变');
+    rmSync(settings);
+  }
 
   // 7) shellEnv 可注入：Studio 服务端传「applyKeys 之前」的快照，避免把 AO 自己注入到
   //    本进程的 ANTHROPIC_* 误判成用户 ~/.zshrc 里的劫持残留。
@@ -260,6 +278,29 @@ try {
     assert(env.CLAUDE_CODE_USE_BEDROCK === '1', '用户自己的 Bedrock 开关不动（只做减法，且不是劫持键）');
   }
 
+  console.log('\n─── 连续切换的受管字段 ───');
+  writeFileSync(settings, JSON.stringify({ env: { USER_SETTING: 'keep' } }));
+  applyClaudeProvider({ ...cfg, apiKeyField: 'ANTHROPIC_API_KEY', model: 'vendor-a', haikuModel: 'small-a' });
+  applyClaudeProvider({ providerId: 'next', baseUrl: 'https://next.invalid', apiKey: 'next-token' });
+  {
+    const state = readSettings();
+    assert(state.env.ANTHROPIC_API_KEY === undefined && state.env.ANTHROPIC_AUTH_TOKEN === 'next-token', 'API key → token：清理旧认证字段');
+    assert(['ANTHROPIC_MODEL', 'ANTHROPIC_DEFAULT_SONNET_MODEL', 'ANTHROPIC_DEFAULT_OPUS_MODEL', 'ANTHROPIC_DEFAULT_HAIKU_MODEL'].every(k => state.env[k] === undefined),
+      '有映射 → 无映射：不携带上家模型名');
+    assert(state.env.USER_SETTING === 'keep', '用户其它 env 保留');
+  }
+  applyClaudeProvider({ ...cfg, apiKeyField: 'ANTHROPIC_API_KEY' });
+  assert(readSettings().env.ANTHROPIC_AUTH_TOKEN === undefined, 'token → API key：清理旧 token');
+  {
+    const state = readSettings();
+    state.env.ANTHROPIC_DEFAULT_SONNET_MODEL = 'externally-edited';
+    writeFileSync(settings, JSON.stringify(state));
+    applyClaudeProvider({ providerId: 'third', baseUrl: 'https://third.invalid', apiKey: 'third-token' });
+    assert(readSettings().env.ANTHROPIC_DEFAULT_SONNET_MODEL === 'externally-edited', '不删除外部改过的模型映射');
+    restoreClaudeToOfficial({ shellEnv: {} });
+    assert(readSettings()._aoManagedEnvHashes === undefined, '切回官方同步移除字段摘要');
+  }
+
 } finally {
   rmSync(sandbox, { recursive: true, force: true });
   if (savedDir === undefined) delete process.env.AO_CLAUDE_DIR;
@@ -274,8 +315,8 @@ try {
 console.log('\n─── 凭证写入：0600 + 原子 + 备份不无限堆积 ───');
 {
   const dir = mkdtempSync(join(tmpdir(), 'ao-claude-sec-'));
-  const prevHome = process.env.HOME;
-  process.env.HOME = dir;
+  const previousDir = process.env.AO_CLAUDE_DIR;
+  process.env.AO_CLAUDE_DIR = join(dir, '.claude');
   // 先把 ~/.claude 建出来：目录不存在时新旧代码都会 ENOENT（一个本来就有、只是没人踩到的问题，
   // 顺手也修了）。这里要逐条验的是权限 / 原子 / 备份不堆积，不是那个。
   mkdirSync(join(dir, '.claude'), { recursive: true });
@@ -297,7 +338,7 @@ console.log('\n─── 凭证写入：0600 + 原子 + 备份不无限堆积 �
     assert(!readdirSync(join(dir, '.claude')).some((f) => f.endsWith('.ao-tmp')), '原子写的临时文件不留下');
     assert(JSON.parse(readFileSync(settings, 'utf-8')).env?.ANTHROPIC_AUTH_TOKEN === 'sk-7', '最后一次写入生效');
   } finally {
-    if (prevHome === undefined) delete process.env.HOME; else process.env.HOME = prevHome;
+    if (previousDir === undefined) delete process.env.AO_CLAUDE_DIR; else process.env.AO_CLAUDE_DIR = previousDir;
     rmSync(dir, { recursive: true, force: true });
   }
 }
