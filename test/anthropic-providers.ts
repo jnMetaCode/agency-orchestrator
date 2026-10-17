@@ -183,13 +183,13 @@ test('Studio 供应商列表：Fluxion AI 排赞助商组最后一位（最新�
   assert(after.length === 0, `Fluxion AI 之后还排着别的赞助商：\n    ${after.join('\n    ')}`);
 });
 
-test('官网赞助商页：最新上架的赞助商排最后一张卡（当前=Fluxion AI）', () => {
+test('官网赞助商页：最新上架的赞助商排最后一张卡（当前=AstraFlow）', () => {
   // 惯例：新赞助商上架时排末位（LanoX→胜算云→APIMart→秘塔→PackyCode→Fluxion AI 均如此）。
   // 每次上架新赞助商后同步更新这里的末位 id——这条测试的职责是防"顺序被无意打乱"，
   // 不是阻止正常上架。
   const ids = [...sponsorsSrc.matchAll(/^    id: "([\w-]+)"/gm)].map((m) => m[1]);
-  assert(ids[ids.length - 1] === 'fluxionai', `末位应为 fluxionai（最新上架），实际顺序：${ids.join(' → ')}`);
-  assert(ids.indexOf('packycode') === ids.length - 2, 'PackyCode 应紧邻末位（上架顺序仅早于 Fluxion AI）');
+  assert(ids[ids.length - 1] === 'astraflow', `末位应为 astraflow（最新上架），实际顺序：${ids.join(' → ')}`);
+  assert(ids.indexOf('fluxionai') === ids.length - 2, 'Fluxion AI 应紧邻末位（上架顺序仅早于 AstraFlow）');
 });
 
 test('CLI 中转商卡片按实际端点写"支持哪几个 CLI"，不写死三个', () => {
