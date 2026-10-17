@@ -311,6 +311,36 @@ try {
     try { m.removeLegacyCodexRelay('ao-relay'); } catch (err) { notOurs = String(err); }
     assert(/没有在使用 AO 中转/.test(notOurs), '相似但不是 AO 约定 id：不动');
 
+    console.log('\n─── 旧版 AO 配置：改由 AO 管理（继续使用） ───');
+    reset();
+    let staleAdopt = '';
+    try { m.adoptLegacyCodexRelay('ao-relay', { expectedBaseUrl: 'https://other.invalid/v1' }); } catch (err) { staleAdopt = String(err); }
+    assert(/确认后发生了变化/.test(staleAdopt) && !existsSync(join(d, '.ao-relay-state.json')), '接管：确认后配置变了就拒绝');
+    m.adoptLegacyCodexRelay('ao-relay', { expectedBaseUrl: 'https://old.invalid/v1' });
+    const st = m.readCodexRelayStatus('ao-relay');
+    assert(readFileSync(join(d, 'config.toml'), 'utf-8') === legacyToml && readFileSync(join(d, 'auth.json'), 'utf-8') === legacyAuth,
+      '接管：config.toml / auth.json 一个字节都没改');
+    assert(st.managed && !st.conflict && st.configured, '接管后状态读回为受管、无冲突、仍在用中转');
+    let twice = '';
+    try { m.adoptLegacyCodexRelay('ao-relay'); } catch (err) { twice = String(err); }
+    assert(/已经由 AO 管理/.test(twice), '已受管的不重复接管');
+    // 接管后照常切到另一家，再恢复：回到「不走中转」，而不是回到旧中转
+    m.applyCodexRelay({ providerId: 'ao-relay', name: 'AO', baseUrl: 'https://next.invalid/v1', apiKey: 'sk-next' });
+    m.clearCodexRelay('ao-relay');
+    const back = parse(readFileSync(join(d, 'config.toml'), 'utf-8')) as any;
+    const backAuth = JSON.parse(readFileSync(join(d, 'auth.json'), 'utf-8'));
+    assert(back.model_provider === undefined && !back.model_providers?.['ao-relay'] && back.model_providers?.mine?.name === 'Mine',
+      '接管→切换→恢复：中转路由和表都移除，用户自己的 provider 还在');
+    assert(back.model === 'relay-model' && backAuth.OPENAI_API_KEY === 'sk-old' && backAuth.tokens.refresh_token === 'r1',
+      '恢复后 model 与 key 回到接管时的值，OAuth 不动');
+    assert(!existsSync(join(d, '.ao-relay-state.json')), '恢复完成后所有权记录清掉');
+
+    reset();
+    writeFileSync(join(d, 'auth.json'), JSON.stringify({ tokens: { refresh_token: 'r1' } }));
+    let noKey = '';
+    try { m.adoptLegacyCodexRelay('ao-relay'); } catch (err) { noKey = String(err); }
+    assert(/没有中转 key/.test(noKey) && !existsSync(join(d, '.ao-relay-state.json')), '缺 key 的旧配置不接管，提示重新保存');
+
     reset();
     m.applyCodexRelay({ providerId: 'ao-relay', name: 'AO', baseUrl: 'https://new.invalid/v1', apiKey: 'sk-new' });
     let managed = '';

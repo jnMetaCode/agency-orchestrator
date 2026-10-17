@@ -907,6 +907,7 @@ export const api = {
   repairClaude: () => postJSON<ClaudeRepairResult>("/claude/repair", {}),
   claudeSwitchStatus: () => getJSON<ClaudeSwitchStatus>("/claude/status"),
   restoreClaude: () => postJSON<ClaudeRestoreResult>("/claude/restore", {}),
+  adoptLegacyCodexRelay: (body: { expectedBaseUrl?: string }) => postJSON<{ ok: boolean }>("/codex/legacy-adopt", body),
   removeLegacyCodexRelay: (body: { deleteKey: boolean; expectedBaseUrl?: string }) =>
     postJSON<{ ok: boolean; backups: string[]; keptModel?: string; keyDeleted: boolean }>("/codex/legacy-remove", body),
   // 把已配置的中转写入全局 ~/.claude/settings.json（后端从 web-keys.json 解析 key，前端只传 provider id）

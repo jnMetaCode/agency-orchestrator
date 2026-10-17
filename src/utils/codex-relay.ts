@@ -248,6 +248,41 @@ export function removeLegacyCodexRelay(providerId: string, opts: LegacyRemoveOpt
   });
 }
 
+/**
+ * 旧版 AO 写入的中转「改由 AO 管理」：一个字节的配置都不改，只补一份所有权记录。
+ * 能确定是 AO 加的只有路由选择和 AO 约定 id 那张表（before = 不存在）；model 和 key 当年是谁设的说不清，
+ * 记成 before = 当前值——将来「恢复切换前配置」只移除中转，key/model 原样留着，与「移除历史中转」的默认一致。
+ */
+export function adoptLegacyCodexRelay(providerId: string, opts: { expectedBaseUrl?: string } = {}): void {
+  if (!providerId || reserved.has(providerId)) throw new Error('providerId 无效');
+  withConfigTransaction(CODEX_DIR, FILES, commit => {
+    if (readState()) throw new Error('这份 Codex 配置已经由 AO 管理');
+    const doc = readForWrite(CONFIG_TOML, 'toml');
+    const auth = readForWrite(AUTH_JSON, 'json');
+    if (doc.model_provider !== providerId) throw new Error('当前 Codex 没有在使用 AO 中转');
+    const table = doc.model_providers?.[providerId];
+    if (!table || typeof table !== 'object' || Array.isArray(table)) throw new Error('找不到 AO 中转的 provider 表，请重新保存中转');
+    if (opts.expectedBaseUrl !== undefined && table.base_url !== opts.expectedBaseUrl) {
+      throw new Error('Codex 配置在确认后发生了变化，请刷新后重新确认');
+    }
+    if (typeof auth.OPENAI_API_KEY !== 'string' || !auth.OPENAI_API_KEY) throw new Error('auth.json 里没有中转 key，请重新保存中转');
+    const absent: SavedValue = { present: false };
+    const same = (value: unknown): SavedValue => ({ present: true, value });
+    const fields: ManagedField[] = [
+      { file: 'config', path: ['model_provider'], before: absent, after: same(providerId) },
+      { file: 'config', path: ['model_providers', providerId], before: absent, after: same(table) },
+      ...(Object.hasOwn(doc, 'model') ? [{ file: 'config' as const, path: ['model'], before: same(doc.model), after: same(doc.model) }] : []),
+      { file: 'auth', path: ['OPENAI_API_KEY'], before: same(auth.OPENAI_API_KEY), after: same(auth.OPENAI_API_KEY) },
+    ];
+    const state: RelayState = {
+      version: 1, providerId, fields,
+      // 只剩 AO 这一张表时，多半是当年 AO 建的；恢复后表空了就一并去掉（空表删了也无害）
+      providersCreated: Object.keys(doc.model_providers).length === 1,
+    };
+    commit([{ name: STATE_NAME, text: JSON.stringify(state, null, 2) }]);
+  });
+}
+
 /** 当前是否已配置了给定 provider 的中转（供 UI 展示状态用）。 */
 export function readCodexRelayStatus(providerId: string): {
   configured: boolean; baseUrl?: string; model?: string; managed: boolean; conflict: boolean; recoveryPending: boolean;

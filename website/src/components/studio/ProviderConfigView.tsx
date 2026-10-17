@@ -372,6 +372,20 @@ export function ProviderConfigView({
     }
   };
 
+  const adoptLegacy = async () => {
+    setError(null);
+    setSaving(true);
+    try {
+      await api.adoptLegacyCodexRelay({ expectedBaseUrl: status?.baseUrl || undefined });
+      setLegacyDone(p.codexLegacyAdopted);
+      onSaved();
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setSaving(false);
+    }
+  };
+
   const removeLegacy = async () => {
     setError(null);
     setSaving(true);
@@ -620,7 +634,10 @@ export function ProviderConfigView({
                     </div>
                   </div>
                 ) : (
-                  <button onClick={() => { setLegacyDone(null); setLegacyOpen(true); }} className="text-xs text-primary underline-offset-2 hover:underline">{p.codexLegacyRemove}</button>
+                  <div className="flex flex-wrap items-center gap-3 text-xs">
+                    <button onClick={adoptLegacy} disabled={saving} className="rounded-md bg-primary px-2.5 py-1 text-primary-foreground hover:bg-primary/90 disabled:opacity-50">{p.codexLegacyAdopt}</button>
+                    <button onClick={() => { setLegacyDone(null); setLegacyOpen(true); }} disabled={saving} className="text-muted-foreground underline-offset-2 hover:text-red-500 hover:underline">{p.codexLegacyRemove}</button>
+                  </div>
                 )
               )}
               {legacyDone && <p role="status" className="text-xs text-muted-foreground">{legacyDone}</p>}

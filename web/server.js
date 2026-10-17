@@ -26,7 +26,7 @@ import { probeVideoEndpoints } from '../dist/media/probe-video.js';
 import { normalizeBaseUrl, postChatCompletions, postApiEndpoint, endpointHint, joinEndpoint } from '../dist/connectors/openai-compatible.js';
 // Anthropic 协议的 base 归一化（客户端会自己接 /v1/messages，base 不能自带 /v1）
 import { normalizeAnthropicBaseUrl } from '../dist/connectors/claude.js';
-import { applyCodexRelay, clearCodexRelay, readCodexRelayStatus, removeLegacyCodexRelay } from '../dist/utils/codex-relay.js';
+import { adoptLegacyCodexRelay, applyCodexRelay, clearCodexRelay, readCodexRelayStatus, removeLegacyCodexRelay } from '../dist/utils/codex-relay.js';
 import { diagnoseClaudeConfig, SNAPSHOT_ENV_KEYS } from '../dist/utils/claude-repair.js';
 import { applyClaudeProvider, restoreClaudeToOfficial, readClaudeSwitchStatus, readClaudeProxyStatus, probeProxyReachable, clearClaudeProxy, syncClaudeProxy, detectSystemProxy } from '../dist/utils/claude-apply.js';
 import { validateCustomProviderId, readCustomProviders, addCustomProvider, removeCustomProvider, updateCustomProvider } from '../dist/utils/custom-providers.js';
@@ -2215,6 +2215,17 @@ app.post('/api/codex/legacy-remove', (req, res) => {
       deleteKey: deleteKey === true,
       expectedBaseUrl: typeof expectedBaseUrl === 'string' ? expectedBaseUrl : undefined,
     }) });
+  } catch (err) {
+    res.status(500).json({ error: err?.message || String(err) });
+  }
+});
+
+// 同一类旧配置的另一条路：继续用，只补所有权记录，以后才能「恢复切换前配置」。
+app.post('/api/codex/legacy-adopt', (req, res) => {
+  const { expectedBaseUrl } = req.body || {};
+  try {
+    adoptLegacyCodexRelay(CODEX_RELAY_ID, { expectedBaseUrl: typeof expectedBaseUrl === 'string' ? expectedBaseUrl : undefined });
+    res.json({ ok: true });
   } catch (err) {
     res.status(500).json({ error: err?.message || String(err) });
   }
