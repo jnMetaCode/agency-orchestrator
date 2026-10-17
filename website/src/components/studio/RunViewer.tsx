@@ -107,7 +107,9 @@ export function RunViewer({ onViewHistory, onGoProviders }: { onViewHistory?: ()
 
   return (
     <>
-    <div className="fixed inset-0 z-[60] flex items-stretch justify-center bg-black/50 p-0 backdrop-blur-sm sm:items-center sm:p-6">
+    {/* 不用 backdrop-blur：运行中 SSE 持续重绘时，Chromium 偶尔会丢掉 backdrop-filter 合成层，
+        导致整个弹层闪一帧。纯半透明遮罩更稳，也避免背景模糊层反复重采样。 */}
+    <div className="fixed inset-0 z-[60] flex items-stretch justify-center bg-black/60 p-0 sm:items-center sm:p-6">
       <div
         role="dialog"
         aria-modal="true"
