@@ -20,6 +20,7 @@ import { connect as netConnect } from 'node:net';
 import { existsSync, readFileSync, writeFileSync, copyFileSync, mkdirSync, renameSync, chmodSync, readdirSync, unlinkSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { assertNotSymlink, describeParseError } from './config-safety.js';
+import { withConfigLock } from './config-transaction.js';
 import { join, dirname, basename } from 'node:path';
 import { repairClaudeConfig, type RepairResult, type ShellEnvOptions } from './claude-repair.js';
 
@@ -127,6 +128,10 @@ export interface ClaudeApplyResult {
  * 把中转 provider 安全写入 ~/.claude/settings.json（全局，任意终端的 claude 都会读到）。
  */
 export function applyClaudeProvider(cfg: ClaudeApplyConfig): ClaudeApplyResult {
+  return withConfigLock(claudeDir(), () => applyClaudeProviderUnlocked(cfg), { create: true });
+}
+
+function applyClaudeProviderUnlocked(cfg: ClaudeApplyConfig): ClaudeApplyResult {
   if (!cfg.providerId) throw new Error('providerId 不能为空');
   if (!cfg.baseUrl || !cfg.apiKey) throw new Error('baseUrl 和 apiKey 不能为空');
 
@@ -314,6 +319,11 @@ export function detectSystemProxy(): string | undefined {
 
 /** 把已检测到的 HTTP CONNECT 代理 merge 到 Claude 全局 settings，保留其它设置。 */
 export function syncClaudeProxy(proxyUrl?: string): ClaudeProxySyncResult {
+  // 没探到代理时什么都不写，不能为了拿锁去建 ~/.claude（restore 每次都会走到这里）
+  return withConfigLock(claudeDir(), () => syncClaudeProxyUnlocked(proxyUrl), { create: !!proxyUrl });
+}
+
+function syncClaudeProxyUnlocked(proxyUrl?: string): ClaudeProxySyncResult {
   if (!proxyUrl) return { configured: false, changed: false, backup: null, reason: 'system-proxy-not-found' };
   let parsed: URL;
   try { parsed = new URL(proxyUrl); }
@@ -346,6 +356,10 @@ export function syncClaudeProxy(proxyUrl?: string): ClaudeProxySyncResult {
  * 并额外清掉 AO 管理标记，回到干净的官方登录状态。
  */
 export function restoreClaudeToOfficial(options: RestoreOptions = {}): RestoreResult {
+  return withConfigLock(claudeDir(), () => restoreClaudeToOfficialUnlocked(options));
+}
+
+function restoreClaudeToOfficialUnlocked(options: RestoreOptions = {}): RestoreResult {
   // 复用现成、已测试的减法逻辑（含备份）；shellEnv 透传，服务端才不会把 AO 自注入的
   // ANTHROPIC_* 当成用户 shell 残留报出来。
   const result = repairClaudeConfig({ ...(options.shellEnv ? { shellEnv: options.shellEnv } : {}) });
@@ -429,6 +443,10 @@ export function probeProxyReachable(proxyUrl: string, timeoutMs = 1500): Promise
 
 /** 移除 Claude 全局代理（HTTP_PROXY/HTTPS_PROXY），改回直连。写前备份；env 空则连 env 一起删。 */
 export function clearClaudeProxy(): { changed: boolean; backup: string | null } {
+  return withConfigLock(claudeDir(), () => clearClaudeProxyUnlocked());
+}
+
+function clearClaudeProxyUnlocked(): { changed: boolean; backup: string | null } {
   const path = settingsPath();
   if (!existsSync(path)) return { changed: false, backup: null };
   let obj: Record<string, any>;

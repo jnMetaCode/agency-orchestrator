@@ -2,7 +2,7 @@ import { mkdtempSync, readFileSync, writeFileSync, readdirSync, rmSync, existsSy
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
-import { spawnSync } from 'node:child_process';
+import { spawn, spawnSync } from 'node:child_process';
 import { withConfigTransaction } from '../src/utils/config-transaction.js';
 
 let passed = 0, failed = 0;
@@ -127,6 +127,41 @@ try {
     let stuck = '';
     try { withConfigTransaction(d, ['a.json'], () => {}); } catch (e) { stuck = String(e); }
     assert(/无法读取/.test(stuck) && existsSync(join(d, '.ao-config.lock')), '长期遗留的空锁：仍阻止写入并要求检查');
+  }
+  {
+    // 真实进程停在 open('wx') 与写入锁记录之间，另一进程此刻来抢锁
+    const d = join(root, 'lock-race');
+    withConfigTransaction(d, ['a.json'], commit => commit([{ name: 'a.json', text: 'before' }]));
+    const child = spawn(process.execPath, ['--import', 'tsx', '--input-type=module', '-e', `
+      import fs from 'node:fs';
+      import { syncBuiltinESMExports } from 'node:module';
+      import { join } from 'node:path';
+      import { withConfigTransaction } from ${JSON.stringify(moduleUrl)};
+      const dir = ${JSON.stringify(d)};
+      const write = fs.writeFileSync;
+      let paused = false;
+      fs.writeFileSync = (target, data, ...rest) => {
+        if (!paused && typeof target === 'number' && String(data).includes('"token"')) {
+          paused = true;
+          fs.writeFileSync(join(dir, 'paused-marker'), 'x');
+          Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 2500);
+        }
+        return write(target, data, ...rest);
+      };
+      syncBuiltinESMExports();
+      withConfigTransaction(dir, ['a.json'], commit => commit([{ name: 'a.json', text: 'child-wrote' }]));
+    `], { stdio: 'ignore' });
+    const exited = new Promise<number | null>(done => child.on('exit', code => done(code)));
+    const start = Date.now();
+    while (!existsSync(join(d, 'paused-marker')) && Date.now() - start < 10000) await new Promise(r => setTimeout(r, 20));
+    const lockText = existsSync(join(d, '.ao-config.lock')) ? readFileSync(join(d, '.ao-config.lock'), 'utf-8') : null;
+    let contender = '';
+    try { withConfigTransaction(d, ['a.json'], commit => commit([{ name: 'a.json', text: 'parent-wrote' }])); }
+    catch (e) { contender = String(e); }
+    assert(lockText === '' && /另一个 AO/.test(contender) && !/无法读取/.test(contender), '对方锁记录还没写完：报暂时占用，不报需人工检查');
+    const code = await exited;
+    assert(code === 0 && readFileSync(join(d, 'a.json'), 'utf-8') === 'child-wrote' && !existsSync(join(d, '.ao-config.lock')),
+      '持锁进程不受干扰地完成写入并释放锁');
   }
   if (process.platform !== 'win32') {
     const d = join(root, 'symlink');

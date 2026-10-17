@@ -20,6 +20,7 @@
 import { existsSync, readFileSync, writeFileSync, copyFileSync, renameSync, chmodSync, readdirSync, unlinkSync, mkdirSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { assertNotSymlink, describeParseError } from './config-safety.js';
+import { withConfigLock } from './config-transaction.js';
 import { join, dirname, basename } from 'node:path';
 
 /** 凭据 / 端点类劫持键：任何模式下出现在 settings 里都是劫持，修复 = 删掉。 */
@@ -263,6 +264,10 @@ function writeSecretJson(path: string, obj: unknown): void {
  * 移除 env 键；不动其它配置，不动 shell。返回改了什么 + 需用户手动处理的残留。
  */
 export function repairClaudeConfig(opts: ShellEnvOptions = {}): RepairResult {
+  return withConfigLock(claudeDir(), () => repairClaudeConfigUnlocked(opts));
+}
+
+function repairClaudeConfigUnlocked(opts: ShellEnvOptions = {}): RepairResult {
   const repaired: RepairedFile[] = [];
   const skipped: { path: string; reason: string }[] = [];
   const shellEnv = opts.shellEnv ?? process.env;

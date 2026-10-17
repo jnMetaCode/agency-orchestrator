@@ -2,7 +2,7 @@
 import { existsSync, readFileSync, writeFileSync, openSync, closeSync, fsyncSync, renameSync,
   unlinkSync, mkdirSync, readdirSync, statSync } from 'node:fs';
 import { randomUUID } from 'node:crypto';
-import { join, basename } from 'node:path';
+import { join, basename, resolve } from 'node:path';
 import { assertNotSymlink } from './config-safety.js';
 
 /** Successful transactions keep this many backups per file; each one is a plaintext credential copy. */
@@ -86,6 +86,31 @@ function lock(path: string): () => void {
     } finally { release(guard, value.token); }
   }
   return () => release(path, value.token);
+}
+
+const held = new Map<string, number>();
+
+/**
+ * Mutual exclusion only, for writers whose every write is a single atomic file replacement
+ * (Claude settings). Reentrant within this process so composite operations (restore → repair →
+ * proxy sync) do not lock themselves out; everything inside is synchronous, so no interleaving.
+ * A missing directory is not created unless `create` is set: there is nothing to protect yet,
+ * and creating ~/.claude just to hold a lock would look like Claude Code had been set up.
+ */
+export function withConfigLock<T>(directory: string, action: () => T, options: { create?: boolean } = {}): T {
+  const key = resolve(directory);
+  const depth = held.get(key) ?? 0;
+  if (depth > 0) {
+    held.set(key, depth + 1);
+    try { return action(); } finally { held.set(key, depth); }
+  }
+  if (!existsSync(key)) {
+    if (!options.create) return action();
+    mkdirSync(key, { recursive: true });
+  }
+  const unlock = lock(join(key, '.ao-config.lock'));
+  held.set(key, 1);
+  try { return action(); } finally { held.delete(key); unlock(); }
 }
 
 function pruneBackups(directory: string, name: string): void {

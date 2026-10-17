@@ -301,6 +301,34 @@ try {
     assert(readSettings()._aoManagedEnvHashes === undefined, '切回官方同步移除字段摘要');
   }
 
+  console.log('\n─── 与其它 AO 进程互斥 ───');
+  {
+    const lockFile = join(sandbox, '.ao-config.lock');
+    writeFileSync(settings, JSON.stringify({ theme: 'dark' }), 'utf-8');
+    // 另一个活着的 AO 进程持锁（父进程的 pid 一定活着，且不是本进程）
+    writeFileSync(lockFile, JSON.stringify({ pid: process.ppid, token: 'other-ao' }));
+    const busy: string[] = [];
+    for (const run of [() => applyClaudeProvider(cfg), () => restoreClaudeToOfficial({ shellEnv: {}, detectSystemProxy: false }),
+      () => repairClaudeConfig({ shellEnv: {} })]) {
+      try { run(); busy.push('ran'); } catch (e) { busy.push(/另一个 AO/.test(String(e)) ? 'busy' : String(e)); }
+    }
+    assert(busy.every(r => r === 'busy') && readFileSync(settings, 'utf-8') === JSON.stringify({ theme: 'dark' }),
+      `另一 AO 进程持锁：apply / restore / repair 都拒绝且不写（${busy.join(',')}）`);
+    assert(JSON.parse(readFileSync(lockFile, 'utf-8')).token === 'other-ao', '不删别人的锁');
+    rmSync(lockFile);
+    applyClaudeProvider(cfg);
+    restoreClaudeToOfficial({ shellEnv: {}, detectSystemProxy: false, proxyUrl: 'http://127.0.0.1:7890' });
+    assert(readSettings().env?.ANTHROPIC_BASE_URL === undefined && readSettings().env?.HTTP_PROXY === 'http://127.0.0.1:7890'
+      && !existsSync(lockFile), 'restore 内部嵌套 repair + 代理同步不会自己锁死自己，结束后释放锁');
+
+    const fresh = join(sandbox, 'never-ran-claude');
+    process.env.AO_CLAUDE_DIR = fresh;
+    const m = await import(`../src/utils/claude-apply.js?fresh=${Date.now()}`);
+    m.restoreClaudeToOfficial({ shellEnv: {}, detectSystemProxy: false });
+    assert(!existsSync(fresh), '没装过 Claude Code 的机器：restore 不会为了拿锁凭空建出 ~/.claude');
+    process.env.AO_CLAUDE_DIR = sandbox;
+  }
+
 } finally {
   rmSync(sandbox, { recursive: true, force: true });
   if (savedDir === undefined) delete process.env.AO_CLAUDE_DIR;
