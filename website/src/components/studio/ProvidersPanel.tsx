@@ -434,10 +434,11 @@ export function ProvidersPanel({ active, onSetActive, offline = false }: { activ
                 const deprecated = DEPRECATED_CLI_PROVIDERS[id];
                 const statusLine = deprecated
                   ? deprecated[lang] ?? deprecated.zh
-                  : installed
-                    ? t.studio.providers.cliInstalledBadge
-                    : relayConfigured
-                      ? t.studio.providers.cliRelaySet
+                  // 配了中转优先说中转：装了 CLI 也不是「零配置」——终端里的命令行也会走这个中转
+                  : relayConfigured
+                    ? t.studio.providers.cliRelaySet
+                    : installed
+                      ? t.studio.providers.cliInstalledBadge
                       : t.studio.providers.cliRequirement;
                 return (
                   <div key={id} className={cn("flex items-center justify-between gap-2 rounded-xl border bg-card/60 px-4 py-3", deprecated ? "border-amber-500/40 opacity-80" : installed ? "border-emerald-500/50" : eff === id ? "border-primary/60" : "border-border/70")}>
