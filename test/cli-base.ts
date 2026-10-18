@@ -74,6 +74,49 @@ await test('exit 非 0 + 有 stderr → reject 含 stderr', async () => {
   assert(caught!.message.includes('boom'), `错误消息应含 stderr 内容，实际: ${caught!.message}`);
 });
 
+await test('非零退出即使输出了部分正文也必须失败，不能把残缺成果传给下游', async () => {
+  const c = new CLIBaseConnector({
+    command: process.execPath, displayName: 'Partial CLI',
+    buildArgs: () => ['-e', 'process.stdout.write("partial-result"); process.exit(7)'],
+  });
+  let message = '';
+  try { await c.chat('', '', dummyConfig); } catch (e) { message = (e as Error).message; }
+  assert(/exit 7/.test(message), `应报告失败退出码，实际: ${message}`);
+  assert(!message.includes('partial-result'), '不在错误里回显未完成的正文');
+});
+
+if (process.platform !== 'win32') await test('信号终止即使已有正文也必须失败并说明信号', async () => {
+  const c = new CLIBaseConnector({
+    command: process.execPath, displayName: 'Interrupted CLI',
+    buildArgs: () => ['-e', 'process.stdout.write("partial-result"); process.kill(process.pid, "SIGTERM")'],
+  });
+  let message = '';
+  try { await c.chat('', '', dummyConfig); } catch (e) { message = (e as Error).message; }
+  assert(/SIGTERM/.test(message), `应报告终止信号，实际: ${message}`);
+});
+
+await test('静默空输出提示不回显参数里的完整提示词或凭证', async () => {
+  const secret = 'private-task-sk-fake-secret';
+  const c = new CLIBaseConnector({
+    command: process.execPath, displayName: 'Silent argument CLI',
+    buildArgs: prompt => ['-e', 'process.exit(0)', '--', prompt],
+  });
+  let message = '';
+  try { await c.chat('', secret, dummyConfig); } catch (e) { message = (e as Error).message; }
+  assert(/返回空内容/.test(message) && !message.includes(secret), `不应回显参数，实际: ${message}`);
+});
+
+await test('输出解析器异常通过 chat 拒绝返回，不成为未捕获异常', async () => {
+  const c = new CLIBaseConnector({
+    command: process.execPath, displayName: 'Invalid response CLI',
+    buildArgs: () => ['-e', 'process.stdout.write("malformed")'],
+    parseOutput: () => { throw new Error('invalid output format'); },
+  });
+  let message = '';
+  try { await c.chat('', '', dummyConfig); } catch (e) { message = (e as Error).message; }
+  assert(/输出解析失败/.test(message) && !/invalid output format/.test(message), `应拒绝 chat，实际: ${message}`);
+});
+
 await test('找不到命令 → ENOENT 提示安装', async () => {
   const c = new CLIBaseConnector({
     command: '__definitely_does_not_exist_4837__',

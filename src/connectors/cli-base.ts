@@ -220,7 +220,7 @@ export class CLIBaseConnector implements LLMConnector {
         }
       });
 
-      child.on('close', (code) => {
+      child.on('close', (code, signal) => {
         if (timer) clearTimeout(timer);
 
         if (killed) {
@@ -231,7 +231,7 @@ export class CLIBaseConnector implements LLMConnector {
         const stdout = decodeProcessOutput(stdoutChunks);
         const stderr = decodeProcessOutput(stderrChunks);
 
-        if (code !== 0 && !stdout.trim()) {
+        if (code !== 0) {
           // 兜底识别"命令未安装"：spawn-cli 现在优先直连可执行文件（走 ENOENT 分支），
           // 但仍有落到 cmd.exe 的兜底路径——那时 cmd.exe 自己吞掉 ENOENT、改成打印
           // 错误 + 非零退出，只能靠文案识别。
@@ -254,13 +254,20 @@ export class CLIBaseConnector implements LLMConnector {
             : looksLikeAuth
               ? `\n  提示: 首次使用 ${this.cfg.displayName} 需要先在终端跑一次 \`${this.cfg.command}\` 完成账号登录，或设置对应的 API KEY 环境变量`
               : '';
-          reject(new Error(`${this.cfg.displayName} 调用失败 (exit ${code}): ${stderr.slice(0, 500)}${hint}`));
+          const termination = signal ? `signal ${signal}` : `exit ${code}`;
+          const detail = stderr.trim().slice(0, 500) || '进程未正常完成，已忽略未完成的标准输出';
+          reject(new Error(`${this.cfg.displayName} 调用失败 (${termination}): ${detail}${hint}`));
           return;
         }
 
-        const content = this.cfg.parseOutput
-          ? this.cfg.parseOutput(stdout)
-          : stdout.trim();
+        let content: string;
+        try {
+          content = this.cfg.parseOutput ? this.cfg.parseOutput(stdout) : stdout.trim();
+        } catch {
+          // Exceptions inside an event callback otherwise escape the chat promise and crash AO.
+          reject(new Error(`${this.cfg.displayName} 输出解析失败，请检查 CLI 版本与输出格式`));
+          return;
+        }
 
         // 空内容是严重错误（LLM 应当返回内容）。区分两类原因给具体 hint，避免上层
         // 拿到空字符串后报出迷惑性的"无效 YAML"错误。
@@ -268,7 +275,7 @@ export class CLIBaseConnector implements LLMConnector {
           const stderrSnippet = stderr.trim().slice(0, 400);
           const hint = stderrSnippet
             ? `stderr: ${stderrSnippet}`
-            : `进程退出码 ${code} 但 stdout/stderr 都为空。可能原因: CLI 命令格式已变（参考 issue #14 hermes 的 chat -q → -z）/ agent 或 model 配置不对 / CLI 需要先认证。建议在终端直接跑一次:\n    ${this.cfg.command} ${args.slice(0, 4).join(' ')}${args.length > 4 ? ' ...' : ''}\n  看真实输出再调整 ao 配置`;
+            : `进程退出码 ${code} 但 stdout/stderr 都为空。可能原因: CLI 命令格式已变（参考 issue #14 hermes 的 chat -q → -z）/ agent 或 model 配置不对 / CLI 需要先认证。建议在终端直接跑一次:\n    ${this.cfg.command}\n  看真实输出再调整 ao 配置`;
           const extra = this.cfg.emptyOutputHint ? `\n  ${this.cfg.emptyOutputHint}` : '';
           reject(new Error(`${this.cfg.displayName} 返回空内容。${hint}${extra}`));
           return;
