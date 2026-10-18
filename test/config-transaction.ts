@@ -1,9 +1,9 @@
-import { mkdtempSync, readFileSync, writeFileSync, readdirSync, rmSync, existsSync, statSync, utimesSync, symlinkSync, lstatSync, unlinkSync } from 'node:fs';
+import { mkdtempSync, readFileSync, writeFileSync, readdirSync, rmSync, existsSync, mkdirSync, statSync, utimesSync, symlinkSync, lstatSync, unlinkSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { spawn, spawnSync } from 'node:child_process';
-import { withConfigTransaction } from '../src/utils/config-transaction.js';
+import { withConfigTransaction, withConfigLock } from '../src/utils/config-transaction.js';
 
 let passed = 0, failed = 0;
 function assert(ok: boolean, message: string): void {
@@ -24,6 +24,109 @@ const worker = (directory: string, script: string) => spawnSync(process.execPath
 
 console.log('\n─── 配置事务：真实进程中断与并发 ───');
 try {
+  {
+    const d = join(root, 'locked-temp-cleanup');
+    const name = 'settings.json.12345678-1234-4234-8234-123456789abc.ao-tmp';
+    withConfigLock(d, () => {
+      writeFileSync(join(d, name), 'active');
+      withConfigLock(d, () => assert(existsSync(join(d, name)), '嵌套操作不清理外层正在使用的暂存'), { cleanupTemps: ['settings.json'] });
+      const contender = worker(d, `
+        const { withConfigLock } = await import(${JSON.stringify(moduleUrl)});
+        try { withConfigLock(dir, () => {}, { cleanupTemps: ['settings.json'] }); }
+        catch { process.exit(17); }
+      `);
+      assert(contender.status === 17 && existsSync(join(d, name)), '另一个进程抢锁失败时不得清理活动暂存');
+    }, { create: true });
+    withConfigLock(d, () => assert(!existsSync(join(d, name)), '获得外层锁后才清理已遗留暂存'), { cleanupTemps: ['settings.json'] });
+    if (process.platform !== 'win32') {
+      const target = join(d, 'user-file');
+      writeFileSync(target, 'user-data');
+      symlinkSync(target, join(d, name));
+      withConfigLock(d, () => {}, { cleanupTemps: ['settings.json'] });
+      assert(lstatSync(join(d, name)).isSymbolicLink() && readFileSync(target, 'utf-8') === 'user-data',
+        '同格式符号链接不清理且不修改其目标');
+    }
+  }
+  {
+    const d = join(root, 'transaction-cleanup-scope');
+    withConfigTransaction(d, ['a.json'], commit => commit([{ name: 'a.json', text: 'original' }]));
+    const uuid = '12345678-1234-4234-8234-123456789abc';
+    const temp = `a.json.${uuid}.ao-tmp`;
+    const journalTemp = `.ao-config-transaction.json.${uuid}.ao-tmp`;
+    const malformed = `a.json.${'-'.repeat(36)}.ao-tmp`;
+    const unrelated = `other.json.${uuid}.ao-tmp`;
+    const directory = `a.json.22345678-1234-4234-8234-123456789abc.ao-tmp`;
+    for (const name of [temp, journalTemp, malformed, unrelated]) writeFileSync(join(d, name), 'preserve-unless-owned');
+    mkdirSync(join(d, directory));
+    const link = `a.json.32345678-1234-4234-8234-123456789abc.ao-tmp`;
+    if (process.platform !== 'win32') symlinkSync(join(d, 'a.json'), join(d, link));
+    withConfigTransaction(d, ['a.json'], () => {});
+    assert(!existsSync(join(d, temp)) && !existsSync(join(d, journalTemp)), '事务清理识别目标与日志的准确 UUID 暂存文件');
+    assert(existsSync(join(d, malformed)) && existsSync(join(d, unrelated)) && statSync(join(d, directory)).isDirectory(),
+      '事务清理保留畸形 UUID、其他目标文件与同格式目录');
+    if (process.platform !== 'win32') assert(lstatSync(join(d, link)).isSymbolicLink()
+      && readFileSync(join(d, 'a.json'), 'utf-8') === 'original', '事务清理保留同格式符号链接及其目标');
+  }
+  {
+    const d = join(root, 'backup-cleanup-scope');
+    withConfigTransaction(d, ['a.json'], commit => commit([{ name: 'a.json', text: 'original' }]));
+    const prefix = 'a.json.ao-backup-';
+    const owned = Array.from({ length: 8 }, (_, i) => `${prefix}170000000000${i}-12345678-1234-4234-8234-123456789abc`);
+    for (const name of owned) writeFileSync(join(d, name), 'old-key');
+    const notes = `${prefix}user-notes`;
+    const directory = `${prefix}1600000000000-22345678-1234-4234-8234-123456789abc`;
+    const link = `${prefix}1600000000001-32345678-1234-4234-8234-123456789abc`;
+    writeFileSync(join(d, notes), 'user-notes');
+    mkdirSync(join(d, directory));
+    if (process.platform !== 'win32') symlinkSync(join(d, notes), join(d, link));
+    withConfigTransaction(d, ['a.json'], commit => commit([{ name: 'a.json', text: 'updated' }]));
+    assert(owned.slice(0, 4).every(name => !existsSync(join(d, name)))
+      && owned.slice(4).every(name => existsSync(join(d, name))), '备份保留最近五份有效普通文件，用户文件不占配额');
+    assert(readFileSync(join(d, notes), 'utf-8') === 'user-notes' && statSync(join(d, directory)).isDirectory(),
+      '备份清理保留相似前缀笔记与同格式目录');
+    if (process.platform !== 'win32') assert(lstatSync(join(d, link)).isSymbolicLink(), '备份清理不删除符号链接');
+  }
+  for (const failure of ['backup-write', 'backup-sync', 'second-target']) {
+    const d = join(root, failure);
+    withConfigTransaction(d, ['a.json', 'b.json'], commit => commit([
+      { name: 'a.json', text: 'before-a' }, { name: 'b.json', text: 'before-b' },
+    ]));
+    const result = worker(d, `
+      const open = fs.openSync, write = fs.writeFileSync, sync = fs.fsyncSync;
+      const paths = new Map();
+      let failed = false;
+      fs.openSync = (path, ...args) => {
+        const fd = open(path, ...args); paths.set(fd, String(path)); return fd;
+      };
+      fs.writeFileSync = (fd, data, ...args) => {
+        const path = paths.get(fd) ?? '';
+        if (!failed && (${JSON.stringify(failure)} === 'backup-write' && path.includes('.ao-backup-')
+          || ${JSON.stringify(failure)} === 'second-target' && data === 'after-b')) {
+          failed = true; write(fd, String(data).slice(0, 3), ...args);
+          throw Object.assign(new Error('simulated disk full'), { code: 'ENOSPC' });
+        }
+        return write(fd, data, ...args);
+      };
+      fs.fsyncSync = fd => {
+        if (!failed && ${JSON.stringify(failure)} === 'backup-sync' && (paths.get(fd) ?? '').includes('.ao-backup-')) {
+          failed = true; throw Object.assign(new Error('simulated sync failure'), { code: 'EIO' });
+        }
+        return sync(fd);
+      };
+      syncBuiltinESMExports();
+      try {
+        withConfigTransaction(dir, ['a.json', 'b.json'], commit => commit([
+          { name: 'a.json', text: 'after-a' }, { name: 'b.json', text: 'after-b' },
+        ]));
+      } catch { if (failed) process.exit(17); throw new Error('unexpected failure'); }
+    `);
+    assert(result.status === 17 && readFileSync(join(d, 'a.json'), 'utf-8') === 'before-a'
+      && readFileSync(join(d, 'b.json'), 'utf-8') === 'before-b', `${failure}：故障注入后两份原配置完整保留或回滚`);
+    assert(!existsSync(join(d, '.ao-config.lock')) && !existsSync(join(d, '.ao-config-transaction.json'))
+      && !readdirSync(d).some(name => name.endsWith('.ao-tmp')), `${failure}：无遗留锁、暂存凭证和未完成事务`);
+    if (failure !== 'second-target') assert(!readdirSync(d).some(name => name.includes('.ao-backup-')),
+      `${failure}：不保留失败或未同步完成的备份凭证`);
+  }
   for (const stage of ['first', 'staged', 'last', 'committed']) {
     const directory = join(root, stage);
     withConfigTransaction(directory, ['a.json', 'b.json'], commit => commit([
@@ -62,6 +165,66 @@ try {
       && readFileSync(join(directory, 'b.json'), 'utf-8') === `${prefix}-b`, `${stage}：恢复到完整一致状态`);
     assert(!existsSync(join(directory, '.ao-config.lock')) && !existsSync(join(directory, '.ao-config-transaction.json')), '恢复完成后释放锁并清理日志');
     assert(!readdirSync(directory).some(f => f.endsWith('.ao-tmp')), `${stage}：中断遗留的临时凭据文件已清理`);
+  }
+
+  for (const fault of ['recovery-write', 'recovery-sync', 'journal-cleanup']) {
+    const d = join(root, fault);
+    withConfigTransaction(d, ['a.json', 'b.json'], commit => commit([
+      { name: 'a.json', text: 'before-a' }, { name: 'b.json', text: 'before-b' },
+    ]));
+    const crash = worker(d, `
+      const rename = fs.renameSync;
+      fs.renameSync = (from, to) => {
+        rename(from, to);
+        if (String(to) === join(dir, 'b.json')) process.kill(process.pid, 'SIGKILL');
+      };
+      syncBuiltinESMExports();
+      withConfigTransaction(dir, ['a.json', 'b.json'], commit => commit([
+        { name: 'a.json', text: 'after-a' }, { name: 'b.json', text: 'after-b' },
+      ]));
+    `);
+    const journalPath = join(d, '.ao-config-transaction.json');
+    assert(!crash.error && crash.status !== 0 && existsSync(journalPath), `${fault}：真实中断建立待恢复事务`);
+    const journal = readFileSync(journalPath, 'utf-8');
+    const recovery = worker(d, `
+      const open = fs.openSync, write = fs.writeFileSync, sync = fs.fsyncSync, unlink = fs.unlinkSync;
+      const paths = new Map();
+      let injected = false;
+      fs.openSync = (path, ...args) => { const fd = open(path, ...args); paths.set(fd, String(path)); return fd; };
+      fs.writeFileSync = (fd, data, ...args) => {
+        if (${JSON.stringify(fault)} === 'recovery-write' && data === 'before-a') {
+          injected = true; write(fd, 'partial', ...args); throw new Error('simulated recovery disk full');
+        }
+        return write(fd, data, ...args);
+      };
+      fs.fsyncSync = fd => {
+        if (${JSON.stringify(fault)} === 'recovery-sync' && (paths.get(fd) ?? '').startsWith(join(dir, 'a.json.'))) {
+          injected = true; throw new Error('simulated recovery sync failure');
+        }
+        return sync(fd);
+      };
+      fs.unlinkSync = path => {
+        if (${JSON.stringify(fault)} === 'journal-cleanup' && String(path) === join(dir, '.ao-config-transaction.json')) {
+          injected = true; throw new Error('simulated journal cleanup failure');
+        }
+        return unlink(path);
+      };
+      syncBuiltinESMExports();
+      try { withConfigTransaction(dir, ['a.json', 'b.json'], () => fs.writeFileSync(join(dir, 'action-ran'), 'unsafe')); }
+      catch { if (injected) process.exit(17); throw new Error('unexpected recovery failure'); }
+    `);
+    assert(recovery.status === 17 && readFileSync(journalPath, 'utf-8') === journal
+      && !existsSync(join(d, 'action-ran')), `${fault}：恢复失败保留原日志且不执行新配置操作`);
+    const expectedA = fault === 'journal-cleanup' ? 'before-a' : 'after-a';
+    assert(readFileSync(join(d, 'a.json'), 'utf-8') === expectedA
+      && readFileSync(join(d, 'b.json'), 'utf-8') === 'before-b', `${fault}：已恢复与未恢复目标均保持完整文件`);
+    assert(!existsSync(join(d, '.ao-config.lock')) && !readdirSync(d).some(name => name.endsWith('.ao-tmp')),
+      `${fault}：故障后释放锁并清理暂存凭证`);
+    let ran = false;
+    withConfigTransaction(d, ['a.json', 'b.json'], () => { ran = true; });
+    assert(ran && readFileSync(join(d, 'a.json'), 'utf-8') === 'before-a'
+      && readFileSync(join(d, 'b.json'), 'utf-8') === 'before-b'
+      && !existsSync(journalPath), `${fault}：故障解除后幂等恢复完整基线再执行操作`);
   }
 
   const directory = join(root, 'conflict');

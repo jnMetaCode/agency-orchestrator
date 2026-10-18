@@ -5,6 +5,9 @@
 import { mkdtempSync, rmSync, writeFileSync, readFileSync, existsSync, readdirSync, statSync, mkdirSync, symlinkSync, lstatSync } from 'node:fs';
 import fs from 'node:fs';
 import { syncBuiltinESMExports } from 'node:module';
+import { spawnSync } from 'node:child_process';
+import { pathToFileURL } from 'node:url';
+import { resolve } from 'node:path';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import {
@@ -141,13 +144,13 @@ try {
       'settings.json 是符号链接：apply 拒绝，链接与目标都不变');
     rmSync(settings);
     for (const operation of ['apply', 'repair']) {
-      const original = JSON.stringify({ env: { ANTHROPIC_BASE_URL: 'https://old.invalid' } });
+      const original = JSON.stringify({ theme: 'late-link', env: { ANTHROPIC_BASE_URL: 'https://old.invalid' } });
       writeFileSync(settings, original);
       writeFileSync(real, original);
       const write = fs.writeFileSync;
       fs.writeFileSync = ((target: any, data: any, ...rest: any[]) => {
         const result = (write as any)(target, data, ...rest);
-        if (typeof target === 'string' && target.startsWith(settings + '.') && target.endsWith('.ao-tmp')) {
+        if (typeof target === 'number' && String(data).includes('late-link')) {
           rmSync(settings);
           symlinkSync(real, settings);
         }
@@ -164,6 +167,64 @@ try {
       assert(!readdirSync(sandbox).some(name => name.endsWith('.ao-tmp')), `${operation} 拒绝覆盖后清理暂存凭证`);
       rmSync(settings);
     }
+  }
+
+  // Real process death bypasses finally: the next locked writer cleans only AO staging files.
+  {
+    const crashDir = join(sandbox, 'crash-recovery');
+    mkdirSync(crashDir);
+    const original = JSON.stringify({ theme: 'preserve' });
+    writeFileSync(join(crashDir, 'settings.json'), original);
+    const crashed = spawnSync(process.execPath, ['--import', 'tsx', '--input-type=module', '-e', `
+      import fs from 'node:fs';
+      import { syncBuiltinESMExports } from 'node:module';
+      import { applyClaudeProvider } from ${JSON.stringify(pathToFileURL(resolve('src/utils/claude-apply.ts')).href)};
+      fs.renameSync = () => process.kill(process.pid, 'SIGKILL');
+      syncBuiltinESMExports();
+      applyClaudeProvider(${JSON.stringify(cfg)});
+    `], { env: { ...process.env, AO_CLAUDE_DIR: crashDir }, encoding: 'utf-8', timeout: 15000 });
+    const temps = readdirSync(crashDir).filter(name => name.endsWith('.ao-tmp'));
+    assert(!crashed.error && crashed.status !== 0 && temps.length === 1, 'SIGKILL 真实子进程留下已写入凭证的暂存文件');
+    const unrelated = 'other.json.12345678-1234-4234-8234-123456789abc.ao-tmp';
+    const malformed = 'settings.json.user-notes.ao-tmp';
+    const directory = 'settings.json.12345678-1234-4234-8234-123456789abc.ao-tmp';
+    writeFileSync(join(crashDir, unrelated), 'user');
+    writeFileSync(join(crashDir, malformed), 'notes');
+    mkdirSync(join(crashDir, directory));
+    process.env.AO_CLAUDE_DIR = crashDir;
+    try { repairClaudeConfig({ shellEnv: {} }); }
+    finally { process.env.AO_CLAUDE_DIR = sandbox; }
+    assert(temps.every(name => !existsSync(join(crashDir, name))) && !existsSync(join(crashDir, '.ao-config.lock')),
+      '下一次修复在取得锁后回收死进程暂存凭证并释放锁');
+    assert(readFileSync(join(crashDir, 'settings.json'), 'utf-8') === original, '清理中断暂存不应用未提交的供应商配置');
+    assert(readFileSync(join(crashDir, unrelated), 'utf-8') === 'user'
+      && readFileSync(join(crashDir, malformed), 'utf-8') === 'notes'
+      && statSync(join(crashDir, directory)).isDirectory(), '清理保留其他文件、非 UUID 文件与同名目录');
+  }
+
+  // A failed write may already have written a credential prefix to the staging file.
+  for (const operation of ['apply', 'repair']) {
+    const original = JSON.stringify({ theme: 'partial-write', env: { ANTHROPIC_BASE_URL: 'https://old.invalid' } });
+    writeFileSync(settings, original);
+    const write = fs.writeFileSync;
+    let injected = false;
+    fs.writeFileSync = ((target: any, data: any, ...rest: any[]) => {
+      if (typeof target === 'number' && String(data).includes('partial-write')) {
+        injected = true;
+        (write as any)(target, String(data).slice(0, 24), ...rest);
+        throw Object.assign(new Error('simulated disk full'), { code: 'ENOSPC' });
+      }
+      return (write as any)(target, data, ...rest);
+    }) as typeof fs.writeFileSync;
+    syncBuiltinESMExports();
+    try {
+      if (operation === 'apply') applyClaudeProvider(cfg);
+      else repairClaudeConfig({ shellEnv: {} });
+    } catch { /* The operation must fail without replacing settings. */ }
+    finally { fs.writeFileSync = write; syncBuiltinESMExports(); }
+    assert(injected && readFileSync(settings, 'utf-8') === original, `${operation} 部分写入失败：原配置完整保留`);
+    assert(!readdirSync(sandbox).some(name => name.endsWith('.ao-tmp')), `${operation} 部分写入失败：清理已落盘的暂存凭证`);
+    assert(!existsSync(join(sandbox, '.ao-config.lock')), `${operation} 部分写入失败：释放操作锁`);
   }
 
   // 7) shellEnv 可注入：Studio 服务端传「applyKeys 之前」的快照，避免把 AO 自己注入到

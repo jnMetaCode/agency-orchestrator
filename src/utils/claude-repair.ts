@@ -17,7 +17,7 @@
  * 注意：这里绝不写入任何中转/token —— 它是「恢复官方登录」的减法工具，
  * 跟 AO 给子进程注入 env 的正向逻辑（web/server.js 的 applyKeys）互不相干。
  */
-import { existsSync, readFileSync, writeFileSync, copyFileSync, renameSync, chmodSync, readdirSync, unlinkSync, mkdirSync } from 'node:fs';
+import { openSync, closeSync, fsyncSync, existsSync, readFileSync, writeFileSync, copyFileSync, renameSync, chmodSync, readdirSync, unlinkSync, mkdirSync } from 'node:fs';
 import { randomUUID } from 'node:crypto';
 import { homedir } from 'node:os';
 import { assertNotSymlink, describeParseError } from './config-safety.js';
@@ -255,14 +255,17 @@ function writeSecretJson(path: string, obj: unknown): void {
   mkdirSync(dirname(path), { recursive: true });
   assertNotSymlink(path);
   const tmp = `${path}.${randomUUID()}.ao-tmp`;
-  let staged = false;
+  // Own the file before writing: a partial write can throw after leaving credential bytes.
+  const fd = openSync(tmp, 'wx', 0o600);
   try {
-    writeFileSync(tmp, JSON.stringify(obj, null, 2) + '\n', { encoding: 'utf-8', mode: 0o600, flag: 'wx' });
-    staged = true;
+    try {
+      writeFileSync(fd, JSON.stringify(obj, null, 2) + '\n', 'utf-8');
+      fsyncSync(fd);
+    } finally { closeSync(fd); }
     assertNotSymlink(path);
     renameSync(tmp, path);
   } finally {
-    if (staged) try { unlinkSync(tmp); } catch { /* Already renamed; preserve the original error. */ }
+    try { unlinkSync(tmp); } catch { /* Already renamed; preserve the original error. */ }
   }
   try { chmodSync(path, 0o600); } catch { /* 不支持权限位的文件系统 */ }
 }
@@ -272,7 +275,7 @@ function writeSecretJson(path: string, obj: unknown): void {
  * 移除 env 键；不动其它配置，不动 shell。返回改了什么 + 需用户手动处理的残留。
  */
 export function repairClaudeConfig(opts: ShellEnvOptions = {}): RepairResult {
-  return withConfigLock(claudeDir(), () => repairClaudeConfigUnlocked(opts));
+  return withConfigLock(claudeDir(), () => repairClaudeConfigUnlocked(opts), { cleanupTemps: ['settings.json', 'settings.local.json'] });
 }
 
 function repairClaudeConfigUnlocked(opts: ShellEnvOptions = {}): RepairResult {

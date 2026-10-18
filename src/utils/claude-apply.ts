@@ -17,7 +17,7 @@
 import { execFileSync } from 'node:child_process';
 import { createHash, randomUUID } from 'node:crypto';
 import { connect as netConnect } from 'node:net';
-import { existsSync, readFileSync, writeFileSync, copyFileSync, mkdirSync, renameSync, chmodSync, readdirSync, unlinkSync } from 'node:fs';
+import { openSync, closeSync, fsyncSync, existsSync, readFileSync, writeFileSync, copyFileSync, mkdirSync, renameSync, chmodSync, readdirSync, unlinkSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { assertNotSymlink, describeParseError } from './config-safety.js';
 import { withConfigLock } from './config-transaction.js';
@@ -86,14 +86,17 @@ function writeSecretJson(path: string, obj: unknown): void {
   mkdirSync(dirname(path), { recursive: true });
   assertNotSymlink(path); // rename 会把 dotfiles 链接换成普通文件
   const tmp = `${path}.${randomUUID()}.ao-tmp`;
-  let staged = false;
+  // Own the file before writing: a partial write can throw after leaving credential bytes.
+  const fd = openSync(tmp, 'wx', 0o600);
   try {
-    writeFileSync(tmp, JSON.stringify(obj, null, 2) + '\n', { encoding: 'utf-8', mode: 0o600, flag: 'wx' });
-    staged = true;
+    try {
+      writeFileSync(fd, JSON.stringify(obj, null, 2) + '\n', 'utf-8');
+      fsyncSync(fd);
+    } finally { closeSync(fd); }
     assertNotSymlink(path);
     renameSync(tmp, path);
   } finally {
-    if (staged) try { unlinkSync(tmp); } catch { /* Already renamed; preserve the original error. */ }
+    try { unlinkSync(tmp); } catch { /* Already renamed; preserve the original error. */ }
   }
   try { chmodSync(path, 0o600); } catch { /* 不支持权限位的文件系统 */ }
 }
@@ -135,7 +138,7 @@ export interface ClaudeApplyResult {
  * 把中转 provider 安全写入 ~/.claude/settings.json（全局，任意终端的 claude 都会读到）。
  */
 export function applyClaudeProvider(cfg: ClaudeApplyConfig): ClaudeApplyResult {
-  return withConfigLock(claudeDir(), () => applyClaudeProviderUnlocked(cfg), { create: true });
+  return withConfigLock(claudeDir(), () => applyClaudeProviderUnlocked(cfg), { create: true, cleanupTemps: ['settings.json', 'settings.local.json'] });
 }
 
 function applyClaudeProviderUnlocked(cfg: ClaudeApplyConfig): ClaudeApplyResult {
@@ -327,7 +330,7 @@ export function detectSystemProxy(): string | undefined {
 /** 把已检测到的 HTTP CONNECT 代理 merge 到 Claude 全局 settings，保留其它设置。 */
 export function syncClaudeProxy(proxyUrl?: string): ClaudeProxySyncResult {
   // 没探到代理时什么都不写，不能为了拿锁去建 ~/.claude（restore 每次都会走到这里）
-  return withConfigLock(claudeDir(), () => syncClaudeProxyUnlocked(proxyUrl), { create: !!proxyUrl });
+  return withConfigLock(claudeDir(), () => syncClaudeProxyUnlocked(proxyUrl), { create: !!proxyUrl, cleanupTemps: ['settings.json', 'settings.local.json'] });
 }
 
 function syncClaudeProxyUnlocked(proxyUrl?: string): ClaudeProxySyncResult {
@@ -363,7 +366,7 @@ function syncClaudeProxyUnlocked(proxyUrl?: string): ClaudeProxySyncResult {
  * 并额外清掉 AO 管理标记，回到干净的官方登录状态。
  */
 export function restoreClaudeToOfficial(options: RestoreOptions = {}): RestoreResult {
-  return withConfigLock(claudeDir(), () => restoreClaudeToOfficialUnlocked(options));
+  return withConfigLock(claudeDir(), () => restoreClaudeToOfficialUnlocked(options), { cleanupTemps: ['settings.json', 'settings.local.json'] });
 }
 
 function restoreClaudeToOfficialUnlocked(options: RestoreOptions = {}): RestoreResult {
@@ -450,7 +453,7 @@ export function probeProxyReachable(proxyUrl: string, timeoutMs = 1500): Promise
 
 /** 移除 Claude 全局代理（HTTP_PROXY/HTTPS_PROXY），改回直连。写前备份；env 空则连 env 一起删。 */
 export function clearClaudeProxy(): { changed: boolean; backup: string | null } {
-  return withConfigLock(claudeDir(), () => clearClaudeProxyUnlocked());
+  return withConfigLock(claudeDir(), () => clearClaudeProxyUnlocked(), { cleanupTemps: ['settings.json', 'settings.local.json'] });
 }
 
 function clearClaudeProxyUnlocked(): { changed: boolean; backup: string | null } {

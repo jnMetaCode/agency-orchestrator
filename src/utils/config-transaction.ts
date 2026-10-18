@@ -1,6 +1,6 @@
 /** Cooperative local config transactions. Recovery refuses to overwrite external edits. */
 import { existsSync, readFileSync, writeFileSync, openSync, closeSync, fsyncSync, renameSync,
-  unlinkSync, mkdirSync, readdirSync, statSync } from 'node:fs';
+  unlinkSync, mkdirSync, readdirSync, statSync, lstatSync } from 'node:fs';
 import { randomUUID } from 'node:crypto';
 import { join, basename, resolve } from 'node:path';
 import { assertNotSymlink } from './config-safety.js';
@@ -14,6 +14,20 @@ interface Owner { pid: number; token: string }
 interface Entry { name: string; before: string | null; after: string | null }
 interface Journal { version: 1; phase: 'prepared' | 'committed'; entries: Entry[] }
 export interface ConfigUpdate { name: string; text: string | null }
+
+const UUID_V4 = '[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}';
+const TEMP_SUFFIX = new RegExp(`^${UUID_V4}\\.ao-tmp$`);
+const BACKUP_SUFFIX = new RegExp(`^[0-9]{13,}-${UUID_V4}$`);
+
+/** Called only while holding the directory lock. Exact names are AO's reserved namespace. */
+function cleanupTemps(directory: string, names: readonly string[]): void {
+  for (const file of readdirSync(directory)) {
+    if (!names.some(name => file.startsWith(`${name}.`) && TEMP_SUFFIX.test(file.slice(name.length + 1)))) continue;
+    const path = join(directory, file);
+    // Do not follow links; directories and user files that merely resemble temp names survive.
+    if (lstatSync(path).isFile()) unlinkSync(path);
+  }
+}
 
 function read(path: string): string | null {
   assertNotSymlink(path);
@@ -97,10 +111,16 @@ const held = new Map<string, number>();
  * Mutual exclusion only, for writers whose every write is a single atomic file replacement
  * (Claude settings). Reentrant within this process so composite operations (restore → repair →
  * proxy sync) do not lock themselves out; everything inside is synchronous, so no interleaving.
+ * Optional cleanupTemps removes only regular UUID staging files for listed basenames under
+ * the outermost lock. Matching files are treated as abandoned AO staging, never restored.
  * A missing directory is not created unless `create` is set: there is nothing to protect yet,
  * and creating ~/.claude just to hold a lock would look like Claude Code had been set up.
  */
-export function withConfigLock<T>(directory: string, action: () => T, options: { create?: boolean } = {}): T {
+export function withConfigLock<T>(directory: string, action: () => T, options: { create?: boolean; cleanupTemps?: readonly string[] } = {}): T {
+  const tempNames = options.cleanupTemps ?? [];
+  if (tempNames.some(name => !name || name === '.' || name === '..' || basename(name) !== name || name.startsWith('.ao-config'))) {
+    throw new Error('配置暂存清理文件名无效');
+  }
   const key = resolve(directory);
   const depth = held.get(key) ?? 0;
   if (depth > 0) {
@@ -113,13 +133,18 @@ export function withConfigLock<T>(directory: string, action: () => T, options: {
   }
   const unlock = lock(join(key, '.ao-config.lock'));
   held.set(key, 1);
-  try { return action(); } finally { held.delete(key); unlock(); }
+  try {
+    // Only the outer lock holder cleans up: nested writers may own an active staging file.
+    if (tempNames.length) cleanupTemps(key, tempNames);
+    return action();
+  } finally { held.delete(key); unlock(); }
 }
 
 function pruneBackups(directory: string, name: string): void {
   try {
     const prefix = `${name}.ao-backup-`;
-    const olds = readdirSync(directory).filter(file => file.startsWith(prefix)).sort(); // ms timestamp first
+    const olds = readdirSync(directory).filter(file => file.startsWith(prefix)
+      && BACKUP_SUFFIX.test(file.slice(prefix.length)) && lstatSync(join(directory, file)).isFile()).sort(); // ms timestamp first
     for (const file of olds.slice(0, Math.max(0, olds.length - KEEP_BACKUPS))) {
       try { unlinkSync(join(directory, file)); } catch { /* Cleanup must not turn a commit into a failure. */ }
     }
@@ -172,15 +197,7 @@ export function withConfigTransaction<T>(directory: string, names: readonly stri
       unlinkSync(journalPath);
     }
     // A killed writer may leave a staged secret. Remove only our UUID temp files under the lock.
-    for (const file of readdirSync(directory)) {
-      for (const name of [...names, '.ao-config-transaction.json']) {
-        const prefix = `${name}.`;
-        if (file.startsWith(prefix) && /^[0-9a-f-]{36}\.ao-tmp$/.test(file.slice(prefix.length))) {
-          unlinkSync(join(directory, file));
-          break;
-        }
-      }
-    }
+    cleanupTemps(directory, [...names, '.ao-config-transaction.json']);
     const baseline = new Map(names.map(name => [name, read(join(directory, name))]));
     const commit = (updates: ConfigUpdate[]): string[] => {
       if (!updates.length || new Set(updates.map(u => u.name)).size !== updates.length
@@ -196,7 +213,13 @@ export function withConfigTransaction<T>(directory: string, names: readonly stri
         if (entry.before === null) continue;
         const backup = join(directory, `${entry.name}.ao-backup-${Date.now()}-${randomUUID()}`);
         const fd = openSync(backup, 'wx', 0o600);
-        try { writeFileSync(fd, entry.before, 'utf-8'); fsyncSync(fd); } finally { closeSync(fd); }
+        try {
+          try { writeFileSync(fd, entry.before, 'utf-8'); fsyncSync(fd); } finally { closeSync(fd); }
+        } catch (error) {
+          // An incomplete backup is neither valid recovery material nor a useful credential copy.
+          try { unlinkSync(backup); } catch { /* Preserve the I/O failure. */ }
+          throw error;
+        }
         backups.push(backup);
       }
       const journal: Journal = { version: 1, phase: 'prepared', entries };
