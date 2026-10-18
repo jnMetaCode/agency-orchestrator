@@ -16,6 +16,7 @@ interface Journal { version: 1; phase: 'prepared' | 'committed'; entries: Entry[
 export interface ConfigUpdate { name: string; text: string | null }
 
 function read(path: string): string | null {
+  assertNotSymlink(path);
   try { return readFileSync(path, 'utf-8'); }
   catch (error) { if ((error as NodeJS.ErrnoException).code === 'ENOENT') return null; throw error; }
 }
@@ -25,6 +26,8 @@ function atomicWrite(path: string, text: string): void {
   try {
     const fd = openSync(tmp, 'wx', 0o600);
     try { writeFileSync(fd, text, 'utf-8'); fsyncSync(fd); } finally { closeSync(fd); }
+    // Recheck after staging: another tool may have replaced the target meanwhile.
+    assertNotSymlink(path);
     renameSync(tmp, path);
   } finally {
     try { unlinkSync(tmp); } catch { /* Already renamed, or preserve the original error. */ }
@@ -138,6 +141,7 @@ export function withConfigTransaction<T>(directory: string, names: readonly stri
   const allowed = new Set(names);
   const writeEntry = (entry: Entry, text: string | null) => {
     const path = join(directory, entry.name);
+    assertNotSymlink(path);
     if (text === null) { if (existsSync(path)) unlinkSync(path); }
     else atomicWrite(path, text);
   };

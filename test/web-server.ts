@@ -30,12 +30,17 @@ console.log('\n─── web/server.js 冒烟 ───');
 
 const port = await freePort();
 const dataDir = mkdtempSync(join(tmpdir(), 'ao-web-test-'));
+const codexDir = join(dataDir, 'codex-config');
+mkdirSync(codexDir);
+const legacyConfig = '# legacy fixture\nmodel_provider = "ao-relay"\n[model_providers.ao-relay]\nname = "AO"\nbase_url = "https://legacy.invalid/v1"\n';
+writeFileSync(join(codexDir, 'config.toml'), legacyConfig);
+writeFileSync(join(codexDir, 'auth.json'), JSON.stringify({ OPENAI_API_KEY: 'synthetic-original', tokens: { refresh: 'keep-token' } }));
 const base = `http://127.0.0.1:${port}`;
 let server: ChildProcess | null = null;
 
 try {
   server = spawn(process.execPath, [resolve('web/server.js')], {
-    env: { ...process.env, PORT: String(port), HOST: '127.0.0.1', AO_NODE: process.execPath, AO_DATA_DIR: dataDir, AO_USER_ROLES_DIR: join(dataDir, 'my-roles') },
+    env: { ...process.env, PORT: String(port), HOST: '127.0.0.1', AO_NODE: process.execPath, AO_DATA_DIR: dataDir, AO_USER_ROLES_DIR: join(dataDir, 'my-roles'), AO_CODEX_DIR: codexDir, AO_CLAUDE_DIR: join(dataDir, 'claude-config') },
     stdio: 'ignore',
   });
 
@@ -83,6 +88,29 @@ try {
 
     const cfg = await (await fetch(base + '/api/config')).json();
     assert(cfg && typeof cfg.providers === 'object', '/api/config 含 providers');
+
+    // Confirmation must cover auth changes as well as URL changes, entirely in a disposable profile.
+    const legacyPreview = cfg.providers['codex-cli'];
+    assert(/^[a-f0-9]{64}$/.test(legacyPreview.configRevision), 'Codex 配置预览含不透明版本令牌');
+    for (const endpoint of ['/api/codex/legacy-remove', '/api/codex/legacy-adopt']) {
+      assert(await post(base, endpoint, { deleteKey: true, expectedBaseUrl: legacyPreview.baseUrl }) === 400,
+        `${endpoint} 缺少预览版本拒绝执行`);
+    }
+    const rotatedAuth = JSON.stringify({ OPENAI_API_KEY: 'synthetic-rotated', tokens: { refresh: 'keep-token' } });
+    writeFileSync(join(codexDir, 'auth.json'), rotatedAuth);
+    for (const endpoint of ['/api/codex/legacy-remove', '/api/codex/legacy-adopt']) {
+      assert(await post(base, endpoint, { deleteKey: true, expectedBaseUrl: legacyPreview.baseUrl, expectedRevision: legacyPreview.configRevision }) === 409,
+        `${endpoint} URL 未变但 key 已换，旧确认返回 409`);
+    }
+    assert(readFileSync(join(codexDir, 'config.toml'), 'utf-8') === legacyConfig && readFileSync(join(codexDir, 'auth.json'), 'utf-8') === rotatedAuth,
+      '拒绝旧确认后配置/凭据均未改变');
+    const refreshed = await (await fetch(base + '/api/config')).json();
+    assert(await post(base, '/api/codex/legacy-adopt', { expectedRevision: refreshed.providers['codex-cli'].configRevision }) === 200,
+      '重新预览后可接管历史中转');
+    const ownership = JSON.parse(readFileSync(join(codexDir, '.ao-relay-state.json'), 'utf-8'));
+    const keyField = ownership.fields.find((field: { file: string }) => field.file === 'auth');
+    assert(ownership.version === 2 && keyField.after.sha256 && !Object.hasOwn(keyField.after, 'value'), '接管接口写入 v2 凭据摘要');
+    assert(await post(base, '/api/config', { provider: 'codex-cli', apiKey: '' }) === 200, '接管后可恢复为不走中转');
 
     const wfs = await (await fetch(base + '/api/workflows')).json();
     assert(Array.isArray(wfs), '/api/workflows 返回数组');

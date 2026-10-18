@@ -376,6 +376,8 @@ export interface ProviderKeyStatus {
   configRecoveryPending?: boolean;
   /** Codex config.toml 顶层 model（移除历史中转时不动它，只提示） */
   configModel?: string;
+  /** Opaque preview token; changes after config/auth/ownership edits or backend restart. */
+  configRevision?: string;
   /** 远程清单 providerOverrides 下发的换代模型建议（比打包进前端的静态建议新） */
   modelSuggestions?: string[];
   /** 仅 claude-code：Sonnet/Opus/Haiku 档位 → 中转商实际模型的映射（ANTHROPIC_DEFAULT_*_MODEL） */
@@ -907,8 +909,8 @@ export const api = {
   repairClaude: () => postJSON<ClaudeRepairResult>("/claude/repair", {}),
   claudeSwitchStatus: () => getJSON<ClaudeSwitchStatus>("/claude/status"),
   restoreClaude: () => postJSON<ClaudeRestoreResult>("/claude/restore", {}),
-  adoptLegacyCodexRelay: (body: { expectedBaseUrl?: string }) => postJSON<{ ok: boolean }>("/codex/legacy-adopt", body),
-  removeLegacyCodexRelay: (body: { deleteKey: boolean; expectedBaseUrl?: string }) =>
+  adoptLegacyCodexRelay: (body: { expectedBaseUrl?: string; expectedRevision: string }) => postJSON<{ ok: boolean }>("/codex/legacy-adopt", body),
+  removeLegacyCodexRelay: (body: { deleteKey: boolean; expectedBaseUrl?: string; expectedRevision: string }) =>
     postJSON<{ ok: boolean; backups: string[]; keptModel?: string; keyDeleted: boolean }>("/codex/legacy-remove", body),
   // 把已配置的中转写入全局 ~/.claude/settings.json（后端从 web-keys.json 解析 key，前端只传 provider id）
   applyClaude: (provider: string) => postJSON<ClaudeApplyResult>("/claude/apply", { provider }),

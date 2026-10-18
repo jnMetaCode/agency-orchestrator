@@ -18,6 +18,7 @@
  * 跟 AO 给子进程注入 env 的正向逻辑（web/server.js 的 applyKeys）互不相干。
  */
 import { existsSync, readFileSync, writeFileSync, copyFileSync, renameSync, chmodSync, readdirSync, unlinkSync, mkdirSync } from 'node:fs';
+import { randomUUID } from 'node:crypto';
 import { homedir } from 'node:os';
 import { assertNotSymlink, describeParseError } from './config-safety.js';
 import { withConfigLock } from './config-transaction.js';
@@ -253,9 +254,16 @@ function writeSecretJson(path: string, obj: unknown): void {
   // 的 ~/.claude 早就有了才没暴露
   mkdirSync(dirname(path), { recursive: true });
   assertNotSymlink(path);
-  const tmp = `${path}.ao-tmp`;
-  writeFileSync(tmp, JSON.stringify(obj, null, 2) + '\n', { encoding: 'utf-8', mode: 0o600 });
-  renameSync(tmp, path);
+  const tmp = `${path}.${randomUUID()}.ao-tmp`;
+  let staged = false;
+  try {
+    writeFileSync(tmp, JSON.stringify(obj, null, 2) + '\n', { encoding: 'utf-8', mode: 0o600, flag: 'wx' });
+    staged = true;
+    assertNotSymlink(path);
+    renameSync(tmp, path);
+  } finally {
+    if (staged) try { unlinkSync(tmp); } catch { /* Already renamed; preserve the original error. */ }
+  }
   try { chmodSync(path, 0o600); } catch { /* 不支持权限位的文件系统 */ }
 }
 

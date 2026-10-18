@@ -93,6 +93,7 @@ export function ProviderConfigView({
   const [backups, setBackups] = useState<string[] | null>(null);
   // 旧版 AO 写入的 Codex 中转：先展开预览再确认，key 是否删除单独勾选（默认保留）
   const [legacyOpen, setLegacyOpen] = useState(false);
+  const [legacyPreview, setLegacyPreview] = useState<{ revision: string; baseUrl: string; model?: string } | null>(null);
   const [legacyDeleteKey, setLegacyDeleteKey] = useState(false);
   const [legacyDone, setLegacyDone] = useState<string | null>(null);
 
@@ -372,15 +373,26 @@ export function ProviderConfigView({
     }
   };
 
+  // 预览令牌过期（配置被改过 / 引擎重启过）：重新拉状态并收起旧预览，否则用户再点还是那张旧令牌，永远 409
+  const refreshStalePreview = (e: unknown) => {
+    const code = (e as { body?: { code?: string } })?.body?.code;
+    if (code !== "CONFIG_CHANGED" && code !== "CONFIG_PREVIEW_REQUIRED") return;
+    setLegacyOpen(false);
+    setLegacyPreview(null);
+    onSaved();
+  };
+
   const adoptLegacy = async () => {
     setError(null);
+    if (!status?.configRevision) { setError(p.codexPreviewRequired); return; }
     setSaving(true);
     try {
-      await api.adoptLegacyCodexRelay({ expectedBaseUrl: status?.baseUrl || undefined });
+      await api.adoptLegacyCodexRelay({ expectedBaseUrl: status?.baseUrl || undefined, expectedRevision: status.configRevision });
       setLegacyDone(p.codexLegacyAdopted);
       onSaved();
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : String(e));
+      refreshStalePreview(e);
     } finally {
       setSaving(false);
     }
@@ -388,9 +400,10 @@ export function ProviderConfigView({
 
   const removeLegacy = async () => {
     setError(null);
+    if (!legacyPreview) { setError(p.codexPreviewRequired); return; }
     setSaving(true);
     try {
-      const r = await api.removeLegacyCodexRelay({ deleteKey: legacyDeleteKey, expectedBaseUrl: status?.baseUrl || undefined });
+      const r = await api.removeLegacyCodexRelay({ deleteKey: legacyDeleteKey, expectedBaseUrl: legacyPreview.baseUrl || undefined, expectedRevision: legacyPreview.revision });
       setLegacyOpen(false);
       setBackups(r.backups.length > 0 ? r.backups : null);
       // 只说做了什么；官方登录能不能用取决于登录态，这里不打"已恢复官方"的勾
@@ -399,6 +412,7 @@ export function ProviderConfigView({
       onSaved();
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : String(e));
+      refreshStalePreview(e);
     } finally {
       setSaving(false);
     }
@@ -619,9 +633,9 @@ export function ProviderConfigView({
                   <div className="space-y-1.5 rounded-lg border border-border/70 p-2.5 text-xs">
                     <p className="font-medium">{p.codexLegacyPreviewTitle}</p>
                     <ul className="list-disc space-y-0.5 pl-4 text-muted-foreground">
-                      <li>{p.codexLegacyPreviewRoute.replace("{url}", status?.baseUrl || "-")}</li>
+                      <li>{p.codexLegacyPreviewRoute.replace("{url}", legacyPreview?.baseUrl || "-")}</li>
                       <li>{p.codexLegacyPreviewKeep}</li>
-                      {status?.configModel && <li>{p.codexLegacyPreviewModel.replace("{model}", status.configModel)}</li>}
+                      {legacyPreview?.model && <li>{p.codexLegacyPreviewModel.replace("{model}", legacyPreview.model)}</li>}
                     </ul>
                     <label className="flex items-center gap-1.5">
                       <input type="checkbox" checked={legacyDeleteKey} onChange={(e) => setLegacyDeleteKey(e.target.checked)} />
@@ -636,7 +650,14 @@ export function ProviderConfigView({
                 ) : (
                   <div className="flex flex-wrap items-center gap-3 text-xs">
                     <button onClick={adoptLegacy} disabled={saving} className="rounded-md bg-primary px-2.5 py-1 text-primary-foreground hover:bg-primary/90 disabled:opacity-50">{p.codexLegacyAdopt}</button>
-                    <button onClick={() => { setLegacyDone(null); setLegacyOpen(true); }} disabled={saving} className="text-muted-foreground underline-offset-2 hover:text-red-500 hover:underline">{p.codexLegacyRemove}</button>
+                    <button onClick={() => {
+                      setError(null);
+                      if (!status?.configRevision) { setError(p.codexPreviewRequired); return; }
+                      setLegacyPreview({ revision: status.configRevision, baseUrl: status.baseUrl, model: status.configModel });
+                      setLegacyDeleteKey(false);
+                      setLegacyDone(null);
+                      setLegacyOpen(true);
+                    }} disabled={saving} className="text-muted-foreground underline-offset-2 hover:text-red-500 hover:underline">{p.codexLegacyRemove}</button>
                   </div>
                 )
               )}

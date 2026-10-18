@@ -15,7 +15,7 @@
  *      —— 标记在顶层、不在 env 里，不影响 Claude Code 运行。
  */
 import { execFileSync } from 'node:child_process';
-import { createHash } from 'node:crypto';
+import { createHash, randomUUID } from 'node:crypto';
 import { connect as netConnect } from 'node:net';
 import { existsSync, readFileSync, writeFileSync, copyFileSync, mkdirSync, renameSync, chmodSync, readdirSync, unlinkSync } from 'node:fs';
 import { homedir } from 'node:os';
@@ -85,9 +85,16 @@ function writeSecretJson(path: string, obj: unknown): void {
   // 的 ~/.claude 早就有了才没暴露
   mkdirSync(dirname(path), { recursive: true });
   assertNotSymlink(path); // rename 会把 dotfiles 链接换成普通文件
-  const tmp = `${path}.ao-tmp`;
-  writeFileSync(tmp, JSON.stringify(obj, null, 2) + '\n', { encoding: 'utf-8', mode: 0o600 });
-  renameSync(tmp, path);
+  const tmp = `${path}.${randomUUID()}.ao-tmp`;
+  let staged = false;
+  try {
+    writeFileSync(tmp, JSON.stringify(obj, null, 2) + '\n', { encoding: 'utf-8', mode: 0o600, flag: 'wx' });
+    staged = true;
+    assertNotSymlink(path);
+    renameSync(tmp, path);
+  } finally {
+    if (staged) try { unlinkSync(tmp); } catch { /* Already renamed; preserve the original error. */ }
+  }
   try { chmodSync(path, 0o600); } catch { /* 不支持权限位的文件系统 */ }
 }
 

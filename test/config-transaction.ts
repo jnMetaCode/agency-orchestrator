@@ -1,4 +1,4 @@
-import { mkdtempSync, readFileSync, writeFileSync, readdirSync, rmSync, existsSync, statSync, utimesSync, symlinkSync, lstatSync } from 'node:fs';
+import { mkdtempSync, readFileSync, writeFileSync, readdirSync, rmSync, existsSync, statSync, utimesSync, symlinkSync, lstatSync, unlinkSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
@@ -162,6 +162,48 @@ try {
     const code = await exited;
     assert(code === 0 && readFileSync(join(d, 'a.json'), 'utf-8') === 'child-wrote' && !existsSync(join(d, '.ao-config.lock')),
       '持锁进程不受干扰地完成写入并释放锁');
+  }
+  if (process.platform !== 'win32') {
+    for (const next of ['new', null]) {
+      const d = join(root, `late-link-${next ?? 'delete'}`);
+      withConfigTransaction(d, ['a.json'], commit => commit([{ name: 'a.json', text: 'same' }]));
+      writeFileSync(join(d, 'real.json'), 'same');
+      let error = '';
+      try {
+        withConfigTransaction(d, ['a.json'], commit => {
+          unlinkSync(join(d, 'a.json'));
+          symlinkSync(join(d, 'real.json'), join(d, 'a.json'));
+          commit([{ name: 'a.json', text: next }]);
+        });
+      } catch (e) { error = String(e); }
+      assert(/符号链接/.test(error) && lstatSync(join(d, 'a.json')).isSymbolicLink()
+        && readFileSync(join(d, 'real.json'), 'utf-8') === 'same'
+        && !existsSync(join(d, '.ao-config-transaction.json')), '读取基线后同内容链接替换：写入/删除均拒绝且不产生事务');
+    }
+  }
+  if (process.platform !== 'win32') {
+    const d = join(root, 'staged-link');
+    withConfigTransaction(d, ['a.json'], commit => commit([{ name: 'a.json', text: 'same' }]));
+    const result = worker(d, `
+      fs.writeFileSync(join(dir, 'real.json'), 'same');
+      const write = fs.writeFileSync;
+      fs.writeFileSync = (target, data, ...rest) => {
+        const result = write(target, data, ...rest);
+        if (data === 'new-content') {
+          fs.unlinkSync(join(dir, 'a.json'));
+          fs.symlinkSync(join(dir, 'real.json'), join(dir, 'a.json'));
+        }
+        return result;
+      };
+      syncBuiltinESMExports();
+      try { withConfigTransaction(dir, ['a.json'], commit => commit([{ name: 'a.json', text: 'new-content' }])); }
+      catch { process.exit(17); }
+    `);
+    assert(result.status === 17 && lstatSync(join(d, 'a.json')).isSymbolicLink()
+      && readFileSync(join(d, 'real.json'), 'utf-8') === 'same'
+      && existsSync(join(d, '.ao-config-transaction.json')),
+      '暂存写入期间替换为链接：最终替换被拒绝，保留链接与恢复记录');
+    assert(!readdirSync(d).some(name => name.endsWith('.ao-tmp')), '拒绝最终替换后清理暂存凭证');
   }
   if (process.platform !== 'win32') {
     const d = join(root, 'symlink');

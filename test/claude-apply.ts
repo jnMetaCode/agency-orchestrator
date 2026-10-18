@@ -3,6 +3,8 @@
  * 全程走 AO_CLAUDE_DIR 沙箱临时目录，绝不触碰真实 ~/.claude。
  */
 import { mkdtempSync, rmSync, writeFileSync, readFileSync, existsSync, readdirSync, statSync, mkdirSync, symlinkSync, lstatSync } from 'node:fs';
+import fs from 'node:fs';
+import { syncBuiltinESMExports } from 'node:module';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import {
@@ -138,6 +140,30 @@ try {
     assert(/符号链接/.test(linkErr) && lstatSync(settings).isSymbolicLink() && readFileSync(real, 'utf-8') === JSON.stringify({ theme: 'light' }),
       'settings.json 是符号链接：apply 拒绝，链接与目标都不变');
     rmSync(settings);
+    for (const operation of ['apply', 'repair']) {
+      const original = JSON.stringify({ env: { ANTHROPIC_BASE_URL: 'https://old.invalid' } });
+      writeFileSync(settings, original);
+      writeFileSync(real, original);
+      const write = fs.writeFileSync;
+      fs.writeFileSync = ((target: any, data: any, ...rest: any[]) => {
+        const result = (write as any)(target, data, ...rest);
+        if (typeof target === 'string' && target.startsWith(settings + '.') && target.endsWith('.ao-tmp')) {
+          rmSync(settings);
+          symlinkSync(real, settings);
+        }
+        return result;
+      }) as typeof fs.writeFileSync;
+      syncBuiltinESMExports();
+      try {
+        if (operation === 'apply') applyClaudeProvider(cfg);
+        else repairClaudeConfig({ shellEnv: {} });
+      } catch { /* apply throws; repair reports a skipped file. */ }
+      finally { fs.writeFileSync = write; syncBuiltinESMExports(); }
+      assert(lstatSync(settings).isSymbolicLink() && readFileSync(real, 'utf-8') === original,
+        `${operation} 暂存期间换成链接：拒绝最终覆盖且保护目标`);
+      assert(!readdirSync(sandbox).some(name => name.endsWith('.ao-tmp')), `${operation} 拒绝覆盖后清理暂存凭证`);
+      rmSync(settings);
+    }
   }
 
   // 7) shellEnv 可注入：Studio 服务端传「applyKeys 之前」的快照，避免把 AO 自己注入到

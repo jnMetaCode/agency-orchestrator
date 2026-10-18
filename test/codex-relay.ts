@@ -349,6 +349,105 @@ try {
     rmSync(d, { recursive: true, force: true });
     process.env.AO_CODEX_DIR = sandbox;
   }
+  console.log('\n─── 凭据摘要与 v1 所有权记录升级 ───');
+  {
+    const d = mkdtempSync(join(tmpdir(), 'ao-codex-state-v2-'));
+    process.env.AO_CODEX_DIR = d;
+    const m = await import(`../src/utils/codex-relay.js?state-v2=${Date.now()}`);
+    const statePath = join(d, '.ao-relay-state.json');
+    const authPath = join(d, 'auth.json');
+    const keyA = 'synthetic-current-key-a';
+    m.applyCodexRelay({ providerId: 'ao-relay', name: 'AO', baseUrl: 'https://x.invalid', apiKey: keyA });
+    const raw = readFileSync(statePath, 'utf-8');
+    const state = JSON.parse(raw);
+    const field = state.fields.find((f: any) => f.file === 'auth');
+    assert(state.version === 2 && /^[a-f0-9]{64}$/.test(field.after.sha256) && !Object.hasOwn(field.after, 'value'), '新记录只用摘要检测当前 key 漂移');
+    assert(!raw.includes(keyA) && m.readCodexRelayStatus('ao-relay').managed, '无原 key 时，state 不复制当前 key 明文且正常受管');
+    const v1 = { ...state, version: 1, fields: state.fields.map((f: any) => f.file === 'auth' ? { ...f, after: { present: true, value: keyA } } : f) };
+    writeFileSync(statePath, JSON.stringify(v1));
+    assert(m.readCodexRelayStatus('ao-relay').managed && JSON.parse(readFileSync(statePath, 'utf-8')).version === 1, '只读查询兼容 v1，不静默改格式');
+    const keyB = 'synthetic-current-key-b';
+    m.applyCodexRelay({ providerId: 'ao-relay', name: 'AO', baseUrl: 'https://y.invalid', apiKey: keyB });
+    const upgraded = readFileSync(statePath, 'utf-8');
+    assert(JSON.parse(upgraded).version === 2 && !upgraded.includes(keyA) && !upgraded.includes(keyB), '保存时事务性升级 v1→v2，不再复制 after key');
+    writeFileSync(authPath, JSON.stringify({ OPENAI_API_KEY: 'changed-externally' }));
+    let conflict = '';
+    try { m.clearCodexRelay('ao-relay'); } catch (e) { conflict = String(e); }
+    assert(/外部修改/.test(conflict) && JSON.parse(readFileSync(authPath, 'utf-8')).OPENAI_API_KEY === 'changed-externally', '摘要仍可阻止覆盖外部换过的 key');
+    writeFileSync(authPath, JSON.stringify({ OPENAI_API_KEY: keyB }));
+    const bad = JSON.parse(upgraded);
+    bad.fields.find((f: any) => f.file === 'auth').after.sha256 = 'invalid';
+    writeFileSync(statePath, JSON.stringify(bad));
+    let invalid = '';
+    try { m.clearCodexRelay('ao-relay'); } catch (e) { invalid = String(e); }
+    assert(/记录无效/.test(invalid) && JSON.parse(readFileSync(authPath, 'utf-8')).OPENAI_API_KEY === keyB, '损坏 v2 摘要拒绝恢复，凭据不变');
+    writeFileSync(statePath, upgraded);
+    m.clearCodexRelay('ao-relay');
+    assert(JSON.parse(readFileSync(authPath, 'utf-8')).OPENAI_API_KEY === undefined, '升级后的记录仍能恢复原先不存在 key 的状态');
+    writeFileSync(authPath, JSON.stringify({ OPENAI_API_KEY: 'recoverable-before-key', tokens: { refresh: 'keep-token' } }));
+    m.applyCodexRelay({ providerId: 'ao-relay', name: 'AO', baseUrl: 'https://original.invalid', apiKey: keyA });
+    const withBaseline = JSON.parse(readFileSync(statePath, 'utf-8'));
+    withBaseline.version = 1;
+    withBaseline.fields.find((f: any) => f.file === 'auth').after = { present: true, value: keyA };
+    const oldState = JSON.stringify(withBaseline);
+    writeFileSync(statePath, oldState);
+    const beforeConfig = readFileSync(join(d, 'config.toml'), 'utf-8');
+    const beforeAuth = readFileSync(authPath, 'utf-8');
+    const originalRename = fs.renameSync;
+    let stateFailed = false;
+    fs.renameSync = (from, to) => {
+      if (String(to) === statePath && !stateFailed) { stateFailed = true; throw new Error('injected state migration failure'); }
+      return originalRename(from, to);
+    };
+    syncBuiltinESMExports();
+    let migrationFailed = false;
+    try { m.applyCodexRelay({ providerId: 'ao-relay', name: 'AO', baseUrl: 'https://changed.invalid', apiKey: keyB }); }
+    catch { migrationFailed = true; }
+    finally { fs.renameSync = originalRename; syncBuiltinESMExports(); }
+    assert(stateFailed && migrationFailed && readFileSync(statePath, 'utf-8') === oldState
+      && readFileSync(join(d, 'config.toml'), 'utf-8') === beforeConfig && readFileSync(authPath, 'utf-8') === beforeAuth,
+      'v1→v2 第三份记录提交失败时，配置/凭据/旧记录同时恢复');
+    m.applyCodexRelay({ providerId: 'ao-relay', name: 'AO', baseUrl: 'https://changed.invalid', apiKey: keyB });
+    const migrated = JSON.parse(readFileSync(statePath, 'utf-8'));
+    assert(migrated.fields.find((f: any) => f.file === 'auth').before.value === 'recoverable-before-key', '迁移保留真正恢复所需的 before key');
+    m.clearCodexRelay('ao-relay');
+    const recovered = JSON.parse(readFileSync(authPath, 'utf-8'));
+    assert(recovered.OPENAI_API_KEY === 'recoverable-before-key' && recovered.tokens.refresh === 'keep-token', '摘要升级后仍能恢复旧 key 并保留 OAuth');
+    rmSync(d, { recursive: true, force: true });
+    process.env.AO_CODEX_DIR = sandbox;
+  }
+
+  console.log('\n─── 历史操作确认覆盖配置、key 和 OAuth ───');
+  {
+    const d = mkdtempSync(join(tmpdir(), 'ao-codex-preview-'));
+    process.env.AO_CODEX_DIR = d;
+    const m = await import(`../src/utils/codex-relay.js?preview=${Date.now()}`);
+    const configPath = join(d, 'config.toml'), authPath = join(d, 'auth.json');
+    const config = 'model_provider = "ao-relay"\n[model_providers.ao-relay]\nname = "AO"\nbase_url = "https://same.invalid/v1"\n';
+    const originalAuth = JSON.stringify({ OPENAI_API_KEY: 'old-key', tokens: { refresh: 'old-token' } });
+    writeFileSync(configPath, config); writeFileSync(authPath, originalAuth);
+    const preview = m.readCodexRelayStatus('ao-relay');
+    assert(!!preview.revision && /^[a-f0-9]{64}$/.test(preview.revision) && !JSON.stringify(preview).includes('old-key'), '预览返回不泄露 key 的不透明版本令牌');
+    for (const changed of [JSON.stringify({ OPENAI_API_KEY: 'rotated-key', tokens: { refresh: 'old-token' } }), JSON.stringify({ OPENAI_API_KEY: 'old-key', tokens: { refresh: 'new-token' } })]) {
+      writeFileSync(authPath, changed);
+      for (const operation of [() => m.removeLegacyCodexRelay('ao-relay', { deleteKey: true, expectedBaseUrl: preview.baseUrl, expectedRevision: preview.revision }),
+        () => m.adoptLegacyCodexRelay('ao-relay', { expectedBaseUrl: preview.baseUrl, expectedRevision: preview.revision })]) {
+        let code = '';
+        try { operation(); } catch (e) { code = (e as { code?: string }).code || ''; }
+        assert(code === 'CONFIG_CHANGED' && readFileSync(configPath, 'utf-8') === config && readFileSync(authPath, 'utf-8') === changed,
+          'URL 未变但 key/OAuth 已变：旧确认不能删除或接管新状态');
+      }
+    }
+    const fresh = m.readCodexRelayStatus('ao-relay');
+    const restarted = await import(`../src/utils/codex-relay.js?restart-preview=${Date.now()}`);
+    let expired = '';
+    try { restarted.removeLegacyCodexRelay('ao-relay', { expectedRevision: fresh.revision }); } catch (e) { expired = (e as { code?: string }).code || ''; }
+    assert(expired === 'CONFIG_CHANGED', '引擎实例更换后旧预览失效，必须重新确认');
+    const result = m.removeLegacyCodexRelay('ao-relay', { deleteKey: true, expectedRevision: fresh.revision });
+    assert(result.keyDeleted && JSON.parse(readFileSync(authPath, 'utf-8')).tokens.refresh === 'new-token', '新预览确认后只删除所选 key，保留 OAuth');
+    rmSync(d, { recursive: true, force: true });
+    process.env.AO_CODEX_DIR = sandbox;
+  }
 } catch (e) {
   assert(false, `异常: ${e instanceof Error ? e.message : String(e)}`);
 } finally {

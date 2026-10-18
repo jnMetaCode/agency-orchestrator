@@ -26,7 +26,7 @@ import { probeVideoEndpoints } from '../dist/media/probe-video.js';
 import { normalizeBaseUrl, postChatCompletions, postApiEndpoint, endpointHint, joinEndpoint } from '../dist/connectors/openai-compatible.js';
 // Anthropic 协议的 base 归一化（客户端会自己接 /v1/messages，base 不能自带 /v1）
 import { normalizeAnthropicBaseUrl } from '../dist/connectors/claude.js';
-import { adoptLegacyCodexRelay, applyCodexRelay, clearCodexRelay, readCodexRelayStatus, removeLegacyCodexRelay } from '../dist/utils/codex-relay.js';
+import { adoptLegacyCodexRelay, applyCodexRelay, clearCodexRelay, CodexConfigChangedError, readCodexRelayStatus, removeLegacyCodexRelay } from '../dist/utils/codex-relay.js';
 import { diagnoseClaudeConfig, SNAPSHOT_ENV_KEYS } from '../dist/utils/claude-repair.js';
 import { applyClaudeProvider, restoreClaudeToOfficial, readClaudeSwitchStatus, readClaudeProxyStatus, probeProxyReachable, clearClaudeProxy, syncClaudeProxy, detectSystemProxy } from '../dist/utils/claude-apply.js';
 import { validateCustomProviderId, readCustomProviders, addCustomProvider, removeCustomProvider, updateCustomProvider } from '../dist/utils/custom-providers.js';
@@ -1973,6 +1973,7 @@ app.get('/api/config', async (_req, res) => {
     configConflict: codexRelay.conflict,
     configRecoveryPending: codexRelay.recoveryPending,
     configModel: codexRelay.model || '',
+    configRevision: codexRelay.revision,
     supportsBaseUrl: true,
   };
   // 自定义供应商：连接信息（key/base_url/model）跟内置 provider 一样存在 saved[id] 里，
@@ -2207,27 +2208,34 @@ app.get('/api/claude/health', (_req, res) => {
   }
 });
 // 旧版 AO 写入、没有所有权记录的 Codex 中转：只能「退出」，不能「恢复」——见 removeLegacyCodexRelay。
-// expectedBaseUrl = 用户确认时看到的值，确认后配置变了就拒绝，不按旧确认去改新配置。
+// Revision covers config/auth/ownership, not just the URL: a rotated key also invalidates confirmation.
 app.post('/api/codex/legacy-remove', (req, res) => {
-  const { deleteKey, expectedBaseUrl } = req.body || {};
+  const { deleteKey, expectedBaseUrl, expectedRevision } = req.body || {};
+  if (typeof expectedRevision !== 'string' || !/^[a-f0-9]{64}$/.test(expectedRevision)) {
+    return res.status(400).json({ code: 'CONFIG_PREVIEW_REQUIRED', error: '请刷新配置预览后重新确认，不按缺失或过期的预览修改 Codex 配置' });
+  }
   try {
     res.json({ ok: true, ...removeLegacyCodexRelay(CODEX_RELAY_ID, {
       deleteKey: deleteKey === true,
       expectedBaseUrl: typeof expectedBaseUrl === 'string' ? expectedBaseUrl : undefined,
+      expectedRevision,
     }) });
   } catch (err) {
-    res.status(500).json({ error: err?.message || String(err) });
+    res.status(err instanceof CodexConfigChangedError ? 409 : 500).json({ error: err?.message || String(err), ...(err instanceof CodexConfigChangedError ? { code: err.code } : {}) });
   }
 });
 
 // 同一类旧配置的另一条路：继续用，只补所有权记录，以后才能「恢复切换前配置」。
 app.post('/api/codex/legacy-adopt', (req, res) => {
-  const { expectedBaseUrl } = req.body || {};
+  const { expectedBaseUrl, expectedRevision } = req.body || {};
+  if (typeof expectedRevision !== 'string' || !/^[a-f0-9]{64}$/.test(expectedRevision)) {
+    return res.status(400).json({ code: 'CONFIG_PREVIEW_REQUIRED', error: '请刷新配置预览后重新确认，不按缺失或过期的预览接管 Codex 配置' });
+  }
   try {
-    adoptLegacyCodexRelay(CODEX_RELAY_ID, { expectedBaseUrl: typeof expectedBaseUrl === 'string' ? expectedBaseUrl : undefined });
+    adoptLegacyCodexRelay(CODEX_RELAY_ID, { expectedBaseUrl: typeof expectedBaseUrl === 'string' ? expectedBaseUrl : undefined, expectedRevision });
     res.json({ ok: true });
   } catch (err) {
-    res.status(500).json({ error: err?.message || String(err) });
+    res.status(err instanceof CodexConfigChangedError ? 409 : 500).json({ error: err?.message || String(err), ...(err instanceof CodexConfigChangedError ? { code: err.code } : {}) });
   }
 });
 

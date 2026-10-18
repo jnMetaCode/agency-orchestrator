@@ -15,6 +15,7 @@ import { existsSync, readFileSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
 import { isDeepStrictEqual } from 'node:util';
+import { createHash, createHmac, randomBytes } from 'node:crypto';
 import { parse } from 'smol-toml';
 import { withConfigTransaction } from './config-transaction.js';
 import { describeParseError } from './config-safety.js';
@@ -26,6 +27,23 @@ const AUTH_JSON = join(CODEX_DIR, 'auth.json');
 const STATE_NAME = '.ao-relay-state.json';
 const STATE_JSON = join(CODEX_DIR, STATE_NAME);
 const FILES = ['config.toml', 'auth.json', STATE_NAME] as const;
+// Preview tokens are opaque and process-local: a backend restart requires a fresh preview.
+const PREVIEW_KEY = randomBytes(32);
+
+export class CodexConfigChangedError extends Error {
+  readonly code = 'CONFIG_CHANGED';
+  constructor() { super('Codex 配置在确认后发生了变化，请刷新后重新确认'); }
+}
+
+function configRevision(): string {
+  const snapshot = FILES.map(name => {
+    try { return [name, readFileSync(join(CODEX_DIR, name), 'utf-8')]; }
+    catch (error) { if ((error as NodeJS.ErrnoException).code === 'ENOENT') return [name, null]; throw error; }
+  });
+  return createHmac('sha256', PREVIEW_KEY).update(JSON.stringify(snapshot)).digest('hex');
+}
+
+const keyDigest = (value: string): string => createHash('sha256').update(value).digest('hex');
 
 export interface CodexRelayConfig {
   /** provider 标识，写进 config.toml 的 [model_providers.<id>] 表名，如 "cubence" */
@@ -76,10 +94,10 @@ interface ManagedField {
   file: 'config' | 'auth';
   path: string[];
   before: SavedValue;
-  after: SavedValue;
+  after: SavedValue & { sha256?: string };
 }
 interface RelayState {
-  version: 1;
+  version: 1 | 2;
   providerId: string;
   providersCreated: boolean;
   fields: ManagedField[];
@@ -90,9 +108,12 @@ function readState(): RelayState | null {
   if (!existsSync(STATE_JSON)) return null;
   const state = readForWrite(STATE_JSON, 'json') as unknown as RelayState;
   const saved = (v: SavedValue) => v && typeof v.present === 'boolean' && (!v.present || Object.hasOwn(v, 'value'));
-  if (state.version !== 1 || typeof state.providerId !== 'string' || typeof state.providersCreated !== 'boolean'
+  const expected = (f: ManagedField) => state.version === 2 && f.file === 'auth'
+    ? f.after && f.after.present === true && typeof f.after.sha256 === 'string' && /^[a-f0-9]{64}$/.test(f.after.sha256) && !Object.hasOwn(f.after, 'value')
+    : saved(f.after);
+  if (![1, 2].includes(state.version) || typeof state.providerId !== 'string' || typeof state.providersCreated !== 'boolean'
     || !Array.isArray(state.fields) || !state.fields.length || state.fields.some(f => !f || !Array.isArray(f.path)
-      || f.path.some(p => typeof p !== 'string' || reserved.has(p)) || !saved(f.before) || !saved(f.after)
+      || f.path.some(p => typeof p !== 'string' || reserved.has(p)) || !saved(f.before) || !expected(f)
       || !(f.file === 'auth' && f.path.length === 1 && f.path[0] === 'OPENAI_API_KEY'
         || f.file === 'config' && (f.path.length === 1 && ['model_provider', 'model'].includes(f.path[0])
           || f.path.length === 2 && f.path[0] === 'model_providers')))
@@ -101,10 +122,18 @@ function readState(): RelayState | null {
   }
   const provider = state.fields.find(f => f.file === 'config' && f.path.length === 1 && f.path[0] === 'model_provider');
   const key = state.fields.find(f => f.file === 'auth' && f.path[0] === 'OPENAI_API_KEY');
-  if (!provider?.after.present || provider.after.value !== state.providerId || !key?.after.present || typeof key.after.value !== 'string') {
+  if (!provider?.after.present || provider.after.value !== state.providerId || !key?.after.present
+    || (state.version === 1 && typeof key.after.value !== 'string')) {
     throw new Error('AO Codex 受管字段记录不完整，为安全起见不修改配置');
   }
   return state;
+}
+
+/** Keep the recoverable baseline, but never duplicate the current key just to detect drift. */
+function serializeState(state: RelayState): string {
+  return JSON.stringify({ ...state, version: 2, fields: state.fields.map(field => field.file === 'auth'
+    ? { ...field, after: { present: true, sha256: typeof field.after.value === 'string' ? keyDigest(field.after.value) : field.after.sha256 } }
+    : field) }, null, 2);
 }
 
 function getField(doc: Record<string, any>, path: string[]): SavedValue {
@@ -133,7 +162,11 @@ function setField(doc: Record<string, any>, path: string[], saved: SavedValue): 
 
 function checkOwnership(state: RelayState, doc: Record<string, any>, auth: Record<string, any>): void {
   for (const field of state.fields) {
-    if (!isDeepStrictEqual(getField(field.file === 'config' ? doc : auth, field.path), field.after)) {
+    const actual = getField(field.file === 'config' ? doc : auth, field.path);
+    const matches = state.version === 2 && field.file === 'auth'
+      ? actual.present && typeof actual.value === 'string' && keyDigest(actual.value) === field.after.sha256
+      : isDeepStrictEqual(actual, field.after);
+    if (!matches) {
       throw new Error(`Codex 配置已由外部修改，请先处理冲突：${field.file === 'config' ? 'config.toml' : 'auth.json'} ${field.path.join('.')}`);
     }
   }
@@ -177,7 +210,7 @@ export function applyCodexRelay(cfg: CodexRelayConfig): { backups: string[] } {
     return { backups: commit([
       { name: 'config.toml', text: rewriteToml(readText(CONFIG_TOML), doc) },
       { name: 'auth.json', text: JSON.stringify(auth, null, 2) },
-      { name: STATE_NAME, text: JSON.stringify(state, null, 2) },
+      { name: STATE_NAME, text: serializeState(state) },
     ]) };
   });
 }
@@ -207,6 +240,12 @@ export interface LegacyRemoveOptions {
   deleteKey?: boolean;
   /** 用户确认时看到的 base_url；执行时不一致说明配置在确认后变了，拒绝 */
   expectedBaseUrl?: string;
+  /** Optional for direct library calls; required by Studio's preview/confirm API. */
+  expectedRevision?: string;
+}
+
+function assertPreview(opts: { expectedRevision?: string }): void {
+  if (opts.expectedRevision !== undefined && configRevision() !== opts.expectedRevision) throw new CodexConfigChangedError();
 }
 
 /**
@@ -221,12 +260,13 @@ export function removeLegacyCodexRelay(providerId: string, opts: LegacyRemoveOpt
 } {
   if (!providerId || reserved.has(providerId)) throw new Error('providerId 无效');
   return withConfigTransaction(CODEX_DIR, FILES, commit => {
+    assertPreview(opts);
     if (readState()) throw new Error('这份 Codex 配置有 AO 所有权记录，请用「恢复切换前配置」');
     const doc = readForWrite(CONFIG_TOML, 'toml');
     if (doc.model_provider !== providerId) throw new Error('当前 Codex 没有在使用 AO 中转，无需移除');
     const table = doc.model_providers?.[providerId];
     if (opts.expectedBaseUrl !== undefined && table?.base_url !== opts.expectedBaseUrl) {
-      throw new Error('Codex 配置在确认后发生了变化，请刷新后重新确认');
+      throw new CodexConfigChangedError();
     }
     delete doc.model_provider;
     if (doc.model_providers && typeof doc.model_providers === 'object' && !Array.isArray(doc.model_providers)) {
@@ -253,9 +293,10 @@ export function removeLegacyCodexRelay(providerId: string, opts: LegacyRemoveOpt
  * 能确定是 AO 加的只有路由选择和 AO 约定 id 那张表（before = 不存在）；model 和 key 当年是谁设的说不清，
  * 记成 before = 当前值——将来「恢复切换前配置」只移除中转，key/model 原样留着，与「移除历史中转」的默认一致。
  */
-export function adoptLegacyCodexRelay(providerId: string, opts: { expectedBaseUrl?: string } = {}): void {
+export function adoptLegacyCodexRelay(providerId: string, opts: { expectedBaseUrl?: string; expectedRevision?: string } = {}): void {
   if (!providerId || reserved.has(providerId)) throw new Error('providerId 无效');
   withConfigTransaction(CODEX_DIR, FILES, commit => {
+    assertPreview(opts);
     if (readState()) throw new Error('这份 Codex 配置已经由 AO 管理');
     const doc = readForWrite(CONFIG_TOML, 'toml');
     const auth = readForWrite(AUTH_JSON, 'json');
@@ -263,7 +304,7 @@ export function adoptLegacyCodexRelay(providerId: string, opts: { expectedBaseUr
     const table = doc.model_providers?.[providerId];
     if (!table || typeof table !== 'object' || Array.isArray(table)) throw new Error('找不到 AO 中转的 provider 表，请重新保存中转');
     if (opts.expectedBaseUrl !== undefined && table.base_url !== opts.expectedBaseUrl) {
-      throw new Error('Codex 配置在确认后发生了变化，请刷新后重新确认');
+      throw new CodexConfigChangedError();
     }
     if (typeof auth.OPENAI_API_KEY !== 'string' || !auth.OPENAI_API_KEY) throw new Error('auth.json 里没有中转 key，请重新保存中转');
     const absent: SavedValue = { present: false };
@@ -279,14 +320,16 @@ export function adoptLegacyCodexRelay(providerId: string, opts: { expectedBaseUr
       // 只剩 AO 这一张表时，多半是当年 AO 建的；恢复后表空了就一并去掉（空表删了也无害）
       providersCreated: Object.keys(doc.model_providers).length === 1,
     };
-    commit([{ name: STATE_NAME, text: JSON.stringify(state, null, 2) }]);
+    commit([{ name: STATE_NAME, text: serializeState(state) }]);
   });
 }
 
 /** 当前是否已配置了给定 provider 的中转（供 UI 展示状态用）。 */
 export function readCodexRelayStatus(providerId: string): {
-  configured: boolean; baseUrl?: string; model?: string; managed: boolean; conflict: boolean; recoveryPending: boolean;
+  configured: boolean; baseUrl?: string; model?: string; managed: boolean; conflict: boolean; recoveryPending: boolean; revision?: string;
 } {
+  let initialRevision: string | undefined;
+  try { initialRevision = configRevision(); } catch { /* No trustworthy preview token. */ }
   const doc = readTomlSafe(CONFIG_TOML);
   const active = doc.model_provider === providerId;
   const providerCfg = doc.model_providers?.[providerId];
@@ -299,12 +342,19 @@ export function readCodexRelayStatus(providerId: string): {
       managed = state.providerId === providerId;
     }
   } catch { conflict = true; }
+  let revision: string | undefined;
+  try {
+    const finalRevision = configRevision();
+    if (initialRevision === finalRevision) revision = finalRevision;
+    else conflict = true;
+  } catch { conflict = true; }
   return {
     configured: active && !!providerCfg,
     baseUrl: providerCfg?.base_url,
     model: typeof doc.model === 'string' ? doc.model : undefined,
-    managed: managed && !recoveryPending,
+    managed: managed && !recoveryPending && !conflict,
     conflict,
     recoveryPending,
+    revision,
   };
 }
