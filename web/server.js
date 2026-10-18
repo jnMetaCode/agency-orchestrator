@@ -1522,7 +1522,7 @@ app.post('/api/compose', async (req, res) => {
     // 角色库语言(roleLang)与提示词语言(composeLang)解耦:选了语言包则从该包组队,
     // 生成的 YAML agents_dir 写包名,findAgentsDir 会在 node_modules 里解析到它
     const roleLib = normalizeRoleLang(roleLang || composeLang);
-    const roleLibPkg = LANG_LIBS.find(l => l.id === roleLib)?.pkg;
+    const roleLibPkg = OPTIONAL_ROLE_LIBRARIES.find(l => l.id === roleLib)?.pkg;
     const result = await composeWorkflow({
       description,
       agentsDir: agentsDirFor(roleLib),
