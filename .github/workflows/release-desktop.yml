@@ -1,7 +1,7 @@
 name: Release Desktop App
 
 # 手动触发：在 Actions 页面点 "Run workflow"，填一个 tag（如 desktop-v0.2.0）。
-# 三平台各自构建桌面安装包并上传到对应 GitHub Release：
+# 三平台构建到当前 workflow artifacts，全部验收后由单个 job 发布：
 #   mac 同时出 arm64(Apple Silicon) 与 x64(Intel) 两个 dmg / win exe / linux AppImage。
 # 当前为未签名版（desktop/package.json 里 mac.identity=null）。要启用 mac 签名/公证：
 #   1) 去掉 desktop/package.json 的 "identity": null
@@ -19,7 +19,14 @@ on:
         default: "desktop-v0.2.0"
 
 permissions:
-  contents: write
+  contents: read
+
+env:
+  RELEASE_TAG: ${{ inputs.tag || github.ref_name }}
+
+concurrency:
+  group: desktop-release-${{ inputs.tag || github.ref_name }}
+  cancel-in-progress: false
 
 jobs:
   build:
@@ -39,13 +46,15 @@ jobs:
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: refs/tags/${{ inputs.tag || github.ref_name }}
       # tag 必须与 desktop/package.json 的 version 一致——否则 desktop-v0.3.0 会发出一包
       # 在「关于」里自称 0.2.0 的安装包（npm 那条流水线早就有这个闸，这里一直没有）。
       - name: Verify tag matches desktop/package.json version
         shell: bash
         run: |
           PKG=$(node -p "require('./desktop/package.json').version")
-          REF="${{ inputs.tag || github.ref_name }}"
+          REF="$RELEASE_TAG"
           TAG="${REF#desktop-v}"
           echo "desktop/package.json=$PKG  tag=$TAG"
           if [ "$PKG" != "$TAG" ]; then
@@ -110,50 +119,57 @@ jobs:
       - name: Verify desktop payload (no build-only deps, no dangling .bin)
         run: node scripts/verify-desktop-payload.mjs desktop/release
 
-      # 为本平台产物生成 SHA256 校验和（mac 用 shasum，linux/win-gitbash 用 sha256sum）
-      # 三件事凑在一起，会让一次「绿」的发布把缺安装包的版本标成 latest：
-      #   fail-fast: false（某个平台挂了别的照跑）+ fail_on_unmatched_files: false（没文件也不报错）
-      #   + make_latest: "true"（官网下载入口走 /releases/latest）。
-      # 于是 electron-builder 的产物命名一变、或 Windows 那档挂了，官网对应平台的下载就静默 404。
-      - name: 本平台必须真的产出了安装包
-        shell: bash
-        working-directory: desktop/release
-        run: |
-          shopt -s nullglob
-          case "${{ matrix.plat }}" in
-            mac)   files=( *.dmg ) ;;
-            win)   files=( *.exe ) ;;
-            linux) files=( *.AppImage ) ;;
-          esac
-          if [ ${#files[@]} -eq 0 ]; then
-            echo "::error::${{ matrix.plat }} 没有产出任何安装包——拒绝上传（否则会把缺包的版本标成 latest）"
-            ls -la || true
-            exit 1
-          fi
-          printf '  ✓ %s\n' "${files[@]}"
+      - name: Stage installers, checksums and build provenance
+        run: node scripts/verify-desktop-release.mjs stage desktop/release release-upload ${{ matrix.plat }}
 
-      - name: Generate checksums
-        shell: bash
-        working-directory: desktop/release
-        run: |
-          shopt -s nullglob
-          files=( *.dmg *.exe *.AppImage )
-          if [ ${#files[@]} -gt 0 ]; then
-            if command -v sha256sum >/dev/null 2>&1; then HASH="sha256sum"; else HASH="shasum -a 256"; fi
-            $HASH "${files[@]}" > "SHA256SUMS-${{ matrix.plat }}.txt"
-            cat "SHA256SUMS-${{ matrix.plat }}.txt"
-          fi
+      - uses: actions/upload-artifact@v4
+        with:
+          name: desktop-${{ matrix.plat }}
+          path: release-upload/
+          if-no-files-found: error
+          overwrite: true
+          compression-level: 0
+          retention-days: 7
 
-      - name: Upload to GitHub Release
+  publish:
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: refs/tags/${{ inputs.tag || github.ref_name }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      # Default download scope is this workflow run; keep platform directories separate.
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: desktop-*
+          path: release-artifacts
+      - name: Verify all platforms, source SHA, run ID and asset hashes
+        run: node scripts/verify-desktop-release.mjs verify release-artifacts verified-assets
+      # Never silently overwrite an already published release or mix with an old draft.
+      - name: Refuse an existing release
+        uses: actions/github-script@v7
+        with:
+          script: |
+            try {
+              await github.rest.repos.getReleaseByTag({ ...context.repo, tag: process.env.RELEASE_TAG });
+            } catch (error) {
+              if (error.status === 404) return;
+              throw error;
+            }
+            throw new Error('Release already exists. Review the existing release/draft before retrying; no assets were overwritten.');
+      - name: Upload verified assets to a draft release
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ inputs.tag || github.ref_name }}
           name: ${{ inputs.tag || github.ref_name }}
-          draft: false
-          # 桌面包始终标记为 latest：官网「下载桌面客户端」走 /releases/latest，
-          # 引擎(npm)版本另发 v* release 时用 --latest=false，避免抢走下载入口。
-          make_latest: "true"
-          fail_on_unmatched_files: false
+          draft: true
+          make_latest: "false"
+          fail_on_unmatched_files: true
           body: |
             ## 安装 / Install
 
@@ -187,12 +203,11 @@ jobs:
                 shasum -a 256 <下载的文件名>
 
             > 当前为未签名版（无 Apple 公证 / Windows 签名），以上提示在后续签名版本中会自动消失。
-          files: |
-            desktop/release/*.dmg
-            desktop/release/*.dmg.blockmap
-            desktop/release/*.exe
-            desktop/release/*.exe.blockmap
-            desktop/release/*.AppImage
-            desktop/release/SHA256SUMS-*.txt
+          files: verified-assets/*
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Publish complete release and mark latest
+        run: gh release edit "$RELEASE_TAG" --draft=false --latest
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

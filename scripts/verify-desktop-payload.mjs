@@ -133,7 +133,9 @@ try {
   fail(`无法读取 app.asar：${err?.message || err}`, '先在 desktop/ 运行 npm ci');
 }
 for (const archive of archives) {
-  const entries = new Set(asar.listPackage(archive));
+  // listPackage 用 path.join('/', name) 拼条目：Windows 上是 `\main.cjs`。不统一分隔符，
+  // 这条检查在 Windows 上永远报"缺少入口"——desktop-v0.4.12 的 Windows 包就是这样被拦下、没发出去的。
+  const entries = new Set(asar.listPackage(archive).map((name) => name.replace(/\\/g, '/')));
   const missing = ['/main.cjs', '/preload.cjs'].filter((name) => !entries.has(name));
   if (missing.length) fail(`${archive} 缺少桌面入口：${missing.join('、')}`, 'desktop/package.json 的 build.files 是否漏了 preload.cjs？');
   console.log(`✅ 桌面入口完整：${archive}（main.cjs + preload.cjs）`);
