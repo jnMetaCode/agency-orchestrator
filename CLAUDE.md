@@ -286,7 +286,7 @@ Image steps try the OpenAI Images API (`/images/generations`) first and automati
 back to the Responses API + `image_generation` tool (LanoX-style). PNG lands in
 `ao-output/<run>/assets/`, Studio renders it inline via `GET /api/runs/:id/assets/:file`.
 
-Video steps are **async**: create task → poll → download. Providers live in a separate
+Video steps are **async**: create task → poll → download. A created task is recorded on the step (`pendingVideoTask`: provider, task_id, request fingerprint) and archived when the run is interrupted, times out or fails to download; `--resume` re-attaches to it instead of creating (and paying for) a new one, but only when the fingerprint (prompt + model + resolution/duration/ratio + first frame) is unchanged — otherwise it orders a new task and warns that the old one may still be billing. A vendor-reported failure is not carried over. Providers live in a separate
 `VIDEO_PROVIDERS` table (`src/connectors/api-providers.ts`) because they are neither
 OpenAI-compatible nor Anthropic-protocol — currently **MetaSota** (MiniMax-H3) and **APIMart**
 (Sora2 / VEO3 / Kling / Hailuo …). Each vendor's paths, body fields and status words are wildly

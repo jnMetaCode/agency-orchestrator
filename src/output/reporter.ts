@@ -224,6 +224,8 @@ export function saveResults(result: WorkflowResult, outputDir: string): string {
       imageAsset: s.imageAsset,
       videoAsset: s.videoAsset,
       audioAsset: s.audioAsset,
+      // 未完成视频步骤在服务商那边可能还活着的任务——续跑据此接着查，不重新下单
+      pendingVideoTask: s.pendingVideoTask,
     })),
   };
   writeFileSync(join(dir, 'metadata.json'), JSON.stringify(metadata, null, 2), 'utf-8');

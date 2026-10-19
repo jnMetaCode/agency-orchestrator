@@ -290,6 +290,7 @@ export async function run(
   // Resume: 计算 skipStepIds + 兼容旧 output 变量名
   let skipStepIds: Set<string> | undefined;
   let restoredStepMeta: Map<string, Partial<import('./types.js').StepResult>> | undefined;
+  let resumeVideoTasks: Map<string, import('./types.js').PendingVideoTask> | undefined;
 
   if (resumeDir) {
     // 兼容变量重命名：如果旧 metadata 的 output_var 和新 YAML 的 output 不同，
@@ -321,8 +322,18 @@ export async function run(
         .map(s => [s.id, { agentName: s.agentName, agentEmoji: s.agentEmoji, acceptance: s.acceptance, verification: s.verification, imageAsset: s.imageAsset, videoAsset: s.videoAsset, audioAsset: s.audioAsset }])
     );
 
+    // 上次中断时还活着的视频任务：这一步要重跑（不在复用名单里）才接着查，避免重新下单再付一次钱
+    resumeVideoTasks = new Map(
+      (metadata.steps as import('./types.js').StepResult[])
+        .filter(s => s.status !== 'completed' && s.pendingVideoTask && !skipStepIds!.has(s.id))
+        .map(s => [s.id, s.pendingVideoTask!])
+    );
+
     if (!options?.quiet) {
       console.log(`  恢复自: ${resumeDir}`);
+      if (resumeVideoTasks.size > 0) {
+        console.log(`  接着查 ${resumeVideoTasks.size} 个上次中断的视频任务（提示词与参数未改则不重新下单）：${[...resumeVideoTasks].map(([id, t]) => `${id}→${t.taskId}`).join(', ')}`);
+      }
       console.log(`  跳过已完成步骤: ${skipStepIds.size} 个`);
       // 改过 step id / 删了步骤后再 resume：那些名字在新工作流里已经没有对应物，复用不了。
       // 不说的话用户只会看到"跳过 N 个"比预期少，以为是引擎抽风。
@@ -444,6 +455,8 @@ export async function run(
               status: 'failed' as const,
               error: `运行被中断 (${signal})`,
               output_var: node.step.output,
+              // 正在轮询的视频任务不会因为这里退出而停：记下来，续跑时接着查、不重新下单
+              pendingVideoTask: node.pendingVideoTask,
               duration: 0,
               tokens: { input: 0, output: 0 },
             };
@@ -464,7 +477,7 @@ export async function run(
           console.log(`\n⚠️  运行被中断 (${signal})，已完成 ${done} 步已存档: ${dir}`);
           // 视频任务不会因为这里退出而停止——不说清楚，用户根本不知道钱花在哪一条上
           const pending = describePendingVideoTasks();
-          if (pending) console.log(pending);
+          if (pending) console.log(`${pending}\n     续跑（--resume）时会接着查这些任务、不重新下单——前提是这一步的提示词和参数没改。`);
         }
       } catch { /* 落盘失败也必须退出 */ }
       process.exit(signal === 'SIGINT' ? 130 : 143);
@@ -483,6 +496,7 @@ export async function run(
     media,
     skipStepIds,
     restoredStepMeta,
+    resumeVideoTasks,
     feedback: feedbackOption,
     verify: options?.verify ?? workflow.verify ?? true,
     verifyLlm: options?.verifyLlm ?? workflow.verify_llm,

@@ -397,11 +397,25 @@ export function describePendingVideoTasks(): string | null {
     + `\n     拿 task_id 去服务商控制台查成品或取消；已产生的费用不会因为这里中断而退回。`;
 }
 
+export interface VideoTaskHooks {
+  /** 续跑：上次中断时这条任务还活着，接着查它、不重新下单（调用方已核对过请求指纹） */
+  resumeTaskId?: string;
+  /** 任务建好（或接续上）的那一刻回调——调用方据此记账，中断时才知道哪条任务还在计费 */
+  onTask?: (taskId: string, provider: string) => void;
+}
+
+/** 任务建好之后的失败里，任务可能仍在服务商那边活着（超时、下载失败）：续跑可以接着查，不必重新下单 */
+function stillAlive(error: unknown): unknown {
+  if (error instanceof Error) (error as Error & { videoTaskAlive?: boolean }).videoTaskAlive = true;
+  return error;
+}
+
 export async function generateVideo(
   config: LLMConfig,
   prompt: string,
   opts: VideoStepOptions,
   onNotice?: (msg: string) => void,
+  hooks?: VideoTaskHooks,
 ): Promise<GeneratedVideo> {
   if (!prompt.trim()) {
     throw new Error('视频步骤的提示词为空——上游没产出就别去建任务（厂商只会回 "prompt is required"，或更糟：真出一条空片）。');
@@ -428,58 +442,86 @@ export async function generateVideo(
   const pollMs = opts.poll_interval && opts.poll_interval > 0 ? opts.poll_interval : 5_000;
   const deadline = Date.now() + totalMs;
 
-  // ── 0. 首帧图：公网 URL 直接用；本地字节先上传（只有有上传接口的厂商能做，否则明确拒绝） ──
-  let imageUrl: string | undefined;
-  if (opts.image_bytes && !shape.inlineImage) {
-    if (!shape.uploadImage) {
-      throw new Error(
-        `视频供应商 ${spec.id} 的图生视频只接受**公网 URL**，没有上传接口，本地图片（${opts.image_name || 'image'}）送不过去。\n` +
-        `  出路：① 换 APIMart（自带上传，引擎自动处理）；② 先把图传到图床，把 URL 填进 video.image。`
-      );
+  let taskId = '';
+  if (hooks?.resumeTaskId) {
+    // 先看一眼旧任务还在不在：服务商那边已查不到（过期/清理）或已明确失败，就按新任务下单——
+    // 否则会对着一条不存在的任务干等到超时。查询本身出错不算数：当它还活着，进轮询慢慢等。
+    let gone = '';
+    try {
+      const q = await fetch(shape.queryUrl(baseUrl, hooks.resumeTaskId), {
+        headers: { Authorization: `Bearer ${apiKey}` },
+        signal: AbortSignal.timeout(30_000),
+      });
+      const qText = await q.text();
+      if (q.status === 404 || q.status === 410) gone = `HTTP ${q.status}`;
+      else if (q.ok) {
+        let task: VideoTaskState | undefined;
+        try { task = shape.parseQuery(JSON.parse(qText), hooks.resumeTaskId); } catch { /* 非 JSON：当作还活着 */ }
+        if (task?.phase === 'failed') gone = `厂商报失败：${task.error || '未给出原因'}`;
+      }
+    } catch { /* 网络抖动：当它还活着 */ }
+    if (gone) {
+      onNotice?.(`⚠️ 上次中断的视频任务（task_id=${hooks.resumeTaskId}）已不可用（${gone}），按新任务重新下单`);
+    } else {
+      taskId = hooks.resumeTaskId;
+      onNotice?.(`🎬 接着查上次中断的视频任务（task_id=${taskId}），不重新下单`);
     }
-    onNotice?.(`🖼 上传首帧图 ${opts.image_name || ''}（${(opts.image_bytes.length / 1024).toFixed(0)}KB）→ ${spec.id}`);
-    imageUrl = await shape.uploadImage(baseUrl, headers, opts.image_bytes, opts.image_name || 'first_frame.png');
-  } else if (opts.image && /^https?:\/\//.test(opts.image)) {
-    imageUrl = opts.image;
-  } else if (opts.image && opts.image_bytes && shape.inlineImage) {
-    // inlineImage 形状（openai-videos 的 multipart input_reference / Ark 的 base64）直接吃 image_bytes，
-    // 不需要 URL。真机翻车：Agnes 图生视频拿着执行器解析好的定妆图字节走到这里，被下一行当"没解析成本地图片"拒掉。
-  } else if (opts.image) {
-    throw new Error(`video.image 既不是公网 URL 也没解析成本地图片：${opts.image.slice(0, 120)}`);
   }
 
-  // ── 1. 建任务 ─────────────────────────────────────────────────────────────
-  const createBody = shape.createBody(opts, prompt, imageUrl);
-  const createRes = await fetch(`${baseUrl}/${shape.createPath}`, {
-    method: 'POST',
-    headers: createBody instanceof FormData ? { Authorization: headers.Authorization } : headers,
-    body: createBody,
-    signal: AbortSignal.timeout(Math.min(60_000, totalMs)),
-  });
-  const createText = await createRes.text();
-  if (!createRes.ok) {
-    // 按 OpenAI Videos 形状"试"的 OpenAI 兼容供应商：404 = 这家就是没有视频端点，说清并给可用项，别让用户对着 404 猜
-    if ((createRes.status === 404 || createRes.status === 405) && (spec as { fallback?: boolean }).fallback) {
-      const known = Object.keys(VIDEO_PROVIDER_MAP).join(' / ');
-      throw new Error(
-        `供应商 "${spec.id}" 不在视频供应商表里，按 OpenAI Videos 形状试了 POST ${baseUrl}/videos 也不存在（HTTP ${createRes.status}）——它没有视频端点。\n` +
-        `  可用的视频供应商：${known}；哪家中转站有视频端点可用 ao doctor --video-probe 零成本探测。`
-      );
-    }
-    // 余额不足、参数不合法这类都在这儿；原样带出厂商正文，别自己编原因
-    throw new Error(`视频任务创建失败：HTTP ${createRes.status} ${createText.slice(0, 300)}`);
-  }
-  let taskId = '';
-  try {
-    taskId = shape.parseCreate(JSON.parse(createText));
-  } catch {
-    throw new Error(`视频任务创建失败：响应不是 JSON（${createText.slice(0, 200)}）`);
-  }
   if (!taskId) {
-    throw new Error(`视频任务创建失败：响应里没有 task_id（${createText.slice(0, 200)}）`);
+    // ── 0. 首帧图：公网 URL 直接用；本地字节先上传（只有有上传接口的厂商能做，否则明确拒绝） ──
+    let imageUrl: string | undefined;
+    if (opts.image_bytes && !shape.inlineImage) {
+      if (!shape.uploadImage) {
+        throw new Error(
+          `视频供应商 ${spec.id} 的图生视频只接受**公网 URL**，没有上传接口，本地图片（${opts.image_name || 'image'}）送不过去。\n` +
+          `  出路：① 换 APIMart（自带上传，引擎自动处理）；② 先把图传到图床，把 URL 填进 video.image。`
+        );
+      }
+      onNotice?.(`🖼 上传首帧图 ${opts.image_name || ''}（${(opts.image_bytes.length / 1024).toFixed(0)}KB）→ ${spec.id}`);
+      imageUrl = await shape.uploadImage(baseUrl, headers, opts.image_bytes, opts.image_name || 'first_frame.png');
+    } else if (opts.image && /^https?:\/\//.test(opts.image)) {
+      imageUrl = opts.image;
+    } else if (opts.image && opts.image_bytes && shape.inlineImage) {
+      // inlineImage 形状（openai-videos 的 multipart input_reference / Ark 的 base64）直接吃 image_bytes，
+      // 不需要 URL。真机翻车：Agnes 图生视频拿着执行器解析好的定妆图字节走到这里，被下一行当"没解析成本地图片"拒掉。
+    } else if (opts.image) {
+      throw new Error(`video.image 既不是公网 URL 也没解析成本地图片：${opts.image.slice(0, 120)}`);
+    }
+
+    // ── 1. 建任务 ─────────────────────────────────────────────────────────────
+    const createBody = shape.createBody(opts, prompt, imageUrl);
+    const createRes = await fetch(`${baseUrl}/${shape.createPath}`, {
+      method: 'POST',
+      headers: createBody instanceof FormData ? { Authorization: headers.Authorization } : headers,
+      body: createBody,
+      signal: AbortSignal.timeout(Math.min(60_000, totalMs)),
+    });
+    const createText = await createRes.text();
+    if (!createRes.ok) {
+      // 按 OpenAI Videos 形状"试"的 OpenAI 兼容供应商：404 = 这家就是没有视频端点，说清并给可用项，别让用户对着 404 猜
+      if ((createRes.status === 404 || createRes.status === 405) && (spec as { fallback?: boolean }).fallback) {
+        const known = Object.keys(VIDEO_PROVIDER_MAP).join(' / ');
+        throw new Error(
+          `供应商 "${spec.id}" 不在视频供应商表里，按 OpenAI Videos 形状试了 POST ${baseUrl}/videos 也不存在（HTTP ${createRes.status}）——它没有视频端点。\n` +
+          `  可用的视频供应商：${known}；哪家中转站有视频端点可用 ao doctor --video-probe 零成本探测。`
+        );
+      }
+      // 余额不足、参数不合法这类都在这儿；原样带出厂商正文，别自己编原因
+      throw new Error(`视频任务创建失败：HTTP ${createRes.status} ${createText.slice(0, 300)}`);
+    }
+    try {
+      taskId = shape.parseCreate(JSON.parse(createText));
+    } catch {
+      throw new Error(`视频任务创建失败：响应不是 JSON（${createText.slice(0, 200)}）`);
+    }
+    if (!taskId) {
+      throw new Error(`视频任务创建失败：响应里没有 task_id（${createText.slice(0, 200)}）`);
+    }
+    onNotice?.(`🎬 视频任务已创建（task_id=${taskId}），开始轮询…（按秒计费，中途中断也可能已产生费用）`);
   }
   inFlight.set(taskId, spec.id);
-  onNotice?.(`🎬 视频任务已创建（task_id=${taskId}），开始轮询…（按秒计费，中途中断也可能已产生费用）`);
+  hooks?.onTask?.(taskId, spec.id);
   let missStreak = 0;   // 连续几轮在查询结果里找不到自己这条（见下）
 
   // 建任务之后的每一条出口都必须摘掉登记，包括意料之外的抛错。
@@ -550,15 +592,20 @@ export async function generateVideo(
         // 签名链接有效期短，所以只补一次、不做长退避——真过期了重试也没用，
         // 那时错误里带着 task_id，用户还能去控制台自己下。
         const realUrl = url.startsWith('__content__/') ? `${baseUrl}/videos/${encodeURIComponent(taskId)}/content` : url;
-        const buffer = await downloadWithRetry(realUrl, Math.max(60_000, deadline - Date.now()), taskId, onNotice, shape.authDownload ? { Authorization: `Bearer ${apiKey}` } : undefined);
+        let buffer: Buffer;
+        try {
+          buffer = await downloadWithRetry(realUrl, Math.max(60_000, deadline - Date.now()), taskId, onNotice, shape.authDownload ? { Authorization: `Bearer ${apiKey}` } : undefined);
+        } catch (e) {
+          throw stillAlive(e); // 片子已出、钱已花：续跑接着查这条能拿到新的下载地址
+        }
         return { buffer, mime: 'video/mp4', taskId, seconds: task.seconds, sourceUrl: realUrl };
       }
     }
-    throw new Error(
+    throw stillAlive(new Error(
       `视频生成超时（task_id=${taskId}，等了 ${Math.round(totalMs / 1000)}s，最后状态：${last || '未知'}）。` +
       `任务多半还在服务商那边跑、费用可能已产生——去控制台按 task_id 查成品，` +
-      `或给这一步调大 video: { timeout: <毫秒> }。`
-    );
+      `或给这一步调大 video: { timeout: <毫秒> }；也可以直接续跑（--resume），会接着查这条任务、不重新下单。`
+    ));
   } finally {
     inFlight.delete(taskId);
   }

@@ -166,6 +166,20 @@ export interface DAGNode {
   videoAsset?: { filename: string; base64: string; seconds?: number };
   /** type: tts 的产物（同一套落盘机制）——配音音频 */
   audioAsset?: { filename: string; base64: string };
+  /** type: video 建好、可能还在服务商那边跑的任务（成功/厂商明确失败后清掉）；中断存档据此记录 */
+  pendingVideoTask?: PendingVideoTask;
+}
+
+/**
+ * 服务商那边可能还活着的视频任务。中断存档时记进该步的结果，续跑时请求指纹一致就接着查这条，
+ * 不重新下单——视频按秒计费，重建一条就是再付一次钱。
+ */
+export interface PendingVideoTask {
+  provider: string;
+  taskId: string;
+  /** 提示词 + 模型 + 分辨率/时长/比例 + 首帧图的哈希；改了任何一项都不能接着用旧任务 */
+  fingerprint: string;
+  createdAt: string;
 }
 
 /**
@@ -288,4 +302,6 @@ export interface StepResult {
   /** type: video 的产物。同上：metadata 里只留 filename 与时长 */
   videoAsset?: { filename: string; base64?: string; seconds?: number };
   audioAsset?: { filename: string; base64?: string };
+  /** 未完成的视频步骤在服务商那边可能还活着的任务（见 PendingVideoTask），续跑时据此接着查 */
+  pendingVideoTask?: PendingVideoTask;
 }

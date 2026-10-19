@@ -1,6 +1,7 @@
 /**
  * DAG 执行引擎 — 核心调度器
  */
+import { createHash } from 'node:crypto';
 import { existsSync, readFileSync, readdirSync, mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import type {
@@ -10,6 +11,7 @@ import type {
   LLMConfig,
   WorkflowResult,
   StepResult,
+  PendingVideoTask,
 } from '../types.js';
 import type { DAG } from './dag.js';
 import { renderTemplate } from './template.js';
@@ -70,6 +72,11 @@ export interface ExecutorOptions {
   restoredStepMeta?: Map<string, Partial<StepResult>>;
   /** 本次运行的媒体登记表（run() 建好传入，带暂存目录）；不传则用一份不落盘的，仍然是每次运行独立 */
   media?: MediaRegistry;
+  /**
+   * 续跑：上次中断时还活着的视频任务（步骤 id → 任务）。请求指纹一致的步骤接着查旧任务、不重新下单；
+   * 用过即从表里摘掉，同一条任务不会被接续两次。
+   */
+  resumeVideoTasks?: Map<string, PendingVideoTask>;
 }
 
 /**
@@ -241,6 +248,7 @@ export async function executeDAG(dag: DAG, options: ExecutorOptions): Promise<Wo
     verify: options.verify,
     verifyLlm: options.verifyLlm,
     media,
+    resumeVideoTasks: options.resumeVideoTasks,
   }).then(value => {
     // 中断兜底：settle 即写入 sink 一份最小记录，不等整批屏障——否则并行批次里
     // 先完成的步骤在 SIGTERM 时会被当作"未完成"丢弃（产出和 token 白花）。
@@ -315,6 +323,8 @@ export async function executeDAG(dag: DAG, options: ExecutorOptions): Promise<Wo
       imageAsset: node.imageAsset,
       videoAsset: node.videoAsset,
       audioAsset: node.audioAsset,
+      // 失败步骤在服务商那边可能还活着的视频任务：中断/续跑据此接着查，不重新下单
+      pendingVideoTask: node.status === 'failed' ? node.pendingVideoTask : undefined,
     });
 
     onStepComplete?.(node);
@@ -604,6 +614,7 @@ async function executeStep(
     verify?: boolean;
     verifyLlm?: Partial<LLMConfig>;
     media: MediaRegistry;
+    resumeVideoTasks?: Map<string, PendingVideoTask>;
   }
 ): Promise<string> {
   node.status = 'running';
@@ -780,7 +791,33 @@ async function executeStep(
       videoOpts.duration = n;
     }
     const vlog = (m: string) => process.stderr.write(`  ${m}\n`);
-    let vid = await generateVideo(vidConfig, prompt, videoOpts, vlog);
+    // 请求指纹：同一条任务只能接给一模一样的请求——改了提示词或任何参数，旧任务出的就不是这条片子
+    const fingerprint = createHash('sha256').update(JSON.stringify({
+      provider: videoOpts.provider || vidConfig.provider, model: videoOpts.model, resolution: videoOpts.resolution,
+      duration: videoOpts.duration, ratio: videoOpts.ratio, image: videoOpts.image,
+      imageBytes: videoOpts.image_bytes ? createHash('sha256').update(videoOpts.image_bytes).digest('hex') : undefined,
+      prompt,
+    })).digest('hex');
+    const prior = opts.resumeVideoTasks?.get(node.step.id);
+    opts.resumeVideoTasks?.delete(node.step.id);
+    if (prior && prior.fingerprint !== fingerprint) {
+      vlog(`⚠️ 上次中断的视频任务（${prior.provider} task_id=${prior.taskId}）对应的提示词或参数已改，按新任务下单——旧任务可能仍在服务商那边计费，可去控制台核对`);
+    }
+    const track = (taskId: string, provider: string) => {
+      node.pendingVideoTask = { provider, taskId, fingerprint, createdAt: new Date().toISOString() };
+    };
+    let vid: Awaited<ReturnType<typeof generateVideo>>;
+    try {
+      vid = await generateVideo(vidConfig, prompt, videoOpts, vlog, {
+        resumeTaskId: prior?.fingerprint === fingerprint ? prior.taskId : undefined,
+        onTask: track,
+      });
+    } catch (e) {
+      // 只有任务可能还活着（超时 / 下载失败）才留着记录给续跑接；厂商明确失败的不留
+      if (!(e as { videoTaskAlive?: boolean })?.videoTaskAlive) node.pendingVideoTask = undefined;
+      throw e;
+    }
+    node.pendingVideoTask = undefined;
 
     // 视频验收：抽 3 帧（开头/中段/结尾）交给能看图的文本模型逐条核对。与图片验收的差别只有一个：
     // **默认只审不重出**——视频按秒真钱，重出 = 再付一整条，得作者写 video.rework: true 明示。
