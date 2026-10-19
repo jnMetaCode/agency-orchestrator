@@ -894,6 +894,10 @@ export const api = {
     getJSON<{ job: StudioJob; events: StudioJobEvent[]; resetRequired: boolean }>(`/jobs/${encodeURIComponent(id)}/events?afterSequence=${afterSequence}`),
   runInput: (runId: string, text: string) =>
     postJSON<{ ok: boolean }>("/run-input", { runId, text }),
+  // 进行中的运行（本机引擎内存里的）：刷新页面后据此接回；只列这次引擎进程里的，重启后的旧运行看「我的运行」
+  liveRuns: () => getJSON<{ runs: LiveRun[] }>("/live-runs"),
+  // 显式取消：页面断开已不再停止运行，要停必须走这里（引擎会照常做中断存档，可续跑）
+  cancelRun: (runId: string) => postJSON<{ ok: boolean }>("/run-cancel", { runId }),
   // ── 多智能体 vs 单次基线对比（本地引擎，非流式，可能较慢）──
   compare: (body: { file: string; inputs: Record<string, string>; provider?: string }) =>
     postJSON<CompareResult>("/compare", body),
@@ -999,6 +1003,21 @@ export interface StudioJob {
   activeInThisInstance?: boolean;
   snapshot: { requestHash: string; workflowHash: string };
   events: StudioJobEvent[];
+}
+
+export interface LiveRun {
+  runId: string;
+  title?: string;
+  startedAt: number;
+  done: boolean;
+  endedAt?: number;
+  active: boolean;
+  cancelRequested?: boolean;
+}
+
+/** 接回一个进行中的运行：服务端先重放它的全部事件，再接实时输出，直到结束 */
+export function attachRun(runId: string, onEvent: SseHandler, signal?: AbortSignal) {
+  return streamSse("/live-runs/stream", { runId }, onEvent, signal);
 }
 
 export function runWorkflow(

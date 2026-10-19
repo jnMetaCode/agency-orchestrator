@@ -99,6 +99,18 @@ as `my/<id>` in workflows. Unlike `AO_AGENTS_DIR` (which *replaces* the catalog)
 Generator's system mode has "存为我的角色" to turn a generated system prompt into a role. Role
 favorites (☆常用, localStorage) mirror the workflow-card star.
 
+## Studio runs outlive the page
+
+`/api/run` no longer ties the engine process to one HTTP response. Each run has an in-memory event buffer
+(`web/run-stream.js`, `RunStreamHub`): the browser is just a subscriber, so closing/refreshing the page only
+unsubscribes. `GET /api/live-runs` lists this engine process's runs; `POST /api/live-runs/stream {runId}` replays
+every buffered event and then follows live output (RunManager re-attaches active runs on load — the UI is rebuilt
+from the same events); `POST /api/run-cancel {runId}` is the only way to stop a workflow (SIGTERM → the engine's
+normal interrupted archive, resumable; job record → `cancelled`). Raw stdout/stderr are dropped first when a buffer
+exceeds its cap — structural events never are. Buffers are kept 10 min after a run ends. A server restart loses
+the buffers (the archives in `ao-output/` remain). `/api/run-role` (single expert) still stops on disconnect.
+Job records (`src/core/job-store.ts`, `.local/jobs/`) are bookkeeping only: a storage failure must never block a run.
+
 ## Resume — Iterative Optimization
 
 After `ao run` completes, all step outputs are saved to `ao-output/<name>-<timestamp>/`. Users can iterate on any step without re-running the entire workflow.

@@ -17,6 +17,7 @@ import yaml from 'js-yaml';
 import { resolveDataDir, migrateLegacyData } from './data-dir.js';
 import { FileJobStore } from '../dist/core/job-store.js';
 import { RunJobRegistry, registerJobReadRoutes, jobHttpError, isRunActive } from './run-jobs.js';
+import { RunStreamHub, sseSubscriber } from './run-stream.js';
 import { createRunOutputParser, matchStepFailed, matchRunSummary } from './run-output-parser.js';
 import { detectInstalledCliProviders, detectUsableCliProviders, CLI_PROVIDER_IDS } from '../dist/providers/detect.js';
 import { API_PROVIDERS, API_PROVIDER_MAP, ANTHROPIC_PROVIDERS, ANTHROPIC_PROVIDER_MAP, VIDEO_PROVIDERS, VIDEO_PROVIDER_MAP } from '../dist/connectors/api-providers.js';
@@ -918,6 +919,8 @@ app.get('/api/workflows/yaml', (req, res) => {
 const activeRuns = new Map();
 const jobStore = new FileJobStore(join(DATA_DIR, '.local', 'jobs'));
 const runJobs = new RunJobRegistry(jobStore);
+// 运行的事件缓冲：页面只是订阅者，断开不再杀子进程；重新打开页面后从头重放（见 web/run-stream.js）
+const runStreams = new RunStreamHub();
 registerJobReadRoutes(app, jobStore, { isActive: id => isRunActive(activeRuns.get(id)) });
 // 桌面版退出时只 SIGTERM 了本进程（web/server.js），我们 spawn 出去的 `ao run` 不会跟着死——
 // POSIX 不因父进程退出而杀子进程。表现：用户关掉 App，引擎还在轮询按秒计费的视频任务、把片子
@@ -1024,13 +1027,10 @@ app.post('/api/run', (req, res) => {
   res.setHeader('Connection', 'keep-alive');
   res.flushHeaders?.();
 
-  const send = (type, data) => {
-    // 客户端断开后 SIGTERM 子进程不是瞬时的，期间到达的 stdout 仍会调到这里；
-    // 向已结束的响应 write 会抛 ERR_STREAM_WRITE_AFTER_END，拖垮单进程服务。
-    if (res.writableEnded) return;
-    res.write(`event: ${type}\n`);
-    res.write(`data: ${JSON.stringify(data)}\n\n`);
-  };
+  // 事件先进这次运行的缓冲，再推给所有订阅者；发起请求的这个页面只是第一个订阅者
+  const stream = runStreams.create(runId, { title: basename(resolvedFile).replace(/\.ya?ml$/i, '') });
+  const send = (type, data) => { stream.push(type, data); };
+  const unsubscribe = stream.subscribe(sseSubscriber(res));
 
   send('start', { cmd: `ao run ${basename(resolvedFile)}`, resume: !!resume, fromStep, runId,
     jobId: runId, clientRequestId: registration.requestId });
@@ -1063,7 +1063,7 @@ app.post('/api/run', (req, res) => {
   } catch {
     persistFinish({ error: true });
     send('error', { message: 'Could not start workflow process', jobId: runId });
-    res.end();
+    stream.finish();
     return;
   }
   let finished = false;
@@ -1091,8 +1091,8 @@ app.post('/api/run', (req, res) => {
     if (lineBuffer.trim()) parseLine(lineBuffer);
     persistFinish({ code, signal, stopped: child.killed });
     console.log('[exit]', code, signal);
-    send('done', { code, signal });
-    res.end();
+    send('done', { code, signal, ...(stream.cancelRequested ? { cancelled: true } : {}) });
+    stream.finish();
   });
   child.on('error', err => {
     finished = true;
@@ -1100,15 +1100,41 @@ app.post('/api/run', (req, res) => {
     persistFinish({ error: true });
     console.log('[run-error]', runId, err.code || 'SPAWN_ERROR');
     send('error', { message: err.message });
-    res.end();
+    stream.finish();
   });
 
-  res.on('close', () => {
-    if (!finished && !child.killed) {
-      console.log('[abort] client closed');
-      child.kill('SIGTERM');
-    }
-  });
+  // 页面断开只是退订：运行继续，重新打开 Studio 可以接回来；要停请走 /api/run-cancel
+  res.on('close', unsubscribe);
+});
+
+// ── 进行中的运行：列表 / 重新订阅 / 取消 ──
+// 只覆盖这个服务进程里的运行（内存缓冲）。服务重启后旧运行不在这里——它们的存档在「我的运行」。
+app.get('/api/live-runs', (_req, res) => {
+  res.json({ runs: runStreams.list().map(r => ({ ...r, active: isRunActive(activeRuns.get(r.runId)) })) });
+});
+app.post('/api/live-runs/stream', (req, res) => {
+  const { runId, after } = req.body || {};
+  const stream = typeof runId === 'string' ? runStreams.get(runId) : undefined;
+  if (!stream) return res.status(404).json({ code: 'RUN_NOT_LIVE', error: '这个运行已不在内存里（服务重启过或结束超过 10 分钟），请到「我的运行」查看存档' });
+  const from = Number.isSafeInteger(after) && after > 0 ? after : 0;
+  res.setHeader('Content-Type', 'text/event-stream');
+  res.setHeader('Cache-Control', 'no-cache');
+  res.setHeader('Connection', 'keep-alive');
+  res.flushHeaders?.();
+  const unsubscribe = stream.subscribe(sseSubscriber(res), from);
+  res.on('close', unsubscribe);
+});
+app.post('/api/run-cancel', (req, res) => {
+  const runId = typeof req.body?.runId === 'string' ? req.body.runId : '';
+  const child = activeRuns.get(runId);
+  const stream = runStreams.get(runId);
+  if (!child || !isRunActive(child)) return res.status(404).json({ code: 'RUN_NOT_ACTIVE', error: '这个运行已经结束或不在本机引擎里' });
+  if (stream) stream.cancelRequested = true;
+  try { runJobs.cancel(runId); } catch { /* 记账失败不挡取消：进程照样要停 */ }
+  // SIGTERM 让引擎走自己的中断存档（已完成步骤 + 还在计费的视频任务都会记下来，可续跑）
+  child.kill('SIGTERM');
+  console.log('[cancel]', runId);
+  res.json({ ok: true });
 });
 
 // ── Feed input to a paused run (human_input / approval node awaiting stdin) ──

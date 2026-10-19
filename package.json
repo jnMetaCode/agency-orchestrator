@@ -71,7 +71,7 @@
     "build:studio": "npm --prefix website ci && npm --prefix website run build",
     "verify:release": "node scripts/verify-cli.mjs && node scripts/verify-frontend.mjs",
     "typecheck:test": "tsc -p tsconfig.test.json",
-    "test:studio-jobs": "node --import tsx test/studio-jobs.ts && node --import tsx test/job-observation.ts",
+    "test:studio-jobs": "node --import tsx test/studio-jobs.ts && node --import tsx test/job-observation.ts && node --import tsx test/run-stream.ts",
     "test:jobs": "node --import tsx test/job-store.ts",
     "test:desktop-release": "node test/desktop-release.mjs",
     "test:studio-compose": "node --import tsx test/studio-compose-route.ts",

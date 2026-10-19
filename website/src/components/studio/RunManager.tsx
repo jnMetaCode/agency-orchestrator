@@ -1,5 +1,5 @@
 import { createContext, useCallback, useContext, useEffect, useReducer, useRef, type ReactNode } from "react";
-import { api, runRole, runWorkflow, type SseHandler, type WorkflowStepMeta } from "@/lib/studio";
+import { api, attachRun, runRole, runWorkflow, type SseHandler, type WorkflowStepMeta } from "@/lib/studio";
 import { useLanguage } from "@/i18n/LanguageProvider";
 
 /** 某步暂停等待人工输入（human_input / approval 节点）。 */
@@ -64,8 +64,10 @@ export interface RunInstance {
   _stderr: string;
   /** 工作流运行才有：原始请求，供「对某步提意见重做」复用 file/provider/cast/inputs */
   source?: WorkflowRequest;
-  /** 服务端运行 id，用于把人工输入写回该子进程 stdin */
+  /** 服务端运行 id，用于把人工输入写回该子进程 stdin、取消运行、刷新后接回 */
   runId?: string;
+  /** 点了停止时还没拿到 runId（刚发起）：拿到的那一刻立即取消 */
+  cancelOnStart?: boolean;
   /** 非空时表示某步正等待人工输入，前端应弹输入框 */
   pendingInput?: PendingInput | null;
   /** 本次运行产物的保存目录（绝对路径,来自服务端 output-dir 事件） */
@@ -131,63 +133,11 @@ export function RunProvider({ children }: { children: ReactNode }) {
     frame.current = requestAnimationFrame(() => { frame.current = 0; force(); });
   }, []);
 
-  // 刷新 / 关标签 / 点到站外链接时，服务端一看到响应流断开就 SIGTERM 子进程——正在跑的（可能按秒计费的）
-  // 运行会被无声杀掉。运行只活在内存里、SSE 也接不回来，所以这里至少要让浏览器弹一句"确定离开？"。
-  useEffect(() => {
-    const guard = (e: BeforeUnloadEvent) => {
-      const busy = [...runsRef.current.values()].some((r) => r.state === "running");
-      if (!busy) return;
-      e.preventDefault();
-      e.returnValue = "";
-    };
-    window.addEventListener("beforeunload", guard);
-    return () => window.removeEventListener("beforeunload", guard);
-  }, []);
 
-  const start = useCallback(
-    (request: RunRequest): string => {
-      const id = `run-${++counter}`;
-      const ctrl = new AbortController();
-
-      // 借用户点「运行」这个手势申请通知权限（浏览器要求在用户手势里请求）
-      try {
-        if (typeof Notification !== "undefined" && Notification.permission === "default") {
-          void Notification.requestPermission();
-        }
-      } catch { /* noop */ }
-
-      const seeded: LiveStep[] =
-        request.kind === "role"
-          ? [{ id: "single", content: "", status: "running", name: request.name ?? request.role.split("/").pop(), avatarSeed: request.role }]
-          : (request.cast ?? []).map((s) => ({
-              id: s.id,
-              name: s.name ?? s.id,
-              emoji: s.emoji,
-              avatarSeed: s.role || s.id,
-              content: "",
-              status: "pending" as StepStatus,
-            }));
-
-      const inst: RunInstance = {
-        id,
-        title: request.title,
-        kind: request.kind,
-        state: "running",
-        steps: seeded,
-        terminal: "",
-        summary: null,
-        error: null,
-        startedAt: Date.now(),
-        ctrl,
-        _stderr: "",
-        source: request.kind === "workflow" ? request : undefined,
-      };
-      runsRef.current.set(id, inst);
-      openRef.current = id;
-      touch();
-
-      const avatarOf = (stepId: string) =>
-        request.kind === "workflow" ? request.cast?.find((c) => c.id === stepId)?.role : undefined;
+  /** 把服务端事件落到一个运行实例上——新开的运行和刷新后接回的运行共用同一套，界面才能按事件原样重建 */
+  const makeHandler = useCallback(
+    (inst: RunInstance, cast?: WorkflowStepMeta[]): SseHandler => {
+      const avatarOf = (stepId: string) => cast?.find((c) => c.id === stepId)?.role;
 
       const upsert = (stepId: string, patch: Partial<LiveStep>) => {
         const i = inst.steps.findIndex((s) => s.id === stepId);
@@ -204,6 +154,7 @@ export function RunProvider({ children }: { children: ReactNode }) {
         switch (event) {
           case "start":
             inst.runId = data.runId;
+            if (inst.cancelOnStart && data.runId) api.cancelRun(data.runId).catch(() => { /* 已经结束 */ });
             break;
           case "await-input":
             inst.pendingInput = { stepId: data.stepId, prompt: data.prompt, type: data.type };
@@ -279,6 +230,12 @@ export function RunProvider({ children }: { children: ReactNode }) {
             break;
           case "done": {
             inst.pendingInput = null;
+            if (data?.cancelled) {
+              inst.state = "error";
+              inst.error = t.studio.run.stoppedByUser;
+              inst.steps = inst.steps.map((s) => (s.status === "running" ? { ...s, status: "failed" } : s));
+              break;
+            }
             inst.steps = inst.steps.map((s) => (s.status === "running" ? { ...s, status: "done" } : s));
             const hasContent = inst.steps.some((s) => s.content.trim());
             const failedSteps = inst.steps.filter((s) => s.status === "failed");
@@ -305,6 +262,76 @@ export function RunProvider({ children }: { children: ReactNode }) {
         }
         touch();
       };
+      return onEvent;
+    },
+    [touch, t],
+  );
+
+  /** 盯住一条事件流的结局：正常收口却没收到 done / error（代理提前断开、服务端异常退出）就判失败，别让它永远转圈 */
+  const follow = useCallback(
+    (inst: RunInstance, stream: Promise<void>) => {
+      stream.then(() => {
+        if (inst.ctrl.signal.aborted || inst.state !== "running") return;
+        inst.state = "error";
+        inst.error = inst.error || t.studio.run.runError;
+        inst.steps = inst.steps.map((s) => (s.status === "running" ? { ...s, status: "failed" } : s));
+        touch();
+      });
+      stream.catch((e: any) => {
+        if (inst.ctrl.signal.aborted) return;
+        inst.error = e?.message || String(e);
+        inst.state = "error";
+        // 请求本身挂了（不是引擎发的 error 事件）：正在跑的步骤不会再收到任何事件，别让它们的转圈永远转下去
+        inst.steps = inst.steps.map((s) => (s.status === "running" ? { ...s, status: "failed" } : s));
+        touch();
+      });
+    },
+    [touch, t],
+  );
+
+  const start = useCallback(
+    (request: RunRequest): string => {
+      const id = `run-${++counter}`;
+      const ctrl = new AbortController();
+
+      // 借用户点「运行」这个手势申请通知权限（浏览器要求在用户手势里请求）
+      try {
+        if (typeof Notification !== "undefined" && Notification.permission === "default") {
+          void Notification.requestPermission();
+        }
+      } catch { /* noop */ }
+
+      const seeded: LiveStep[] =
+        request.kind === "role"
+          ? [{ id: "single", content: "", status: "running", name: request.name ?? request.role.split("/").pop(), avatarSeed: request.role }]
+          : (request.cast ?? []).map((s) => ({
+              id: s.id,
+              name: s.name ?? s.id,
+              emoji: s.emoji,
+              avatarSeed: s.role || s.id,
+              content: "",
+              status: "pending" as StepStatus,
+            }));
+
+      const inst: RunInstance = {
+        id,
+        title: request.title,
+        kind: request.kind,
+        state: "running",
+        steps: seeded,
+        terminal: "",
+        summary: null,
+        error: null,
+        startedAt: Date.now(),
+        ctrl,
+        _stderr: "",
+        source: request.kind === "workflow" ? request : undefined,
+      };
+      runsRef.current.set(id, inst);
+      openRef.current = id;
+      touch();
+
+      const onEvent = makeHandler(inst, request.kind === "workflow" ? request.cast : undefined);
 
       const starter =
         request.kind === "workflow"
@@ -315,33 +342,54 @@ export function RunProvider({ children }: { children: ReactNode }) {
             )
           : runRole({ role: request.role, task: request.task, provider: request.provider, lang: request.lang }, onEvent, ctrl.signal);
 
-      // 流正常结束却没收到 done / error（代理提前收口、服务端异常退出）：状态会永远停在"运行中"，
-      // 转圈转到天荒地老、还挡着 beforeunload 的离开确认。收口成失败。
-      starter.then(() => {
-        if (ctrl.signal.aborted || inst.state !== "running") return;
-        inst.state = "error";
-        inst.error = inst.error || t.studio.run.runError;
-        inst.steps = inst.steps.map((s) => (s.status === "running" ? { ...s, status: "failed" } : s));
-        touch();
-      });
-      starter.catch((e: any) => {
-        if (ctrl.signal.aborted) return;
-        inst.error = e?.message || String(e);
-        inst.state = "error";
-        // 请求本身挂了（不是引擎发的 error 事件）：正在跑的步骤不会再收到任何事件，别让它们的转圈永远转下去
-        inst.steps = inst.steps.map((s) => (s.status === "running" ? { ...s, status: "failed" } : s));
-        touch();
-      });
+      follow(inst, starter);
 
       return id;
     },
-    [touch, t],
+    [touch, t, makeHandler, follow],
   );
+
+  // 刷新 / 重新打开 Studio：把本机引擎里还在跑的工作流接回来——服务端先重放这次运行的全部事件，再接实时输出。
+  // 以前页面一断开服务端就杀子进程，刷新等于丢掉运行（视频还在服务商那边计费）；现在断开只是退订。
+  useEffect(() => {
+    let cancelled = false;
+    api.liveRuns().then(({ runs }) => {
+      if (cancelled) return;
+      const known = new Set([...runsRef.current.values()].map((r) => r.runId).filter(Boolean));
+      for (const live of runs) {
+        if (!live.active || known.has(live.runId)) continue;
+        const inst: RunInstance = {
+          id: `run-${++counter}`,
+          title: live.title || t.studio.jobs.taskFallback.replace("{id}", live.runId.slice(0, 8)),
+          kind: "workflow",
+          state: "running",
+          steps: [],
+          terminal: "",
+          summary: null,
+          error: null,
+          startedAt: live.startedAt,
+          ctrl: new AbortController(),
+          _stderr: "",
+          runId: live.runId,
+        };
+        runsRef.current.set(inst.id, inst);
+        follow(inst, attachRun(live.runId, makeHandler(inst), inst.ctrl.signal));
+      }
+      touch();
+    }).catch(() => { /* 旧引擎没有这个接口，或引擎没起来：没有可接回的 */ });
+    return () => { cancelled = true; };
+  }, [makeHandler, follow, touch, t]);
 
   const stop = useCallback(
     (id: string) => {
       const inst = runsRef.current.get(id);
       if (!inst) return;
+      // 工作流：页面断开已不再停止运行，必须显式取消（引擎照常做中断存档）；还没拿到 runId 就等拿到的那一刻再取消。
+      // 专家单问仍是「断开即停」（短、无存档），直接中止请求即可。
+      if (inst.kind === "workflow" && inst.state === "running") {
+        if (inst.runId) api.cancelRun(inst.runId).catch(() => { /* 已经结束 */ });
+        else inst.cancelOnStart = true;
+      }
       inst.ctrl.abort();
       // 用户主动停的：状态是 error（带说明），不是 done——以前标 done，绿色「已完成」徽章下面步骤还在转圈
       if (inst.state === "running") {
@@ -357,7 +405,11 @@ export function RunProvider({ children }: { children: ReactNode }) {
   const remove = useCallback(
     (id: string) => {
       const inst = runsRef.current.get(id);
-      if (inst && inst.state === "running") inst.ctrl.abort();
+      if (inst && inst.state === "running") {
+        // 关掉一张还在跑的卡片 = 不要这次运行了：工作流要显式取消，光断开连接它会继续跑
+        if (inst.kind === "workflow" && inst.runId) api.cancelRun(inst.runId).catch(() => { /* 已经结束 */ });
+        inst.ctrl.abort();
+      }
       runsRef.current.delete(id);
       if (openRef.current === id) openRef.current = null;
       touch();

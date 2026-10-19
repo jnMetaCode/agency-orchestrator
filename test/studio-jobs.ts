@@ -10,6 +10,7 @@ import { FileJobStore } from '../src/core/job-store.js';
 
 const helpers = await import(pathToFileURL(resolve('web/run-jobs.js')).href);
 const parser = await import(pathToFileURL(resolve('web/run-output-parser.js')).href);
+const streams = await import(pathToFileURL(resolve('web/run-stream.js')).href);
 const source = readFileSync('web/server.js', 'utf-8');
 const start = source.indexOf("app.post('/api/run',");
 const end = source.indexOf('// ── Feed input', start);
@@ -39,9 +40,11 @@ function fixture() {
   const children: Child[] = [], logs: string[] = [];
   const activeRuns = new Map();
   let failSpawn = false, key = 'fake-key';
-  let handler: any;
+  const handlers = new Map<string, any>();
+  const runStreams = new streams.RunStreamHub();
   const context = {
-    app: { post: (_path: string, fn: any) => { handler = fn; } },
+    app: { post: (path: string, fn: any) => { handlers.set(`POST ${path}`, fn); }, get: (path: string, fn: any) => { handlers.set(`GET ${path}`, fn); } },
+    runStreams, sseSubscriber: streams.sseSubscriber, isRunActive: helpers.isRunActive,
     resolve, basename, join, readFileSync, existsSync,
     isAllowedWorkflow: (value: string) => value === file,
     DATA_DIR: dir, OUTPUT_DIR: dir, CLI: '/cli.js', NODE_BIN: process.execPath,
@@ -52,8 +55,9 @@ function fixture() {
     spawn: () => { if (failSpawn) throw new Error('spawn failed'); const child = new Child(); children.push(child); return child; },
   };
   runInNewContext(route, context);
-  const run = (body: object = {}) => { const res = new Response(); handler({ body: { file, ...body } }, res); return res; };
-  return { file, dir, store, registry, children, logs, activeRuns, run,
+  const run = (body: object = {}) => { const res = new Response(); handlers.get('POST /api/run')({ body: { file, ...body } }, res); return res; };
+  const call = (route: string, body: object = {}) => { const res = new Response(); handlers.get(route)({ body }, res); return res; };
+  return { file, dir, store, registry, children, logs, activeRuns, run, call, runStreams,
     failSpawn: () => { failSpawn = true; }, rotateKey: () => { key = 'rotated-fake-key'; } };
 }
 function startEvent(res: Response) {
@@ -123,9 +127,36 @@ try {
       assert.equal(f.store.list()[0].status, expected);
     }
   });
-  await test('disconnect retains existing stop behavior and records interruption', () => {
+  await test('closing the page only unsubscribes: the run keeps going and its job stays running', () => {
     const f = fixture(), res = f.run(); res.end();
-    assert(f.children[0].killed); assert.equal(f.store.list()[0].status, 'interrupted');
+    assert(!f.children[0].killed); assert.equal(f.store.list()[0].status, 'running'); assert.equal(f.activeRuns.size, 1);
+    f.children[0].emit('close', 0, null);
+    assert.equal(f.store.list()[0].status, 'completed');
+  });
+  await test('reopening the page replays every event, then follows live output until done', () => {
+    const f = fixture(), first = f.run(), id = startEvent(first).jobId;
+    first.end();                                            // page closed
+    f.children[0].stdout.emit('data', Buffer.from('── [1/1] 🤖 Writer (draft) ──\nhello\n'));
+    const live = f.call('GET /api/live-runs');
+    assert.equal(live.payload.runs.length, 1); assert.equal(live.payload.runs[0].runId, id); assert.equal(live.payload.runs[0].active, true);
+    const again = f.call('POST /api/live-runs/stream', { runId: id });
+    const replay = again.chunks.join('');
+    assert(replay.includes('event: start') && replay.includes('"id":"draft"') && replay.includes('hello'), replay);
+    f.children[0].stdout.emit('data', Buffer.from('world\n'));
+    assert(again.chunks.join('').includes('world'), 'live output after replay');
+    f.children[0].emit('close', 0, null);
+    assert(again.writableEnded && again.chunks.join('').includes('event: done'));
+    const late = f.call('POST /api/live-runs/stream', { runId: id });  // just after completion: still replayable
+    assert(late.writableEnded && late.chunks.join('').includes('event: done'));
+    assert.equal(f.call('POST /api/live-runs/stream', { runId: 'nope' }).statusCode, 404);
+  });
+  await test('explicit cancel stops the process and records the job as cancelled', () => {
+    const f = fixture(), res = f.run(), id = startEvent(res).jobId;
+    const cancel = f.call('POST /api/run-cancel', { runId: id });
+    assert.equal(cancel.payload.ok, true); assert(f.children[0].killed);
+    assert.equal(f.store.list()[0].status, 'cancelled');
+    assert(res.chunks.join('').includes('"cancelled":true'));
+    assert.equal(f.call('POST /api/run-cancel', { runId: id }).statusCode, 404, 'second cancel: nothing left to stop');
   });
   await test('storage failure during registration still runs the workflow, untracked and without leaking details', () => {
     // Bookkeeping must not block work: one corrupt record would otherwise stop every Studio run.
