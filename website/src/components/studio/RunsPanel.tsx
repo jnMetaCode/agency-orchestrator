@@ -10,6 +10,7 @@ import { useLanguage } from "@/i18n/LanguageProvider";
 import { cn } from "@/lib/utils";
 import { Markdown } from "./Markdown";
 import type { RunRequest } from "./RunManager";
+import { JobsPanel } from "./JobsPanel";
 
 function DetailPane({ id, provider, onRun }: { id: string; provider: string; onRun: (r: RunRequest) => void }) {
   const { t, lang } = useLanguage();
@@ -296,7 +297,7 @@ function localDayKey(d: Date): string {
 
 type StatusFilter = "all" | "ok" | "bad";
 
-export function RunsPanel({ provider, onRun }: { provider: string; onRun: (r: RunRequest) => void }) {
+function RunHistoryPanel({ provider, onRun }: { provider: string; onRun: (r: RunRequest) => void }) {
   const { t, lang } = useLanguage();
   const locale = lang === "en" ? "en-US" : "zh-CN";
   const [runs, setRuns] = useState<RunSummary[]>([]);
@@ -573,4 +574,17 @@ export function RunsPanel({ provider, onRun }: { provider: string; onRun: (r: Ru
       )}
     </div>
   );
+}
+
+
+export function RunsPanel(props: { provider: string; onRun: (r: RunRequest) => void }) {
+  const { t } = useLanguage();
+  const [view, setView] = useState<"history" | "jobs">("history");
+  return <div className="space-y-4">
+    <div role="group" aria-label={t.studio.jobs.views} className="flex gap-2">
+      <Button variant={view === "history" ? "default" : "outline"} size="sm" aria-pressed={view === "history"} onClick={() => setView("history")}>{t.studio.jobs.history}</Button>
+      <Button variant={view === "jobs" ? "default" : "outline"} size="sm" aria-pressed={view === "jobs"} onClick={() => setView("jobs")}>{t.studio.jobs.title}</Button>
+    </div>
+    {view === "history" ? <RunHistoryPanel {...props} /> : <JobsPanel onHistory={() => setView("history")} />}
+  </div>;
 }

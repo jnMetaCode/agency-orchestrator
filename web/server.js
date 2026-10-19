@@ -11,10 +11,12 @@ import { spawn, execFileSync , spawnSync } from 'node:child_process';
 import { readFileSync, readdirSync, existsSync, statSync, writeFileSync, unlinkSync, mkdirSync, rmSync, chmodSync, accessSync, constants as fsConstants } from 'node:fs';
 import { resolve, join, dirname, basename, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { createHash } from 'node:crypto';
+import { createHash, randomUUID } from 'node:crypto';
 import { tmpdir, homedir } from 'node:os';
 import yaml from 'js-yaml';
 import { resolveDataDir, migrateLegacyData } from './data-dir.js';
+import { FileJobStore } from '../dist/core/job-store.js';
+import { RunJobRegistry, registerJobReadRoutes, jobHttpError, isRunActive } from './run-jobs.js';
 import { createRunOutputParser, matchStepFailed, matchRunSummary } from './run-output-parser.js';
 import { detectInstalledCliProviders, detectUsableCliProviders, CLI_PROVIDER_IDS } from '../dist/providers/detect.js';
 import { API_PROVIDERS, API_PROVIDER_MAP, ANTHROPIC_PROVIDERS, ANTHROPIC_PROVIDER_MAP, VIDEO_PROVIDERS, VIDEO_PROVIDER_MAP } from '../dist/connectors/api-providers.js';
@@ -913,8 +915,10 @@ app.get('/api/workflows/yaml', (req, res) => {
 
 // Active workflow child processes by runId, so POST /api/run-input can write to
 // the right process's stdin when a human_input / approval node pauses for input.
-let runSeq = 0;
 const activeRuns = new Map();
+const jobStore = new FileJobStore(join(DATA_DIR, '.local', 'jobs'));
+const runJobs = new RunJobRegistry(jobStore);
+registerJobReadRoutes(app, jobStore, { isActive: id => isRunActive(activeRuns.get(id)) });
 // 桌面版退出时只 SIGTERM 了本进程（web/server.js），我们 spawn 出去的 `ao run` 不会跟着死——
 // POSIX 不因父进程退出而杀子进程。表现：用户关掉 App，引擎还在轮询按秒计费的视频任务、把片子
 // 下载到一个没人看的运行目录里，直到十分钟超时；下次开 App 又来一批。这里把它们一起带走。
@@ -944,19 +948,6 @@ app.post('/api/run', (req, res) => {
   if (!existsSync(resolvedFile)) {
     return res.status(404).json({ error: 'workflow file not found' });
   }
-
-  res.setHeader('Content-Type', 'text/event-stream');
-  res.setHeader('Cache-Control', 'no-cache');
-  res.setHeader('Connection', 'keep-alive');
-  res.flushHeaders?.();
-
-  const send = (type, data) => {
-    // 客户端断开后 SIGTERM 子进程不是瞬时的，期间到达的 stdout 仍会调到这里；
-    // 向已结束的响应 write 会抛 ERR_STREAM_WRITE_AFTER_END，拖垮单进程服务。
-    if (res.writableEnded) return;
-    res.write(`event: ${type}\n`);
-    res.write(`data: ${JSON.stringify(data)}\n\n`);
-  };
 
   const args = [CLI, 'run', resolvedFile];
   let childApiKey = '';
@@ -1000,27 +991,82 @@ app.post('/api/run', (req, res) => {
     const dest = join(DATA_DIR, 'scaffold', safe);
     args.push('--materialize', dest);
   }
-  for (const [k, v] of Object.entries(inputs || {})) {
+  for (const [k, v] of Object.entries(inputs || {}).sort(([a], [b]) => a.localeCompare(b))) {
     if (v !== '' && v !== undefined && v !== null) {
       args.push('-i', `${k}=${v}`);
     }
   }
 
-  const runId = String(++runSeq);
-  send('start', { cmd: `ao run ${args.slice(2).join(' ')}`, resume: !!resume, fromStep, runId });
+  let registration;
+  // 任务登记只是记账：记录目录坏了一条、不可写、被另一个实例占着锁，都不能让所有工作流都跑不了。
+  // 存储层出错就照常运行（不进任务记录、日志里说清）；请求本身不合法（编号非法 / 编号对应了别的请求）仍然拒绝。
+  let jobTracked = true;
+  let jobUnavailable = '';
+  try {
+    registration = runJobs.register({ clientRequestId: req.body?.clientRequestId,
+      workflowText: readFileSync(resolvedFile, 'utf-8'),
+      request: { file: resolvedFile, args }, connection: { childLlmEnv, childApiKey } });
+    if (!registration.created) {
+      return res.status(409).json({ code: 'JOB_ALREADY_EXISTS', jobId: registration.job.id,
+        status: registration.job.status, error: 'This request is already registered; query its job instead of starting it again' });
+    }
+    runJobs.start(registration.job.id);
+  } catch (error) {
+    if (error?.code === 'JOB_INVALID' || error?.code === 'JOB_CONFLICT') return jobHttpError(error, res);
+    jobTracked = false;
+    jobUnavailable = error?.code || 'JOB_STORAGE_ERROR';
+    console.error('[job-register-failed]', jobUnavailable);
+    registration = { job: { id: randomUUID() }, requestId: req.body?.clientRequestId };
+  }
+  const runId = registration.job.id;
+  res.setHeader('Content-Type', 'text/event-stream');
+  res.setHeader('Cache-Control', 'no-cache');
+  res.setHeader('Connection', 'keep-alive');
+  res.flushHeaders?.();
+
+  const send = (type, data) => {
+    // 客户端断开后 SIGTERM 子进程不是瞬时的，期间到达的 stdout 仍会调到这里；
+    // 向已结束的响应 write 会抛 ERR_STREAM_WRITE_AFTER_END，拖垮单进程服务。
+    if (res.writableEnded) return;
+    res.write(`event: ${type}\n`);
+    res.write(`data: ${JSON.stringify(data)}\n\n`);
+  };
+
+  send('start', { cmd: `ao run ${basename(resolvedFile)}`, resume: !!resume, fromStep, runId,
+    jobId: runId, clientRequestId: registration.requestId });
+  if (!jobTracked) {
+    send('stderr', { text: `⚠️ 任务记录暂时不可用（${jobUnavailable}），本次运行照常进行，但不会出现在「任务记录」里\n` });
+  }
+  const persistFinish = details => {
+    if (!jobTracked) return;
+    try { runJobs.finish(runId, details); }
+    catch (error) {
+      console.error('[job-state-save-failed]', runId, error?.code || 'JOB_STORAGE_ERROR');
+      send('error', { jobId: runId, code: 'JOB_STORAGE_ERROR',
+        message: 'Could not save the job state. Check existing outputs before retrying.' });
+    }
+  };
 
   // Parse CLI output into structured events——规则在 web/run-output-parser.js（纯函数；test/run-output-parser.ts
   // 用真 reporter 的打印结果钉住。以前内联在这里，失败 / 跳过 / 部分失败三种行没有规则，全被当成步骤正文）
   let lineBuffer = '';
   const { parseLine } = createRunOutputParser({ send, runId, resolveOutputDir: (p) => resolve(DATA_DIR, p) });
 
-  console.log('[run]', NODE_BIN, args.join(' '));
-  const child = spawn(NODE_BIN, args, {
+  console.log('[run]', runId, basename(resolvedFile));
+  let child;
+  try { child = spawn(NODE_BIN, args, {
     cwd: DATA_DIR,
     // AO_WEB_INPUT=1 → 引擎遇到 human_input/approval 会发机器标记而非在终端等输入
     // AO_NO_AT_FILE=1 → 关闭 -i k=@file 文件展开，防止网页请求读取本机任意文件（如 API key）
     env: { ...process.env, FORCE_COLOR: '0', AO_WEB_INPUT: '1', AO_NO_AT_FILE: '1', ...childLlmEnv, ...(childApiKey ? { AO_API_KEY: childApiKey } : {}) },
   });
+  } catch {
+    persistFinish({ error: true });
+    send('error', { message: 'Could not start workflow process', jobId: runId });
+    res.end();
+    return;
+  }
+  let finished = false;
   activeRuns.set(runId, child);
 
   child.stdout.on('data', chunk => {
@@ -1038,20 +1084,25 @@ app.post('/api/run', (req, res) => {
     send('stderr', { text: chunk.toString() });
   });
 
-  child.on('exit', (code, signal) => {
+  child.on('close', (code, signal) => {
+    if (finished) return;
+    finished = true;
+    activeRuns.delete(runId);
     if (lineBuffer.trim()) parseLine(lineBuffer);
+    persistFinish({ code, signal, stopped: child.killed });
     console.log('[exit]', code, signal);
     send('done', { code, signal });
     res.end();
   });
   child.on('error', err => {
-    console.log('[error]', err.message);
+    finished = true;
+    activeRuns.delete(runId);
+    persistFinish({ error: true });
+    console.log('[run-error]', runId, err.code || 'SPAWN_ERROR');
     send('error', { message: err.message });
     res.end();
   });
 
-  let finished = false;
-  child.on('exit', () => { finished = true; activeRuns.delete(runId); });
   res.on('close', () => {
     if (!finished && !child.killed) {
       console.log('[abort] client closed');

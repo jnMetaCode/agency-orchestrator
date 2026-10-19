@@ -123,6 +123,12 @@ try {
     assert(await post(base, '/api/run', { file: '../../../../etc/passwd' }) === 403, '/api/run 路径穿越 → 403');
     assert(await post(base, '/api/run', { file: 'workflows/__nonexistent__.yaml' }) === 404, '/api/run 不存在文件 → 404');
     assert(await post(base, '/api/run', {}) === 400, '/api/run 缺 file → 400');
+    const jobs = await (await fetch(base + '/api/jobs')).json();
+    assert(Array.isArray(jobs.jobs), '/api/jobs 返回持久任务列表');
+    assert((await fetch(base + '/api/jobs?limit=0')).status === 400, '/api/jobs 拒绝非法列表上限');
+    assert((await fetch(base + '/api/jobs/invalid-id')).status === 400, '/api/jobs 拒绝非法任务 ID');
+    assert((await fetch(base + '/api/jobs/12345678-1234-4234-8234-123456789abc')).status === 404, '/api/jobs 不存在任务返回 404');
+
     assert(await post(base, '/api/compare', { file: '../../../../etc/passwd' }) === 403, '/api/compare 路径穿越 → 403');
     const yamlTraversal = (await fetch(base + '/api/workflows/yaml?file=' + encodeURIComponent('../../../../etc/passwd'))).status;
     assert(yamlTraversal === 403, '/api/workflows/yaml 路径穿越 → 403');

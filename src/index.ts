@@ -7,6 +7,8 @@
 
 export { parseWorkflow, validateWorkflow } from './core/parser.js';
 export { buildDAG, formatDAG } from './core/dag.js';
+export { FileJobStore, JobStoreError } from './core/job-store.js';
+export type { JobRecord, JobSnapshot, JobStatus, JobEvent } from './core/job-store.js';
 export { executeDAG } from './core/executor.js';
 export { evaluateCondition } from './core/condition.js';
 export { renderTemplate, extractVariables } from './core/template.js';

@@ -888,6 +888,10 @@ export const api = {
     postJSON<{ ok: boolean; slug: string; file: string }>("/teams", body),
   deleteTeam: (slug: string) => delJSON<{ ok: boolean }>(`/teams/${encodeURIComponent(slug)}`),
   // 把人工输入写回正在等待的运行（human_input / approval 节点暂停时）
+  jobs: (limit = 50) => getJSON<{ jobs: StudioJob[] }>(`/jobs?limit=${limit}`),
+  job: (id: string) => getJSON<{ job: StudioJob }>(`/jobs/${encodeURIComponent(id)}`),
+  jobEvents: (id: string, afterSequence = 0) =>
+    getJSON<{ job: StudioJob; events: StudioJobEvent[]; resetRequired: boolean }>(`/jobs/${encodeURIComponent(id)}/events?afterSequence=${afterSequence}`),
   runInput: (runId: string, text: string) =>
     postJSON<{ ok: boolean }>("/run-input", { runId, text }),
   // ── 多智能体 vs 单次基线对比（本地引擎，非流式，可能较慢）──
@@ -941,13 +945,15 @@ async function streamSse(
   });
   if (!res.ok || !res.body) {
     let msg = `${res.status}`;
+    let details: { code?: string; jobId?: string } = {};
     try {
       const j = await res.json();
       msg = j.error || msg;
+      details = { code: j.code, jobId: j.jobId };
     } catch {
       /* ignore */
     }
-    onEvent("error", { message: msg });
+    onEvent("error", { message: msg, ...details });
     return;
   }
 
@@ -985,12 +991,25 @@ async function streamSse(
   if (buf.trim()) dispatch(buf);
 }
 
+/** Stored lifecycle metadata; this is not a live worker/ownership assertion. */
+export interface StudioJobEvent { sequence: number; at: string; type: "created" | "status_changed"; status: string }
+export interface StudioJob {
+  id: string; revision: number; status: string; createdAt: string; updatedAt: string;
+  displayName?: string;
+  activeInThisInstance?: boolean;
+  snapshot: { requestHash: string; workflowHash: string };
+  events: StudioJobEvent[];
+}
+
 export function runWorkflow(
-  body: { file: string; inputs?: Record<string, string>; provider?: string; resume?: string | boolean; fromStep?: string; feedback?: string; materialize?: boolean },
+  body: { file: string; inputs?: Record<string, string>; provider?: string; resume?: string | boolean; fromStep?: string; feedback?: string; materialize?: boolean; clientRequestId?: string },
   onEvent: SseHandler,
   signal?: AbortSignal,
 ) {
-  return streamSse("/run", body, onEvent, signal);
+  // Each explicit invocation is a new task. Callers retrying transport must reuse this ID.
+  const clientRequestId = body.clientRequestId ?? Array.from(crypto.getRandomValues(new Uint8Array(16)),
+    value => value.toString(16).padStart(2, "0")).join("");
+  return streamSse("/run", { ...body, clientRequestId }, onEvent, signal);
 }
 
 export function runRole(
