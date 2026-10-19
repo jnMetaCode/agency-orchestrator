@@ -158,183 +158,245 @@ export async function executeDAG(dag: DAG, options: ExecutorOptions): Promise<Wo
     context.set('_loop_iteration', '1');
   }
 
+  const { onBatchStart, onBatchComplete } = options;
+  /** 准入：已跳过 / 续跑复用 / 循环外已完成的节点当场记账并返回 false；需要真执行的返回 true */
+  const admit = (node: DAGNode): boolean => {
+    if (node.status === 'skipped') {
+      node.endTime = Date.now();
+      node.startTime = node.endTime;
+      const runs = execCounts.get(node.step.id) || 0;
+      upsertStepResult(stepResults, {
+        id: node.step.id,
+        role: node.step.role,
+        status: 'skipped',
+        duration: 0,
+        // 本轮跳过，但前几轮真实花掉的 token 仍要算
+        tokens: tokenTotals.get(node.step.id) || { input: 0, output: 0 },
+        iterations: runs > 1 ? runs : undefined,
+      });
+      onStepComplete?.(node);
+      return false;
+    }
+    // resume 模式：跳过已有输出的步骤
+    if (options.skipStepIds?.has(node.step.id)) {
+      node.status = 'completed';
+      node.result = node.step.output ? context.get(node.step.output) : undefined;
+      node.startTime = Date.now();
+      node.endTime = node.startTime;
+      // 上一次运行档案里的展示字段（角色名/验收标准/核验结果）随复用一起带回，
+      // 否则续跑的新档案里这些步骤全变成裸 id、验收记录凭空消失
+      const prev = options.restoredStepMeta?.get(node.step.id);
+      upsertStepResult(stepResults, {
+        id: node.step.id,
+        role: node.step.role,
+        agentName: prev?.agentName,
+        agentEmoji: prev?.agentEmoji,
+        acceptance: prev?.acceptance,
+        verification: prev?.verification,
+        assertion: prev?.assertion,
+        // 媒体产物只带文件名：run() 落盘后据此把上一轮的 png/mp4 复制进新目录，markdown 链接才不断
+        imageAsset: prev?.imageAsset,
+        videoAsset: prev?.videoAsset,
+        audioAsset: prev?.audioAsset,
+        status: 'completed',
+        output: node.result,
+        output_var: node.step.output,
+        duration: 0,
+        tokens: { input: 0, output: 0 },
+        reused: true,
+      });
+      onStepComplete?.(node);
+      return false;
+    }
+    // 循环回跳重跑时：已完成且不属于循环体的节点保持原样，不重复执行
+    // （首次正向执行时该层节点都是 pending，故此分支不影响正常流程）
+    if (node.status === 'completed') return false;
+    return true;
+  };
+
+  // 预加载角色名和 emoji，让 onBatchStart 能显示（步骤级配置优先）
+  const prepare = (node: DAGNode): void => {
+    // any_completed 合并步可能在部分依赖失败/跳过时仍然执行（设计意图）。
+    // 那些依赖的 output 变量从未写入 context，若 task 模板引用它们会抛"模板变量未定义"
+    // 而让合并步反而失败。这里为失败/跳过的依赖补空串，使合并步基于已完成分支正常渲染。
+    fillSkippedDepOutputs(dag, node, context);
+    if (!node.agentName && node.step.role) {
+      try {
+        const agentInfo = loadAgent(agentsDir, node.step.role);
+        node.agentName = node.step.name || agentInfo.name;
+        node.agentEmoji = node.step.emoji || agentInfo.emoji;
+      } catch { /* executeStep 里会再加载并报错 */ }
+    }
+  };
+
+  const run = (node: DAGNode): Promise<string> => executeStep(node, {
+    connector,
+    agentsDir,
+    llmConfig,
+    context,
+    timeout,
+    maxRetry,
+    onStepStart,
+    feedback: options.feedback,
+    verify: options.verify,
+    verifyLlm: options.verifyLlm,
+    media,
+  }).then(value => {
+    // 中断兜底：settle 即写入 sink 一份最小记录，不等整批屏障——否则并行批次里
+    // 先完成的步骤在 SIGTERM 时会被当作"未完成"丢弃（产出和 token 白花）。
+    // 批次收尾的完整 upsert 会按 id 覆盖这份记录。
+    if (options.stepResultsSink && node.status !== 'skipped') {
+      upsertStepResult(stepResults, {
+        id: node.step.id,
+        role: node.step.role,
+        agentName: node.agentName,
+        agentEmoji: node.agentEmoji,
+        status: 'completed',
+        output: value,
+        output_var: node.step.output,
+        acceptance: node.acceptance ?? node.step.acceptance,
+        verification: node.verification,
+        assertion: node.assertion,
+        duration: Date.now() - (node.startTime || Date.now()),
+        tokens: withPriorTokens(node.step.id, node.tokenUsage),
+        imageAsset: node.imageAsset,
+        videoAsset: node.videoAsset,
+        audioAsset: node.audioAsset,
+      });
+    }
+    return value;
+  });
+
+  /** 收尾：把一次执行的结局写回节点、上下文与结果表，并向下游传播跳过 */
+  const settle = (node: DAGNode, result: PromiseSettledResult<string>): void => {
+
+    if (result.status === 'fulfilled') {
+      if (node.status === 'skipped') {
+        // 条件不满足跳过
+        markDownstreamSkipped(dag, node.step.id);
+      } else {
+        node.status = 'completed';
+        node.result = result.value;
+        if (node.step.output) {
+          context.set(node.step.output, result.value);
+        }
+      }
+    } else {
+      node.status = 'failed';
+      node.error = result.reason instanceof Error
+        ? result.reason.message
+        : String(result.reason);
+      // 标记所有下游为 skipped
+      markDownstreamSkipped(dag, node.step.id);
+    }
+
+    node.endTime = Date.now();
+
+    if (node.status === 'completed' || node.status === 'failed') {
+      execCounts.set(node.step.id, (execCounts.get(node.step.id) || 0) + 1);
+      tokenTotals.set(node.step.id, withPriorTokens(node.step.id, node.tokenUsage));
+    }
+    const runs = execCounts.get(node.step.id) || 0;
+    upsertStepResult(stepResults, {
+      id: node.step.id,
+      role: node.step.role,
+      agentName: node.agentName,
+      agentEmoji: node.agentEmoji,
+      status: node.status as StepResult['status'],
+      output: node.result,
+      output_var: node.step.output,
+      acceptance: node.acceptance ?? node.step.acceptance,
+      verification: node.verification,
+      assertion: node.assertion,
+      error: node.error,
+      duration: (node.endTime || 0) - (node.startTime || 0),
+      tokens: tokenTotals.get(node.step.id) || { input: 0, output: 0 },
+      iterations: runs > 1 ? runs : undefined,
+      imageAsset: node.imageAsset,
+      videoAsset: node.videoAsset,
+      audioAsset: node.audioAsset,
+    });
+
+    onStepComplete?.(node);
+  };
+
+  /**
+   * 就绪队列：依赖全部了结（完成 / 失败 / 跳过）的节点立刻进池，槽位一空就补。
+   * 交互步骤（human_input / approval）独占执行：等在跑的都结束再开始，它进行中也不再开新步骤——
+   * 否则终端里其它分支的进度输出会打断用户正在输入的回答。
+   */
+  async function runReadyQueue(): Promise<void> {
+    const order = dag.levels.flat();
+    const rank = new Map(order.map((id, i) => [id, i]));
+    const pending = new Set(order);
+    const queue: DAGNode[] = [];
+    const running = new Map<string, Promise<{ node: DAGNode; result: PromiseSettledResult<string> }>>();
+    const settled = (s: DAGNode['status']) => s === 'completed' || s === 'failed' || s === 'skipped';
+    const interactive = (node: DAGNode) => node.step.type === 'human_input' || node.step.type === 'approval';
+    let exclusive = false;
+
+    for (;;) {
+      // 准入会连锁（复用 / 跳过的节点一记账，下游就可能就绪），反复扫到不再变化
+      let changed = true;
+      while (changed) {
+        changed = false;
+        for (const id of order) {
+          if (!pending.has(id)) continue;
+          const node = dag.nodes.get(id)!;
+          if (node.status !== 'skipped' && !node.dependencies.every(d => settled(dag.nodes.get(d)!.status))) continue;
+          pending.delete(id);
+          changed = true;
+          if (admit(node)) queue.push(node);
+        }
+      }
+      queue.sort((a, b) => rank.get(a.step.id)! - rank.get(b.step.id)!);
+
+      while (queue.length && !exclusive && running.size < effectiveConcurrency) {
+        if (interactive(queue[0]) && running.size > 0) break;
+        const node = queue.shift()!;
+        exclusive = interactive(node);
+        prepare(node);
+        onBatchStart?.([node]);
+        running.set(node.step.id, run(node).then(
+          (value): { node: DAGNode; result: PromiseSettledResult<string> } => ({ node, result: { status: 'fulfilled', value } }),
+          (reason): { node: DAGNode; result: PromiseSettledResult<string> } => ({ node, result: { status: 'rejected', reason } }),
+        ));
+      }
+
+      if (!running.size) {
+        if (!queue.length && !pending.size) return;
+        // DAG 无环且依赖都在图里时走不到这里；真走到了就说清楚，而不是静默少跑步骤
+        throw new Error(`调度停滞：${[...pending, ...queue.map(n => n.step.id)].join(', ')} 无法开始`);
+      }
+      const { node, result } = await Promise.race(running.values());
+      running.delete(node.step.id);
+      if (interactive(node)) exclusive = false;
+      settle(node, result);
+      onBatchComplete?.([node]);
+    }
+  }
+
   let levelIndex = 0;
+  // 没有循环的工作流：就绪即执行（依赖一了结就进执行池，不等同层/同批的慢步骤）。
+  // 有循环的工作流仍按层推进——loop.back_to 是按层回跳的，换调度会动到循环语义。
+  if (!hasLoops) {
+    await runReadyQueue();
+    levelIndex = dag.levels.length;
+  }
   while (levelIndex < dag.levels.length) {
     // 同层节点可并行，但受 concurrency 限制
-    const { onBatchStart, onBatchComplete } = options;
     const allTasks = dag.levels[levelIndex].map(id => dag.nodes.get(id)!);
 
     // 过滤掉已被标记为 skipped 的节点 和 resume 跳过的节点
-    const tasks = allTasks.filter(node => {
-      if (node.status === 'skipped') {
-        node.endTime = Date.now();
-        node.startTime = node.endTime;
-        const runs = execCounts.get(node.step.id) || 0;
-        upsertStepResult(stepResults, {
-          id: node.step.id,
-          role: node.step.role,
-          status: 'skipped',
-          duration: 0,
-          // 本轮跳过，但前几轮真实花掉的 token 仍要算
-          tokens: tokenTotals.get(node.step.id) || { input: 0, output: 0 },
-          iterations: runs > 1 ? runs : undefined,
-        });
-        onStepComplete?.(node);
-        return false;
-      }
-      // resume 模式：跳过已有输出的步骤
-      if (options.skipStepIds?.has(node.step.id)) {
-        node.status = 'completed';
-        node.result = node.step.output ? context.get(node.step.output) : undefined;
-        node.startTime = Date.now();
-        node.endTime = node.startTime;
-        // 上一次运行档案里的展示字段（角色名/验收标准/核验结果）随复用一起带回，
-        // 否则续跑的新档案里这些步骤全变成裸 id、验收记录凭空消失
-        const prev = options.restoredStepMeta?.get(node.step.id);
-        upsertStepResult(stepResults, {
-          id: node.step.id,
-          role: node.step.role,
-          agentName: prev?.agentName,
-          agentEmoji: prev?.agentEmoji,
-          acceptance: prev?.acceptance,
-          verification: prev?.verification,
-          assertion: prev?.assertion,
-          // 媒体产物只带文件名：run() 落盘后据此把上一轮的 png/mp4 复制进新目录，markdown 链接才不断
-          imageAsset: prev?.imageAsset,
-          videoAsset: prev?.videoAsset,
-          audioAsset: prev?.audioAsset,
-          status: 'completed',
-          output: node.result,
-          output_var: node.step.output,
-          duration: 0,
-          tokens: { input: 0, output: 0 },
-          reused: true,
-        });
-        onStepComplete?.(node);
-        return false;
-      }
-      // 循环回跳重跑时：已完成且不属于循环体的节点保持原样，不重复执行
-      // （首次正向执行时该层节点都是 pending，故此分支不影响正常流程）
-      if (node.status === 'completed') return false;
-      return true;
-    });
+    const tasks = allTasks.filter(admit);
 
     // 按 effectiveConcurrency 分批执行
     for (let i = 0; i < tasks.length; i += effectiveConcurrency) {
       const batch = tasks.slice(i, i + effectiveConcurrency);
-
-      // 预加载角色名和 emoji，让 onBatchStart 能显示（步骤级配置优先）
-      for (const node of batch) {
-        // any_completed 合并步可能在部分依赖失败/跳过时仍然执行（设计意图）。
-        // 那些依赖的 output 变量从未写入 context，若 task 模板引用它们会抛"模板变量未定义"
-        // 而让合并步反而失败。这里为失败/跳过的依赖补空串，使合并步基于已完成分支正常渲染。
-        fillSkippedDepOutputs(dag, node, context);
-        if (!node.agentName && node.step.role) {
-          try {
-            const agentInfo = loadAgent(agentsDir, node.step.role);
-            node.agentName = node.step.name || agentInfo.name;
-            node.agentEmoji = node.step.emoji || agentInfo.emoji;
-          } catch { /* executeStep 里会再加载并报错 */ }
-        }
-      }
-
+      batch.forEach(prepare);
       onBatchStart?.(batch);
-
-      const results = await Promise.allSettled(
-        batch.map(node => executeStep(node, {
-          connector,
-          agentsDir,
-          llmConfig,
-          context,
-          timeout,
-          maxRetry,
-          onStepStart,
-          feedback: options.feedback,
-          verify: options.verify,
-          verifyLlm: options.verifyLlm,
-          media,
-        }).then(value => {
-          // 中断兜底：settle 即写入 sink 一份最小记录，不等整批屏障——否则并行批次里
-          // 先完成的步骤在 SIGTERM 时会被当作"未完成"丢弃（产出和 token 白花）。
-          // 批次收尾的完整 upsert 会按 id 覆盖这份记录。
-          if (options.stepResultsSink && node.status !== 'skipped') {
-            upsertStepResult(stepResults, {
-              id: node.step.id,
-              role: node.step.role,
-              agentName: node.agentName,
-              agentEmoji: node.agentEmoji,
-              status: 'completed',
-              output: value,
-              output_var: node.step.output,
-              acceptance: node.acceptance ?? node.step.acceptance,
-              verification: node.verification,
-              assertion: node.assertion,
-              duration: Date.now() - (node.startTime || Date.now()),
-              tokens: withPriorTokens(node.step.id, node.tokenUsage),
-              imageAsset: node.imageAsset,
-              videoAsset: node.videoAsset,
-              audioAsset: node.audioAsset,
-            });
-          }
-          return value;
-        }))
-      );
-
-      // 处理结果
-      for (let j = 0; j < batch.length; j++) {
-        const node = batch[j];
-        const result = results[j];
-
-        if (result.status === 'fulfilled') {
-          if (node.status === 'skipped') {
-            // 条件不满足跳过
-            markDownstreamSkipped(dag, node.step.id);
-          } else {
-            node.status = 'completed';
-            node.result = result.value;
-            if (node.step.output) {
-              context.set(node.step.output, result.value);
-            }
-          }
-        } else {
-          node.status = 'failed';
-          node.error = result.reason instanceof Error
-            ? result.reason.message
-            : String(result.reason);
-          // 标记所有下游为 skipped
-          markDownstreamSkipped(dag, node.step.id);
-        }
-
-        node.endTime = Date.now();
-
-        if (node.status === 'completed' || node.status === 'failed') {
-          execCounts.set(node.step.id, (execCounts.get(node.step.id) || 0) + 1);
-          tokenTotals.set(node.step.id, withPriorTokens(node.step.id, node.tokenUsage));
-        }
-        const runs = execCounts.get(node.step.id) || 0;
-        upsertStepResult(stepResults, {
-          id: node.step.id,
-          role: node.step.role,
-          agentName: node.agentName,
-          agentEmoji: node.agentEmoji,
-          status: node.status as StepResult['status'],
-          output: node.result,
-          output_var: node.step.output,
-          acceptance: node.acceptance ?? node.step.acceptance,
-          verification: node.verification,
-          assertion: node.assertion,
-          error: node.error,
-          duration: (node.endTime || 0) - (node.startTime || 0),
-          tokens: tokenTotals.get(node.step.id) || { input: 0, output: 0 },
-          iterations: runs > 1 ? runs : undefined,
-          imageAsset: node.imageAsset,
-          videoAsset: node.videoAsset,
-          audioAsset: node.audioAsset,
-        });
-
-        onStepComplete?.(node);
-      }
-
+      const results = await Promise.allSettled(batch.map(run));
+      batch.forEach((node, j) => settle(node, results[j]));
       onBatchComplete?.(batch);
     }
 
@@ -420,6 +482,12 @@ export async function executeDAG(dag: DAG, options: ExecutorOptions): Promise<Wo
     if (!loopTriggered) {
       levelIndex++;
     }
+  }
+
+  if (!hasLoops) {
+    // 就绪执行按完成先后记账；报告与存档按拓扑顺序呈现，不随哪一步先跑完而变
+    const rank = new Map(dag.levels.flat().map((id, i) => [id, i]));
+    stepResults.sort((a, b) => (rank.get(a.id) ?? Infinity) - (rank.get(b.id) ?? Infinity));
   }
 
   const totalDuration = Date.now() - startTime;

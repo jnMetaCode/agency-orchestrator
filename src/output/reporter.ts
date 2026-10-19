@@ -272,6 +272,8 @@ let runningStartTime = 0;
  * 打印正在运行的步骤提示，并启动计时器每 10 秒更新耗时
  */
 export function printStepRunning(nodes: DAGNode[]): void {
+  // 就绪执行会在上一个步骤还在跑时开新步骤：先停掉旧计时器，否则它会一直在后台改写那一行
+  if (runningTimer) clearInterval(runningTimer);
   runningStartTime = Date.now();
 
   console.log('');
