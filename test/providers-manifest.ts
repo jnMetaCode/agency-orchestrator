@@ -156,6 +156,26 @@ test('PackyCode 的中转预设已上架，且端点与内置预设一致（2026
   assert(pc!.signupUrl === 'https://www.packyapi.ai/register?aff=js5W', `返利链接不对: ${pc!.signupUrl}`);
 });
 
+test('星图 AstraFlow 的 API、CLI 中转预设与轮换池已完整上架（2026-10-20 补齐）', () => {
+  const api = API_PROVIDERS.find((p) => p.id === 'astraflow');
+  assert(!!api, 'AstraFlow 必须是可运行的内置 API provider，不能只有官网赞助卡片');
+  assert(api!.defaultBaseUrl === 'https://api.modelverse.cn/v1', `OpenAI 兼容地址不对: ${api!.defaultBaseUrl}`);
+  assert(api!.envKey === 'ASTRAFLOW_API_KEY' && api!.envBase === 'ASTRAFLOW_BASE_URL', 'AstraFlow 环境变量必须是专属名');
+  assert(!api!.defaultModel, 'AstraFlow 模型按 key 开通，不应猜一个全局默认模型');
+
+  const relay = (m.relayPresets ?? []).find((r) => /AstraFlow/.test(r.name));
+  assert(!!relay, '清单里应有 AstraFlow CLI 中转预设');
+  assert(relay!.baseUrls['claude-code'] === 'https://api.modelverse.cn', `Claude Code 应为不带 /v1 的根地址: ${relay!.baseUrls['claude-code']}`);
+  assert(relay!.baseUrls['gemini-cli'] === 'https://api.modelverse.cn', `Gemini CLI 根地址不对: ${relay!.baseUrls['gemini-cli']}`);
+  assert(relay!.baseUrls['codex-cli'] === 'https://api.modelverse.cn/v1', `Codex 应带 /v1: ${relay!.baseUrls['codex-cli']}`);
+  assert(relay!.signupUrl === 'https://www.ucloud.cn/site/active/astraflow-credit?ytag=geo_waituo_agencyagentszh', `返利链接不对: ${relay!.signupUrl}`);
+  assert((m.sponsorRotation ?? []).some((e) => e.providerId === 'astraflow'), '标准档赞助商应在横幅轮换池里');
+
+  const studio = readFileSync('website/src/lib/studio.ts', 'utf-8');
+  const line = studio.split('\n').find((s) => s.includes('{ id: "astraflow"')) || '';
+  assert(line.includes('sponsor: true') && line.includes('https://www.ucloud.cn/site/active/astraflow-credit?ytag=geo_waituo_agencyagentszh'), 'Studio 卡片应标赞助并带专属链接');
+});
+
 test('Sidrune AI 的 API 与 CLI 中转预设已完整上架（2026-10-03 补齐）', () => {
   const api = API_PROVIDERS.find((p) => p.id === 'fluxionai');
   assert(!!api, 'Sidrune AI 必须是可运行的内置 API provider，不能只有赞助卡片');

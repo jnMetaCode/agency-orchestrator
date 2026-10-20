@@ -5,6 +5,11 @@
 ## [Unreleased]
 
 ### Added
+- 新增赞助商**星图 AstraFlow**（UCloud ModelVerse）为内置供应商 `astraflow`（`ASTRAFLOW_API_KEY`，默认 `https://api.modelverse.cn/v1`，
+  海外节点用 `ASTRAFLOW_BASE_URL` 切）：同一个 key 管对话（OpenAI 兼容）、出图（`type: image`，Seedream 走 `/v1/images/generations`）
+  与视频（`type: video`，新增 `modelverse` 任务形状：`/v1/tasks/submit` + `/v1/tasks/status`，已录 MiniMax-H3、Seedance 2.5）。
+  Studio 赞助商卡、Claude Code / Gemini CLI / Codex 中转预设、横幅轮换池与远程清单同步上架。端点均为无效 key 实测存在；
+  不设默认模型，建议模型取自公开的 `/v1/models`。视频首帧只收公网 URL（文档明示不收 Base64），本地图片在下单前即拒绝并说明。
 - Studio「我的运行」新增「任务记录」视图：查看最近 50 个任务、状态与保留事件，支持筛选和刷新；按当前实例的活动观察区分历史运行状态，读取失败时标注待确认。新任务显示工作流文件名，旧记录可兼容显示任务 ID。
 - Studio 工作流支持 `clientRequestId` 去重和 `/api/jobs` 查询；重复请求返回原任务 ID，避免再次启动引擎。启动失败、退出状态和页面断开中断会记录，启动日志与 start 事件不再回显完整命令参数。
 - 新增本地任务登记 API `FileJobStore`：持久 UUID、创建幂等、版本校验的状态转换与有界有序事件记录；状态和事件在同一文件中原子替换。同时接入 Studio 工作流启动、结束记录和查询接口；后台执行与自动恢复仍未实现。

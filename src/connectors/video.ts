@@ -149,6 +149,41 @@ function openaiVideoSize(opts: VideoStepOptions): string | undefined {
 }
 
 const SHAPES: Record<string, VideoShapeAdapter> = {
+  // ── UCloud ModelVerse（星图 AstraFlow）：一套任务接口覆盖它平台上的 MiniMax-H3 / Seedance 等视频模型 ─────────
+  //   建任务 POST {base}/tasks/submit，请求体 {model, input:{content:[{type:"text",text}, 首帧图]}, parameters:{resolution,duration,ratio}}；
+  //   轮询 GET {base}/tasks/status?task_id=…；回执 output.task_id / output.task_status（Pending/Running/Success/Failure）/
+  //   output.urls[] / output.error_message，usage.output_video_duration 是实际出片秒数。（2026-10-20 官方文档逐页核对，
+  //   两条路径无效 key 实探为 401、乱写路径 404。）
+  //   **媒体只收公网 URL、不收 Base64**（文档原话）；它的 /v1/files 上传回的是按模型绑定的 file id，不是可当首帧的 URL——
+  //   所以既不声明 inlineImage 也不给 uploadImage：本地首帧图在建任务前就被拒并说清出路，不会先下单再失败。
+  modelverse: {
+    createPath: 'tasks/submit',
+    createBody: (opts, prompt, imageUrl) => {
+      const content: Array<Record<string, unknown>> = [{ type: 'text', text: prompt }];
+      if (imageUrl) content.push({ type: 'image_url', image_url: { url: imageUrl }, role: 'first_frame' });
+      const parameters: Record<string, unknown> = {};
+      if (opts.resolution) parameters.resolution = opts.resolution;
+      if (opts.duration) parameters.duration = opts.duration;
+      if (opts.ratio) parameters.ratio = opts.ratio;
+      return JSON.stringify({ model: opts.model, input: { content }, parameters });
+    },
+    parseCreate: (j) => String((j as { output?: { task_id?: string } })?.output?.task_id ?? ''),
+    queryUrl: (base, id) => `${base}/tasks/status?task_id=${encodeURIComponent(id)}`,
+    parseQuery: (json) => {
+      const v = json as { output?: { task_status?: string; urls?: string[]; error_message?: string }; usage?: { output_video_duration?: number; duration?: number } };
+      if (!v?.output?.task_status) return undefined;
+      const status = String(v.output.task_status).toLowerCase();
+      const phase: VideoTaskState['phase'] = status === 'success' ? 'done' : status === 'failure' ? 'failed' : 'pending';
+      const seconds = v.usage?.output_video_duration ?? v.usage?.duration;
+      return {
+        phase,
+        url: phase === 'done' ? v.output.urls?.[0] : undefined,
+        error: phase === 'failed' ? (v.output.error_message || status) : undefined,
+        seconds: typeof seconds === 'number' ? seconds : undefined,
+      };
+    },
+  },
+
   // ── 胜算云：自家任务接口（真机核实见 api-providers.ts 的 shengsuanyun 条目）────────────
   //   建任务 POST {base}/tasks/generations、轮询 GET {base}/tasks/generations/{request_id}。
   //   **拿 request_id 当任务 id**：回执里 task_id 建任务那一刻还是空串，只有 request_id 是立刻可用的，

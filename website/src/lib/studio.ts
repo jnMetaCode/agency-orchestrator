@@ -773,7 +773,7 @@ export function groupModelsByVendor(models: string[], vendors?: Record<string, s
 
 // 有正方形图标素材的赞助商/供应商 → website/public/sponsors/logo-<id>-icon.png（served at /sponsors/…）。
 // 只对确有文件的 id 返回路径，避免其它供应商拿到 404 的 <img>。
-const PROVIDER_LOGO_IDS = new Set(["compshare", "cubence", "apinebula", "rootflowai", "ccsub", "volcengine", "duoyuanx", "aicodemirror", "lanox", "shengsuanyun", "apimart", "metaso", "packycode", "fluxionai"]);
+const PROVIDER_LOGO_IDS = new Set(["compshare", "cubence", "apinebula", "rootflowai", "ccsub", "volcengine", "duoyuanx", "aicodemirror", "lanox", "shengsuanyun", "apimart", "metaso", "packycode", "fluxionai", "astraflow"]);
 /** 少数供应商的 logo 是 svg（AICodeMirror），其余是 png —— 硬编码扩展名会 404 */
 const PROVIDER_LOGO_SVG_IDS = new Set(["aicodemirror"]);
 export function providerLogo(id: string): string | undefined {
@@ -1166,6 +1166,10 @@ export const API_PROVIDERS: ApiProviderMeta[] = [
   // 全局默认值；测试连接会先用 key 拉 /models 再选真实模型。静态建议覆盖官方文档中的
   // Claude / GPT / Grok 示例；图片模型仅对开通相应图片能力的 key 有效。
   { id: "fluxionai", name: "Sidrune AI", hint: "Sidrune AI · 模型随 Key 分组变化，配好后先获取模型列表 · 注册送 $3", defaultBaseUrl: "https://fluxionai.space/v1", signupUrl: "https://sidrune.ai/register?source=github&campaign=agencyagents&promo=agencyagents&aff=RQHWKAMQLX2S", sponsor: true, modelSuggestions: ["claude-sonnet-4-6", "claude-sonnet-5", "claude-opus-4-8", "gpt-5.6-sol", "gpt-6-astra", "grok-4.5"], imageModels: ["gpt-image-2"] },
+  // 星图 AstraFlow（赞助商，UCloud ModelVerse）——建议模型全部取自 2026-10-20 免 key 的 /v1/models 实拉（不猜）；
+  // Claude/GPT 要带 key 才列，配好后点「获取模型列表」。图片走 OpenAI 兼容 /v1/images/generations（文档：Seedream 同步返回），
+  // Seedream 5 要 ≥3.69MP，出图时 size 用 "2K"。
+  { id: "astraflow", name: "星图 AstraFlow", hint: "UCloud ModelVerse · 200+ 模型与视频一站式 · 专属链接注册领 50 元算力金", defaultBaseUrl: "https://api.modelverse.cn/v1", signupUrl: "https://www.ucloud.cn/site/active/astraflow-credit?ytag=geo_waituo_agencyagentszh", sponsor: true, modelSuggestions: ["deepseek-v4.1-flash", "kimi-k3", "glm-5.3", "qwen3.8-max", "MiniMax-M3", "doubao-seed-2-1-pro-260628"], imageModels: ["doubao-seedream-5-0-260128", "doubao-seedream-4.5", "doubao-seedream-5-0-pro-260628"] },
   { id: "deepseek", name: "DeepSeek", hint: "platform.deepseek.com", defaultBaseUrl: "https://api.deepseek.com/v1", vendor: true, modelSuggestions: ["deepseek-chat", "deepseek-reasoner"] },
   // 默认端点**不带 /v1**：Anthropic 客户端（SDK / claude CLI）自己会接 /v1/messages，
   // base 里再写一遍就成了 /v1/v1/messages。这里是用户配中转时照抄的形状样板，写错等于
@@ -1351,6 +1355,19 @@ export const CLI_RELAY_PRESETS: CliRelayPreset[] = [
     baseUrls: {
       "claude-code": "https://fluxionai.space",
       "codex-cli": "https://fluxionai.space/v1",
+    },
+  },
+  // 星图 AstraFlow：2026-10-20 无效 key 探测三种协议都在——Anthropic /v1/messages（Claude Code 用根地址）、
+  // OpenAI Responses /v1/responses（Codex 用 /v1）、Gemini 原生 /v1beta/models/*:generateContent（Gemini CLI 用根地址）。
+  {
+    name: "星图 AstraFlow",
+    sponsor: true,
+    signupUrl: "https://www.ucloud.cn/site/active/astraflow-credit?ytag=geo_waituo_agencyagentszh",
+    anthropicApiBaseUrl: "https://api.modelverse.cn",
+    baseUrls: {
+      "claude-code": "https://api.modelverse.cn",
+      "gemini-cli": "https://api.modelverse.cn",
+      "codex-cli": "https://api.modelverse.cn/v1",
     },
   },
 ];

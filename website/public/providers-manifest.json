@@ -91,6 +91,16 @@
         "claude-code": "https://fluxionai.space",
         "codex-cli": "https://fluxionai.space/v1"
       }
+    },
+    {
+      "name": "星图 AstraFlow",
+      "sponsor": true,
+      "signupUrl": "https://www.ucloud.cn/site/active/astraflow-credit?ytag=geo_waituo_agencyagentszh",
+      "baseUrls": {
+        "claude-code": "https://api.modelverse.cn",
+        "gemini-cli": "https://api.modelverse.cn",
+        "codex-cli": "https://api.modelverse.cn/v1"
+      }
     }
   ],
   "sponsorRotation": [
@@ -129,6 +139,12 @@
       "name": "Sidrune AI",
       "bonus": "专属链接注册送 $3 API 额度",
       "url": "https://sidrune.ai/register?source=github&campaign=agencyagents&promo=agencyagents&aff=RQHWKAMQLX2S"
+    },
+    {
+      "providerId": "astraflow",
+      "name": "星图 AstraFlow",
+      "bonus": "专属链接注册领 50 元算力金",
+      "url": "https://www.ucloud.cn/site/active/astraflow-credit?ytag=geo_waituo_agencyagentszh"
     }
   ],
   "removedProviders": [

@@ -109,7 +109,7 @@ console.log('\n─── 返利码一致性（同一赞助商的推广参数散�
 // 所以两种写法都列。'c' 是 LanoX 的渠道码（?c=…&inviteCode=…，两个参数都得处处一致），
 // 'from' 是胜算云的（?from=CH_…）、's' 是秘塔的（?s=gt…）—— 每家用的参数名都不一样，
 // 漏一个等于这家根本没被守着。（按 host 分组比对，所以 's' 这种通用名不会串到别家。）
-const AFFILIATE_KEYS = ['invitecode', 'inviteCode', 'invite', 'aff', 'ref', 'referral_code', 'code', 'c', 'from', 's'];
+const AFFILIATE_KEYS = ['invitecode', 'inviteCode', 'invite', 'aff', 'ref', 'referral_code', 'code', 'c', 'from', 's', 'ytag'];
 const SOURCES = [
   'src/utils/sponsor-guide.ts',
   'website/src/content/sponsors.ts',

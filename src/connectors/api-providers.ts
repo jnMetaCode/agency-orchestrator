@@ -115,6 +115,15 @@ export const API_PROVIDERS: ApiProviderSpec[] = [
   // 但模型必须从该 key 的 /models 动态选择，不设 defaultModel，避免猜错分组。
   { id: 'fluxionai', envKey: 'FLUXION_API_KEY', envBase: 'FLUXION_BASE_URL', defaultBaseUrl: 'https://fluxionai.space/v1' },
 
+  // 星图 AstraFlow（赞助商，2026-10 加入）——UCloud 出品，后端是 ModelVerse（与已下架的 compshare 同一网关，
+  // 品牌与 key 各自独立，所以单独一个 id 和 env 名）。2026-10-20 无效 key 对照探测：/v1/chat/completions、
+  // /v1/messages、/v1/responses、/v1/images/generations、/v1/videos、/v1/audio/speech、/v1beta/models/*:generateContent、
+  // /v1/tasks/submit、/v1/tasks/status 均 401「Validate Certification failed」，乱写路径 404——状态码可信。
+  // GET /v1/models 免 key 公开（123 个模型，不含 Claude/GPT/Gemini，那些要带 key 才列）。
+  // 海外节点：api-sg.umodelverse.ai / api-us-ca.umodelverse.ai / api-ge-fra.umodelverse.ai（同一套 /v1 路径，
+  // 用 ASTRAFLOW_BASE_URL 切）。**不设 defaultModel**：模型多、按 key 开通，猜一个就可能一跑报"未开通"。
+  { id: 'astraflow', envKey: 'ASTRAFLOW_API_KEY', envBase: 'ASTRAFLOW_BASE_URL', defaultBaseUrl: 'https://api.modelverse.cn/v1' },
+
   // ── 第一方厂商官方 API（非赞助商，2026-08 补齐）────────────────────────────
   // **范围是有意收住的：只收这五家主流**（2026-08-14 决定）。cc-switch 还带着
   // OpenRouter / 硅基流动 / MiniMax 等，Groq、Mistral 也都实测可用 —— 我们不跟进：
@@ -212,7 +221,7 @@ export interface VideoProviderSpec {
    * **接第二家时才知道这层抽象立不立得住**：秘塔与 APIMart 从路径到字段名到状态词
    * 没有一处相同，加 APIMart 只新增了一个 adapter，主流程一行没动。
    */
-  shape: 'minimax' | 'apimart' | 'openai-videos' | 'ark' | 'local' | 'shengsuanyun';
+  shape: 'minimax' | 'apimart' | 'openai-videos' | 'ark' | 'local' | 'shengsuanyun' | 'modelverse';
   /** 建任务时额外固定字段（如 Agnes 的 openai-videos 变体要求 mode:"text"）；有首帧图时用 createExtraWithImage */
   createExtra?: Record<string, unknown>;
   createExtraWithImage?: Record<string, unknown>;
@@ -340,6 +349,22 @@ VIDEO_PROVIDERS.push({
 // 本地 sd.cpp（不联网、不花钱、草稿档）——shape 'local' 不走 HTTP，video.ts 直接分派到 connectors/local-sdcpp.ts。
 // envKey 借用来指向 sd-cli 路径（没有 key 这回事）；"已配置" = sd-cli 在 + 有一档模型文件齐全（见 localSdcppStatus）。
 // 档位/耗时/画质的实测数字见 OpenShorts docs/v2/04-决策记录-ADR.md ADR-004。
+// 星图 AstraFlow（UCloud ModelVerse）：与 APIMart 一样**两张表都在**——同一个 ASTRAFLOW_API_KEY 管对话、出图、出视频。
+// 视频走 ModelVerse 自家任务接口（shape: modelverse，见 video.ts）。模型只录 2026-10-20 官方文档逐项核对过参数的两个；
+// 平台上其它视频模型（可灵、海螺、Wan、Vidu…）多半也走同一接口，但各自的参数名和取值没核对，Studio 不列——仍可手填模型名。
+// Seedance 2.5 不在免 key 的 /v1/models 公开列表里（带 key 才列），id 取自文档。
+VIDEO_PROVIDERS.push({
+  id: 'astraflow',
+  envKey: 'ASTRAFLOW_API_KEY',
+  envBase: 'ASTRAFLOW_BASE_URL',
+  defaultBaseUrl: 'https://api.modelverse.cn/v1',
+  shape: 'modelverse',
+  models: [
+    { id: 'MiniMax-H3', resolutions: ['768P', '2K'], durations: [4,5,6,7,8,9,10,11,12,13,14,15], ratios: ['adaptive', '21:9', '16:9', '4:3', '1:1', '3:4', '9:16'] },
+    { id: 'doubao-seedance-2-5-260628', resolutions: ['480p', '720p', '1080p'], durations: [4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30], ratios: ['adaptive', '16:9', '4:3', '1:1', '3:4', '9:16', '21:9'] },
+  ],
+});
+
 VIDEO_PROVIDERS.push({
   id: 'local-sdcpp',
   envKey: 'AO_SD_CLI',

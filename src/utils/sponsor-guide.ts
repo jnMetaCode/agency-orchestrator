@@ -46,7 +46,8 @@ export const PREMIUM_SPONSOR: SponsorGuideEntry | null = null;
  *  AICodeMirror 于 2026-09-14 下架（7 → 6 家，份额回到 2/6）；
  *  PackyCode 于 2026-09-16 补进池（6 → 7 家，份额再稀释为 2/7）——它是标准档赞助商，
  *  其余标准档都在池里，单把它排除等于收了赞助却不给横幅曝光。
- *  Sidrune AI 于 2026-09 加入（2026-10-03 补齐 API 与轮换池，7 → 8 家）。 */
+ *  Sidrune AI 于 2026-09 加入（2026-10-03 补齐 API 与轮换池，7 → 8 家）。
+ *  星图 AstraFlow 于 2026-10 加入（标准档，2026-10-20 补齐 API 与轮换池）。 */
 export const SPONSOR_ROTATION: SponsorGuideEntry[] = [
   { providerId: 'apinebula', name: 'APINEBULA', bonus: '充值码 agent 九折', url: 'https://apinebula.ai/V6ekjG' },
   { providerId: 'cubence', name: 'Cubence', bonus: '首购 9 折', url: 'https://cubence.com/signup?code=SCW29JP9&source=agency' },
@@ -54,6 +55,7 @@ export const SPONSOR_ROTATION: SponsorGuideEntry[] = [
   { providerId: 'shengsuanyun', name: '胜算云', bonus: '注册送 5 元 Token', url: 'https://www.shengsuanyun.com/?from=CH_QKH696UI' },
   { providerId: 'packycode', name: 'PackyCode', bonus: '新用户首充折扣 + $1 体验额度', url: 'https://www.packyapi.ai/register?aff=js5W' },
   { providerId: 'fluxionai', name: 'Sidrune AI', bonus: '专属链接注册送 $3 API 额度', url: 'https://sidrune.ai/register?source=github&campaign=agencyagents&promo=agencyagents&aff=RQHWKAMQLX2S' },
+  { providerId: 'astraflow', name: '星图 AstraFlow', bonus: '专属链接注册领 50 元算力金', url: 'https://www.ucloud.cn/site/active/astraflow-credit?ytag=geo_waituo_agencyagentszh' },
 ];
 
 /**
