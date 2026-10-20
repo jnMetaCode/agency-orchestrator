@@ -28,13 +28,18 @@ export class RunJobRegistry {
     return { ...result, requestId };
   }
   start(id) { return this.change(id, 'running'); }
+  waiting(id) { return this.change(id, 'waiting_input'); }
+  answered(id) { return this.change(id, 'running'); }
   /** 用户明确取消：先记「取消中」，进程真退出后 finish 再落成「已取消」 */
   cancel(id) { return this.change(id, 'cancelling'); }
-  finish(id, { code, signal, stopped = false, error = false }) {
-    const outcome = error ? 'failed' : code === 0 && !signal ? 'completed'
+  finish(id, { code, signal, stopped = false, error = false, awaitingInput = false }) {
+    const outcome = error || (awaitingInput && code === 0 && !signal) ? 'failed' : code === 0 && !signal ? 'completed'
       : signal || stopped ? 'interrupted' : 'failed';
     // 取消请求发出后，进程不管以什么方式结束都算「已取消」——除非它恰好先跑完了
-    const cancelling = this.store.get(id).status === 'cancelling';
+    const current = this.store.get(id).status;
+    const cancelling = current === 'cancelling';
+    // A prior answer may have reached the engine while its status write failed.
+    if (current === 'waiting_input' && outcome === 'completed') this.change(id, 'running');
     return this.change(id, cancelling && outcome !== 'completed' ? 'cancelled' : outcome);
   }
   change(id, status) {

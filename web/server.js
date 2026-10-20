@@ -17,6 +17,7 @@ import yaml from 'js-yaml';
 import { resolveDataDir, migrateLegacyData } from './data-dir.js';
 import { FileJobStore } from '../dist/core/job-store.js';
 import { RunJobRegistry, registerJobReadRoutes, jobHttpError, isRunActive } from './run-jobs.js';
+import { claimInput } from './run-input.js';
 import { RunStreamHub, sseSubscriber } from './run-stream.js';
 import { createRunOutputParser, matchStepFailed, matchRunSummary } from './run-output-parser.js';
 import { detectInstalledCliProviders, detectUsableCliProviders, CLI_PROVIDER_IDS } from '../dist/providers/detect.js';
@@ -1029,7 +1030,23 @@ app.post('/api/run', (req, res) => {
 
   // 事件先进这次运行的缓冲，再推给所有订阅者；发起请求的这个页面只是第一个订阅者
   const stream = runStreams.create(runId, { title: basename(resolvedFile).replace(/\.ya?ml$/i, '') });
-  const send = (type, data) => { stream.push(type, data); };
+  const send = (type, data) => {
+    if (type === 'await-input') {
+      if (!isRunActive(activeRuns.get(runId)) || stream.cancelRequested) return;
+      if (typeof data.inputRequestId !== 'string') return;
+      stream.pendingInput = data;
+      stream.inputStateChanged(true);
+    }
+    stream.push(type, data);
+  };
+  stream.inputStateChanged = waiting => {
+    if (!jobTracked) return;
+    try { waiting ? runJobs.waiting(runId) : runJobs.answered(runId); }
+    catch {
+      // Accounting failure must not lose a question or cause the answer to be sent twice.
+      stream.push('stderr', { text: '⚠️ 人工输入状态暂时无法保存，任务记录可能滞后；请以当前运行页面为准。\n' });
+    }
+  };
   const unsubscribe = stream.subscribe(sseSubscriber(res));
 
   send('start', { cmd: `ao run ${basename(resolvedFile)}`, resume: !!resume, fromStep, runId,
@@ -1039,7 +1056,7 @@ app.post('/api/run', (req, res) => {
   }
   const persistFinish = details => {
     if (!jobTracked) return;
-    try { runJobs.finish(runId, details); }
+    try { runJobs.finish(runId, { ...details, awaitingInput: !!stream.pendingInput }); }
     catch (error) {
       console.error('[job-state-save-failed]', runId, error?.code || 'JOB_STORAGE_ERROR');
       send('error', { jobId: runId, code: 'JOB_STORAGE_ERROR',
@@ -1058,7 +1075,7 @@ app.post('/api/run', (req, res) => {
     cwd: DATA_DIR,
     // AO_WEB_INPUT=1 → 引擎遇到 human_input/approval 会发机器标记而非在终端等输入
     // AO_NO_AT_FILE=1 → 关闭 -i k=@file 文件展开，防止网页请求读取本机任意文件（如 API key）
-    env: { ...process.env, FORCE_COLOR: '0', AO_WEB_INPUT: '1', AO_NO_AT_FILE: '1', ...childLlmEnv, ...(childApiKey ? { AO_API_KEY: childApiKey } : {}) },
+    env: { ...process.env, FORCE_COLOR: '0', AO_WEB_INPUT: '1', AO_WEB_INPUT_JSON: '1', AO_NO_AT_FILE: '1', ...childLlmEnv, ...(childApiKey ? { AO_API_KEY: childApiKey } : {}) },
   });
   } catch {
     persistFinish({ error: true });
@@ -1084,11 +1101,17 @@ app.post('/api/run', (req, res) => {
     send('stderr', { text: chunk.toString() });
   });
 
+  child.stdin?.on('error', () => {
+    send('stderr', { text: '人工输入通道已关闭；请查看运行结果后再决定是否继续。\n' });
+  });
   child.on('close', (code, signal) => {
     if (finished) return;
     finished = true;
     activeRuns.delete(runId);
     if (lineBuffer.trim()) parseLine(lineBuffer);
+    if (stream.pendingInput && code === 0 && !signal && !stream.cancelRequested) {
+      send('error', { code: 'INPUT_UNANSWERED_EXIT', message: '运行在人工问题尚未回答时退出，无法确认任务完成。' });
+    }
     persistFinish({ code, signal, stopped: child.killed });
     console.log('[exit]', code, signal);
     send('done', { code, signal, ...(stream.cancelRequested ? { cancelled: true } : {}) });
@@ -1124,6 +1147,19 @@ app.post('/api/live-runs/stream', (req, res) => {
   const unsubscribe = stream.subscribe(sseSubscriber(res), from);
   res.on('close', unsubscribe);
 });
+// Authoritative in-memory question snapshot; a consumed request is never offered again.
+app.get('/api/live-runs/:runId/input', (req, res) => {
+  res.setHeader('Cache-Control', 'no-store');
+  const runId = req.params.runId;
+  const stream = runStreams.get(runId);
+  if (!stream) return res.status(404).json({ code: 'RUN_NOT_LIVE', error: '运行不在当前服务内存中，请查看任务存档' });
+  const child = activeRuns.get(runId);
+  const active = isRunActive(child) && !child.killed && !stream.cancelRequested && !stream.done;
+  const pending = active ? stream.pendingInput : null;
+  res.json({ active, pendingInput: pending ? {
+    stepId: pending.stepId, inputRequestId: pending.inputRequestId, prompt: pending.prompt, type: pending.type,
+  } : null });
+});
 app.post('/api/run-cancel', (req, res) => {
   const runId = typeof req.body?.runId === 'string' ? req.body.runId : '';
   const child = activeRuns.get(runId);
@@ -1139,16 +1175,22 @@ app.post('/api/run-cancel', (req, res) => {
 
 // ── Feed input to a paused run (human_input / approval node awaiting stdin) ──
 app.post('/api/run-input', (req, res) => {
-  const { runId, text } = req.body || {};
-  const child = runId != null ? activeRuns.get(String(runId)) : null;
-  if (!child || child.killed || !child.stdin || !child.stdin.writable) {
-    return res.status(404).json({ error: 'run not found or not awaiting input' });
-  }
+  const body = req.body || {};
+  const child = activeRuns.get(body.runId);
+  const stream = runStreams.get(body.runId);
+  const result = claimInput(stream, child, body);
+  if (result.error) return res.status(result.status).json(result);
+  const accepted = { runId: body.runId, inputRequestId: body.inputRequestId };
+  // Consume before writing: duplicates cannot enqueue a second answer, including during backpressure.
+  stream.inputStateChanged(false);
+  stream.push('input-accepted', accepted);
   try {
-    child.stdin.write(String(text ?? '') + '\n');
-    res.json({ ok: true });
-  } catch (e) {
-    res.status(500).json({ error: e?.message || String(e) });
+    child.stdin.write(result.frame, error => {
+      if (error) return res.status(502).json({ code: 'INPUT_DELIVERY_UNKNOWN', error: '回答传送状态不确定，请重新连接查看运行状态' });
+      res.json({ ok: true });
+    });
+  } catch {
+    res.status(502).json({ code: 'INPUT_DELIVERY_UNKNOWN', error: '回答传送状态不确定，请重新连接查看运行状态' });
   }
 });
 

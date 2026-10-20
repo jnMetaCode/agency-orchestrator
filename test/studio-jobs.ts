@@ -10,10 +10,11 @@ import { FileJobStore } from '../src/core/job-store.js';
 
 const helpers = await import(pathToFileURL(resolve('web/run-jobs.js')).href);
 const parser = await import(pathToFileURL(resolve('web/run-output-parser.js')).href);
+const input = await import(pathToFileURL(resolve('web/run-input.js')).href);
 const streams = await import(pathToFileURL(resolve('web/run-stream.js')).href);
 const source = readFileSync('web/server.js', 'utf-8');
 const start = source.indexOf("app.post('/api/run',");
-const end = source.indexOf('// ── Feed input', start);
+const end = source.indexOf('// ── 多智能体 vs', start);
 assert(start > 0 && end > start);
 const route = source.slice(start, end);
 const root = mkdtempSync(join(tmpdir(), 'ao-studio-jobs-'));
@@ -29,6 +30,10 @@ class Response extends EventEmitter {
 }
 class Child extends EventEmitter {
   stdout = new EventEmitter(); stderr = new EventEmitter(); killed = false;
+  frames: string[] = [];
+  stdin = Object.assign(new EventEmitter(), { writable: true, write: (frame: string, callback: (error?: Error) => void) => {
+    this.frames.push(frame); callback(); return true;
+  } });
   exitCode: number | null = null; signalCode: string | null = null;
   kill(signal: string) { this.killed = true; this.emit('close', null, signal); return true; }
 }
@@ -44,7 +49,7 @@ function fixture() {
   const runStreams = new streams.RunStreamHub();
   const context = {
     app: { post: (path: string, fn: any) => { handlers.set(`POST ${path}`, fn); }, get: (path: string, fn: any) => { handlers.set(`GET ${path}`, fn); } },
-    runStreams, sseSubscriber: streams.sseSubscriber, isRunActive: helpers.isRunActive,
+    claimInput: input.claimInput, runStreams, sseSubscriber: streams.sseSubscriber, isRunActive: helpers.isRunActive,
     resolve, basename, join, readFileSync, existsSync,
     isAllowedWorkflow: (value: string) => value === file,
     DATA_DIR: dir, OUTPUT_DIR: dir, CLI: '/cli.js', NODE_BIN: process.execPath,
@@ -56,7 +61,7 @@ function fixture() {
   };
   runInNewContext(route, context);
   const run = (body: object = {}) => { const res = new Response(); handlers.get('POST /api/run')({ body: { file, ...body } }, res); return res; };
-  const call = (route: string, body: object = {}) => { const res = new Response(); handlers.get(route)({ body }, res); return res; };
+  const call = (route: string, body: object = {}) => { const res = new Response(); handlers.get(route)({ body, params: body }, res); return res; };
   return { file, dir, store, registry, children, logs, activeRuns, run, call, runStreams,
     failSpawn: () => { failSpawn = true; }, rotateKey: () => { key = 'rotated-fake-key'; } };
 }
@@ -82,6 +87,71 @@ try {
     assert.equal(f.activeRuns.size, 0);
     assert.equal(f.children[0].killed, false);
     assert.equal(f.store.get(event.jobId).displayName, 'workflow');
+  });
+  await test('input request records waiting, rejects stale answers, resumes once, and preserves multiline text', () => {
+    const f = fixture(), event = startEvent(f.run());
+    const body = { runId: event.runId, stepId: 'ask', inputRequestId: 'question-one', text: 'line one\nline two' };
+    f.children[0].stdout.emit('data', Buffer.from('__AO_INPUT_REQUEST__' + JSON.stringify({ ...body, prompt: 'private prompt' }) + '\n'));
+    assert.equal(f.store.get(event.jobId).status, 'waiting_input');
+    assert.equal(f.call('POST /api/run-input', { ...body, inputRequestId: 'old' }).statusCode, 409);
+    assert.equal(f.store.get(event.jobId).status, 'waiting_input');
+    assert.equal(f.call('POST /api/run-input', body).statusCode, 200);
+    assert.equal(f.store.get(event.jobId).status, 'running');
+    assert.equal(f.call('POST /api/run-input', body).statusCode, 409);
+    assert.equal(f.children[0].frames.length, 1);
+    assert.equal(JSON.parse(f.children[0].frames[0]).text, body.text);
+    assert(!readFileSync(join(f.dir, 'jobs', event.jobId + '.json'), 'utf8').includes('private prompt'));
+    f.children[0].emit('close', 0, null);
+    assert.equal(f.store.get(event.jobId).status, 'completed');
+  });
+  await test('unanswered zero exit fails; cancelling a waiting task records cancelled', () => {
+    for (const cancel of [false, true]) {
+      const f = fixture(), event = startEvent(f.run());
+      f.children[0].stdout.emit('data', Buffer.from('__AO_INPUT_REQUEST__' + JSON.stringify({ stepId: 'ask', inputRequestId: 'pending' }) + '\n'));
+      assert.equal(f.store.get(event.jobId).status, 'waiting_input');
+      if (cancel) f.call('POST /api/run-cancel', { runId: event.runId });
+      else f.children[0].emit('close', 0, null);
+      assert.equal(f.store.get(event.jobId).status, cancel ? 'cancelled' : 'failed');
+    }
+  });
+  await test('waiting status storage failure preserves question and still delivers one answer', () => {
+    const f = fixture(), event = startEvent(f.run());
+    f.registry.waiting = () => { throw Error('private filesystem error'); };
+    f.registry.answered = () => { throw Error('private filesystem error'); };
+    f.children[0].stdout.emit('data', Buffer.from('__AO_INPUT_REQUEST__' + JSON.stringify({ stepId: 'ask', inputRequestId: 'pending' }) + '\n'));
+    assert.equal(f.call('POST /api/run-input', { runId: event.runId, stepId: 'ask', inputRequestId: 'pending', text: 'yes' }).statusCode, 200);
+    assert.equal(f.children[0].frames.length, 1);
+    assert(!f.logs.join('').includes('private filesystem error'));
+    f.children[0].emit('close', 0, null);
+    assert.equal(f.store.get(event.jobId).status, 'completed');
+  });
+  await test('completion repairs stale waiting state after the answer-state write failed', () => {
+    const f = fixture(), event = startEvent(f.run());
+    f.children[0].stdout.emit('data', Buffer.from('__AO_INPUT_REQUEST__' + JSON.stringify({ stepId: 'ask', inputRequestId: 'pending' }) + '\n'));
+    f.registry.answered = () => { throw Error('temporary write failure'); };
+    f.call('POST /api/run-input', { runId: event.runId, stepId: 'ask', inputRequestId: 'pending', text: 'confirmed' });
+    assert.equal(f.store.get(event.jobId).status, 'waiting_input');
+    f.children[0].emit('close', 0, null);
+    assert.equal(f.store.get(event.jobId).status, 'completed');
+  });
+  await test('question snapshots expose only a live pending question and never revive consumed input', () => {
+    const f = fixture(), event = startEvent(f.run());
+    const route = 'GET /api/live-runs/:runId/input';
+    assert.equal(f.call(route, { runId: 'missing' }).statusCode, 404);
+    assert.equal(f.call(route, { runId: event.runId }).payload.pendingInput, null);
+    f.children[0].stdout.emit('data', Buffer.from('__AO_INPUT_REQUEST__' + JSON.stringify({
+      stepId: 'ask', inputRequestId: 'pending', prompt: 'Question?', type: 'human_input', extra: 'must not leak',
+    }) + '\n'));
+    const snapshot = f.call(route, { runId: event.runId }).payload;
+    assert.equal(snapshot.active, true);
+    assert.equal(snapshot.pendingInput.inputRequestId, 'pending');
+    assert.equal(snapshot.pendingInput.extra, undefined);
+    f.call('POST /api/run-input', { runId: event.runId, stepId: 'ask', inputRequestId: 'pending', text: 'yes' });
+    assert.equal(f.call(route, { runId: event.runId }).payload.pendingInput, null);
+    f.children[0].emit('close', 0, null);
+    const ended = f.call(route, { runId: event.runId }).payload;
+    assert.equal(ended.active, false);
+    assert.equal(ended.pendingInput, null);
   });
   await test('same request ID never spawns twice; input order is canonical', () => {
     const f = fixture();

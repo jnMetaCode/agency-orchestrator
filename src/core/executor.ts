@@ -1,7 +1,7 @@
 /**
  * DAG 执行引擎 — 核心调度器
  */
-import { createHash } from 'node:crypto';
+import { createHash, randomUUID } from 'node:crypto';
 import { existsSync, readFileSync, readdirSync, mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import type {
@@ -1287,10 +1287,12 @@ export function buildFeedbackBlock(feedback: string, previousOutput?: string): s
  * 子进程 stdin，被这里的 readline 读到。CLI（无该 env）下不发标记，行为不变。
  * 标记必须换行结尾，确保 server 的按行解析能立刻 flush。
  */
-function emitWebInputRequest(stepId: string, prompt: string, kind: 'human_input' | 'approval'): void {
+function emitWebInputRequest(stepId: string, prompt: string, kind: 'human_input' | 'approval'): string | undefined {
+  const inputRequestId = process.env.AO_WEB_INPUT_JSON === '1' ? randomUUID() : undefined;
   if (process.env.AO_WEB_INPUT === '1') {
-    process.stdout.write(`\n__AO_INPUT_REQUEST__${JSON.stringify({ type: kind, stepId, prompt })}\n`);
+    process.stdout.write(`\n__AO_INPUT_REQUEST__${JSON.stringify({ type: kind, stepId, prompt, inputRequestId })}\n`);
   }
+  return inputRequestId;
 }
 
 async function handleApproval(
@@ -1307,10 +1309,10 @@ async function handleApproval(
     console.log('\n' + content);
   }
 
-  emitWebInputRequest(node.step.id, prompt, 'approval');
+  const inputRequestId = emitWebInputRequest(node.step.id, prompt, 'approval');
 
   // Web 模式由前端弹框驱动，不在终端再打印人类提示
-  return askOnStdin(node.step.id, process.env.AO_WEB_INPUT === '1' ? '' : `\n⏸️  ${prompt} `);
+  return askOnStdin(node.step.id, process.env.AO_WEB_INPUT === '1' ? '' : `\n⏸️  ${prompt} `, inputRequestId);
 }
 
 /**
@@ -1342,9 +1344,9 @@ async function handleHumanInput(
     if (content) console.log('\n' + content);
   }
 
-  emitWebInputRequest(node.step.id, prompt, 'human_input');
+  const inputRequestId = emitWebInputRequest(node.step.id, prompt, 'human_input');
 
-  return askOnStdin(node.step.id, process.env.AO_WEB_INPUT === '1' ? '' : `\n📝 ${prompt} `);
+  return askOnStdin(node.step.id, process.env.AO_WEB_INPUT === '1' ? '' : `\n📝 ${prompt} `, inputRequestId);
 }
 
 /**
@@ -1354,7 +1356,7 @@ async function handleHumanInput(
  * 只有一个 approval 步的工作流 `< /dev/null` 会一直打「gate ... 90s」）。报错之后走正常的失败路径：
  * 这一步标失败、结果照常保存，用户可以 `--resume last` 在能交互的终端里接着跑。
  */
-function askOnStdin(stepId: string, display: string): Promise<string> {
+function askOnStdin(stepId: string, display: string, inputRequestId?: string): Promise<string> {
   // MCP 服务端（stdin 是 JSON-RPC 通道）等明确不可交互的宿主：连 readline 都不能开
   if (process.env.AO_NON_INTERACTIVE === '1') {
     return Promise.reject(new Error(
@@ -1367,7 +1369,15 @@ function askOnStdin(stepId: string, display: string): Promise<string> {
     rl.question(display, (answer) => {
       answered = true;
       rl.close();
-      resolve(answer.trim());
+      if (inputRequestId) {
+        try {
+          if (Buffer.byteLength(answer) > 512 * 1024) throw new Error();
+          const frame = JSON.parse(answer);
+          if (frame.stepId !== stepId || frame.inputRequestId !== inputRequestId
+            || typeof frame.text !== 'string' || Buffer.byteLength(frame.text) > 64 * 1024) throw new Error();
+          resolve(frame.text.trim());
+        } catch { reject(new Error('人工输入请求无效或已过期，请刷新 Studio 后确认当前问题')); }
+      } else resolve(answer.trim());
     });
     rl.once('close', () => {
       if (answered) return;

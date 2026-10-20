@@ -1,3 +1,6 @@
+import type { RunInputSnapshot } from "./run-input-state";
+export type { PendingRunInput, RunInputSnapshot } from "./run-input-state";
+
 // Shared types + API client for the Studio (talks to web/server.js backend).
 
 export interface Role {
@@ -892,8 +895,9 @@ export const api = {
   job: (id: string) => getJSON<{ job: StudioJob }>(`/jobs/${encodeURIComponent(id)}`),
   jobEvents: (id: string, afterSequence = 0) =>
     getJSON<{ job: StudioJob; events: StudioJobEvent[]; resetRequired: boolean }>(`/jobs/${encodeURIComponent(id)}/events?afterSequence=${afterSequence}`),
-  runInput: (runId: string, text: string) =>
-    postJSON<{ ok: boolean }>("/run-input", { runId, text }),
+  runInputState: (runId: string) => getJSON<RunInputSnapshot>(`/live-runs/${encodeURIComponent(runId)}/input`),
+  runInput: (runId: string, text: string, request: { stepId: string; inputRequestId: string }) =>
+    postJSON<{ ok: boolean }>("/run-input", { runId, text, stepId: request.stepId, inputRequestId: request.inputRequestId }),
   // 进行中的运行（本机引擎内存里的）：刷新页面后据此接回；只列这次引擎进程里的，重启后的旧运行看「我的运行」
   liveRuns: () => getJSON<{ runs: LiveRun[] }>("/live-runs"),
   // 显式取消：页面断开已不再停止运行，要停必须走这里（引擎会照常做中断存档，可续跑）

@@ -15,7 +15,7 @@ import { cn } from "@/lib/utils";
 
 export function RunViewer({ onViewHistory, onGoProviders }: { onViewHistory?: () => void; onGoProviders?: () => void }) {
   const { t, lang } = useLanguage();
-  const { runs, openId, open, stop, rerunWithFeedback, submitInput } = useRunManager();
+  const { runs, openId, open, stop, rerunWithFeedback, submitInput, refreshInput } = useRunManager();
   const run = runs.find((r) => r.id === openId) || null;
   const [showTerminal, setShowTerminal] = useState(false);
   const [showCompare, setShowCompare] = useState(false);
@@ -209,7 +209,10 @@ export function RunViewer({ onViewHistory, onGoProviders }: { onViewHistory?: ()
             />
           )}
           {run.pendingInput && running && (
-            <RunInputBox pending={run.pendingInput} onSubmit={(text) => submitInput(run.id, text)} />
+            <RunInputBox key={run.pendingInput.inputRequestId} busy={!!run.inputSending} pending={run.pendingInput} onSubmit={(text) => submitInput(run.id, text)} />
+          )}
+          {running && run.kind === "workflow" && run.runId && (
+            <Button size="sm" variant="ghost" disabled={!!run.inputSending} onClick={() => refreshInput(run.id)}>{t.studio.run.refreshInputStatus}</Button>
           )}
           {run.summary && !running && (
             <div className="mt-4 rounded-xl border border-primary/30 bg-primary/[0.06] px-4 py-3 text-sm font-medium text-primary">
@@ -339,16 +342,16 @@ export function RunViewer({ onViewHistory, onGoProviders }: { onViewHistory?: ()
 }
 
 /** 运行中某步暂停等待人工输入时的弹层：human_input 给输入框，approval 给通过/驳回。 */
-function RunInputBox({ pending, onSubmit }: { pending: PendingInput; onSubmit: (text: string) => void }) {
+function RunInputBox({ pending, onSubmit, busy }: { pending: PendingInput; onSubmit: (text: string) => void; busy: boolean }) {
   const { t } = useLanguage();
   const [text, setText] = useState("");
   const isApproval = pending.type === "approval";
 
   const submit = (val?: string) => {
+    if (busy) return;
     const v = val ?? text;
     if (!isApproval && !v.trim()) return;
     onSubmit(v);
-    setText("");
   };
 
   return (
@@ -360,8 +363,8 @@ function RunInputBox({ pending, onSubmit }: { pending: PendingInput; onSubmit: (
       <p className="mb-2.5 whitespace-pre-wrap text-sm text-foreground">{pending.prompt}</p>
       {isApproval ? (
         <div className="flex gap-2">
-          <Button size="sm" onClick={() => submit("yes")}>{t.studio.run.approveContinue}</Button>
-          <Button size="sm" variant="outline" onClick={() => submit("no")}>{t.studio.run.reject}</Button>
+          <Button size="sm" disabled={busy} onClick={() => submit("yes")}>{t.studio.run.approveContinue}</Button>
+          <Button size="sm" variant="outline" disabled={busy} onClick={() => submit("no")}>{t.studio.run.reject}</Button>
         </div>
       ) : (
         <>
@@ -377,7 +380,7 @@ function RunInputBox({ pending, onSubmit }: { pending: PendingInput; onSubmit: (
             className="w-full resize-none rounded-lg border border-border/70 bg-background px-3 py-2 text-sm outline-none focus:border-primary/60"
           />
           <div className="mt-2 flex justify-end">
-            <Button size="sm" disabled={!text.trim()} onClick={() => submit()}>
+            <Button size="sm" disabled={busy || !text.trim()} onClick={() => submit()}>
               {t.studio.run.submitContinue}
             </Button>
           </div>

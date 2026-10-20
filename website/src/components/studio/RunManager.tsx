@@ -1,9 +1,11 @@
 import { createContext, useCallback, useContext, useEffect, useReducer, useRef, type ReactNode } from "react";
 import { api, attachRun, runRole, runWorkflow, type SseHandler, type WorkflowStepMeta } from "@/lib/studio";
+import { reconcileRunInput } from "@/lib/run-input-state";
 import { useLanguage } from "@/i18n/LanguageProvider";
 
 /** 某步暂停等待人工输入（human_input / approval 节点）。 */
 export interface PendingInput {
+  inputRequestId: string;
   stepId: string;
   prompt: string;
   type: "human_input" | "approval";
@@ -70,6 +72,8 @@ export interface RunInstance {
   cancelOnStart?: boolean;
   /** 非空时表示某步正等待人工输入，前端应弹输入框 */
   pendingInput?: PendingInput | null;
+  inputSending?: boolean;
+  _inputVersion?: number;
   /** 本次运行产物的保存目录（绝对路径,来自服务端 output-dir 事件） */
   outputDir?: string;
   /** 专家咨询自动落盘的工作流文件（来自 workflow-saved 事件），完成后提示用户去「工作流」页 */
@@ -86,6 +90,7 @@ interface RunManagerValue {
   /** 对已完成工作流运行中的某一步提意见，带着「上一版产出 + 意见」让该专家返工 */
   rerunWithFeedback: (id: string, stepId: string, feedback: string) => string | null;
   /** 把人工输入提交回正在等待的运行（human_input / approval 节点） */
+  refreshInput: (id: string) => void;
   submitInput: (id: string, text: string) => void;
 }
 
@@ -157,10 +162,16 @@ export function RunProvider({ children }: { children: ReactNode }) {
             if (inst.cancelOnStart && data.runId) api.cancelRun(data.runId).catch(() => { /* 已经结束 */ });
             break;
           case "await-input":
-            inst.pendingInput = { stepId: data.stepId, prompt: data.prompt, type: data.type };
+            inst._inputVersion = (inst._inputVersion ?? 0) + 1;
+            inst.pendingInput = { stepId: data.stepId, prompt: data.prompt, type: data.type, inputRequestId: data.inputRequestId };
             notifyInputNeeded(inst.title, data.prompt || "");
             break;
+          case "input-accepted":
+            inst._inputVersion = (inst._inputVersion ?? 0) + 1;
+            if (inst.pendingInput?.inputRequestId === data.inputRequestId) inst.pendingInput = null;
+            break;
           case "step-header":
+            inst._inputVersion = (inst._inputVersion ?? 0) + 1;
             // 某步推进了 → 清掉等待态（用户已提交、或本就不需要输入）
             inst.pendingInput = null;
             upsert(data.id, {
@@ -229,6 +240,7 @@ export function RunProvider({ children }: { children: ReactNode }) {
             inst.terminal += data.text;
             break;
           case "done": {
+            inst._inputVersion = (inst._inputVersion ?? 0) + 1;
             inst.pendingInput = null;
             if (data?.cancelled) {
               inst.state = "error";
@@ -443,20 +455,29 @@ export function RunProvider({ children }: { children: ReactNode }) {
     [start, t],
   );
 
+  const refreshInput = useCallback((id: string) => {
+    const inst = runsRef.current.get(id);
+    if (!inst?.runId || inst.state !== "running") return;
+    reconcileRunInput(inst, () => api.runInputState(inst.runId!))
+      .catch(e => { inst.error = e?.message || String(e); })
+      .finally(touch);
+  }, [touch]);
+
   const submitInput = useCallback(
     (id: string, text: string) => {
       const inst = runsRef.current.get(id);
-      if (!inst?.runId || !inst.pendingInput) return;
-      // 乐观清除等待态；引擎收到输入后会继续推进。发送失败要把弹框**还回来**：引擎还在等 stdin，
-      // 弹框没了用户就没有任何办法再提交，这条运行只能挂着
+      if (!inst?.runId || !inst.pendingInput || inst.inputSending) return;
       const pending = inst.pendingInput;
-      inst.pendingInput = null;
+      inst.inputSending = true;
       touch();
-      api.runInput(inst.runId, text).catch((e) => {
+      api.runInput(inst.runId, text, pending).catch(async (e) => {
         inst.error = e?.message || String(e);
-        inst.pendingInput = pending;
-        touch();
-      });
+        // Query only: never automatically resend an answer after a network failure.
+        try { await reconcileRunInput(inst, () => api.runInputState(inst.runId!)); }
+        catch {
+          if (inst.pendingInput === pending) inst.pendingInput = null;
+        }
+      }).finally(() => { inst.inputSending = false; touch(); });
     },
     [touch],
   );
@@ -470,6 +491,7 @@ export function RunProvider({ children }: { children: ReactNode }) {
     open,
     rerunWithFeedback,
     submitInput,
+    refreshInput,
   };
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
