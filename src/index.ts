@@ -489,6 +489,7 @@ export async function run(
     process.once('SIGINT', flushAndExit);
   }
 
+  const runningNodes = new Map<string, import('./types.js').DAGNode>();
   const result = await executeDAG(dag, {
     connector,
     agentsDir: workflow.agents_dir,
@@ -508,6 +509,7 @@ export async function run(
         watchCallback!({ type: 'step_start', stepId: node.step.id, role: node.step.role, total: totalSteps, completed: stepCounter });
       }
     } : (nodes) => {
+      for (const node of nodes) runningNodes.set(node.step.id, node);
       printStepRunning(nodes);
     },
     onBatchComplete: quiet ? undefined : useWatch ? (nodes) => {
@@ -520,9 +522,12 @@ export async function run(
     } : (nodes) => {
       clearRunningLine();
       for (const node of nodes) {
+        runningNodes.delete(node.step.id);
         stepCounter++;
         printStepResult(node, stepCounter, totalSteps);
       }
+      // 就绪执行下一步跑完时别的步骤可能还在跑：重新亮出「执行中」，否则看着像卡住了
+      if (runningNodes.size > 0) printStepRunning([...runningNodes.values()]);
     },
   } satisfies ExecutorOptions);
 
