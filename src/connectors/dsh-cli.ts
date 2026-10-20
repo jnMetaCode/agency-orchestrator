@@ -9,7 +9,7 @@
  *   - **不读 stdin**：管道写进去的内容模型看不见（mimic 复现），所以整段提示词走位置参数
  *     （23KB 角色实测可行）；基类超命令行上限会明确报错。无空格的纯中文提示词也接受。
  *   - 需要 **Node ≥ 22.15**（`node:zlib` 的 zstd）：22.14 直接在加载插件时崩，报错埋在堆栈里，
- *     这里从 stderr 识别后给一句人话。
+ *     这里从 stderr 识别后给一句人话。新版 import.meta.main 入口另需 Node 22.x ≥22.18 或 ≥24.2，不含 23。
  *   - 默认模型来自 `agent-default-model`（deepseek-official / deepseek-v4-flash）；AO 的 `model`
  *     写成 `provider/model` 时用 `--patch` 临时覆盖（provider 须在它的 settings.yaml 里存在）。
  *   - 它是 agentic 工具（bash / 文件工具），把"当前目录"当工作区，没有关工具的开关——每次调用
@@ -33,10 +33,19 @@ export function modelPatchYaml(model?: string): string | null {
   return `- id: agent-default-model\n  config:\n    provider: ${q(provider)}\n    model: ${q(id)}\n`;
 }
 
+/** Diagnostic only: the engine runtime is not necessarily the CLI's actual runtime on POSIX. */
+export function dshEmptyOutputHint(nodeVersion = process.versions.node, electron = !!process.versions.electron): string {
+  return `AO 引擎运行于 Node ${nodeVersion}${electron ? '（Electron 内置）' : ''}。`
+    + '使用 import.meta.main 入口的 dsh 需要 Node 22.x ≥ 22.18 或 Node ≥ 24.2；Node 23 和 24.0/24.1 不支持该入口。'
+    + 'Windows npm shim 可能使用 AO 的内置运行时，终端能跑不代表桌面端兼容。'
+    + '请核对实际 CLI 子进程的 Node；当前可先用兼容 Node 启动终端 ao，或配置能自行启动兼容 Node 的包装器。'
+    + '首次启动还可能需要初始化 headless profile；终端可运行 dsh --profile headless "说 你好" 排查。';
+}
+
 /** 从 stderr 识别 dsh 特有的失败原因。 */
 export function dshStderrHint(stderr: string): string | undefined {
   if (/createZstdDecompress|zstd/i.test(stderr) && /node:zlib/.test(stderr)) {
-    return 'DeepSeek Harness 需要 Node ≥ 22.15（当前 Node 缺 zlib 的 zstd 接口）。升级 Node（nvm install 22）后再跑。';
+    return 'DeepSeek Harness 需要 Node ≥ 22.15（当前 Node 缺 zlib 的 zstd 接口）。该下限仅覆盖旧版 zstd 依赖；使用 import.meta.main 入口的版本需 Node 22.x ≥ 22.18 或 Node ≥ 24.2（不含 Node 23）。';
   }
   if (/MISSING_CREDENTIAL/.test(stderr)) {
     return 'dsh 找不到该供应商的 key：默认走 DEEPSEEK_API_KEY；自定义端点要在 $DSH_HOME/settings.yaml 的 llm-pi-ai.providers 里声明 apiKeyEnv 并设好对应环境变量。';
@@ -52,7 +61,7 @@ export class DshCLIConnector extends CLIBaseConnector {
     super({
       command: 'dsh',
       displayName: 'DeepSeek Harness (dsh)',
-      installHint: 'npm install -g @deepseek-ai/dsh（需要 Node ≥ 22.15）；然后 export DEEPSEEK_API_KEY=… 或在 $DSH_HOME/settings.yaml 配供应商',
+      installHint: 'npm install -g @deepseek-ai/dsh（新版入口需 Node 22.x ≥ 22.18 或 Node ≥ 24.2，不含 Node 23）；然后 export DEEPSEEK_API_KEY=… 或在 $DSH_HOME/settings.yaml 配供应商',
       // 不声明 supportsStdin：它不读 stdin（见文件头），整段提示词走位置参数。
       buildArgs: (prompt: string, config: LLMConfig) => {
         const c = config as LLMConfig & { __dsh_patch?: string };
@@ -63,7 +72,7 @@ export class DshCLIConnector extends CLIBaseConnector {
       },
       spawnCwd: (config) => (config as any).__dsh_cwd,
       stderrHint: dshStderrHint,
-      emptyOutputHint: '排查：终端跑 `dsh --profile headless "说 你好"`；首次启动要初始化 profile，可能较慢；需要 Node ≥ 22.15。',
+      emptyOutputHint: dshEmptyOutputHint(),
     });
   }
 

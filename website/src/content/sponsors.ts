@@ -170,7 +170,7 @@ export const sponsors: Sponsor[] = [
     badge: "P",
     accent: "from-emerald-500 to-green-400",
     logo: "/sponsors/logo-packycode-icon.png",
-    url: "https://www.packyapi.ai/register?aff=js5W",
+    url: "https://www.packyapi.ai/register?aff=Zpx1",
     tier: "standard",
     since: "2026-09",
     featured: false,

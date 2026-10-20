@@ -6,7 +6,7 @@
 用 dsh 配好的供应商跑 AO 工作流，AO 这边不另配 key。
 
 ```bash
-node --version                      # 必须 ≥ 22.15（用到 zlib 的 zstd；22.14 会在加载插件时崩）
+node --version                      # 新版入口：22.x ≥22.18 或 ≥24.2；不含 Node 23
 npm install -g @deepseek-ai/dsh
 export DEEPSEEK_API_KEY=sk-...      # 默认走 deepseek-official / deepseek-v4-flash
 ao doctor                           # 应显示「已装 CLI：… dsh-cli」
@@ -63,3 +63,9 @@ llm-pi-ai:
 | 短篇小说创作 | `story-creation.yaml` | 叙事学家 → 心理学家 + 叙事设计师 → 内容创作者 |
 | 产品需求评审 | `product-review.yaml` | 产品经理 → 架构师 + UX → 产品经理 |
 | 内容流水线 | `content-pipeline.yaml` | 策略师 → 创作者 + SEO → 编辑 |
+
+## 桌面版空输出与运行时
+
+新版 dsh 入口依赖 `import.meta.main`。该特性在 [Node 官方文档](https://nodejs.org/api/esm.html#importmetamain)标明于 22.18 和 24.2 引入；不能仅要求“≥22.15”，也不能把 Node 23 或 24.0/24.1 当作兼容版本。旧版 0.1.1 的 zstd 下限不是新版完整兼容性保证。
+
+Windows 桌面端解析 npm shim 后可能使用 Electron 内置 Node，与你在终端执行 `node --version` 看到的版本不同。仅升级终端 Node 不一定改变桌面子进程运行时。遇到 exit 0 且全空时，应核对实际子进程；可先通过兼容 Node 启动终端 `ao`。Windows npm shim 的新版 dsh 入口现在会在内置 Node 不兼容时探测 PATH 中的外部 Node；也可设置 `AO_CLI_NODE_PATH` 为 Node 可执行文件的完整路径（不含外层引号或参数）。显式指定的路径无效会直接报错，不悄悄回退。探测有 3 秒超时，不调用 dsh 或模型。切换到外部 Node 时移除 `ELECTRON_RUN_AS_NODE`；没有兼容运行时则在启动前报错。旧版不含该入口特性的 dsh 保留原行为。本次实现限 Windows npm shim 分支，仍需 Windows 桌面安装包实测，不能据此关闭 #194。

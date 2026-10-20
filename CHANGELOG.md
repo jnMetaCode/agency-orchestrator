@@ -4,6 +4,14 @@
 
 ## [Unreleased]
 
+## [0.21.0] - 2026-10-20
+
+### Fixed
+- 移除运行详情弹层遮罩的背景模糊，避免流式更新时偶发整层闪烁（#193）。
+- Windows 新版 dsh npm 入口检查 Node 兼容性，内置运行时不兼容时探测系统 Node，支持 `AO_CLI_NODE_PATH` 指定；缺少兼容运行时提前报错，避免静默空输出。
+- CLI 启动时使用调用方传入的环境查找 Windows npm shim，避免与实际子进程 PATH 不一致；更新 dsh 空输出诊断，区分引擎运行时并说明新版入口的 Node 特性要求。
+- 更新 PackyCode 官网、Studio、远程供应商清单及 CLI 引导的注册推广链接。
+
 ### Added
 - 新增赞助商**星图 AstraFlow**（UCloud ModelVerse）为内置供应商 `astraflow`（`ASTRAFLOW_API_KEY`，默认 `https://api.modelverse.cn/v1`，
   海外节点用 `ASTRAFLOW_BASE_URL` 切）：同一个 key 管对话（OpenAI 兼容）、出图（`type: image`，Seedream 走 `/v1/images/generations`）

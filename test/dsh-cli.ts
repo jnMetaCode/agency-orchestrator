@@ -2,7 +2,7 @@
  * dsh-cli（DeepSeek Harness）——不依赖本机装没装 dsh。
  * 钉住真机事实（0.1.1-rc.2）：model 走 --patch 覆盖、Node < 22.15 的报错要翻译成人话、不读 stdin。
  */
-import { modelPatchYaml, dshStderrHint, DshCLIConnector } from '../src/connectors/dsh-cli.js';
+import { modelPatchYaml, dshStderrHint, dshEmptyOutputHint, DshCLIConnector } from '../src/connectors/dsh-cli.js';
 import { createConnector } from '../src/connectors/factory.js';
 import { CLI_PROVIDER_BINS } from '../src/providers/detect.js';
 
@@ -28,6 +28,13 @@ test('Node 太旧的堆栈 → 人话提示', () => {
   assert(/Node ≥ 22\.15/.test(dshStderrHint(stderr) ?? ''), '应指出 Node 版本');
   assert(dshStderrHint('random failure') === undefined, '无关 stderr 不该乱提示');
   assert(/key/.test(dshStderrHint('LlmError: MISSING_CREDENTIAL') ?? ''), 'MISSING_CREDENTIAL 应指出缺 key');
+});
+
+test('空输出提示区分引擎与 CLI 运行时，包含 Node 22 回移和不支持的分支', () => {
+  const hint = dshEmptyOutputHint('20.18.3', true);
+  assert(hint.includes('20.18.3') && hint.includes('Electron'), '应给出引擎版本及 Electron 身份');
+  assert(hint.includes('22.18') && hint.includes('24.2') && hint.includes('Node 23'), '不能把新版入口要求误写成简单 >=22.15 或 >=24.2');
+  assert(hint.includes('实际 CLI 子进程') && hint.includes('终端 ao'), '必须区分运行时并给出可用排查路径');
 });
 
 test('工厂 + 探测表', () => {

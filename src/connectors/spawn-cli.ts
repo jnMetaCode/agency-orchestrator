@@ -24,9 +24,10 @@
  */
 import { spawn, type ChildProcess, type SpawnOptions } from 'node:child_process';
 import { existsSync, readFileSync } from 'node:fs';
-import { delimiter, dirname, extname, join, sep } from 'node:path';
+import { basename, delimiter, dirname, extname, join, sep } from 'node:path';
 // 与安装探测共用「这个 CLI 装在哪」——只给探测加目录会造成
 // 「doctor 说已安装、一跑却报找不到命令」（Antigravity 装在 ~/.local/bin，默认不在 PATH）
+import { selectCLINodeRuntime } from './cli-node-runtime.js';
 import { extraBinDirs, hasExtraBinDirs } from '../utils/bin-lookup.js';
 
 /** 在 PATH 上找到命令对应的真实文件（Windows 按 PATHEXT 逐个试）。找不到返回 null。 */
@@ -104,6 +105,7 @@ export interface CLILaunchPlan {
   viaCmd: boolean;
   /** true 表示用当前进程的 execPath 当 Node 跑脚本（桌面端下它其实是 Electron） */
   nodeRuntime?: boolean;
+  requiresImportMetaMain?: boolean;
 }
 
 /**
@@ -139,7 +141,9 @@ export function planLaunch(
     try { shimText = readFileSync(resolved, 'utf-8'); } catch { /* 读不到就走兜底 */ }
     const entry = shimText ? parseNpmShim(shimText, dirname(resolved)) : null;
     if (entry && existsSync(entry)) {
-      return { file: process.execPath, args: [entry, ...args], viaCmd: false, nodeRuntime: true };
+      const requiresImportMetaMain = /^dsh(?:\.cmd|\.bat)?$/i.test(basename(command))
+        && /\bimport\.meta\.main\b/.test(readFileSync(entry, 'utf-8'));
+      return { file: process.execPath, args: [entry, ...args], viaCmd: false, nodeRuntime: true, requiresImportMetaMain };
     }
     return {
       file: env.ComSpec || env.COMSPEC || 'cmd.exe',
@@ -158,14 +162,27 @@ export function spawnCLI(
   options: SpawnOptions = {},
   displayName = command,
 ): ChildProcess {
-  const plan = planLaunch(command, args, displayName);
+  const plan = planLaunch(command, args, displayName, options.env ?? process.env);
   // 桌面端的引擎进程其实是 Electron 以 ELECTRON_RUN_AS_NODE=1 跑起来的，此时
   // process.execPath 指向 Electron 二进制 —— 不显式带上这个变量，拿它去执行 shim
   // 里的 JS 会拉起一个 GUI 实例而不是跑脚本。这里显式补齐，不依赖 env 恰好被继承。
-  const needsElectronAsNode = plan.nodeRuntime && !!(process.versions as { electron?: string }).electron;
-  const env = needsElectronAsNode
+  const engineElectron = !!process.versions.electron;
+  let runtimeElectron = engineElectron;
+  if (plan.requiresImportMetaMain) {
+    const childEnv = options.env ?? process.env;
+    const runtime = selectCLINodeRuntime({ file: process.execPath, version: process.versions.node, electron: engineElectron },
+      childEnv, findExecutable('node', childEnv));
+    plan.file = runtime.file;
+    runtimeElectron = runtime.electron;
+  }
+  const needsElectronAsNode = plan.nodeRuntime && runtimeElectron;
+  let env = needsElectronAsNode
     ? { ...(options.env ?? process.env), ELECTRON_RUN_AS_NODE: '1' }
     : options.env;
+  if (plan.requiresImportMetaMain && !runtimeElectron) {
+    env = { ...(env ?? process.env) };
+    delete env.ELECTRON_RUN_AS_NODE;
+  }
 
   const child = spawn(plan.file, plan.args, {
     ...options,

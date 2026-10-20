@@ -153,7 +153,7 @@ test('PackyCode 的中转预设已上架，且端点与内置预设一致（2026
   assert(pc!.baseUrls['claude-code'] === 'https://www.packyapi.ai', `claude-code 端点不对（Anthropic 协议，base 不带 /v1）: ${pc!.baseUrls['claude-code']}`);
   assert(pc!.baseUrls['gemini-cli'] === 'https://www.packyapi.ai', `gemini-cli 端点不对: ${pc!.baseUrls['gemini-cli']}`);
   assert(pc!.baseUrls['codex-cli'] === 'https://www.packyapi.ai/v1', `codex-cli 端点不对: ${pc!.baseUrls['codex-cli']}`);
-  assert(pc!.signupUrl === 'https://www.packyapi.ai/register?aff=js5W', `返利链接不对: ${pc!.signupUrl}`);
+  assert(pc!.signupUrl === 'https://www.packyapi.ai/register?aff=Zpx1', `返利链接不对: ${pc!.signupUrl}`);
 });
 
 test('星图 AstraFlow 的 API、CLI 中转预设与轮换池已完整上架（2026-10-20 补齐）', () => {

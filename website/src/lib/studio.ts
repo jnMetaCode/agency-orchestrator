@@ -1165,7 +1165,7 @@ export const API_PROVIDERS: ApiProviderMeta[] = [
   // Codex 默认 gpt-5.6-sol（价目表在列、支持 openai-response，已加进建议）；它给 Gemini 写的 gemini-3.6-flash
   // **不在** PackyCode 价目表里，没照抄。备用主机 cf.api.fan / slb-v1.api.fan / www.packyapi.com 也逐条探过：
   // /v1/models、chat/completions、messages、responses 均 401「无效的令牌」、乱写路径 404，是同一网关。
-  { id: "packycode", name: "PackyCode", hint: "www.packyapi.ai · 人民币 1:1 充值 · 新用户送 $1 体验额度", defaultBaseUrl: "https://www.packyapi.ai/v1", signupUrl: "https://www.packyapi.ai/register?aff=js5W", sponsor: true, modelSuggestions: ["qwen3.8-max", "glm-5", "kimi-k2.5", "claude-sonnet-5", "claude-opus-5", "gpt-5.6-sol"], imageModels: ["gpt-image-2"], usageQuery: "newapi" },
+  { id: "packycode", name: "PackyCode", hint: "www.packyapi.ai · 人民币 1:1 充值 · 新用户送 $1 体验额度", defaultBaseUrl: "https://www.packyapi.ai/v1", signupUrl: "https://www.packyapi.ai/register?aff=Zpx1", sponsor: true, modelSuggestions: ["qwen3.8-max", "glm-5", "kimi-k2.5", "claude-sonnet-5", "claude-opus-5", "gpt-5.6-sol"], imageModels: ["gpt-image-2"], usageQuery: "newapi" },
   // Sidrune AI（赞助商）——官方 OpenAI 兼容地址为 /v1。模型受 key 分组限制，绝不设
   // 全局默认值；测试连接会先用 key 拉 /models 再选真实模型。静态建议覆盖官方文档中的
   // Claude / GPT / Grok 示例；图片模型仅对开通相应图片能力的 key 有效。
@@ -1340,7 +1340,7 @@ export const CLI_RELAY_PRESETS: CliRelayPreset[] = [
   {
     name: "PackyCode",
     sponsor: true,
-    signupUrl: "https://www.packyapi.ai/register?aff=js5W",
+    signupUrl: "https://www.packyapi.ai/register?aff=Zpx1",
     anthropicApiBaseUrl: "https://www.packyapi.ai",
     baseUrls: {
       "claude-code": "https://www.packyapi.ai",

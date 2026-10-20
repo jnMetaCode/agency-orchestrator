@@ -53,7 +53,7 @@ export const SPONSOR_ROTATION: SponsorGuideEntry[] = [
   { providerId: 'cubence', name: 'Cubence', bonus: '首购 9 折', url: 'https://cubence.com/signup?code=SCW29JP9&source=agency' },
   { providerId: 'lanox', name: 'LanoX AI', bonus: '注册送 5 美金', url: 'https://lanox.ai/?c=X3RD38F7&inviteCode=A3HRUB6M' },
   { providerId: 'shengsuanyun', name: '胜算云', bonus: '注册送 5 元 Token', url: 'https://www.shengsuanyun.com/?from=CH_QKH696UI' },
-  { providerId: 'packycode', name: 'PackyCode', bonus: '新用户首充折扣 + $1 体验额度', url: 'https://www.packyapi.ai/register?aff=js5W' },
+  { providerId: 'packycode', name: 'PackyCode', bonus: '新用户首充折扣 + $1 体验额度', url: 'https://www.packyapi.ai/register?aff=Zpx1' },
   { providerId: 'fluxionai', name: 'Sidrune AI', bonus: '专属链接注册送 $3 API 额度', url: 'https://sidrune.ai/register?source=github&campaign=agencyagents&promo=agencyagents&aff=RQHWKAMQLX2S' },
   { providerId: 'astraflow', name: '星图 AstraFlow', bonus: '专属链接注册领 50 元算力金', url: 'https://www.ucloud.cn/site/active/astraflow-credit?ytag=geo_waituo_agencyagentszh' },
 ];

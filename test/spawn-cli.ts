@@ -7,12 +7,14 @@
  * 2. 只有真的会读 stdin 的 CLI 才允许把长 prompt 切到 stdin，否则模型会收到字面量 "-"。
  */
 import {
-  findExecutable, parseNpmShim, quoteWinArg, buildCmdLine, planLaunch,
+  findExecutable, parseNpmShim, quoteWinArg, buildCmdLine, planLaunch, spawnCLI,
 } from '../src/connectors/spawn-cli.js';
 import {
   chooseTransport, ARG_SAFE_LIMIT, ARG_HARD_LIMIT_WIN, ARG_HARD_LIMIT_POSIX,
   CLIBaseConnector,
 } from '../src/connectors/cli-base.js';
+import childProcess from 'node:child_process';
+import { syncBuiltinESMExports } from 'node:module';
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { extname, join } from 'node:path';
@@ -164,6 +166,72 @@ await test('.cmd shim → 用当前 Node 直接跑它的 JS 入口（参数原�
   assert(plan.args[1] === '-p' && plan.args[2] === NASTY_PROMPT, 'CLI 参数应原样跟在入口之后');
   assert(plan.viaCmd === false, '不应经过 cmd.exe');
   assert(plan.nodeRuntime === true, '应标记为 node 运行时（桌面端据此补 ELECTRON_RUN_AS_NODE）');
+});
+
+await test('spawnCLI resolves Windows npm shim using the caller environment, not the host PATH', async () => {
+  writeWinBin('ao-custom-env-probe.cmd', NPM_SHIM.replace('@google\\gemini-cli', 'gemini-cli'));
+  const descriptor = Object.getOwnPropertyDescriptor(process, 'platform')!;
+  let child: ReturnType<typeof spawnCLI>;
+  try {
+    Object.defineProperty(process, 'platform', { ...descriptor, value: 'win32' });
+    child = spawnCLI('ao-custom-env-probe', [], { env: { ...process.env, ...winEnv }, stdio: 'ignore' });
+  } finally { Object.defineProperty(process, 'platform', descriptor); }
+  await new Promise<void>((resolve, reject) => { child.once('error', reject); child.once('close', () => resolve()); });
+  assert(child.spawnfile === process.execPath, 'npm shim should use the existing Node launcher');
+  assert(child.spawnargs[1].startsWith(winBin), 'entry must come from options.env.PATH');
+});
+
+await test('guarded dsh npm entry is detected; incompatible engine fails before the CLI starts', () => {
+  const dshEntry = join(entryDir, 'index.js');
+  const original = '// entry';
+  writeFileSync(dshEntry, 'if (import.meta.main) console.log("should not run");');
+  writeWinBin('dsh.cmd', NPM_SHIM.replace('@google\\gemini-cli', 'gemini-cli'));
+  try {
+    const plan = planLaunch('dsh', ['--version'], 'dsh', winEnv, 'win32');
+    assert(plan.requiresImportMetaMain === true, 'must detect guarded dsh entry');
+    assert(!planLaunch('gemini', [], 'gemini', winEnv, 'win32').requiresImportMetaMain, 'other providers must not gain a dsh runtime requirement');
+    const platform = Object.getOwnPropertyDescriptor(process, 'platform')!;
+    const version = Object.getOwnPropertyDescriptor(process.versions, 'node')!;
+    try {
+      Object.defineProperty(process, 'platform', { ...platform, value: 'win32' });
+      Object.defineProperty(process.versions, 'node', { ...version, value: '20.18.3' });
+      let message = '';
+      try { spawnCLI('dsh', [], { env: winEnv }); } catch (error) { message = String(error); }
+      assert(message.includes('尚未启动 dsh') && message.includes('AO_CLI_NODE_PATH'), 'must reject before starting a silent CLI');
+    } finally {
+      Object.defineProperty(process, 'platform', platform);
+      Object.defineProperty(process.versions, 'node', version);
+    }
+  } finally { writeFileSync(dshEntry, original); }
+  assert(!planLaunch('dsh', [], 'dsh', winEnv, 'win32').requiresImportMetaMain, 'legacy entry must retain its previous runtime behavior');
+});
+
+await test('external dsh runtime preserves argv and removes Electron mode (synthetic capability probe)', async () => {
+  const entry = join(entryDir, 'index.js');
+  writeFileSync(entry, 'console.log(JSON.stringify({args:process.argv.slice(2), electron:process.env.ELECTRON_RUN_AS_NODE ?? "unset"})); // import.meta.main');
+  const platform = Object.getOwnPropertyDescriptor(process, 'platform')!;
+  const originalProbe = childProcess.execFileSync;
+  let child: ReturnType<typeof spawnCLI>;
+  try {
+    // Only the bounded capability probe is stubbed; the selected Node child really executes.
+    childProcess.execFileSync = (() => Buffer.from('supported')) as unknown as typeof childProcess.execFileSync;
+    syncBuiltinESMExports();
+    Object.defineProperty(process, 'platform', { ...platform, value: 'win32' });
+    child = spawnCLI('dsh', [NASTY_PROMPT, ''], { env: { ...process.env, ...winEnv,
+      AO_CLI_NODE_PATH: process.execPath, ELECTRON_RUN_AS_NODE: '1' }, stdio: ['ignore', 'pipe', 'pipe'] });
+  } finally {
+    Object.defineProperty(process, 'platform', platform);
+    childProcess.execFileSync = originalProbe;
+    syncBuiltinESMExports();
+  }
+  try {
+    let output = '';
+    child.stdout!.on('data', chunk => { output += chunk; });
+    await new Promise<void>((resolve, reject) => { child.once('error', reject); child.once('close', code => code === 0 ? resolve() : reject(Error('probe child failed'))); });
+    const actual = JSON.parse(output);
+    assert(actual.args[0] === NASTY_PROMPT && actual.args[1] === '', 'argv must stay intact');
+    assert(actual.electron === 'unset', 'external Node must not inherit Electron run mode');
+  } finally { writeFileSync(entry, '// entry'); }
 });
 
 await test('.exe → 直接启动真实可执行文件，含换行的参数照样能传', () => {
