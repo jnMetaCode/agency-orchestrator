@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { ArrowUpRight, Check, Copy, Search, X } from "lucide-react";
 import { SiteFooter } from "@/components/layout/SiteFooter";
 import { useLanguage } from "@/i18n/LanguageProvider";
@@ -73,27 +74,18 @@ export default function Experts() {
       : "浏览 7 个语言库、上千个可编排的 AI 专家角色,一句话让系统自动组队协作完成任务。",
   );
   const x = t.experts;
-  // 角色库切换：?lib= 直链优先（语言仓 README 外链用），否则跟随站点语言；切换写回 URL 便于分享
-  const [lib, setLibState] = useState<string>(() => {
-    if (typeof window !== "undefined") {
-      const qp = new URLSearchParams(window.location.search).get("lib");
-      if (qp && LIBS.includes(qp)) return qp;
-    }
-    return lang === "en" ? "en" : "zh";
-  });
-  const pickedRef = useRef(typeof window !== "undefined" && !!new URLSearchParams(window.location.search).get("lib"));
-  const setLib = (v: string) => {
-    pickedRef.current = true;
-    setLibState(v);
-    if (typeof window !== "undefined") {
-      const url = new URL(window.location.href);
-      url.searchParams.set("lib", v);
-      window.history.replaceState(null, "", url);
-    }
+  // Keep the selected library in router state, including navigation to the same page.
+  const [searchParams, setSearchParams] = useSearchParams();
+  const requestedLib = searchParams.get("lib");
+  const lib = requestedLib && LIBS.includes(requestedLib) ? requestedLib : lang === "en" ? "en" : "zh";
+  const setLib = (value: string) => {
+    if (!LIBS.includes(value)) return;
+    setSearchParams(previous => {
+      const next = new URLSearchParams(previous);
+      next.set("lib", value);
+      return next;
+    }, { replace: true });
   };
-  useEffect(() => {
-    if (!pickedRef.current) setLibState(lang === "en" ? "en" : "zh");
-  }, [lang]);
   const all = DATA[lib] ?? DATA.zh;
   const [q, setQ] = useState("");
   const [cat, setCat] = useState("all");
@@ -104,6 +96,15 @@ export default function Experts() {
   const [modal, setModal] = useState<Expert | null>(null);
   const [modalText, setModalText] = useState("");
   const [modalLoading, setModalLoading] = useState(false);
+  const promptRequest = useRef(0);
+  useEffect(() => {
+    promptRequest.current++;
+    setCat("all");
+    setModal(null);
+    setModalText("");
+    setModalLoading(false);
+    setCopiedKey(null);
+  }, [lib]);
 
   const fetchPrompt = useCallback(
     async (e: Expert): Promise<string> => {
@@ -141,15 +142,17 @@ export default function Experts() {
   }, [modal]);
 
   const openModal = async (e: Expert) => {
+    const request = ++promptRequest.current;
     setModal(e);
     setModalText("");
     setModalLoading(true);
     try {
-      setModalText(await fetchPrompt(e));
+      const text = await fetchPrompt(e);
+      if (request === promptRequest.current) setModalText(text);
     } catch {
-      setModalText("");
+      if (request === promptRequest.current) setModalText("");
     }
-    setModalLoading(false);
+    if (request === promptRequest.current) setModalLoading(false);
   };
 
   const categories = useMemo(() => {
@@ -179,8 +182,8 @@ export default function Experts() {
             <p className="mx-auto mt-4 text-pretty leading-relaxed text-muted-foreground">{x.subtitle}</p>
           </div>
 
-          <div className="mx-auto mt-8 flex max-w-xl gap-2">
-            <div className="relative flex-1">
+          <div className="mx-auto mt-8 flex max-w-3xl gap-2">
+            <div className="relative min-w-0 flex-1">
               <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
               <input
                 value={q}
@@ -189,19 +192,24 @@ export default function Experts() {
                 className="w-full rounded-xl border border-border/70 bg-card/60 py-2.5 pl-10 pr-3 text-sm outline-none focus:border-primary/40"
               />
             </div>
-            {LIBS.length > 2 && (
-              <select
-                value={lib}
-                onChange={(e) => { setLib(e.target.value); setCat("all"); }}
-                title={x.libLabel}
-                className="rounded-xl border border-border/70 bg-card/60 px-2.5 text-sm outline-none focus:border-primary/40"
-              >
-                {LIBS.map((k) => (
-                  <option key={k} value={k}>{LIB_LABELS[k]}</option>
-                ))}
-              </select>
+            {LIBS.length > 1 && (
+              <label className="flex shrink-0 items-center gap-2 text-sm text-muted-foreground">
+                <span className="hidden sm:inline">{x.libLabel}</span>
+                <select
+                  value={lib}
+                  onChange={(e) => { setLib(e.target.value); setCat("all"); setQ(""); }}
+                  aria-label={x.libLabel}
+                  aria-describedby="expert-language-hint"
+                  className="rounded-xl border border-border/70 bg-card/60 px-2.5 py-2.5 text-sm outline-none focus:border-primary/40"
+                >
+                  {LIBS.map((k) => (
+                    <option key={k} value={k}>{LIB_LABELS[k]}</option>
+                  ))}
+                </select>
+              </label>
             )}
           </div>
+          <p id="expert-language-hint" className="mx-auto mt-2 max-w-2xl text-center text-xs leading-relaxed text-muted-foreground">{x.libHint}</p>
 
           <div className="mt-5 flex flex-wrap items-center justify-center gap-2">
             <Chip active={cat === "all"} onClick={() => setCat("all")}>{x.all}</Chip>
@@ -222,10 +230,12 @@ export default function Experts() {
                 const failed = copiedKey === `fail:${k}`;
                 return (
                   <div
-                    key={k}
+                    key={`${lib}/${k}`}
+                    lang={lib}
+                    dir={lib === "ar" ? "rtl" : undefined}
                     className="flex flex-col rounded-2xl border border-border/70 bg-card/60 p-5 transition-colors hover:border-primary/40"
                   >
-                    <button type="button" onClick={() => openModal(e)} className="flex items-center gap-3 text-left">
+                    <button type="button" onClick={() => openModal(e)} className={cn("flex items-center gap-3", lib === "ar" ? "text-right" : "text-left")}>
                       <Avatar e={e} />
                       <div className="min-w-0">
                         <div className="truncate text-[11px] font-medium text-primary">{e.categoryName}</div>
