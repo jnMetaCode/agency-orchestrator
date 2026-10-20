@@ -24,7 +24,7 @@ inputs:
 
 steps:
   - id: vuln_scan
-    role: "engineering/engineering-security-engineer"
+    role: "security/security-architect"
     task: |
       请对以下代码/系统进行安全漏洞扫描：
 
@@ -49,7 +49,7 @@ steps:
     output: vuln_report
 
   - id: threat_detect
-    role: "engineering/engineering-threat-detection-engineer"
+    role: "security/security-threat-detection-engineer"
     task: |
       请对以下代码/系统进行威胁检测分析：
 
@@ -71,7 +71,7 @@ steps:
     output: threat_report
 
   - id: report
-    role: "engineering/engineering-security-engineer"
+    role: "security/security-architect"
     task: |
       请综合以下两份安全分析报告，输出最终安全审计报告：
 

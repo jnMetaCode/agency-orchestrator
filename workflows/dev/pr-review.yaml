@@ -44,7 +44,7 @@ steps:
     output: quality_report
 
   - id: security_check
-    role: "engineering/engineering-security-engineer"
+    role: "security/security-architect"
     task: |
       请对以下 PR 进行安全审查：
 

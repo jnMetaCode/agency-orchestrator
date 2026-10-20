@@ -58,7 +58,7 @@ steps:
     output: perf_report
 
   - id: security_final
-    role: "engineering/engineering-security-engineer"
+    role: "security/security-architect"
     task: |
       请对以下版本进行最终安全检查：
 

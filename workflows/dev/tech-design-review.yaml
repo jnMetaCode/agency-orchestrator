@@ -60,7 +60,7 @@ steps:
     depends_on: [design]
 
   - id: security_review
-    role: "engineering/engineering-security-engineer"
+    role: "security/security-architect"
     task: |
       请从安全角度评审以下技术方案：
 

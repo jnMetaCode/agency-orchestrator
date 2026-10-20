@@ -37,7 +37,7 @@ steps:
     output: arch_report
 
   - id: security_review
-    role: "engineering/engineering-security-engineer"
+    role: "security/security-architect"
     task: |
       请从安全角度评审以下代码：
 
