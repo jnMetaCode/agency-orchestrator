@@ -15,7 +15,7 @@
  *      —— 标记在顶层、不在 env 里，不影响 Claude Code 运行。
  */
 import { execFileSync } from 'node:child_process';
-import { createHash, randomUUID } from 'node:crypto';
+import { createHash, createHmac, randomBytes, randomUUID } from 'node:crypto';
 import { connect as netConnect } from 'node:net';
 import { openSync, closeSync, fsyncSync, existsSync, readFileSync, writeFileSync, copyFileSync, mkdirSync, renameSync, chmodSync, readdirSync, unlinkSync } from 'node:fs';
 import { homedir } from 'node:os';
@@ -30,7 +30,7 @@ export const AO_MANAGED_KEY = '_aoManagedProvider';
 /**
  * 顶层「指纹」键：记录 AO 写入时的 base_url。体检时拿它跟当前 env.ANTHROPIC_BASE_URL 比对——
  * 对不上就说明 env 被别的工具（cc-switch）或手改动过，AO 标记还在但已名不副实，此时不能再
- * 当"AO 切的"放行，必须走劫持红灯。只有 AO 自己写才知道这个值，外部工具无从伪造。
+ * 当"AO 切的"放行，必须走劫持红灯。这个值只是本地管理记录，不是不可伪造的来源身份凭证。
  */
 export const AO_MANAGED_BASEURL_KEY = '_aoManagedBaseUrl';
 
@@ -47,6 +47,23 @@ function claudeDir(): string {
 
 function settingsPath(): string {
   return join(claudeDir(), 'settings.json');
+}
+
+// Process-local opaque previews; never expose a digest of a key without a secret salt.
+const PREVIEW_KEY = randomBytes(32);
+export class ClaudeConfigChangedError extends Error {
+  readonly code = 'CONFIG_CHANGED';
+  constructor() { super('Claude 配置在确认后发生了变化，请刷新后重新确认'); }
+}
+function configRevision(): string {
+  const snapshot = ['settings.json', 'settings.local.json', '.credentials.json'].map(name => {
+    try { return [name, readFileSync(join(claudeDir(), name), 'utf-8')]; }
+    catch (e) { if ((e as NodeJS.ErrnoException).code === 'ENOENT') return [name, null]; throw e; }
+  });
+  return createHmac('sha256', PREVIEW_KEY).update(JSON.stringify(snapshot)).digest('hex');
+}
+function assertPreview(expectedRevision?: string): void {
+  if (expectedRevision !== undefined && configRevision() !== expectedRevision) throw new ClaudeConfigChangedError();
 }
 
 function backupIfExists(path: string): string | null {
@@ -137,8 +154,8 @@ export interface ClaudeApplyResult {
 /**
  * 把中转 provider 安全写入 ~/.claude/settings.json（全局，任意终端的 claude 都会读到）。
  */
-export function applyClaudeProvider(cfg: ClaudeApplyConfig): ClaudeApplyResult {
-  return withConfigLock(claudeDir(), () => applyClaudeProviderUnlocked(cfg), { create: true, cleanupTemps: ['settings.json', 'settings.local.json'] });
+export function applyClaudeProvider(cfg: ClaudeApplyConfig, opts: { expectedRevision?: string } = {}): ClaudeApplyResult {
+  return withConfigLock(claudeDir(), () => { assertPreview(opts.expectedRevision); return applyClaudeProviderUnlocked(cfg); }, { create: true, cleanupTemps: ['settings.json', 'settings.local.json'] });
 }
 
 function applyClaudeProviderUnlocked(cfg: ClaudeApplyConfig): ClaudeApplyResult {
@@ -176,6 +193,7 @@ function applyClaudeProviderUnlocked(cfg: ClaudeApplyConfig): ClaudeApplyResult 
 }
 
 export interface ClaudeSwitchStatus {
+  revision?: string;
   /**
    * 是否由 AO 主动切换（顶层有标记且 env 与指纹一致）→ 体检时识别为"AO 切的"，可一键切回，
    * 而非"被搞坏"。注意：标记在但 env 被别的工具改走（tampered）时，这里为 false —— 让红灯照常报。
@@ -195,6 +213,14 @@ export interface ClaudeSwitchStatus {
 
 /** 只读：当前 settings.json 指向哪个 provider、是否 AO 管理。不改任何文件。 */
 export function readClaudeSwitchStatus(): ClaudeSwitchStatus {
+  let revision: string | undefined;
+  try { revision = configRevision(); } catch { /* An unreadable snapshot cannot authorize a write. */ }
+  const status = readClaudeSwitchStatusUnlocked();
+  try { if (revision !== configRevision()) revision = undefined; } catch { revision = undefined; }
+  return { ...status, ...(revision ? { revision } : {}) };
+}
+
+function readClaudeSwitchStatusUnlocked(): ClaudeSwitchStatus {
   const path = settingsPath();
   if (!existsSync(path)) return { managed: false, active: false, tampered: false };
   let obj: any;
@@ -234,6 +260,7 @@ export interface ClaudeProxySyncResult {
 }
 
 export interface RestoreOptions extends ShellEnvOptions {
+  expectedRevision?: string;
   /** 测试/显式调用可直接传代理；生产默认从系统代理自动检测(macOS scutil / Windows 注册表)。 */
   proxyUrl?: string;
   detectSystemProxy?: boolean;
@@ -366,7 +393,7 @@ function syncClaudeProxyUnlocked(proxyUrl?: string): ClaudeProxySyncResult {
  * 并额外清掉 AO 管理标记，回到干净的官方登录状态。
  */
 export function restoreClaudeToOfficial(options: RestoreOptions = {}): RestoreResult {
-  return withConfigLock(claudeDir(), () => restoreClaudeToOfficialUnlocked(options), { cleanupTemps: ['settings.json', 'settings.local.json'] });
+  return withConfigLock(claudeDir(), () => { assertPreview(options.expectedRevision); return restoreClaudeToOfficialUnlocked(options); }, { cleanupTemps: ['settings.json', 'settings.local.json'] });
 }
 
 function restoreClaudeToOfficialUnlocked(options: RestoreOptions = {}): RestoreResult {

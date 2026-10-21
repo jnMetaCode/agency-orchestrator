@@ -32,7 +32,7 @@ import { normalizeBaseUrl, postChatCompletions, postApiEndpoint, endpointHint, j
 import { normalizeAnthropicBaseUrl } from '../dist/connectors/claude.js';
 import { adoptLegacyCodexRelay, applyCodexRelay, clearCodexRelay, CodexConfigChangedError, readCodexRelayStatus, removeLegacyCodexRelay } from '../dist/utils/codex-relay.js';
 import { diagnoseClaudeConfig, SNAPSHOT_ENV_KEYS } from '../dist/utils/claude-repair.js';
-import { applyClaudeProvider, restoreClaudeToOfficial, readClaudeSwitchStatus, readClaudeProxyStatus, probeProxyReachable, clearClaudeProxy, syncClaudeProxy, detectSystemProxy } from '../dist/utils/claude-apply.js';
+import { ClaudeConfigChangedError, applyClaudeProvider, restoreClaudeToOfficial, readClaudeSwitchStatus, readClaudeProxyStatus, probeProxyReachable, clearClaudeProxy, syncClaudeProxy, detectSystemProxy } from '../dist/utils/claude-apply.js';
 import { validateCustomProviderId, readCustomProviders, addCustomProvider, removeCustomProvider, updateCustomProvider } from '../dist/utils/custom-providers.js';
 import { rotatingSponsors, rotateFrom } from '../dist/utils/sponsor-guide.js';
 // 代理诊断与连接器共用同一份口径（curl 能通而 AO 连不上的头号原因）
@@ -2371,17 +2371,23 @@ app.post('/api/codex/legacy-adopt', (req, res) => {
   }
 });
 
-app.post('/api/claude/repair', (_req, res) => {
+function requireClaudePreview(req, res) {
+  if (typeof req.body?.expectedRevision === 'string' && /^[a-f0-9]{64}$/.test(req.body.expectedRevision)) return true;
+  res.status(400).json({ code: 'CONFIG_PREVIEW_REQUIRED', error: '请刷新 Claude 配置预览后重新确认' });
+  return false;
+}
+app.post('/api/claude/repair', (req, res) => {
+  if (!requireClaudePreview(req, res)) return;
   try {
     // 恢复官方登录的同时，把 macOS 当前系统代理（如 Clash）同步给 Claude Code，
     // 避免 GUI 正常而 CLI 因本地 DNS/TUN 路径不同出现 ECONNRESET。
     res.json({
       ok: true,
-      ...restoreClaudeToOfficial({ shellEnv: SHELL_ENV_SNAPSHOT }),
+      ...restoreClaudeToOfficial({ shellEnv: SHELL_ENV_SNAPSHOT, expectedRevision: req.body.expectedRevision }),
       health: diagnoseClaudeConfig({ shellEnv: SHELL_ENV_SNAPSHOT }),
     });
   } catch (err) {
-    res.status(500).json({ error: err?.message || String(err) });
+    res.status(err instanceof ClaudeConfigChangedError ? 409 : 500).json({ error: err?.message || String(err), ...(err instanceof ClaudeConfigChangedError ? { code: err.code } : {}) });
   }
 });
 
@@ -2389,6 +2395,7 @@ app.post('/api/claude/repair', (_req, res) => {
 // 让**任意终端**的 claude 直接用该中转（区别于 /api/config —— 那个只注入 AO 自己子进程的 env）。
 // 安全：claude-apply 写前必备份、merge 保留用户其它配置、打 _aoManagedProvider 标记、绝不碰 .credentials.json。
 app.get('/api/claude/status', (_req, res) => {
+  res.set('Cache-Control', 'no-store');
   try {
     res.json(readClaudeSwitchStatus());
   } catch (err) {
@@ -2396,6 +2403,7 @@ app.get('/api/claude/status', (_req, res) => {
   }
 });
 app.post('/api/claude/apply', (req, res) => {
+  if (!requireClaudePreview(req, res)) return;
   try {
     const b = req.body || {};
     const pid = b.providerId || b.provider;
@@ -2422,18 +2430,19 @@ app.post('/api/claude/apply', (req, res) => {
       sonnetModel: pickStr('sonnetModel', saved.sonnetModel),
       opusModel: pickStr('opusModel', saved.opusModel),
       haikuModel: pickStr('haikuModel', saved.haikuModel),
-    });
+    }, { expectedRevision: b.expectedRevision });
     res.json({ ok: true, ...result, status: readClaudeSwitchStatus() });
   } catch (err) {
-    res.status(500).json({ error: err?.message || String(err) });
+    res.status(err instanceof ClaudeConfigChangedError ? 409 : 500).json({ error: err?.message || String(err), ...(err instanceof ClaudeConfigChangedError ? { code: err.code } : {}) });
   }
 });
-app.post('/api/claude/restore', (_req, res) => {
+app.post('/api/claude/restore', (req, res) => {
+  if (!requireClaudePreview(req, res)) return;
   try {
     // restoreClaudeToOfficial 会保留 OAuth，并自动同步 macOS 当前系统代理。
-    res.json({ ok: true, ...restoreClaudeToOfficial({ shellEnv: SHELL_ENV_SNAPSHOT }), status: readClaudeSwitchStatus() });
+    res.json({ ok: true, ...restoreClaudeToOfficial({ shellEnv: SHELL_ENV_SNAPSHOT, expectedRevision: req.body.expectedRevision }), status: readClaudeSwitchStatus() });
   } catch (err) {
-    res.status(500).json({ error: err?.message || String(err) });
+    res.status(err instanceof ClaudeConfigChangedError ? 409 : 500).json({ error: err?.message || String(err), ...(err instanceof ClaudeConfigChangedError ? { code: err.code } : {}) });
   }
 });
 

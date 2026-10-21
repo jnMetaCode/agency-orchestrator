@@ -40,6 +40,36 @@ const cfg = {
 };
 
 try {
+  // Preview validation is independent of managed status and runs before backup/write.
+  const previewDir = join(sandbox, 'preview-profile');
+  mkdirSync(previewDir);
+  process.env.AO_CLAUDE_DIR = previewDir;
+  try {
+    const paths = ['settings.json', 'settings.local.json', '.credentials.json'];
+    writeFileSync(join(previewDir, paths[0]), JSON.stringify({ env: { ANTHROPIC_AUTH_TOKEN: 'synthetic-original' } }));
+    writeFileSync(join(previewDir, paths[1]), '{}');
+    writeFileSync(join(previewDir, paths[2]), JSON.stringify({ refresh: 'synthetic-oauth' }));
+    for (const [name, contents] of [
+      ['settings.json', JSON.stringify({ env: { ANTHROPIC_AUTH_TOKEN: 'synthetic-changed' } })],
+      ['settings.local.json', JSON.stringify({ env: { ANTHROPIC_MODEL: 'external-model' } })],
+      ['.credentials.json', JSON.stringify({ refresh: 'new-oauth' })],
+    ]) {
+      const revision = readClaudeSwitchStatus().revision;
+      assert(typeof revision === 'string' && /^[a-f0-9]{64}$/.test(revision), '只读 Claude 状态返回不透明预览版本');
+      writeFileSync(join(previewDir, name), contents);
+      const snapshot = paths.map(p => readFileSync(join(previewDir, p), 'utf-8'));
+      for (const action of [() => applyClaudeProvider(cfg, { expectedRevision: revision }), () => restoreClaudeToOfficial({ expectedRevision: revision, detectSystemProxy: false })]) {
+        let code = '';
+        try { action(); } catch (e) { code = (e as { code?: string }).code || ''; }
+        assert(code === 'CONFIG_CHANGED', `${name} 外部变化后切换/恢复拒绝旧预览`);
+        assert(paths.every((p, i) => readFileSync(join(previewDir, p), 'utf-8') === snapshot[i]) && readdirSync(previewDir).length === 3, '拒绝时不写文件、不创建备份');
+      }
+    }
+    applyClaudeProvider(cfg, { expectedRevision: readClaudeSwitchStatus().revision });
+    restoreClaudeToOfficial({ expectedRevision: readClaudeSwitchStatus().revision, detectSystemProxy: false });
+    assert(JSON.parse(readFileSync(join(previewDir, '.credentials.json'), 'utf-8')).refresh === 'new-oauth', '新预览切换/恢复保留外部更新的 OAuth');
+  } finally { process.env.AO_CLAUDE_DIR = sandbox; rmSync(previewDir, { recursive: true, force: true }); }
+
   // 1) 空目录首次 apply：新建 settings.json，写入 env 键 + 标记，无备份（原文件不存在）
   const r1 = applyClaudeProvider(cfg);
   assert(existsSync(settings), '首次 apply：settings.json 已创建');

@@ -30,11 +30,11 @@ export function ClaudeHealthCard() {
   // 有事(被劫持/代理不可达/刚修复完/有残留)时**自动展开**,该看见的时候一定看得见
   const [expanded, setExpanded] = useState(false);
 
-  const check = () => {
+  const check = (preserveError = false) => {
     setLoading(true);
     setFailed(false);
     setResult(null);
-    setApplyError(null);
+    if (!preserveError) setApplyError(null);
     Promise.all([
       api.claudeHealth(),
       // status / proxy 端点在旧后端可能不存在 —— 拿不到就当"无"，不影响体检主流程
@@ -62,43 +62,59 @@ export function ClaudeHealthCard() {
   };
   useEffect(check, []);
 
+  const busy = loading || repairing || restoring || applying || proxyBusy;
+  const confirmOperation = (message: string) => {
+    if (busy) return false;
+    if (!status?.revision) { setApplyError(tr.previewRequired); return false; }
+    return window.confirm(message);
+  };
+  const operationFailed = (e: unknown) => {
+    setApplyError(e instanceof Error ? e.message : String(e));
+    const code = (e as { body?: { code?: string } })?.body?.code;
+    if (code === "CONFIG_CHANGED" || code === "CONFIG_PREVIEW_REQUIRED") check(true);
+  };
+
   const repair = () => {
+    if (!confirmOperation(tr.restorePreview)) return;
     setRepairing(true);
     api
-      .repairClaude()
+      .repairClaude(status!.revision!)
       .then((r) => {
         setResult(r);
         setHealth(r.health);
+        void api.claudeSwitchStatus().then(setStatus).catch(() => setStatus(null));
       })
-      .catch(() => setFailed(true))
+      .catch(operationFailed)
       .finally(() => setRepairing(false));
   };
 
   // AO 主动切换后的"切回官方"：复用后端 restore（删中转 env 键 + 清 AO 标记，写前已备份）
   const restore = () => {
+    if (!confirmOperation(tr.restorePreview)) return;
     setRestoring(true);
     api
-      .restoreClaude()
+      .restoreClaude(status!.revision!)
       .then((r) => {
         setStatus(r.status);
         check(); // 刷新体检 + 状态
       })
-      .catch(() => setFailed(true))
+      .catch(operationFailed)
       .finally(() => setRestoring(false));
   };
 
   // 写入全局：把已配置的 Claude Code 中转写进 ~/.claude/settings.json，让系统 claude 直接用。
   // key 存服务端，前端只传 provider id；未配置中转时后端会返回友好错误提示。
   const applyGlobal = () => {
+    if (!confirmOperation(tr.applyPreview)) return;
     setApplying(true);
     setApplyError(null);
     api
-      .applyClaude("claude-code")
+      .applyClaude("claude-code", status!.revision!)
       .then((r) => {
         setStatus(r.status);
         check(); // 刷新为"已切换（蓝色）"状态
       })
-      .catch((e) => setApplyError(e?.message || String(e)))
+      .catch(operationFailed)
       .finally(() => setApplying(false));
   };
 
@@ -159,7 +175,7 @@ export function ClaudeHealthCard() {
         <Tip label={tr.recheck}>
           <button
             onClick={(e) => { e.stopPropagation(); check(); }}
-            disabled={loading || repairing}
+            disabled={busy}
             className="grid size-8 shrink-0 place-items-center rounded-lg border border-border/70 text-muted-foreground transition-colors hover:border-primary/40 hover:text-foreground disabled:opacity-50"
           >
             <RotateCw className={cn("size-3.5", loading && "animate-spin")} />
@@ -190,7 +206,7 @@ export function ClaudeHealthCard() {
                   </code>
                 </p>
               )}
-              <Button size="sm" variant="outline" onClick={restore} disabled={restoring} className="mt-1">
+              <Button size="sm" variant="outline" onClick={restore} disabled={busy} className="mt-1">
                 {restoring ? <Loader2 className="mr-1.5 size-3.5 animate-spin" /> : <Undo2 className="mr-1.5 size-3.5" />}
                 {restoring ? tr.restoring : tr.restoreBtn}
               </Button>
@@ -202,18 +218,19 @@ export function ClaudeHealthCard() {
             <>
               <p className="font-medium text-emerald-500">{tr.healthy}</p>
               <p className="text-muted-foreground">{tr.connectionRepairHint}</p>
-              <Button size="sm" onClick={repair} disabled={repairing} className="mt-1">
+              <Button size="sm" onClick={repair} disabled={busy} className="mt-1">
                 {repairing ? <Loader2 className="mr-1.5 size-3.5 animate-spin" /> : <LifeBuoy className="mr-1.5 size-3.5" />}
                 {repairing ? tr.repairing : tr.connectionRepairBtn}
               </Button>
               <p className="text-muted-foreground">{tr.applyHint}</p>
-              <Button size="sm" variant="outline" onClick={applyGlobal} disabled={applying} className="mt-1">
+              <Button size="sm" variant="outline" onClick={applyGlobal} disabled={busy} className="mt-1">
                 {applying ? <Loader2 className="mr-1.5 size-3.5 animate-spin" /> : <Globe className="mr-1.5 size-3.5" />}
                 {applying ? tr.applying : tr.applyBtn}
               </Button>
-              {applyError && <p className="text-red-500">{applyError}</p>}
             </>
           )}
+
+          {applyError && <p role="alert" className="text-red-500">{applyError}</p>}
 
           {/* 红灯：被劫持 */}
           {hijacked && (
@@ -224,7 +241,7 @@ export function ClaudeHealthCard() {
                   {tr.redirectedTo} <code className="rounded bg-muted px-1 py-0.5 text-foreground">{health.baseUrl}</code>
                 </p>
               )}
-              <Button size="sm" onClick={repair} disabled={repairing} className="mt-1">
+              <Button size="sm" onClick={repair} disabled={busy} className="mt-1">
                 {repairing ? <Loader2 className="mr-1.5 size-3.5 animate-spin" /> : <LifeBuoy className="mr-1.5 size-3.5" />}
                 {repairing ? tr.repairing : tr.repairBtn}
               </Button>
@@ -254,11 +271,11 @@ export function ClaudeHealthCard() {
               )}
               <div className="mt-1 flex flex-wrap gap-2">
                 {proxy.systemProxy && (proxy.drift || proxy.reachable === false) && (
-                  <Button size="sm" variant="outline" onClick={updateProxy} disabled={proxyBusy}>
+                  <Button size="sm" variant="outline" onClick={updateProxy} disabled={busy}>
                     {tr.proxyUpdate}
                   </Button>
                 )}
-                <Button size="sm" variant="ghost" onClick={removeProxy} disabled={proxyBusy} className="text-muted-foreground">
+                <Button size="sm" variant="ghost" onClick={removeProxy} disabled={busy} className="text-muted-foreground">
                   {proxyBusy ? tr.proxyRemoving : tr.proxyRemove}
                 </Button>
               </div>

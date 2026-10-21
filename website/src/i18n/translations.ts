@@ -123,6 +123,9 @@ const zh = {
       duplicateSuffix: " 副本",
       duplicateNote: "复制自 ",
       repair: {
+        previewRequired: "请刷新体检以获取配置预览；旧版引擎需更新并重启。",
+        applyPreview: "将服务器当前保存的 Claude 中转连接写入全局 settings.json，影响此后启动的终端会话；模型映射按已保存设置写入，不验证登录或重启已有会话。保留 OAuth，写前备份。确定继续？",
+        restorePreview: "将移除全局 settings.json 和 settings.local.json 中的中转/模型覆盖及 AO 标记，并可能同步系统代理；保留 OAuth，不恢复此前的第三方供应商，也不保证官方账号已登录。写前备份。确定继续？",
         title: "系统 Claude Code 体检",
         subtitle: "检测本机 ~/.claude 是否被别的软件或手动写坏（假 token / 中转地址顶掉官方登录）",
         healthy: "正常 · 官方登录未被篡改",
@@ -1070,6 +1073,9 @@ const en: typeof zh = {
       duplicateSuffix: " copy",
       duplicateNote: "Duplicated from ",
       repair: {
+        previewRequired: "Refresh the health check for a configuration preview. Update and restart an older engine.",
+        applyPreview: "Write the currently saved server-side Claude relay and model mappings into global settings.json for subsequently launched sessions. Preserves OAuth and creates a backup; does not verify login or restart active sessions. Continue?",
+        restorePreview: "Remove relay/model overrides and AO markers from global settings.json and settings.local.json; may synchronize the system proxy. Preserves OAuth. Does not restore a previous third-party provider or guarantee official sign-in. Backed up first. Continue?",
         title: "System Claude Code health",
         subtitle: "Detect whether this machine's ~/.claude was broken by other software or by hand (fake token / relay URL overriding the official login)",
         healthy: "Healthy · official login intact",

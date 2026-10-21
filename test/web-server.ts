@@ -481,7 +481,13 @@ try {
     assert(h2.baseUrl === 'https://evil.example.com', '真劫持：报出被改道的端点');
 
     // 急救后必须回到绿灯，不能因 AO 自注入的 env 卡在红灯
-    const rep = await (await fetch(base2 + '/api/claude/repair', { method: 'POST' })).json();
+    const claudePreview = (await (await fetch(base2 + '/api/claude/status')).json()).revision;
+    assert(/^[a-f0-9]{64}$/.test(claudePreview), 'Claude 状态带预览版本');
+    for (const endpoint of ['/api/claude/apply', '/api/claude/restore', '/api/claude/repair']) {
+      assert(await post(base2, endpoint, {}) === 400, `${endpoint} 缺少预览拒绝执行`);
+      assert(await post(base2, endpoint, { provider: 'claude-code', expectedRevision: '0'.repeat(64), baseUrl: 'https://example.test', apiKey: 'synthetic-key' }) === 409, `${endpoint} 过期预览拒绝执行`);
+    }
+    const rep = await (await fetch(base2 + '/api/claude/repair', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ expectedRevision: claudePreview }) })).json();
     assert(rep.changed === true, '急救：有改动');
     assert((rep.shellOverridesRemaining || []).length === 0, '急救后不再谎报 shell 层残留');
     assert(rep.health?.healthy === true, '急救后体检转绿（不会卡在红灯）');

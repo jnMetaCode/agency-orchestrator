@@ -707,6 +707,7 @@ export interface ClaudeRepairResult {
 }
 // 系统 Claude Code 全局切换状态 / 切回官方（后端 src/utils/claude-apply.ts）
 export interface ClaudeSwitchStatus {
+  revision?: string;
   managed: boolean;            // AO 主动切换且 env 与指纹一致（被外部改走时为 false，好让红灯照报）
   managedProviderId?: string;
   baseUrl?: string;
@@ -937,14 +938,14 @@ export const api = {
     postJSON<ScoreResult>("/prompt/score", body),
   // ── 系统 Claude Code 急救：诊断/修复被别的软件或手动写坏的全局 ~/.claude/settings.json ──
   claudeHealth: () => getJSON<ClaudeHealth>("/claude/health"),
-  repairClaude: () => postJSON<ClaudeRepairResult>("/claude/repair", {}),
+  repairClaude: (expectedRevision: string) => postJSON<ClaudeRepairResult>("/claude/repair", { expectedRevision }),
   claudeSwitchStatus: () => getJSON<ClaudeSwitchStatus>("/claude/status"),
-  restoreClaude: () => postJSON<ClaudeRestoreResult>("/claude/restore", {}),
+  restoreClaude: (expectedRevision: string) => postJSON<ClaudeRestoreResult>("/claude/restore", { expectedRevision }),
   adoptLegacyCodexRelay: (body: { expectedBaseUrl?: string; expectedRevision: string }) => postJSON<{ ok: boolean }>("/codex/legacy-adopt", body),
   removeLegacyCodexRelay: (body: { deleteKey: boolean; expectedBaseUrl?: string; expectedRevision: string }) =>
     postJSON<{ ok: boolean; backups: string[]; keptModel?: string; keyDeleted: boolean }>("/codex/legacy-remove", body),
   // 把已配置的中转写入全局 ~/.claude/settings.json（后端从 web-keys.json 解析 key，前端只传 provider id）
-  applyClaude: (provider: string) => postJSON<ClaudeApplyResult>("/claude/apply", { provider }),
+  applyClaude: (provider: string, expectedRevision: string) => postJSON<ClaudeApplyResult>("/claude/apply", { provider, expectedRevision }),
   claudeProxy: () => getJSON<ClaudeProxyStatus>("/claude/proxy"),
   syncClaudeProxy: () => postJSON<{ ok: boolean; configured: boolean; changed: boolean; proxyUrl?: string }>("/claude/proxy/sync", {}),
   clearClaudeProxy: () => postJSON<{ ok: boolean; changed: boolean }>("/claude/proxy/clear", {}),
