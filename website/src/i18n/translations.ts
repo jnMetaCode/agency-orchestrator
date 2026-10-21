@@ -123,6 +123,9 @@ const zh = {
       duplicateSuffix: " 副本",
       duplicateNote: "复制自 ",
       repair: {
+        targetPreview: "目标主机：{origin}\n供应商：{provider}\n默认模型：{model}\nSonnet：{sonnet}\nOpus：{opus}\nHaiku：{haiku}\n认证字段：{field}（不显示 key）\n预览有效至：{expires}",
+        unknownTarget: "无法确认 HTTP(S) 主机，请取消并检查连接",
+        noModelOverride: "未指定；按受管字段清理规则处理",
         previewRequired: "请刷新体检以获取配置预览；旧版引擎需更新并重启。",
         applyPreview: "将服务器当前保存的 Claude 中转连接写入全局 settings.json，影响此后启动的终端会话；模型映射按已保存设置写入，不验证登录或重启已有会话。保留 OAuth，写前备份。确定继续？",
         restorePreview: "将移除全局 settings.json 和 settings.local.json 中的中转/模型覆盖及 AO 标记，并可能同步系统代理；保留 OAuth，不恢复此前的第三方供应商，也不保证官方账号已登录。写前备份。确定继续？",
@@ -1073,6 +1076,9 @@ const en: typeof zh = {
       duplicateSuffix: " copy",
       duplicateNote: "Duplicated from ",
       repair: {
+        targetPreview: "Target host: {origin}\nProvider: {provider}\nDefault model: {model}\nSonnet: {sonnet}\nOpus: {opus}\nHaiku: {haiku}\nCredential field: {field} (key hidden)\nPreview expires: {expires}",
+        unknownTarget: "HTTP(S) host unconfirmed; cancel and check the connection",
+        noModelOverride: "Not specified; managed-field cleanup rules apply",
         previewRequired: "Refresh the health check for a configuration preview. Update and restart an older engine.",
         applyPreview: "Write the currently saved server-side Claude relay and model mappings into global settings.json for subsequently launched sessions. Preserves OAuth and creates a backup; does not verify login or restart active sessions. Continue?",
         restorePreview: "Remove relay/model overrides and AO markers from global settings.json and settings.local.json; may synchronize the system proxy. Preserves OAuth. Does not restore a previous third-party provider or guarantee official sign-in. Backed up first. Continue?",

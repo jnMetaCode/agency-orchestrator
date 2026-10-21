@@ -49,6 +49,7 @@ import { normalizeProxyInput, readProxySetting, writeProxySetting, snapshotProxy
 import { registerShengsuanyunBatchRoutes } from './shengsuanyun-batch.js';
 import { OPTIONAL_ROLE_LIBRARIES, findOptionalRoleLibrary, installOptionalRoleLibrary } from './role-libraries.js';
 import { registerToolStatusRoute } from './tool-status.js';
+import { createTargetPreviews, TargetPreviewError, claudeTargetSummary } from './config-operation-preview.js';
 
 // Codex 没有环境变量覆盖机制，中转配置写在 ~/.codex/config.toml + auth.json 里，
 // 用固定的内部 provider id（不管用户填的是哪家中转商），避免还要在 UI 里加个
@@ -2402,39 +2403,52 @@ app.get('/api/claude/status', (_req, res) => {
     res.status(500).json({ error: err?.message || String(err) });
   }
 });
+const targetPreviews = createTargetPreviews();
+class ClaudeTargetUnavailableError extends Error {}
+function resolveClaudeTarget(b) {
+  const pid = b.providerId || b.provider;
+  if (typeof pid !== 'string' || !pid || pid.length > 160) throw new ClaudeTargetUnavailableError('providerId 无效');
+  const saved = readKeys()[pid] || {};
+  const spec = API_PROVIDER_MAP[pid] || remoteProviderSpec(pid);
+  const pickStr = (k, fallback) => (typeof b[k] === 'string' && b[k].trim() ? b[k].trim() : fallback);
+  const cfg = {
+    providerId: pid,
+    baseUrl: pickStr('baseUrl', saved.baseUrl || spec?.defaultBaseUrl || ''),
+    apiKey: pickStr('apiKey', saved.apiKey || ''),
+    apiKeyField: b.apiKeyField === 'ANTHROPIC_API_KEY' ? 'ANTHROPIC_API_KEY' : 'ANTHROPIC_AUTH_TOKEN',
+    model: pickStr('model', saved.model), sonnetModel: pickStr('sonnetModel', saved.sonnetModel),
+    opusModel: pickStr('opusModel', saved.opusModel), haikuModel: pickStr('haikuModel', saved.haikuModel),
+  };
+  if (!cfg.baseUrl || !cfg.apiKey) throw new ClaudeTargetUnavailableError('请先保存 Claude 中转连接的 base_url 和 API key');
+  if (/[^\x20-\x7E]/.test(cfg.apiKey)) throw new ClaudeTargetUnavailableError('API key 含非 ASCII 字符，请检查复制内容');
+  return cfg;
+}
+function claudeOperationError(res, err) {
+  const status = err instanceof TargetPreviewError ? err.status : err instanceof ClaudeConfigChangedError ? 409 : err instanceof ClaudeTargetUnavailableError ? 400 : 500;
+  res.status(status).json({ error: err?.message || String(err),
+    ...((err instanceof TargetPreviewError || err instanceof ClaudeConfigChangedError) ? { code: err.code } : {}) });
+}
+app.post('/api/claude/apply-preview', (req, res) => {
+  res.set('Cache-Control', 'no-store');
+  try {
+    const target = resolveClaudeTarget(req.body || {});
+    const expectedRevision = readClaudeSwitchStatus().revision;
+    if (!expectedRevision) return res.status(409).json({ code: 'CONFIG_PREVIEW_REQUIRED', error: '无法确认全局配置，请刷新后重试' });
+    res.json({ expectedRevision, ...targetPreviews.issue('claude/global/apply', expectedRevision, target), summary: claudeTargetSummary(target) });
+  } catch (err) { claudeOperationError(res, err); }
+});
 app.post('/api/claude/apply', (req, res) => {
   if (!requireClaudePreview(req, res)) return;
   try {
     const b = req.body || {};
-    const pid = b.providerId || b.provider;
-    if (!pid) return res.status(400).json({ error: 'providerId 必填' });
-    // 前端只需传 provider id —— base_url / key / 模型映射未显式传时，从已保存配置 + 注册表默认值解析。
-    // key 存在服务端 web-keys.json，不经前端往返，更安全。
-    const saved = readKeys()[pid] || {};
-    const spec = API_PROVIDER_MAP[pid] || remoteProviderSpec(pid);
-    const pickStr = (k, fallback) => (typeof b[k] === 'string' && b[k].trim() ? b[k].trim() : fallback);
-    const baseUrl = pickStr('baseUrl', saved.baseUrl || spec?.defaultBaseUrl || '');
-    const apiKey = pickStr('apiKey', saved.apiKey || '');
-    if (typeof apiKey === 'string' && /[^\x20-\x7E]/.test(apiKey)) {
-      return res.status(400).json({ error: 'API key 含中文/全角字符——通常是复制时把说明文字一起带上了，请只粘贴 key 本身' });
-    }
-    if (!baseUrl || !apiKey) {
-      return res.status(400).json({ error: `缺少 ${pid} 的 base_url 或 API key —— 请先在服务商配置里填好再写入全局` });
-    }
-    const result = applyClaudeProvider({
-      providerId: String(pid),
-      baseUrl,
-      apiKey,
-      apiKeyField: b.apiKeyField === 'ANTHROPIC_API_KEY' ? 'ANTHROPIC_API_KEY' : undefined,
-      model: pickStr('model', saved.model),
-      sonnetModel: pickStr('sonnetModel', saved.sonnetModel),
-      opusModel: pickStr('opusModel', saved.opusModel),
-      haikuModel: pickStr('haikuModel', saved.haikuModel),
-    }, { expectedRevision: b.expectedRevision });
+    if (typeof b.targetRevision !== 'string' || !b.targetRevision) throw new TargetPreviewError(true);
+    let target;
+    try { target = resolveClaudeTarget(b); }
+    catch (err) { if (err instanceof ClaudeTargetUnavailableError) throw new TargetPreviewError(); throw err; }
+    targetPreviews.verify(b.targetRevision, 'claude/global/apply', b.expectedRevision, target);
+    const result = applyClaudeProvider(target, { expectedRevision: b.expectedRevision });
     res.json({ ok: true, ...result, status: readClaudeSwitchStatus() });
-  } catch (err) {
-    res.status(err instanceof ClaudeConfigChangedError ? 409 : 500).json({ error: err?.message || String(err), ...(err instanceof ClaudeConfigChangedError ? { code: err.code } : {}) });
-  }
+  } catch (err) { claudeOperationError(res, err); }
 });
 app.post('/api/claude/restore', (req, res) => {
   if (!requireClaudePreview(req, res)) return;

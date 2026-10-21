@@ -724,6 +724,12 @@ export interface ClaudeRestoreResult {
   proxySync: { configured: boolean; changed: boolean; proxyUrl?: string; backup: string | null; reason?: string };
   status: ClaudeSwitchStatus;
 }
+export interface ClaudeApplyPreview {
+  expectedRevision: string;
+  targetRevision: string;
+  expiresAt: string;
+  summary: { scope: "global"; provider: string; endpointOrigin?: string; model?: string; sonnetModel?: string; opusModel?: string; haikuModel?: string; credentialField: string; hasKey: boolean };
+}
 export interface ClaudeApplyResult {
   ok: boolean;
   path: string;
@@ -945,7 +951,8 @@ export const api = {
   removeLegacyCodexRelay: (body: { deleteKey: boolean; expectedBaseUrl?: string; expectedRevision: string }) =>
     postJSON<{ ok: boolean; backups: string[]; keptModel?: string; keyDeleted: boolean }>("/codex/legacy-remove", body),
   // 把已配置的中转写入全局 ~/.claude/settings.json（后端从 web-keys.json 解析 key，前端只传 provider id）
-  applyClaude: (provider: string, expectedRevision: string) => postJSON<ClaudeApplyResult>("/claude/apply", { provider, expectedRevision }),
+  previewClaudeApply: (provider: string) => postJSON<ClaudeApplyPreview>("/claude/apply-preview", { provider }),
+  applyClaude: (provider: string, expectedRevision: string, targetRevision: string) => postJSON<ClaudeApplyResult>("/claude/apply", { provider, expectedRevision, targetRevision }),
   claudeProxy: () => getJSON<ClaudeProxyStatus>("/claude/proxy"),
   syncClaudeProxy: () => postJSON<{ ok: boolean; configured: boolean; changed: boolean; proxyUrl?: string }>("/claude/proxy/sync", {}),
   clearClaudeProxy: () => postJSON<{ ok: boolean; changed: boolean }>("/claude/proxy/clear", {}),

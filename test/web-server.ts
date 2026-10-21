@@ -483,11 +483,30 @@ try {
     // 急救后必须回到绿灯，不能因 AO 自注入的 env 卡在红灯
     const claudePreview = (await (await fetch(base2 + '/api/claude/status')).json()).revision;
     assert(/^[a-f0-9]{64}$/.test(claudePreview), 'Claude 状态带预览版本');
-    for (const endpoint of ['/api/claude/apply', '/api/claude/restore', '/api/claude/repair']) {
+    for (const endpoint of ['/api/claude/restore', '/api/claude/repair']) {
       assert(await post(base2, endpoint, {}) === 400, `${endpoint} 缺少预览拒绝执行`);
       assert(await post(base2, endpoint, { provider: 'claude-code', expectedRevision: '0'.repeat(64), baseUrl: 'https://example.test', apiKey: 'synthetic-key' }) === 409, `${endpoint} 过期预览拒绝执行`);
     }
-    const rep = await (await fetch(base2 + '/api/claude/repair', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ expectedRevision: claudePreview }) })).json();
+    const previewResponse = await fetch(base2 + '/api/claude/apply-preview', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ provider: 'claude-code' }) });
+    const targetPreview = await previewResponse.json();
+    assert(previewResponse.status === 200 && previewResponse.headers.get('cache-control') === 'no-store', '目标连接预览只读且禁止缓存');
+    assert(targetPreview.summary.endpointOrigin === 'https://relay.example.com' && !JSON.stringify(targetPreview).includes('sk-relay-test'), '目标预览显示脱敏主机，不含凭据');
+    assert(await post(base2, '/api/claude/apply', { provider: 'claude-code', expectedRevision: targetPreview.expectedRevision }) === 400, '有源版本但缺目标确认时拒绝写入');
+    const keysPath = join(dataDir2, '.local', 'web-keys.json');
+    const previousKeys = readFileSync(keysPath, 'utf-8');
+    writeFileSync(keysPath, JSON.stringify({ 'claude-code': { apiKey: 'synthetic-new-saved-key', baseUrl: 'https://relay.example.com' } }));
+    const beforeApply = readFileSync(join(claudeDir2, 'settings.json'), 'utf-8');
+    assert(await post(base2, '/api/claude/apply', { provider: 'claude-code', expectedRevision: targetPreview.expectedRevision, targetRevision: targetPreview.targetRevision }) === 409, '服务器 key 变化但全局配置未变，拒绝旧目标确认');
+    assert(readFileSync(join(claudeDir2, 'settings.json'), 'utf-8') === beforeApply, '目标冲突不改全局配置');
+    writeFileSync(keysPath, '{}');
+    assert(await post(base2, '/api/claude/apply', { provider: 'claude-code', expectedRevision: targetPreview.expectedRevision, targetRevision: targetPreview.targetRevision }) === 409, '目标连接被移除也按过期确认拒绝');
+    writeFileSync(keysPath, JSON.stringify({ 'claude-code': { apiKey: 'synthetic-new-saved-key', baseUrl: 'https://relay.example.com' } }));
+    const freshTarget = await (await fetch(base2 + '/api/claude/apply-preview', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ provider: 'claude-code' }) })).json();
+    assert(await post(base2, '/api/claude/apply', { provider: 'claude-code', expectedRevision: freshTarget.expectedRevision, targetRevision: freshTarget.targetRevision }) === 200, '新目标确认可写入更新后的连接');
+    assert(JSON.parse(readFileSync(join(claudeDir2, 'settings.json'), 'utf-8')).env.ANTHROPIC_AUTH_TOKEN === 'synthetic-new-saved-key', '实际写入和确认的目标 key 一致');
+    writeFileSync(keysPath, previousKeys);
+    const repairRevision = (await (await fetch(base2 + '/api/claude/status')).json()).revision;
+    const rep = await (await fetch(base2 + '/api/claude/repair', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ expectedRevision: repairRevision }) })).json();
     assert(rep.changed === true, '急救：有改动');
     assert((rep.shellOverridesRemaining || []).length === 0, '急救后不再谎报 shell 层残留');
     assert(rep.health?.healthy === true, '急救后体检转绿（不会卡在红灯）');

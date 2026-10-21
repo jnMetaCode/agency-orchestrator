@@ -1,5 +1,5 @@
 import { ChevronDown, Globe, LifeBuoy, Loader2, Network, RotateCw, ShieldAlert, ShieldCheck, Undo2 } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Tip } from "@/components/ui/tip";
 import { useLanguage } from "@/i18n/LanguageProvider";
@@ -29,6 +29,9 @@ export function ClaudeHealthCard() {
   // 折叠态：健康时这张卡平时不需要看,收成一行别把供应商列表顶出首屏;
   // 有事(被劫持/代理不可达/刚修复完/有残留)时**自动展开**,该看见的时候一定看得见
   const [expanded, setExpanded] = useState(false);
+  const applyRequest = useRef(0);
+  const applyInFlight = useRef(false);
+  useEffect(() => () => { applyRequest.current++; }, []);
 
   const check = (preserveError = false) => {
     setLoading(true);
@@ -71,7 +74,7 @@ export function ClaudeHealthCard() {
   const operationFailed = (e: unknown) => {
     setApplyError(e instanceof Error ? e.message : String(e));
     const code = (e as { body?: { code?: string } })?.body?.code;
-    if (code === "CONFIG_CHANGED" || code === "CONFIG_PREVIEW_REQUIRED") check(true);
+    if (["CONFIG_CHANGED", "CONFIG_PREVIEW_REQUIRED", "TARGET_PREVIEW_CHANGED", "TARGET_PREVIEW_REQUIRED"].includes(code || "")) check(true);
   };
 
   const repair = () => {
@@ -104,18 +107,35 @@ export function ClaudeHealthCard() {
 
   // 写入全局：把已配置的 Claude Code 中转写进 ~/.claude/settings.json，让系统 claude 直接用。
   // key 存服务端，前端只传 provider id；未配置中转时后端会返回友好错误提示。
-  const applyGlobal = () => {
-    if (!confirmOperation(tr.applyPreview)) return;
+  const applyGlobal = async () => {
+    if (busy || applyInFlight.current) return;
+    applyInFlight.current = true;
+    const request = ++applyRequest.current;
     setApplying(true);
     setApplyError(null);
-    api
-      .applyClaude("claude-code", status!.revision!)
-      .then((r) => {
-        setStatus(r.status);
-        check(); // 刷新为"已切换（蓝色）"状态
-      })
-      .catch(operationFailed)
-      .finally(() => setApplying(false));
+    try {
+      const preview = await api.previewClaudeApply("claude-code");
+      if (request !== applyRequest.current) return;
+      const summary = preview.summary;
+      const description = tr.targetPreview
+        .replace("{origin}", summary.endpointOrigin || tr.unknownTarget)
+        .replace("{provider}", summary.provider)
+        .replace("{model}", summary.model || tr.noModelOverride)
+        .replace("{sonnet}", summary.sonnetModel || tr.noModelOverride)
+        .replace("{opus}", summary.opusModel || tr.noModelOverride)
+        .replace("{haiku}", summary.haikuModel || tr.noModelOverride)
+        .replace("{field}", summary.credentialField)
+        .replace("{expires}", new Date(preview.expiresAt).toLocaleTimeString());
+      if (!window.confirm(`${tr.applyPreview}\n\n${description}`)) return;
+      const r = await api.applyClaude("claude-code", preview.expectedRevision, preview.targetRevision);
+      if (request !== applyRequest.current) return;
+      setStatus(r.status);
+      check();
+    } catch (e) { if (request === applyRequest.current) operationFailed(e); }
+    finally {
+      applyInFlight.current = false;
+      if (request === applyRequest.current) setApplying(false);
+    }
   };
 
   // 无后端（演示站）：体检失败就整卡隐藏，不干扰主流程。
