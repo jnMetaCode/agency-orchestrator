@@ -44,22 +44,28 @@ afterSign 的 ad-hoc 重签也会自动跳过）：
 
 ## Windows 代码签名
 
-去掉 SmartScreen 提示需要**一张代码签名证书**（要花钱），而且 2023-06 起证书必须存在硬件/云 HSM 里，不能再直接用 `.pfx`。三条路：
+Windows 签名用于证明发布者身份并验证文件完整性。它**不保证立即消除 SmartScreen 警告**；新发布者仍需要积累信誉。EV 证书也不再享有立即跳过警告的待遇。
 
-| 方案 | 成本 | 即时去警告？ | 备注 |
-|---|---|---|---|
-| **OV 证书**(DigiCert/Sectigo 等) | ~$100–400/年 | ❌ 要靠下载量攒 SmartScreen 声誉 | 需企业主体 + 硬件令牌 |
-| **EV 证书** | ~$300–600+/年 | ✅ 一发布即无警告 | 需企业主体 + 硬件令牌，最贵 |
-| **Azure Trusted Signing** | ~$10/月 | 逐步建立 | **最省**，可在 CI 自动签；要求公司满 3 年或走个人核验 |
+| 方案 | 费用与条件 | 当前评估 |
+|---|---|---|
+| **SignPath Foundation** | 符合条件的开源项目可申请免费签名，需审核、来源验证与人工批准 | AO 正在准备申请，**未提交、未获批**；见 [申请材料与差距](SIGNPATH.md) |
+| **OV 代码签名证书** | 微软给出的参考价 $150–300/年；硬件令牌 / 云 HSM、服务和地区费用另核 | 先向证书商确认申请主体与地区是否支持，再决定购买 |
+| **EV 证书** | 通常更贵，审核更严格 | 不应仅为消除 SmartScreen 警告购买 |
+| **Azure Artifact Signing**（原 Trusted Signing） | 约 $9.99/月；目前个人主体仅美国、加拿大，组织主体限美国、加拿大、欧盟、英国 | 澳门个人不在当前所列支持范围；不是改 Apple ID 地区就能开通 |
+| **Microsoft Store MSIX** | 商店审核后由微软重新签名，无需单独购买签名证书 | 需要适配 MSIX 与商店发布；当前 EXE 安装包不自动享受这一机制 |
 
-启用思路：用所选服务在 CI 里对 `desktop/release/*.exe` 签名（electron-builder 支持 `signtool` / 自定义 sign hook 或 Azure Trusted Signing action），再上传到 Release。当前 workflow 未接 Windows 签名，需要时再加一步。
+价格、地区和可用性以实际申请及服务商最新说明为准。普通公开代码签名证书私钥有硬件 / 云 HSM 保管要求，不能假设拿到一个软件 `.pfx` 就能直接在 CI 使用。
+
+当前 workflow **尚未接入 Windows 签名**。接入时必须明确应用 EXE、安装包和卸载程序的签名范围，并在最终签名之后生成校验文件和 blockmap，验签失败不得发布签名版本。
+
+来源：[微软签名方案对比](https://learn.microsoft.com/en-us/windows/apps/package-and-deploy/code-signing-options)、[SignPath 条件](https://signpath.org/terms.html)。
 
 ---
 
 ## 优先级建议
 
 1. **先 macOS 公证**（硬拦，体验最差，$99/年固定）。
-2. **Windows 看量再说**，要做优先 **Azure Trusted Signing**（最便宜、能 CI）。
+2. **Windows 先评估 SignPath 开源免费申请**，审核通过再接入；不符合时再比较适用地区的商业证书或商店方案。
 3. Linux 不用签。
 
 在那之前，未签名版配合上面的绕过说明完全够用。
