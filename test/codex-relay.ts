@@ -45,6 +45,27 @@ try {
   assert(after.OPENAI_API_KEY === undefined && after.tokens?.refresh === 'r1', '清除只删 key，OAuth tokens 原样留着');
   assert(readdirSync(dir).some((f) => f.includes('.ao-backup-')), '清除也留了备份（以前这条路径一个备份都不留）');
 
+  console.log('\n─── 普通切换和恢复的预览版本 ───');
+  const proposal = { providerId: 'ao-relay', name: 'AO', baseUrl: 'https://preview.example/v1', apiKey: 'synthetic-preview' };
+  const oldPreview = readCodexRelayStatus('ao-relay').revision!;
+  writeFileSync(auth, JSON.stringify({ tokens: { refresh: 'external-after-preview' } }));
+  const snapshots = [toml, auth].map(path => readFileSync(path, 'utf-8'));
+  const beforeFiles = readdirSync(dir).sort().join();
+  for (const action of [() => applyCodexRelay(proposal, { expectedRevision: oldPreview }), () => clearCodexRelay('ao-relay', { expectedRevision: oldPreview })]) {
+    let code = '';
+    try { action(); } catch (e) { code = (e as { code?: string }).code || ''; }
+    assert(code === 'CONFIG_CHANGED', '事务内拒绝 OAuth 修改后的普通切换/恢复');
+    assert([toml, auth].every((path, i) => readFileSync(path, 'utf-8') === snapshots[i]) && readdirSync(dir).sort().join() === beforeFiles, '过期预览不改配置、不新增备份或所有权记录');
+  }
+  applyCodexRelay(proposal, { expectedRevision: readCodexRelayStatus('ao-relay').revision });
+  const restorePreview = readCodexRelayStatus('ao-relay').revision!;
+  writeFileSync(toml, readFileSync(toml, 'utf-8') + '\n# changed after preview\n');
+  let staleRestore = '';
+  try { clearCodexRelay('ao-relay', { expectedRevision: restorePreview }); } catch (e) { staleRestore = (e as { code?: string }).code || ''; }
+  assert(staleRestore === 'CONFIG_CHANGED', '只有注释变更也拒绝旧恢复预览');
+  clearCodexRelay('ao-relay', { expectedRevision: readCodexRelayStatus('ao-relay').revision });
+  assert(JSON.parse(readFileSync(auth, 'utf-8')).tokens.refresh === 'external-after-preview', '新预览恢复保留 OAuth');
+
   console.log('\n─── config.toml 解析不了时：停手，别把配置覆盖成空的 ───');
   writeFileSync(toml, 'this is [not valid toml', 'utf-8');
   writeFileSync(auth, JSON.stringify({ tokens: { refresh: 'r2' } }, null, 2), 'utf-8');

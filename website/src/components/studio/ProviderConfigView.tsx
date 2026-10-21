@@ -314,7 +314,12 @@ export function ProviderConfigView({
       }
       return;
     }
-    if (isRelay && (target as { globalWrite?: boolean }).globalWrite && !window.confirm(p.cliRelayGlobalConfirm)) return;
+    if (providerId === "codex-cli") {
+      if (!status?.configRevision) { setError(p.codexPreviewRequired); return; }
+      let origin = "?";
+      try { origin = new URL(baseUrl.trim()).origin; } catch { /* validation remains server-side */ }
+      if (!window.confirm(`${p.cliRelayGlobalConfirm}\n\n${p.codexApplyPreview.replace("{origin}", origin)}`)) return;
+    }
     setSaving(true);
     try {
       // 编辑自定义供应商时,名称/官网/备注这些元数据也一起保存
@@ -328,6 +333,7 @@ export function ProviderConfigView({
         : isCcRelay ? { provider: providerId, apiKey: key, baseUrl, model, sonnetModel, opusModel, haikuModel }
         : {
             provider: providerId,
+            ...(providerId === "codex-cli" ? { expectedRevision: status?.configRevision } : {}),
             apiKey: key,
             baseUrl,
             model: isRelay ? undefined : model,
@@ -348,6 +354,7 @@ export function ProviderConfigView({
       onSaved();
     } catch (e: any) {
       setError(e?.message || String(e));
+      refreshStalePreview(e);
     } finally {
       setSaving(false);
     }
@@ -355,9 +362,14 @@ export function ProviderConfigView({
 
   const clear = async () => {
     setError(null);
+    if (offline) return setError(p.demoNeedsEngineShort);
+    if (providerId === "codex-cli") {
+      if (!status?.configRevision) { setError(p.codexPreviewRequired); return; }
+      if (!window.confirm(p.codexRestorePreview)) return;
+    }
     setSaving(true);
     try {
-      await api.saveConfig({ provider: providerId, apiKey: "" });
+      await api.saveConfig({ provider: providerId, apiKey: "", ...(providerId === "codex-cli" ? { expectedRevision: status?.configRevision } : {}) });
       setKey("");
       setBaseUrl("");
       setModel("");
@@ -368,6 +380,7 @@ export function ProviderConfigView({
       onSaved();
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : String(e));
+      refreshStalePreview(e);
     } finally {
       setSaving(false);
     }

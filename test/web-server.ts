@@ -110,7 +110,23 @@ try {
     const ownership = JSON.parse(readFileSync(join(codexDir, '.ao-relay-state.json'), 'utf-8'));
     const keyField = ownership.fields.find((field: { file: string }) => field.file === 'auth');
     assert(ownership.version === 2 && keyField.after.sha256 && !Object.hasOwn(keyField.after, 'value'), '接管接口写入 v2 凭据摘要');
-    assert(await post(base, '/api/config', { provider: 'codex-cli', apiKey: '' }) === 200, '接管后可恢复为不走中转');
+    const managedPreview = (await (await fetch(base + '/api/config')).json()).providers['codex-cli'].configRevision;
+    for (const body of [{ provider: 'codex-cli', apiKey: '' }, { provider: 'codex-cli', apiKey: 'synthetic-new', baseUrl: 'https://new.example/v1' }]) {
+      assert(await post(base, '/api/config', body) === 400, '普通保存/恢复缺少预览版本均拒绝');
+    }
+    const authWithExternalOAuth = JSON.stringify({ OPENAI_API_KEY: 'synthetic-rotated', tokens: { refresh: 'external-oauth' } });
+    writeFileSync(join(codexDir, 'auth.json'), authWithExternalOAuth);
+    for (const body of [{ provider: 'codex-cli', apiKey: '' }, { provider: 'codex-cli', apiKey: 'synthetic-new', baseUrl: 'https://new.example/v1' }]) {
+      assert(await post(base, '/api/config', { ...body, expectedRevision: managedPreview }) === 409, '普通保存/恢复拒绝 OAuth 已变的旧预览');
+    }
+    assert(readFileSync(join(codexDir, 'auth.json'), 'utf-8') === authWithExternalOAuth, '拒绝旧预览不覆盖外部 OAuth');
+    const freshApply = (await (await fetch(base + '/api/config')).json()).providers['codex-cli'].configRevision;
+    const applyBody = { provider: 'codex-cli', apiKey: 'synthetic-new', baseUrl: 'https://new.example/v1', expectedRevision: freshApply };
+    assert(await post(base, '/api/config', applyBody) === 200, '刷新预览后普通保存成功');
+    assert(await post(base, '/api/config', applyBody) === 409, '重复提交已消耗的配置版本不会再次写入');
+    const freshRestore = (await (await fetch(base + '/api/config')).json()).providers['codex-cli'].configRevision;
+    assert(await post(base, '/api/config', { provider: 'codex-cli', apiKey: '', expectedRevision: freshRestore }) === 200, '接管后使用新预览可恢复为不走中转');
+    assert(JSON.parse(readFileSync(join(codexDir, 'auth.json'), 'utf-8')).tokens.refresh === 'external-oauth', '保存和恢复保留外部 OAuth');
 
     const wfs = await (await fetch(base + '/api/workflows')).json();
     assert(Array.isArray(wfs), '/api/workflows 返回数组');

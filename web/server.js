@@ -2221,9 +2221,13 @@ app.post('/api/config', (req, res) => {
   // Codex 中转走 ~/.codex/config.toml + auth.json，跟其它 provider 的存储方式完全不同，
   // 单独分支处理，不进下面 KEY_ENV/web-keys.json 那套逻辑。
   if (provider === 'codex-cli') {
+    const { expectedRevision } = req.body || {};
+    if (typeof expectedRevision !== 'string' || !/^[a-f0-9]{64}$/.test(expectedRevision)) {
+      return res.status(400).json({ code: 'CONFIG_PREVIEW_REQUIRED', error: '请刷新配置预览后重新确认，不按缺失或过期的预览修改 Codex 配置' });
+    }
     try {
       if (typeof apiKey === 'string' && apiKey.trim() === '' && baseUrl == null) {
-        clearCodexRelay(CODEX_RELAY_ID);
+        clearCodexRelay(CODEX_RELAY_ID, { expectedRevision });
         return res.json({ ok: true });
       }
       if (typeof apiKey !== 'string' || !apiKey.trim() || typeof baseUrl !== 'string' || !baseUrl.trim()) {
@@ -2235,10 +2239,10 @@ app.post('/api/config', (req, res) => {
         baseUrl: baseUrl.trim(),
         apiKey: apiKey.trim(),
         model: typeof model === 'string' && model.trim() ? model.trim() : undefined,
-      });
+      }, { expectedRevision });
       return res.json({ ok: true, backups });
     } catch (err) {
-      return res.status(500).json({ error: err?.message || String(err) });
+      return res.status(err instanceof CodexConfigChangedError ? 409 : 500).json({ error: err?.message || String(err), ...(err instanceof CodexConfigChangedError ? { code: err.code } : {}) });
     }
   }
   // 自定义供应商/远程清单供应商没有 KEY_ENV 项（没有专属 env 变量名），但仍然走

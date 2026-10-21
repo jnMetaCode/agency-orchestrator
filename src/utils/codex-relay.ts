@@ -176,9 +176,10 @@ function checkOwnership(state: RelayState, doc: Record<string, any>, auth: Recor
  * 把中转配置合并写入 Codex 的 config.toml + auth.json。
  * 返回本次实际产生的备份文件路径（供上层提示用户"已备份到 xxx"）。
  */
-export function applyCodexRelay(cfg: CodexRelayConfig): { backups: string[] } {
+export function applyCodexRelay(cfg: CodexRelayConfig, opts: { expectedRevision?: string } = {}): { backups: string[] } {
   if (!cfg.providerId || reserved.has(cfg.providerId) || !cfg.baseUrl || !cfg.apiKey) throw new Error('providerId、baseUrl 和 apiKey 无效或为空');
   return withConfigTransaction(CODEX_DIR, FILES, commit => {
+    assertPreview(opts);
     const doc = readForWrite(CONFIG_TOML, 'toml');
     const auth = readForWrite(AUTH_JSON, 'json');
     if (Object.hasOwn(doc, 'model_providers') && (!doc.model_providers || typeof doc.model_providers !== 'object' || Array.isArray(doc.model_providers))) {
@@ -216,9 +217,10 @@ export function applyCodexRelay(cfg: CodexRelayConfig): { backups: string[] } {
 }
 
 /** Restore only fields written by AO; unknown legacy ownership requires explicit resolution. */
-export function clearCodexRelay(providerId: string): void {
+export function clearCodexRelay(providerId: string, opts: { expectedRevision?: string } = {}): void {
   if (!providerId) throw new Error('providerId 不能为空');
   withConfigTransaction(CODEX_DIR, FILES, commit => {
+    assertPreview(opts);
     const doc = readForWrite(CONFIG_TOML, 'toml');
     if (doc.model_provider !== providerId) return;
     const auth = readForWrite(AUTH_JSON, 'json');

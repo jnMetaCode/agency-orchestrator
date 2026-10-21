@@ -811,6 +811,7 @@ export const api = {
   // sonnetModel/opusModel/haikuModel 仅 claude-code 用（模型映射，对齐 cc-switch）
   saveConfig: (body: {
     provider: string;
+    expectedRevision?: string;
     apiKey?: string;
     baseUrl?: string;
     model?: string;
