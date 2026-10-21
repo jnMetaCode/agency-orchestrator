@@ -9,8 +9,10 @@ export interface ToolConfigurationStatus {
   conflict: boolean;
   endpointOrigin?: string;
   endpointInvalid?: boolean;
+  endpointUnresolved?: boolean;
   providerMissing?: boolean;
   model?: string;
+  environmentModel?: string;
   provider?: string;
 }
 export interface ToolStatusReport { checkedAt: string; tools: ToolConfigurationStatus[] }

@@ -66,7 +66,7 @@ export function readToolStatuses({ claudeDir, codexDir, installed = [], claudeOw
       const env = doc.env || {};
       if ((env.ANTHROPIC_MODEL !== undefined && typeof env.ANTHROPIC_MODEL !== 'string')
         || (doc.model !== undefined && typeof doc.model !== 'string')) throw Error();
-      return { ...endpointOrigin(env.ANTHROPIC_BASE_URL), model: label(env.ANTHROPIC_MODEL ?? doc.model) };
+      return { ...endpointOrigin(env.ANTHROPIC_BASE_URL), model: label(doc.model), environmentModel: label(env.ANTHROPIC_MODEL) };
     }, claudeOwnership),
     inspect('codex-cli', join(codexDir, 'config.toml'), parse, doc => {
       if (doc.model_provider !== undefined && typeof doc.model_provider !== 'string') throw Error();
@@ -75,6 +75,7 @@ export function readToolStatuses({ claudeDir, codexDir, installed = [], claudeOw
       const providers = doc.model_providers;
       const cfg = provider && providers && Object.hasOwn(providers, provider) ? providers[provider] : undefined;
       return { provider: label(provider), model: label(doc.model), ...endpointOrigin(cfg?.base_url),
+        endpointUnresolved: !provider && !!providers && typeof providers === 'object' && Object.keys(providers).length > 0,
         providerMissing: !!provider && provider !== 'openai' && (!cfg || typeof cfg !== 'object') };
     }, codexOwnership),
   ] };

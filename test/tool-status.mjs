@@ -26,10 +26,18 @@ try {
     writeFileSync(claude, JSON.stringify({ env: { ANTHROPIC_BASE_URL: `https://user:${secret}@claude.example/private/${secret}?key=${secret}#${secret}`, ANTHROPIC_AUTH_TOKEN: secret, ANTHROPIC_MODEL: 'claude-model' } }));
     writeFileSync(codex, `model_provider = "external"\nmodel = "codex-model"\n[model_providers.external]\nbase_url = "https://codex.example/private/${secret}?key=${secret}"\n`);
     const report = readToolStatuses(options), [c, x] = report.tools;
-    assert.equal(c.endpointOrigin, 'https://claude.example'); assert.equal(c.model, 'claude-model');
+    assert.equal(c.endpointOrigin, 'https://claude.example'); assert.equal(c.environmentModel, 'claude-model');
+    assert.equal(c.model, undefined);
     assert.equal(x.endpointOrigin, 'https://codex.example'); assert.equal(x.provider, 'external');
     assert.equal(x.model, 'codex-model'); assert.equal(x.providerMissing, false);
     assert(!JSON.stringify(report).includes(secret)); assert(!JSON.stringify(report).includes('/private/'));
+  });
+  await test('model declarations remain separate and unselected endpoints are not guessed', () => {
+    writeFileSync(claude, JSON.stringify({ model: 'setting-model', env: { ANTHROPIC_MODEL: 'env-model' } }));
+    writeFileSync(codex, '[model_providers.openai]\nbase_url="https://possible.example/v1"\n');
+    const { tools } = readToolStatuses(options);
+    assert.equal(tools[0].model, 'setting-model'); assert.equal(tools[0].environmentModel, 'env-model');
+    assert.equal(tools[1].endpointUnresolved, true); assert.equal(tools[1].endpointOrigin, undefined);
   });
   await test('invalid and non-object configurations are explicit and parser input never escapes', () => {
     for (const value of [`{"token":"${secret}",`, '[]', 'null', '{"env":[]}','{"model":123}']) {

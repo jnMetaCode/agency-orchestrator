@@ -110,7 +110,7 @@ function StudioInner() {
       })
       .catch(() => {});
   }, []);
-  // Refresh key status whenever leaving the providers tab (so the warning clears).
+  // Accept legacy tab IDs; the URL preserves direct links and browser history.
   // 接受旧 id：代码里各处 setTab("providers") / setTab("workflows") 不用改，自动落到对应子视图
   const setTab = useCallback(
     (id: LegacyTab) => {
@@ -118,12 +118,9 @@ function StudioInner() {
       const r = resolveTab(id);
       if (r.start) setStartView(r.start);
       if (r.settings) setSettingsView(r.settings);
-      setTabState((prev) => {
-        if (prev === "settings" && r.tab !== "settings") refreshConfig();
-        return r.tab;
-      });
+      setTabState(r.tab);
     },
-    [refreshConfig, setSearchParams],
+    [setSearchParams],
   );
   // 子视图切换条（开始做事 / 设置 两个 tab 下各有两个子视图）
   const subNav = (items: [string, string][], value: string, onChange: (v: string) => void, extra?: React.ReactNode) => (
@@ -173,8 +170,10 @@ function StudioInner() {
   }, []);
 
   useEffect(() => {
-    if (status === "online") refreshConfig();
-  }, [status, refreshConfig]);
+    // The read-only tools view uses its dedicated sanitized endpoint. Avoid
+    // fetching unrelated provider settings (whose URLs may contain credentials).
+    if (status === "online" && tab !== "tools") refreshConfig();
+  }, [status, refreshConfig, tab]);
 
   const effProvider = provider || DEFAULT_PROVIDER;
   const needKeyWarning = status === "online" && KEYED.includes(effProvider) && keyedHas[effProvider] === false;

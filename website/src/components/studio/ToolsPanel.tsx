@@ -57,8 +57,9 @@ export function ToolsPanel({ offline, onSettings }: { offline: boolean; onSettin
               <div><dt className="text-muted-foreground">{p.configurationLabel}</dt><dd>{p.configuration[tool.configuration]}</dd></div>
               {tool.configuration === "present" && <>
                 <div><dt className="text-muted-foreground">{p.managementLabel}</dt><dd>{p.management[tool.management]}</dd></div>
-                <div><dt className="text-muted-foreground">{p.endpointLabel}</dt><dd className="break-all">{tool.endpointInvalid ? p.endpointInvalid : tool.endpointOrigin || p.endpointUnset}</dd></div>
+                <div><dt className="text-muted-foreground">{p.endpointLabel}</dt><dd className="break-all">{tool.endpointInvalid ? p.endpointInvalid : tool.endpointUnresolved ? p.endpointUnresolved : tool.endpointOrigin || p.endpointUnset}</dd></div>
                 <div><dt className="text-muted-foreground">{p.modelLabel}</dt><dd className="break-all">{tool.model || p.modelUnset}</dd></div>
+                {tool.environmentModel && <div><dt className="text-muted-foreground">{p.environmentModelLabel}</dt><dd className="break-all">{tool.environmentModel}</dd></div>}
                 {tool.provider && <div><dt className="text-muted-foreground">{p.providerLabel}</dt><dd className="break-all">{tool.provider}</dd></div>}
               </>}
             </dl>
