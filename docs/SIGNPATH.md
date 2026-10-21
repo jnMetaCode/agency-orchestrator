@@ -30,7 +30,7 @@
 - Maintainer Type: 由维护者确认个人或组织，不以 GitHub 用户名推断公司主体。
 - Build System: GitHub Actions.
 - Primary Discovery Channel / exact source: 如实选择 AI assistant / ChatGPT（以表单现有选项为准）。
-- First Name / Last Name / Email: **等待维护者提供，不从 Git 提交信息猜测或擅自公开**。
+- First Name / Last Name / Email: 由维护者提供，具体联系信息保存在本地私有申请材料中，不提交公开仓库。官方服务条款 2.2 未要求免费账号必须提供真名；若用 GitHub 昵称，必须明确其为公开昵称，不冒充法定姓名。
 - Company Name: 仅在确有适用组织时填写。
 
 Description:
@@ -47,11 +47,11 @@ Additional disclosure for review:
 
 ## 提交前仍需确认
 
-1. 联系人姓名、申请邮箱、维护者类型；GitHub 与未来 SignPath 账号启用 MFA。
+1. 联系人信息由维护者确认；GitHub MFA 已由维护者确认开启，未来 SignPath 账号也须启用 MFA。
 2. 维护者阅读并同意官方 Code of Conduct，以及表单的必要个人信息处理条款。可选营销通讯不默认勾选。
 3. 下载页目前不能宣称“已由 SignPath 提供签名”。官方表单要求下载页提及基金会，申请时应说明尚待批准；批准后加入规定致谢并配置签名。
 4. 审核方如要求联网告知、安装时隐私展示或关闭选项，先完成产品改动再启用签名，不能只靠一份文档宣布满足。
-5. 表单含 reCAPTCHA，若触发挑战由账号持有人在浏览器完成，不绕过验证。
+5. 官方 [服务条款](https://signpath.io/terms-of-service) 2.3 不允许自动化注册账号；此表单会创建用户账号，因此工具只准备、预填材料，最终提交与账号注册由维护者在浏览器完成。若触发 reCAPTCHA，也由维护者完成，不绕过验证。
 
 ## 获批后的接入顺序
 
