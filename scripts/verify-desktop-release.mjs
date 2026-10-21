@@ -46,10 +46,13 @@ export async function stageRelease(source, output, platform, expected) {
     regular(path);
     const size = lstatSync(path).size;
     requireValue(size > 0, `Empty installer: ${name}`);
-    files.push({ name, size, sha256: await digest(path) });
+    // GitHub replaces spaces in uploaded asset names with dots. Stage the final
+    // names before hashing/manifests so downloaded files match SHA256SUMS.
+    files.push({ name: name.replaceAll(' ', '.'), size, sha256: await digest(path) });
   }
+  assetNames(files.map(file => file.name), platform, expected.version); // Reject normalization collisions.
   mkdirSync(output); // Refuse stale staging directories rather than mix runs.
-  for (const file of files) copyFileSync(join(source, file.name), join(output, file.name));
+  for (let i = 0; i < files.length; i++) copyFileSync(join(source, names[i]), join(output, files[i].name));
   writeFileSync(join(output, META), JSON.stringify({ ...expected, platform, files }, null, 2) + '\n');
   writeFileSync(join(output, `SHA256SUMS-${platform}.txt`), checksums(files));
 }

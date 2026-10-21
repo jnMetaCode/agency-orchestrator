@@ -45,9 +45,19 @@ try {
     const f = await fixture();
     const result = await verifyRelease(f.artifacts, f.output, expected);
     assert.equal(result.length, 8);
+    assert(result.every(name => !name.includes(' ')), 'GitHub asset names must be final before publication');
+    const winChecksum = readFileSync(join(f.output, 'SHA256SUMS-win.txt'), 'utf8');
+    for (const name of names.win) assert(winChecksum.includes('  ' + name.replaceAll(' ', '.') + '\n'));
     assert.deepEqual(readdirSync(f.output).sort(), result.sort());
     assert(!existsSync(join(f.output, 'build-provenance.json')));
     await assert.rejects(verifyRelease(f.artifacts, f.output, expected), /EEXIST/);
+  });
+  await test('asset names that collide after GitHub normalization are rejected', async () => {
+    const f = await fixture(), source = join(f.dir, 'win');
+    writeFileSync(join(source, names.win[0].replaceAll(' ', '.')), 'duplicate-name');
+    const output = join(f.dir, 'collision');
+    await assert.rejects(stageRelease(source, output, 'win', expected), /duplicate/);
+    assert(!existsSync(output));
   });
   for (const platform of Object.keys(names)) await test(`missing ${platform} blocks publication`, async () => {
     const f = await fixture();
@@ -61,7 +71,7 @@ try {
   });
   await test('same-size tampering is detected by hash', async () => {
     const f = await fixture();
-    const path = join(f.artifacts, 'desktop-win', names.win[0]);
+    const path = join(f.artifacts, 'desktop-win', names.win[0].replaceAll(' ', '.'));
     writeFileSync(path, 'x'.repeat(readFileSync(path).length));
     await rejectsBeforeOutput(f, /corrupted/);
   });
@@ -76,7 +86,7 @@ try {
     await rejectsBeforeOutput(f, /unexpected/);
   });
   await test('traversal and duplicate entries in metadata are rejected', async () => {
-    for (const name of ['../outside-0.4.12.exe', names.win[0]]) {
+    for (const name of ['../outside-0.4.12.exe', names.win[0].replaceAll(' ', '.')]) {
       const f = await fixture();
       editMeta(f, 'win', meta => { meta.files[1].name = name; });
       await rejectsBeforeOutput(f, /Invalid|duplicate/);
@@ -102,7 +112,7 @@ try {
   });
   if (process.platform !== 'win32') await test('symlink installers cannot bypass file validation', async () => {
     const f = await fixture();
-    const path = join(f.artifacts, 'desktop-win', names.win[0]);
+    const path = join(f.artifacts, 'desktop-win', names.win[0].replaceAll(' ', '.'));
     rmSync(path);
     symlinkSync(join(f.dir, 'win', names.win[0]), path);
     await rejectsBeforeOutput(f, /regular file/);

@@ -5,7 +5,7 @@
 ## 流程
 
 1. 三个平台都从目标 `refs/tags/desktop-v<version>` 检出；手动触发的 tag 必须与该源码中的 `desktop/package.json` 版本一致。
-2. 原有前端、安装包内容检查通过后，运行 `scripts/verify-desktop-release.mjs stage`。只收集本平台安装包和可选 blockmap，生成 SHA-256 与包含 tag、版本、源码 SHA、workflow run ID 的清单。
+2. 原有前端、安装包内容检查通过后，运行 `scripts/verify-desktop-release.mjs stage`。只收集本平台安装包和可选 blockmap；先把文件名空格转换为 GitHub 下载资产使用的点号，拒绝重名，再生成 SHA-256 与包含 tag、版本、源码 SHA、workflow run ID 的清单。
 3. 每个平台上传独立的当前运行 artifact。构建 job 只有读仓库权限，不创建 Release。
 4. `publish` 依赖整个构建矩阵成功；下载当前运行产物，验证三平台、两个 mac 文件名架构、文件非空、完整来源信息、大小和 SHA-256。
 5. 仅验证后的新目录进入上传。已有同名 Release（包括草稿）时停止；没有时先上传草稿，上传成功才公开并标记 latest。
