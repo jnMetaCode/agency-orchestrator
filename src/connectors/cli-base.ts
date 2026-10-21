@@ -108,6 +108,10 @@ export interface CLIConnectorConfig {
    * 否则长 prompt 切到 stdin 只会让模型收到一个字面量 "-"。
    */
   supportsStdin?: boolean;
+  /** An explicitly supported alternate protocol, used only beyond the argv hard limit. */
+  stdinOnOverflow?: boolean;
+  /** Output decoder for the alternate stdin protocol; normal argv output remains unchanged. */
+  parseStdinOutput?: (stdout: string) => string;
   /** 构建 stdin 模式的参数（prompt 过长时使用，默认用 buildArgs 替换 prompt 为 '-'） */
   buildStdinArgs?: (config: LLMConfig) => string[];
   /** 从 stdout 提取内容（默认 trim） */
@@ -145,7 +149,8 @@ export class CLIBaseConnector implements LLMConnector {
       : userMessage;
 
     const transport = chooseTransport(fullPrompt, !!this.cfg.supportsStdin);
-    if (transport === 'overflow') {
+    const overflowStdin = transport === 'overflow' && this.cfg.stdinOnOverflow && !!this.cfg.buildStdinArgs;
+    if (transport === 'overflow' && !overflowStdin) {
       const kb = (Buffer.byteLength(fullPrompt, 'utf-8') / 1024).toFixed(1);
       throw new Error(
         `${this.cfg.displayName} 不支持从 stdin 读取提示词，而本步提示词有 ${kb}KB，超过了系统命令行长度上限。\n` +
@@ -154,7 +159,7 @@ export class CLIBaseConnector implements LLMConnector {
         `  2. 精简该步骤的角色提示词或输入变量。`
       );
     }
-    const useStdin = transport === 'stdin';
+    const useStdin = transport === 'stdin' || !!overflowStdin;
 
     const args = useStdin
       ? (this.cfg.buildStdinArgs?.(config) ?? this.cfg.buildArgs('-', config))
@@ -262,7 +267,8 @@ export class CLIBaseConnector implements LLMConnector {
 
         let content: string;
         try {
-          content = this.cfg.parseOutput ? this.cfg.parseOutput(stdout) : stdout.trim();
+          const parse = useStdin ? (this.cfg.parseStdinOutput ?? this.cfg.parseOutput) : this.cfg.parseOutput;
+          content = parse ? parse(stdout) : stdout.trim();
         } catch {
           // Exceptions inside an event callback otherwise escape the chat promise and crash AO.
           reject(new Error(`${this.cfg.displayName} 输出解析失败，请检查 CLI 版本与输出格式`));

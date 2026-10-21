@@ -7,6 +7,25 @@ on:
     branches: [main]
 
 jobs:
+  windows-cli:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm ci
+      - run: npm run build
+      - name: Install real Electron runtime
+        working-directory: desktop
+        run: npm ci
+      - name: Verify Windows CLI protocols and runtime bridge
+        run: |
+          node --import tsx test/hermes-cli.ts
+          node --import tsx test/cli-node-runtime.ts
+          node --import tsx test/spawn-cli.ts
+          node test/windows-cli-runtime.mjs
+
   test:
     runs-on: ubuntu-latest
     strategy:

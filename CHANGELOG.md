@@ -4,6 +4,12 @@
 
 ## [Unreleased]
 
+### Fixed
+- Hermes 超过系统命令行长度上限的提示词改用官方 `chat --query-file - --oneshot --format stream-json` 协议完整传输，仅接受成功的最终 result；普通提示词保留 `-z` 兼容旧版，旧版不支持新协议时明确提示升级（#196）。
+
+### Added
+- 新增真实 Windows CI：覆盖 Hermes 超长提示词协议与 Electron 内置 Node 到外部兼容 Node 的 dsh 启动桥接；缺少或错误指定运行时会提前报错（#194）。测试使用本地 CLI 替身，不调用付费模型。
+
 ## [0.21.0] - 2026-10-20
 
 ### Fixed
