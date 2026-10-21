@@ -1,4 +1,19 @@
 import type { RunInputSnapshot } from "./run-input-state";
+
+export interface ToolConfigurationStatus {
+  id: "claude-code" | "codex-cli";
+  installed: boolean;
+  configuration: "present" | "missing" | "invalid" | "unreadable" | "changing";
+  management: "unknown" | "changed" | "ao-marker" | "unmarked";
+  recoveryPending: boolean;
+  conflict: boolean;
+  endpointOrigin?: string;
+  endpointInvalid?: boolean;
+  providerMissing?: boolean;
+  model?: string;
+  provider?: string;
+}
+export interface ToolStatusReport { checkedAt: string; tools: ToolConfigurationStatus[] }
 export type { PendingRunInput, RunInputSnapshot } from "./run-input-state";
 
 // Shared types + API client for the Studio (talks to web/server.js backend).
@@ -842,6 +857,7 @@ export const api = {
   creativeBatchRetryFailed: (runId: string, body: { quoteId: string; idempotencyKey: string }) =>
     postJSON<{ ok: boolean; run: CreativeBatchRun }>(`/batch/providers/shengsuanyun/runs/${encodeURIComponent(runId)}/retry-failed`, body),
   // 本机 cc-switch 已配供应商（一键导入 key 用；key 只回脱敏预览，原文不出后端）
+  toolStatus: () => getJSON<ToolStatusReport>("/tools/status"),
   ccswitchProviders: () =>
     getJSON<{ ok: boolean; providers?: { id: string; name: string; appType: string; baseUrl: string; keyPreview: string; isCurrent: boolean }[] }>("/ccswitch-providers"),
   ccswitchImport: (body: { source: string; provider: string; includeBaseUrl?: boolean }) =>

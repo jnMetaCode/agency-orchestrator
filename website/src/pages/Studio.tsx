@@ -1,5 +1,5 @@
-import { Clapperboard, Download, History, KeyRound, Rocket, Settings, TriangleAlert, WandSparkles } from "lucide-react";
-import { Link } from "react-router-dom";
+import { Clapperboard, Download, History, KeyRound, Monitor, Rocket, Settings, TriangleAlert, WandSparkles } from "lucide-react";
+import { Link, useSearchParams } from "react-router-dom";
 import { lazy, Suspense, useCallback, useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { SiteFooter } from "@/components/layout/SiteFooter";
@@ -8,6 +8,7 @@ import { CreativePanel } from "@/components/studio/CreativePanel";
 import { MediaSelect } from "@/components/studio/MediaSelect";
 import { ModelSelect } from "@/components/studio/ModelSelect";
 import { ProviderSelect } from "@/components/studio/ProviderSelect";
+import { ToolsPanel } from "@/components/studio/ToolsPanel";
 import { ProvidersPanel } from "@/components/studio/ProvidersPanel";
 import { RolesPicker } from "@/components/studio/RolesPicker";
 import { RunDock } from "@/components/studio/RunDock";
@@ -35,7 +36,7 @@ const KEYED = API_PROVIDERS.map((p) => p.id);
 // 顶栏按「用户来干嘛」分四组，不按系统里有什么功能平铺：
 //   开始做事（角色组队 / 工作流模板）· 我的运行 · 创意出片 · 设置（供应商 / 用量）
 // 旧的 5 tab（roles/workflows/runs/usage/providers）保留为子视图 id，?tab= 深链兼容。
-type Tab = "start" | "runs" | "create" | "settings";
+type Tab = "start" | "runs" | "create" | "tools" | "settings";
 type StartView = "roles" | "workflows";
 type SettingsView = "providers" | "usage";
 type LegacyTab = Tab | StartView | SettingsView;
@@ -44,6 +45,7 @@ const TAB_META: { id: Tab; icon: typeof Rocket }[] = [
   { id: "start", icon: Rocket },
   { id: "runs", icon: History },
   { id: "create", icon: Clapperboard },
+  { id: "tools", icon: Monitor },
   { id: "settings", icon: Settings },
 ];
 
@@ -54,7 +56,7 @@ function resolveTab(qp: string | null): { tab: Tab; start?: StartView; settings?
     case "workflows": return { tab: "start", start: "workflows" };
     case "providers": return { tab: "settings", settings: "providers" };
     case "usage": return { tab: "settings", settings: "usage" };
-    case "runs": case "create": case "settings": case "start": return { tab: qp };
+    case "tools": case "runs": case "create": case "settings": case "start": return { tab: qp };
     default: return { tab: "start" };
   }
 }
@@ -71,7 +73,8 @@ function StudioInner() {
   const { start, open } = useRunManager();
   // ?tab=workflows 深链：创意库的视频卡要能一步跳到「一句话出短片」，
   // 落在默认的"角色组队"页再让用户自己找，等于把闭环断在最后一米。
-  const initial = typeof window === "undefined" ? resolveTab(null) : resolveTab(new URLSearchParams(window.location.search).get("tab"));
+  const [searchParams, setSearchParams] = useSearchParams();
+  const initial = resolveTab(searchParams.get("tab"));
   const [tab, setTabState] = useState<Tab>(initial.tab);
   const [startView, setStartView] = useState<StartView>(initial.start ?? "roles");
   const [settingsView, setSettingsView] = useState<SettingsView>(initial.settings ?? "providers");
@@ -79,6 +82,13 @@ function StudioInner() {
   const [keyedHas, setKeyedHas] = useState<Record<string, boolean>>({});
   const [installOpen, setInstallOpen] = useState(false);
   const offline = status !== "online";
+
+  useEffect(() => {
+    const next = resolveTab(searchParams.get("tab"));
+    setTabState(next.tab);
+    if (next.start) setStartView(next.start);
+    if (next.settings) setSettingsView(next.settings);
+  }, [searchParams]);
 
   // 对话（不组队）：普通对话与单角色对话共用一个面板。面板常驻挂载，open 开关；
   // seed 是从任务输入框带来的首条消息；role 非空 = 带该角色人设聊
@@ -104,6 +114,7 @@ function StudioInner() {
   // 接受旧 id：代码里各处 setTab("providers") / setTab("workflows") 不用改，自动落到对应子视图
   const setTab = useCallback(
     (id: LegacyTab) => {
+      setSearchParams(prev => { const next = new URLSearchParams(prev); next.set("tab", id); return next; });
       const r = resolveTab(id);
       if (r.start) setStartView(r.start);
       if (r.settings) setSettingsView(r.settings);
@@ -112,7 +123,7 @@ function StudioInner() {
         return r.tab;
       });
     },
-    [refreshConfig],
+    [refreshConfig, setSearchParams],
   );
   // 子视图切换条（开始做事 / 设置 两个 tab 下各有两个子视图）
   const subNav = (items: [string, string][], value: string, onChange: (v: string) => void, extra?: React.ReactNode) => (
@@ -136,13 +147,13 @@ function StudioInner() {
   const startSubNav = subNav(
     [["roles", subLabel("roles")], ["workflows", subLabel("workflows")]],
     startView,
-    (v) => setStartView(v as StartView),
+    (v) => setTab(v as StartView),
     // 提示词工坊是独立页（/prompt），这里只给入口不重复 tab
     <Link to={prefix("/prompt")} className="ml-auto inline-flex items-center gap-1 rounded-full px-3 py-1 text-xs text-muted-foreground transition-colors hover:text-primary">
       <WandSparkles className="size-3.5" /> {subLabel("prompt")}
     </Link>,
   );
-  const settingsSubNav = subNav([["providers", subLabel("providers")], ["usage", subLabel("usage")]], settingsView, (v) => setSettingsView(v as SettingsView));
+  const settingsSubNav = subNav([["providers", subLabel("providers")], ["usage", subLabel("usage")]], settingsView, (v) => setTab(v as SettingsView));
   const openPlainChat = useCallback((seedText?: string, role?: ChatRole) => {
     setChatRole(role ?? null);
     if (seedText) setChatSeed({ text: seedText, n: ++seedCounter.current });
@@ -187,9 +198,11 @@ function StudioInner() {
                     <button
                       key={tb.id}
                       onClick={() => setTab(tb.id)}
+                      aria-label={tb.label}
+                      aria-current={on ? "page" : undefined}
                       title={`${tb.label} · ${tb.hint}`}
                       className={cn(
-                        // 窄屏只留图标（文字进 title），四个 tab 才挤得进一行
+                        // 窄屏保留图标，文字进入可访问名称和 title。
                         "flex shrink-0 items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-sm font-medium transition-colors md:px-3",
                         on ? "bg-background text-primary shadow-sm" : "text-muted-foreground hover:text-foreground",
                       )}
@@ -230,8 +243,10 @@ function StudioInner() {
                   ↑ <span className="hidden lg:inline">{t.studio.shell.updateAvailable} </span>v{latest}
                 </button>
               )}
-              <ProviderSelect value={provider} onChange={setProvider} onOpenProviders={() => setTab("providers")} />
-              <ModelSelect provider={provider} />
+              {tab !== "tools" && <>
+                <ProviderSelect value={provider} onChange={setProvider} onOpenProviders={() => setTab("providers")} />
+                <ModelSelect provider={provider} />
+              </>}
               {tab === "create" && <MediaSelect />}
               <Button size="sm" variant="outline" onClick={() => setTab("providers")}>
                 <KeyRound className="size-4" />
@@ -242,7 +257,7 @@ function StudioInner() {
         </div>
 
         <div className="container-page py-8">
-          {needKeyWarning && (
+          {needKeyWarning && tab !== "tools" && (
             <div className="mb-5 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-amber-500/40 bg-amber-500/[0.08] px-4 py-3">
               <span className="flex items-center gap-2 text-sm text-amber-600 dark:text-amber-400">
                 <TriangleAlert className="size-4 shrink-0" />
@@ -254,7 +269,9 @@ function StudioInner() {
               </Button>
             </div>
           )}
-          {tab === "settings" && settingsView === "providers" ? (
+          {tab === "tools" ? (
+            <ToolsPanel offline={offline} onSettings={() => setTab("providers")} />
+          ) : tab === "settings" && settingsView === "providers" ? (
             // 供应商/API 面板在线、离线都能进、能填（演示站没有引擎也照样展示卡片，只是无法实际运行）
             <>
               {settingsSubNav}

@@ -27,6 +27,7 @@ jobs:
           node test/windows-cli-runtime.mjs
           npm run test:desktop-storage
           npm run test:role-libraries
+          npm run test:tool-status
 
   test:
     runs-on: ubuntu-latest

@@ -711,11 +711,23 @@ const zh = {
       generating: "生成中…",
       waitingToRun: "等待执行",
     },
+    tools: {
+      title: "工具与模型", description: "查看 Claude Code 与 Codex CLI 的全局配置摘要。此页面只读，不会切换供应商、修复文件或调用模型。",
+      scope: "这里展示配置文件，不是当前终端会话的连接证明。命令行参数、项目配置、环境变量可能覆盖它；AO 工作流选择的模型也可能不同。未设置端点不代表已登录官方账号，检测到命令也不代表认证可用。",
+      refresh: "刷新状态", loading: "正在读取…", settings: "打开供应商设置", offline: "需要连接本地引擎才能读取工具状态。公开演示站不展示虚构的本机配置。",
+      failed: "读取失败，请重试；如果引擎版本较旧，请更新并重启本地引擎。", previous: "下方保留的是上一次读取结果，当前状态尚未确认。", checkedAt: "读取时间：",
+      detected: "已检测到命令", notDetected: "未检测到命令", configurationLabel: "全局配置", managementLabel: "AO 管理记录", endpointLabel: "端点主机（已隐藏路径及认证信息）", modelLabel: "配置的模型", providerLabel: "配置的供应商 ID",
+      endpointUnset: "全局文件未指定", modelUnset: "全局文件未指定", endpointInvalid: "端点格式异常，未展示原值",
+      conflict: "配置或所有权记录存在外部变更，需到设置中核对；此页面不会覆盖。", recovery: "发现未完成的配置事务，需核对恢复状态；此页面不会自动恢复。", providerMissing: "选中的自定义供应商缺少对应配置，请到设置中核对。",
+      configuration: { present: "已读取", missing: "未找到全局配置文件", invalid: "配置格式异常，无法确认", unreadable: "无法安全读取配置文件", changing: "读取过程中配置发生变化，请刷新" },
+      management: { unknown: "无法确认管理记录", changed: "发现外部变更或记录冲突", "ao-marker": "存在 AO 管理标记", unmarked: "未确认由 AO 管理" },
+    },
     shell: {
       tabs: {
         start: { label: "开始做事", hint: "一句话自动组队 · 选角色 · 跑模板" },
         runs: { label: "我的运行", hint: "查看产物 · 从某步重跑" },
         create: { label: "创意出片", hint: "文生图 · 文生视频 · 提示词库" },
+        tools: { label: "工具与模型", hint: "只读配置状态" },
         settings: { label: "设置", hint: "供应商密钥 · 用量" },
         // 子视图
         roles: { label: "角色组队", hint: "勾 1 个对话 · 勾多个合成团队" },
@@ -1644,11 +1656,23 @@ const en: typeof zh = {
       generating: "Generating…",
       waitingToRun: "Waiting to run",
     },
+    tools: {
+      title: "Tools & Models", description: "Inspect global configuration summaries for Claude Code and Codex CLI. This read-only page does not switch providers, repair files, or call models.",
+      scope: "These are configuration files, not proof of the connection used by a running terminal. CLI arguments, project settings, and environment variables may override them. AO workflows may select a different model. An unset endpoint does not confirm official login, and a detected command does not confirm authentication.",
+      refresh: "Refresh status", loading: "Reading…", settings: "Open provider settings", offline: "Connect a local engine to inspect tools. The public demo does not invent local configuration.",
+      failed: "Could not read status. Retry, or update and restart an older local engine.", previous: "The results below are from the previous read; current state is unconfirmed.", checkedAt: "Read at:",
+      detected: "Command detected", notDetected: "Command not detected", configurationLabel: "Global configuration", managementLabel: "AO management record", endpointLabel: "Endpoint host (path and credentials hidden)", modelLabel: "Configured model", providerLabel: "Configured provider ID",
+      endpointUnset: "Not specified in global file", modelUnset: "Not specified in global file", endpointInvalid: "Invalid endpoint; original value hidden",
+      conflict: "Configuration or ownership records changed externally. Review in settings; this page will not overwrite them.", recovery: "An unfinished configuration transaction needs review. This page will not recover it automatically.", providerMissing: "The selected custom provider has no matching configuration. Review in settings.",
+      configuration: { present: "Read successfully", missing: "Global configuration file not found", invalid: "Invalid configuration; state unconfirmed", unreadable: "Configuration cannot be safely read", changing: "Configuration changed during inspection; refresh" },
+      management: { unknown: "Management record unconfirmed", changed: "External change or record conflict", "ao-marker": "AO management marker present", unmarked: "AO management not confirmed" },
+    },
     shell: {
       tabs: {
         start: { label: "Start", hint: "one-line auto team · pick roles · run templates" },
         runs: { label: "My Runs", hint: "View outputs · rerun from a step" },
         create: { label: "Create", hint: "text-to-image · text-to-video · prompt library" },
+        tools: { label: "Tools & Models", hint: "read-only configuration status" },
         settings: { label: "Settings", hint: "provider keys · usage" },
         roles: { label: "Build a Team", hint: "1 to chat · several to compose a team" },
         workflows: { label: "Workflow Templates", hint: "Run templates · pick several to compare" },

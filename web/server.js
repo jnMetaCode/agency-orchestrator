@@ -48,6 +48,7 @@ import { installEnvProxy, reinstallEnvProxy, envProxyStatus, maskProxyUrl } from
 import { normalizeProxyInput, readProxySetting, writeProxySetting, snapshotProxyEnv, applyProxySetting } from '../dist/utils/proxy-setting.js';
 import { registerShengsuanyunBatchRoutes } from './shengsuanyun-batch.js';
 import { OPTIONAL_ROLE_LIBRARIES, findOptionalRoleLibrary, installOptionalRoleLibrary } from './role-libraries.js';
+import { registerToolStatusRoute } from './tool-status.js';
 
 // Codex 没有环境变量覆盖机制，中转配置写在 ~/.codex/config.toml + auth.json 里，
 // 用固定的内部 provider id（不管用户填的是哪家中转商），避免还要在 UI 里加个
@@ -2314,6 +2315,14 @@ app.post('/api/config', (req, res) => {
   // 把规整后的地址回给前端：用户填 `.../v1/chat/completions`、实际存的是 `.../v1`，
   // 不回填的话输入框还显示原文，看着像没生效。
   res.json({ ok: true, baseUrl: saved[provider]?.baseUrl ?? '' });
+});
+
+registerToolStatusRoute(app, {
+  claudeDir: process.env.AO_CLAUDE_DIR || join(homedir(), '.claude'),
+  codexDir: process.env.AO_CODEX_DIR || join(homedir(), '.codex'),
+  detectInstalled: detectInstalledCliProviders,
+  claudeOwnership: readClaudeSwitchStatus,
+  codexOwnership: () => readCodexRelayStatus(CODEX_RELAY_ID),
 });
 
 // 系统 Claude Code「急救」：诊断/修复被别的软件（cc-switch 等）或手动写坏的全局
