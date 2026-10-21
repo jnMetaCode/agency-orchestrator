@@ -488,8 +488,8 @@ if (!gotLock) {
         title: en ? "Switch data directory" : "切换数据目录",
         message: en ? "The local engine will restart after switching" : "切换后将重启本地引擎",
         detail: en
-          ? `Current: ${status.activeDir}\nNew: ${nextDir}\n\nThe old directory will not be deleted or moved. To keep existing keys, workflows, and run history, copy .local, ao-workflows, ao-output, and scaffold into the new directory.`
-          : `当前：${status.activeDir}\n新目录：${nextDir}\n\n旧目录不会被删除或自动搬动。若要保留已有密钥、工作流和运行历史，请将 .local、ao-workflows、ao-output、scaffold 复制到新目录。`,
+          ? `Current: ${status.activeDir}\nNew: ${nextDir}\n\nThe old directory will not be deleted or moved. To keep existing keys, workflows, and run history, copy .local, ao-workflows, ao-output, scaffold, and role-libraries into the new directory.`
+          : `当前：${status.activeDir}\n新目录：${nextDir}\n\n旧目录不会被删除或自动搬动。若要保留已有密钥、工作流和运行历史，请将 .local、ao-workflows、ao-output、scaffold、role-libraries 复制到新目录。`,
         buttons: en ? ["Switch and restart", "Cancel"] : ["切换并重启", "取消"],
         defaultId: 1,
         cancelId: 1,

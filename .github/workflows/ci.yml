@@ -25,6 +25,8 @@ jobs:
           node --import tsx test/cli-node-runtime.ts
           node --import tsx test/spawn-cli.ts
           node test/windows-cli-runtime.mjs
+          npm run test:desktop-storage
+          npm run test:role-libraries
 
   test:
     runs-on: ubuntu-latest

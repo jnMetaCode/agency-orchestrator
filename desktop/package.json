@@ -1,7 +1,7 @@
 {
   "name": "agency-orchestrator-desktop",
   "private": true,
-  "version": "0.4.13",
+  "version": "0.4.14",
   "description": "Agency Orchestrator — desktop app (Electron)",
   "main": "main.cjs",
   "scripts": {
