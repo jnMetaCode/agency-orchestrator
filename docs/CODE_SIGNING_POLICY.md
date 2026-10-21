@@ -1,13 +1,13 @@
 # Code signing policy
 
-Status (2026-10-21): Windows releases are currently **unsigned**. We are preparing an application to SignPath Foundation. No application approval, certificate, signing service sponsorship, or signed release is claimed.
+Status (2026-10-21): Windows releases are currently **unsigned**. The maintainer manually submitted a SignPath Foundation application and reported the form success confirmation. Review is pending. No application approval, certificate, signing service sponsorship, or signed release is claimed.
 
 ## Responsibilities
 
 - Current repository maintainer and release operator: [jnMetaCode](https://github.com/jnMetaCode).
 - Proposed signing approver: the repository maintainer, subject to confirmation and SignPath enrollment. No external signing approver has been appointed.
 - External pull requests must be reviewed by the maintainer, especially changes to dependencies, build scripts, workflows, and signing configuration.
-- Before enabling Foundation signing, all relevant maintainers and approvers must enable MFA on GitHub and SignPath. Verification of this requirement is still pending.
+- Before enabling Foundation signing, all relevant maintainers and approvers must enable MFA on GitHub and SignPath. The maintainer has confirmed GitHub MFA; SignPath MFA remains to be enabled when account access is available.
 
 ## Proposed signed release process
 

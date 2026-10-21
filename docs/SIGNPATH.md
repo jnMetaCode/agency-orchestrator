@@ -1,6 +1,8 @@
 # SignPath 免费 Windows 签名申请评估
 
-核对日期：2026-10-21。状态：**申请准备中，未提交、未获批、未启用签名**。
+更新日期：2026-10-21。状态：**维护者已手动提交申请，等待审核；未获批、未启用签名**。
+
+维护者提供页面回执：`Form submitted` / `Thank you, we'll be in touch soon.`。这确认表单已提交，不代表审核通过、账号已激活或已取得证书。请勿重复申请。具体联系人信息和私有过程记录不进入公开仓库。
 
 ## 结论
 
@@ -17,7 +19,7 @@
 | 特殊功能审查 | AI 可生成代码，工作流可调用本地 CLI；角色库包含安全相关文本。须向审核方说明实际可执行功能，核实“不包含黑客工具”的要求，不能只凭 AI 工具分类断言符合 |
 | 人工审批 | 免费基金会证书要求每次签名发布人工批准；接入后必须在签名成功、验签并重新生成校验文件后才允许公开发布 |
 
-## 官方申请表：可直接使用的英文材料
+## 申请参考材料（不等同于最终提交内容存档）
 
 - Project Name: Agency Orchestrator
 - Repository URL: https://github.com/jnMetaCode/agency-orchestrator
@@ -45,13 +47,15 @@ Additional disclosure for review:
 
 > We have not yet been accepted by SignPath Foundation and our current Windows releases are unsigned. The application can invoke user-selected local AI CLIs and workflow tools. It also performs update/catalog requests and loads external fonts; these behaviors are disclosed in our privacy documentation. Please advise whether additional consent controls or changes to our packaged components are required before acceptance. We will not apply the Foundation's signature to upstream executables as if we authored them. Our proposed signing policy is linked from the repository README.
 
-## 提交前仍需确认
+## 提交条件与后续跟踪
 
-1. 联系人信息由维护者确认；GitHub MFA 已由维护者确认开启，未来 SignPath 账号也须启用 MFA。
-2. 维护者阅读并同意官方 Code of Conduct，以及表单的必要个人信息处理条款。可选营销通讯不默认勾选。
+1. 联系人信息及条款同意已由维护者提供；GitHub MFA 已由维护者确认开启，未来 SignPath 账号也须启用 MFA。
+2. 维护者已确认同意官方条款及必要个人信息处理。可选营销通讯不默认勾选。
 3. 下载页目前不能宣称“已由 SignPath 提供签名”。官方表单要求下载页提及基金会，申请时应说明尚待批准；批准后加入规定致谢并配置签名。
 4. 审核方如要求联网告知、安装时隐私展示或关闭选项，先完成产品改动再启用签名，不能只靠一份文档宣布满足。
 5. 官方 [服务条款](https://signpath.io/terms-of-service) 2.3 不允许自动化注册账号；此表单会创建用户账号，因此工具只准备、预填材料，最终提交与账号注册由维护者在浏览器完成。若触发 reCAPTCHA，也由维护者完成，不绕过验证。
+
+等待审核期间查看申请邮箱的收件箱与垃圾邮件；如收到身份、仓库权限、隐私、构建来源或签名范围补充要求，先核对邮件来源再处理。不推测审批时限，不发送尚未授权的跟进邮件。此前 CAPTCHA 报障草稿不再作为待发送事项。
 
 ## 获批后的接入顺序
 
@@ -63,6 +67,6 @@ Additional disclosure for review:
 
 ## 来源
 
-- [官方申请表](https://signpath.org/apply.html)（已用浏览器只读打开核对实际字段，未提交）
+- [官方申请表](https://signpath.org/apply.html)（工具核对并准备材料，维护者手动提交成功）
 - [官方申请条件](https://signpath.org/terms.html)
 - [微软 Windows 签名方案说明](https://learn.microsoft.com/en-us/windows/apps/package-and-deploy/code-signing-options)
