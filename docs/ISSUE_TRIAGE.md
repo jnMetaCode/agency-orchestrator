@@ -4,14 +4,15 @@
 
 | Issue | 优先级 | 当前结论 | 完成条件 |
 | --- | --- | --- | --- |
-| #196 Hermes 超长提示词 | P1 | main 已修复：超出 argv 上限时使用官方 query-file stdin 协议，普通请求保持旧协议；Windows 专项 CI 已通过 | 回归与 Windows CI 通过，发布包含修复的新版本；旧 Hermes 明确提示升级 |
 | #194 Windows dsh 静默空输出 | P1 | 0.4.13 已发布运行时选择修复；真实 Windows + Electron 桥接四条路径均通过 | 外部 Node 自动选择、显式指定、无兼容 Node、无效指定四条路径通过；真实 dsh 账号调用仍需用户验证 |
 | #44 目录设置与资源体积 | P2 | 0.4.13 已有数据目录设置、Windows 安装目录选择、可选语言资源排除 | 新增临时目录 IPC/文件系统集成测试已通过：切换持久化、重启调用、取消、恢复默认、权限失败、角色库安装/离线重试/损坏清理；迁移提示已补 role-libraries。Windows CI 已通过；真实 npm 韩语库 1.0.1 下载并读取 187 个角色，更换应用路径仍可识别。真实原生界面验收尚待完成，测试中的原生对话框与重启使用替身，不宣称真实 GUI 已通过 |
 | #91 读取本地项目并执行计划 | P2 | 原画布保存问题已修；剩余是项目执行能力，不应以文本生成冒充项目实际完成 | 已记录当前连接器禁用工具和临时目录的边界，以及 [最小执行流程与验收条件](PROJECT_EXECUTION.md)；项目根目录授权、审批、执行、停止和真实结果验证仍待开发 |
 | #66 macOS 公证与 Windows 签名 | P2 | 已能构建全部平台，签名、公证仍未完成 | macOS 待开发者证书；Windows [SignPath 申请](SIGNPATH.md)已由维护者手动提交，等待审核；获批并接入后验证实际签名。不能把未签名可安装记为完成 |
-| #104 LongHorizon-Harness 建议 | P3 | 待架构评估，非阻塞缺陷 | 已核对上游 MIT 许可与固定源码版本，形成 [差距与实验方案](PROJECT_EXECUTION.md)；未复制代码、未引入依赖，实验和集成仍待实现 |
+| #104 LongHorizon-Harness 建议 | P3 | 已完成初步架构评估，实验与集成待实现，非阻塞缺陷 | 已核对上游 MIT 许可与固定源码版本，形成 [差距与实验方案](PROJECT_EXECUTION.md)；未复制代码、未引入依赖，实验和集成仍待实现 |
 
 ## 已关闭
+
+- #196：Hermes 超长提示词修复已随引擎 0.21.1 / 桌面 0.4.14 发布；普通协议保持兼容，超长输入使用官方 stdin 协议，旧 Hermes 提示升级。
 
 - #189：`LANG_LIBS` 引用错误已修复并随正式版发布。
 - #190：Windows 安装包缺失已解决；0.4.13 官方 EXE、blockmap 与校验文件已生成，下载校验通过。
@@ -21,7 +22,9 @@
 
 - 修复提交：`7da1489`。本地 `npm test`、构建及测试类型检查通过。
 - [Windows 专项 CI](https://github.com/jnMetaCode/agency-orchestrator/actions/runs/39540022743/job/119025394277) 通过，包含真实 Electron 运行时桥接和 Hermes 协议测试。
-- 此轮未发新版本；#196 保持打开等待发布，#194 保留真实 dsh 账号调用的验证边界。
+- 引擎 0.21.1 已能从 npm 官方仓库查询；[桌面 0.4.14](https://github.com/jnMetaCode/agency-orchestrator/releases/tag/desktop-v0.4.14) 已发布并设为 latest，Windows、macOS arm64/x64、Linux 全部提供安装包与校验文件。全部 7 份二进制 / blockmap 下载后 SHA-256 校验通过。
+- 发布源码 `fa48407` 的完整 CI 通过；引擎、桌面和 Docker 发布流水线均成功。npm latest 已指向 0.21.1，发布包 SHA-512 与官方元数据一致，包含 Hermes 修复与前端。本机已安装正式 Mac arm64 0.4.14，内置引擎健康检查为 0.21.1、ok=true、stale=false。旧应用与配置备份保留。
+- #194 仍保留真实 dsh 账号调用的验证边界；Windows/Linux 安装包已构建与下载校验，不宣称本机已在这些系统上实际安装运行。
 
 ## 验证范围
 
