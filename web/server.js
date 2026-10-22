@@ -49,7 +49,8 @@ import { normalizeProxyInput, readProxySetting, writeProxySetting, snapshotProxy
 import { registerShengsuanyunBatchRoutes } from './shengsuanyun-batch.js';
 import { OPTIONAL_ROLE_LIBRARIES, findOptionalRoleLibrary, installOptionalRoleLibrary } from './role-libraries.js';
 import { registerToolStatusRoute } from './tool-status.js';
-import { registerResourceCatalogRoutes } from './resource-catalog.js';
+import { registerSkillDraftRoutes } from './skill-drafts.js';
+import { registerResourceCatalogRoutes, readResourceCatalog } from './resource-catalog.js';
 import { resolveSkillsDirs } from '../dist/skills/loader.js';
 import { createTargetPreviews, TargetPreviewError, claudeTargetSummary } from './config-operation-preview.js';
 
@@ -2332,10 +2333,15 @@ registerToolStatusRoute(app, {
   codexOwnership: () => readCodexRelayStatus(CODEX_RELAY_ID),
 });
 
-registerResourceCatalogRoutes(app, {
+const resourceOptions = {
   getSkillDirs: () => [...new Set([...(process.env.AO_SKILLS_DIR ? [resolve(process.env.AO_SKILLS_DIR)] : []), ...resolveSkillsDirs()])],
   claudeMcpFile: process.env.AO_CLAUDE_MCP_FILE || join(homedir(), '.claude.json'),
   codexFile: join(process.env.AO_CODEX_DIR || join(homedir(), '.codex'), 'config.toml'),
+};
+registerResourceCatalogRoutes(app, resourceOptions);
+registerSkillDraftRoutes(app, {
+  directory: join(DATA_DIR, '.local', 'skill-drafts'),
+  resolveSource: id => readResourceCatalog({ ...resourceOptions, skillDirs: resourceOptions.getSkillDirs() }, id),
 });
 
 // 系统 Claude Code「急救」：诊断/修复被别的软件（cc-switch 等）或手动写坏的全局

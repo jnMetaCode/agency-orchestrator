@@ -29,6 +29,7 @@ jobs:
           npm run test:role-libraries
           npm run test:tool-status
       - run: npm run test:resources
+      - run: npm run test:skill-drafts
       - run: npm run test:operation-preview
 
   test:

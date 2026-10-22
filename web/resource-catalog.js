@@ -11,7 +11,7 @@ const object = value => value && typeof value === 'object' && !Array.isArray(val
 const mask = value => typeof value === 'string' ? value.replace(/(?:sk-|Bearer\s+)[A-Za-z0-9_./+-]{8,}/gi, '[redacted]') : '';
 const label = value => mask(value).replace(/[\x00-\x1f\x7f]/g, ' ').slice(0, 160);
 const idFor = value => createHmac('sha256', KEY).update(value).digest('hex');
-function read(file, limit = FILE_LIMIT) {
+export function readResourceFile(file, limit = FILE_LIMIT) {
   let fd;
   try {
     if (lstatSync(file).isSymbolicLink()) return { status: 'unreadable' };
@@ -27,7 +27,7 @@ function read(file, limit = FILE_LIMIT) {
 }
 function constantsRead() { return constants.O_RDONLY | (constants.O_NONBLOCK || 0) | (constants.O_NOFOLLOW || 0); }
 function document(file, parser) {
-  const result = read(file);
+  const result = readResourceFile(file);
   if (result.status !== 'present') return result;
   try { const doc = parser(result.text); return object(doc) ? { status: 'present', doc } : { status: 'invalid' }; }
   catch { return { status: 'invalid' }; }
@@ -74,7 +74,7 @@ export function readResourceCatalog({ skillDirs = [], claudeMcpFile, codexFile }
         if (!entry.isDirectory()) { if (entry.isSymbolicLink()) { source.skipped++; source.status = 'partial'; } continue; }
         const reference = entry.name;
         const file = join(directory, reference, 'SKILL.md');
-        const result = read(file, SKILL_LIMIT);
+        const result = readResourceFile(file, SKILL_LIMIT);
         if (result.status === 'missing') continue;
         const id = idFor(`skill\0${directory}\0${reference}`);
         let skill;
