@@ -1,4 +1,4 @@
-import { Clapperboard, Download, History, KeyRound, Monitor, Rocket, Settings, TriangleAlert, WandSparkles } from "lucide-react";
+import { Clapperboard, Download, History, KeyRound, Monitor, Library, Rocket, Settings, TriangleAlert, WandSparkles } from "lucide-react";
 import { Link, useSearchParams } from "react-router-dom";
 import { lazy, Suspense, useCallback, useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
@@ -8,6 +8,7 @@ import { CreativePanel } from "@/components/studio/CreativePanel";
 import { MediaSelect } from "@/components/studio/MediaSelect";
 import { ModelSelect } from "@/components/studio/ModelSelect";
 import { ProviderSelect } from "@/components/studio/ProviderSelect";
+import { ResourcesPanel } from "@/components/studio/ResourcesPanel";
 import { ToolsPanel } from "@/components/studio/ToolsPanel";
 import { ProvidersPanel } from "@/components/studio/ProvidersPanel";
 import { RolesPicker } from "@/components/studio/RolesPicker";
@@ -33,10 +34,9 @@ const UsagePanel = lazy(() => import("@/components/studio/UsagePanel").then((m) 
 const KEYED = API_PROVIDERS.map((p) => p.id);
 
 // 提示词优化已在顶部主导航单独成页(/prompt)，Studio 内不再重复一个 tab。
-// 顶栏按「用户来干嘛」分四组，不按系统里有什么功能平铺：
-//   开始做事（角色组队 / 工作流模板）· 我的运行 · 创意出片 · 设置（供应商 / 用量）
+// 顶栏提供任务、运行、创意、工具状态、资源发现和设置入口。
 // 旧的 5 tab（roles/workflows/runs/usage/providers）保留为子视图 id，?tab= 深链兼容。
-type Tab = "start" | "runs" | "create" | "tools" | "settings";
+type Tab = "start" | "runs" | "create" | "tools" | "resources" | "settings";
 type StartView = "roles" | "workflows";
 type SettingsView = "providers" | "usage";
 type LegacyTab = Tab | StartView | SettingsView;
@@ -46,6 +46,7 @@ const TAB_META: { id: Tab; icon: typeof Rocket }[] = [
   { id: "runs", icon: History },
   { id: "create", icon: Clapperboard },
   { id: "tools", icon: Monitor },
+  { id: "resources", icon: Library },
   { id: "settings", icon: Settings },
 ];
 
@@ -56,7 +57,7 @@ function resolveTab(qp: string | null): { tab: Tab; start?: StartView; settings?
     case "workflows": return { tab: "start", start: "workflows" };
     case "providers": return { tab: "settings", settings: "providers" };
     case "usage": return { tab: "settings", settings: "usage" };
-    case "tools": case "runs": case "create": case "settings": case "start": return { tab: qp };
+    case "resources": case "tools": case "runs": case "create": case "settings": case "start": return { tab: qp };
     default: return { tab: "start" };
   }
 }
@@ -170,11 +171,25 @@ function StudioInner() {
   }, []);
 
   useEffect(() => {
-    // The read-only tools view uses its dedicated sanitized endpoint. Avoid
+    // Read-only tools/resources views use dedicated sanitized endpoints. Avoid
     // fetching unrelated provider settings (whose URLs may contain credentials).
-    if (status === "online" && tab !== "tools") refreshConfig();
+    if (status === "online" && tab !== "tools" && tab !== "resources") refreshConfig();
   }, [status, refreshConfig, tab]);
 
+  const tabNavigation = useRef<HTMLElement>(null);
+  useEffect(() => {
+    const nav = tabNavigation.current;
+    if (!nav) return;
+    const keepActiveVisible = () => {
+      if (nav.scrollWidth > nav.clientWidth) {
+        nav.querySelector<HTMLElement>('[aria-current="page"]')?.scrollIntoView({ block: "nearest", inline: "nearest" });
+      }
+    };
+    keepActiveVisible();
+    const observer = typeof ResizeObserver === "undefined" ? null : new ResizeObserver(keepActiveVisible);
+    observer?.observe(nav);
+    return () => observer?.disconnect();
+  }, [tab, status]);
   const effProvider = provider || DEFAULT_PROVIDER;
   const needKeyWarning = status === "online" && KEYED.includes(effProvider) && keyedHas[effProvider] === false;
 
@@ -189,7 +204,7 @@ function StudioInner() {
             </span>
 
             {status !== "checking" && (
-              <nav className="flex flex-1 gap-1 overflow-x-auto rounded-xl bg-muted/50 p-1">
+              <nav ref={tabNavigation} className="flex flex-1 gap-1 overflow-x-auto rounded-xl bg-muted/50 p-1">
                 {TABS.map((tb) => {
                   const Icon = tb.icon;
                   const on = tab === tb.id;
@@ -242,7 +257,7 @@ function StudioInner() {
                   ↑ <span className="hidden lg:inline">{t.studio.shell.updateAvailable} </span>v{latest}
                 </button>
               )}
-              {tab !== "tools" && <>
+              {tab !== "tools" && tab !== "resources" && <>
                 <ProviderSelect value={provider} onChange={setProvider} onOpenProviders={() => setTab("providers")} />
                 <ModelSelect provider={provider} />
               </>}
@@ -256,7 +271,7 @@ function StudioInner() {
         </div>
 
         <div className="container-page py-8">
-          {needKeyWarning && tab !== "tools" && (
+          {needKeyWarning && tab !== "tools" && tab !== "resources" && (
             <div className="mb-5 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-amber-500/40 bg-amber-500/[0.08] px-4 py-3">
               <span className="flex items-center gap-2 text-sm text-amber-600 dark:text-amber-400">
                 <TriangleAlert className="size-4 shrink-0" />
@@ -268,7 +283,9 @@ function StudioInner() {
               </Button>
             </div>
           )}
-          {tab === "tools" ? (
+          {tab === "resources" ? (
+            <ResourcesPanel offline={offline} />
+          ) : tab === "tools" ? (
             <ToolsPanel offline={offline} onSettings={() => setTab("providers")} />
           ) : tab === "settings" && settingsView === "providers" ? (
             // 供应商/API 面板在线、离线都能进、能填（演示站没有引擎也照样展示卡片，只是无法实际运行）

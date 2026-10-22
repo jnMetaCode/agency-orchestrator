@@ -49,6 +49,8 @@ import { normalizeProxyInput, readProxySetting, writeProxySetting, snapshotProxy
 import { registerShengsuanyunBatchRoutes } from './shengsuanyun-batch.js';
 import { OPTIONAL_ROLE_LIBRARIES, findOptionalRoleLibrary, installOptionalRoleLibrary } from './role-libraries.js';
 import { registerToolStatusRoute } from './tool-status.js';
+import { registerResourceCatalogRoutes } from './resource-catalog.js';
+import { resolveSkillsDirs } from '../dist/skills/loader.js';
 import { createTargetPreviews, TargetPreviewError, claudeTargetSummary } from './config-operation-preview.js';
 
 // Codex 没有环境变量覆盖机制，中转配置写在 ~/.codex/config.toml + auth.json 里，
@@ -2328,6 +2330,12 @@ registerToolStatusRoute(app, {
   detectInstalled: detectInstalledCliProviders,
   claudeOwnership: readClaudeSwitchStatus,
   codexOwnership: () => readCodexRelayStatus(CODEX_RELAY_ID),
+});
+
+registerResourceCatalogRoutes(app, {
+  getSkillDirs: () => [...new Set([...(process.env.AO_SKILLS_DIR ? [resolve(process.env.AO_SKILLS_DIR)] : []), ...resolveSkillsDirs()])],
+  claudeMcpFile: process.env.AO_CLAUDE_MCP_FILE || join(homedir(), '.claude.json'),
+  codexFile: join(process.env.AO_CODEX_DIR || join(homedir(), '.codex'), 'config.toml'),
 });
 
 // 系统 Claude Code「急救」：诊断/修复被别的软件（cc-switch 等）或手动写坏的全局

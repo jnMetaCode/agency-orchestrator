@@ -16,6 +16,31 @@ export interface ToolConfigurationStatus {
   provider?: string;
 }
 export interface ToolStatusReport { checkedAt: string; tools: ToolConfigurationStatus[] }
+export interface CatalogResource {
+  id: string;
+  kind: "skill" | "mcp";
+  host: "ao" | "claude-code" | "codex-cli";
+  scope: "ao-search-path" | "user";
+  sourceId: string;
+  name: string;
+  reference?: string;
+  description?: string;
+  status: "declared" | "unsupported" | "invalid" | "unreadable";
+  selection?: "first-match" | "shadowed" | "unknown";
+  format?: "frontmatter" | "legacy";
+  transport?: "stdio" | "http" | "sse" | "ws" | "unknown";
+  configuredState?: "enabled" | "disabled" | "unknown";
+  endpointOrigin?: string;
+  hasArguments?: boolean;
+  environmentCount?: number;
+  body?: string;
+}
+export interface ResourceCatalog {
+  checkedAt: string;
+  sources: { id: string; kind: "skill" | "mcp"; host: CatalogResource["host"]; status: "present" | "missing" | "unreadable" | "invalid" | "partial"; skipped: number }[];
+  items: CatalogResource[];
+  truncated: boolean;
+}
 export type { PendingRunInput, RunInputSnapshot } from "./run-input-state";
 
 // Shared types + API client for the Studio (talks to web/server.js backend).
@@ -812,6 +837,8 @@ export function providerLogo(id: string): string | undefined {
 }
 
 export const api = {
+  resources: () => getJSON<ResourceCatalog>("/resources"),
+  resource: (id: string) => getJSON<CatalogResource>(`/resources/${encodeURIComponent(id)}`),
   health: () => getJSON<{ ok: boolean; version: string; stale?: boolean; latest?: string | null }>("/health"),
   usage: () => getJSON<UsageResponse>("/usage"),
   config: () => getJSON<ConfigResponse>("/config"),

@@ -65,7 +65,7 @@ export function resolveSkillsDir(): string | null {
 /** 仅供测试：重置目录缓存。 */
 export function _resetSkillsDirCache(): void { _cachedDirs = undefined; }
 
-function parseSkillFile(content: string, name: string): SkillDefinition {
+export function parseSkillFile(content: string, name: string): SkillDefinition {
   const m = content.match(/^---\s*\n([\s\S]*?)\n---\s*\n([\s\S]*)$/);
   if (!m) return { name, description: '', body: content.trim() };
   const fm: Record<string, string> = {};
