@@ -42,29 +42,6 @@ export interface Sponsor {
 }
 
 export const sponsors: Sponsor[] = [
-  {
-    id: "apixo",
-    name: "APIXO",
-    badge: "A",
-    logo: { zh: "/sponsors/apixo-ai-zh.jpg", en: "/sponsors/apixo-ai-en.jpg" },
-    logoShape: "wide",
-    url: "https://apixo.ai/models/seedream-5-5?utm_source=github&utm_medium=sponsorship&utm_campaign=github_readme&utm_content=jnmetacode_agency-agents-zh",
-    tier: "standard",
-    since: "2026-11",
-    featured: false,
-    tagline: {
-      zh: "AI 图片与视频创作｜黑五特惠",
-      en: "AI Image & Video Creation | Black Friday Deals",
-    },
-    description: {
-      zh: "感谢 APIXO 赞助本项目！无需编程，在 APIXO 网页端即可生成 AI 图片与视频，也可通过 API 接入自己的应用与自动化工作流。黑五期间，seedream5.5仅 $0.014/张，原价 $0.02/张，限时 7 折。指定模型与规格较活动页列示的市场参考价最高省 66%，优惠自动生效，无需优惠码。活动截至北京时间 2026 年 12 月 31 日 23:59。",
-      en: "Thanks to APIXO for sponsoring this project! Create AI images and videos in your browser with no coding required, or use the API to connect your apps and automated workflows. For Black Friday, Seedream 5.5 is just $0.014/image, down from $0.02—30% off. Selected models and specifications are up to 66% below the market reference prices listed on the campaign page. Discounts apply automatically; no promo code needed. Ends December 31, 2026 at 23:59 Beijing time (UTC+8).",
-    },
-    perk: {
-      zh: "查看 APIXO 黑五优惠 →",
-      en: "Explore APIXO Black Friday Deals →",
-    },
-  },
 
   {
     id: "apinebula",
@@ -258,6 +235,30 @@ export const sponsors: Sponsor[] = [
       en: "Register via our link to claim ¥50 in compute credit",
     },
   },
+  {
+    id: "apixo",
+    name: "APIXO",
+    badge: "A",
+    logo: { zh: "/sponsors/apixo-ai-zh.jpg", en: "/sponsors/apixo-ai-en.jpg" },
+    logoShape: "wide",
+    url: "https://apixo.ai/models/seedream-5-5?utm_source=github&utm_medium=sponsorship&utm_campaign=github_readme&utm_content=jnmetacode_agency-agents-zh",
+    tier: "standard",
+    since: "2026-11",
+    featured: false,
+    tagline: {
+      zh: "AI 图片与视频创作｜黑五特惠",
+      en: "AI Image & Video Creation | Black Friday Deals",
+    },
+    description: {
+      zh: "感谢 APIXO 赞助本项目！无需编程，在 APIXO 网页端即可生成 AI 图片与视频，也可通过 API 接入自己的应用与自动化工作流。黑五期间，seedream5.5仅 $0.014/张，原价 $0.02/张，限时 7 折。指定模型与规格较活动页列示的市场参考价最高省 66%，优惠自动生效，无需优惠码。活动截至北京时间 2026 年 12 月 31 日 23:59。",
+      en: "Thanks to APIXO for sponsoring this project! Create AI images and videos in your browser with no coding required, or use the API to connect your apps and automated workflows. For Black Friday, Seedream 5.5 is just $0.014/image, down from $0.02—30% off. Selected models and specifications are up to 66% below the market reference prices listed on the campaign page. Discounts apply automatically; no promo code needed. Ends December 31, 2026 at 23:59 Beijing time (UTC+8).",
+    },
+    perk: {
+      zh: "查看 APIXO 黑五优惠 →",
+      en: "Explore APIXO Black Friday Deals →",
+    },
+  },
+
 ];
 
 export function sponsorsByTier(tier: SponsorTier) {
