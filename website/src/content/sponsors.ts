@@ -259,6 +259,29 @@ export const sponsors: Sponsor[] = [
     },
   },
 
+  {
+    id: "beichenapi",
+    name: "北辰 API",
+    badge: "北",
+    logo: "/sponsors/logo-beichenapi.jpg",
+    url: "https://beichenapi.com/register?aff=RM34GKKSY7EC",
+    tier: "standard",
+    since: "2026-11",
+    featured: false,
+    tagline: {
+      zh: "稳定、高效的多模型 API 聚合服务",
+      en: "Stable, efficient multi-model API aggregation",
+    },
+    description: {
+      zh: "感谢北辰 API 赞助本项目！北辰 API 提供稳定、高效的多模型 API 聚合服务，支持 DeepSeek、GPT-6.1、Gemini 4A / 4C、Kimi K3.1 Pro 等主流模型，适用于 AI 编程、Agent 开发及多模型调用场景。平台目前已上线 Kimi K3.1 Pro、GPT-6.1 Terra、Gemini 4A / 4C，并提供自建 Gemini / GPT / DS 号池，接入便捷，适合开发者与团队使用。通过此链接注册即可了解更多服务信息。",
+      en: "Thanks to Beichen API for sponsoring this project! Beichen API provides stable, efficient multi-model API aggregation, supporting DeepSeek, GPT-6.1, Gemini 4A / 4C and Kimi K3.1 Pro for AI coding, agent development and multi-model applications. The platform offers Kimi K3.1 Pro, GPT-6.1 Terra and Gemini 4A / 4C, with self-managed Gemini / GPT / DS account pools and easy integration for developers and teams. Register through our link to learn more.",
+    },
+    perk: {
+      zh: "通过专属链接注册，了解更多服务信息",
+      en: "Register via our link to learn more",
+    },
+  },
+
 ];
 
 export function sponsorsByTier(tier: SponsorTier) {
