@@ -26,9 +26,7 @@
 
 ## ❤️ 赞助商 &nbsp;<sub>🙏 想出现在这里？联系 **jnMetaCode@qq.com** 赞助</sub>
 
-<table>
-
-</table>
+[APINEBULA](https://apinebula.ai/V6ekjG) · [Cubence](https://cubence.com/signup?code=SCW29JP9&source=agency) · [胜算云](https://www.shengsuanyun.com/?from=CH_QKH696UI) · [星图 AstraFlow](https://www.ucloud.cn/site/active/astraflow-credit?ytag=geo_waituo_agencyagentszh) · [APIXO AI](https://apixo.ai/models/seedream-5-5?utm_source=github&utm_medium=sponsorship&utm_campaign=github_readme&utm_content=jnmetacode_agency-agents-zh) · [北辰 API](https://beichenapi.com/register?aff=RM34GKKSY7EC)
 
 ---
 
@@ -327,7 +325,7 @@ analyze ──→ tech_review  ──→ summary
 | 提供商 | 配置 | 环境变量 |
 |--------|------|---------|
 | DeepSeek | `provider: "deepseek"` | `DEEPSEEK_API_KEY` |
-| 火山引擎（豆包 / Kimi / GLM，赞助商） | `provider: "volcengine"` | `ARK_API_KEY` |
+| 火山引擎（豆包 / Kimi / GLM） | `provider: "volcengine"` | `ARK_API_KEY` |
 | Claude API | `provider: "claude"` | `ANTHROPIC_API_KEY` |
 | OpenAI | `provider: "openai"` | `OPENAI_API_KEY` |
 | Gemini（Google 官方 OpenAI 兼容层） | `provider: "gemini"` | `GOOGLE_GENAI_API_KEY` |

@@ -129,7 +129,7 @@ function providerOrder(): string[] {
 }
 
 // 已下架的赞助商（按下架先后）：退到 Studio 列表末位组、摘掉官网卡片与推广链接，但保留为可用供应商。
-const DELISTED = ['duoyuanx', 'rootflowai', 'ccsub', 'aicodemirror'];
+const DELISTED = ['duoyuanx', 'rootflowai', 'ccsub', 'aicodemirror', 'fluxionai'];
 
 test('Studio 供应商列表：旗舰 APINEBULA 打头', () => {
   const order = providerOrder();
@@ -160,36 +160,20 @@ test('AICodeMirror 下架：CLI 中转预设与返利链接一并摘除', () => 
 
 test('官网赞助商页：旗舰打头；已下架的不再出现', () => {
   const ids = [...sponsorsSrc.matchAll(/^    id: "([\w-]+)"/gm)].map((m) => m[1]);
-  assert(ids[0] === 'apinebula', `首位应是旗舰赞助商，实际顺序：${ids.join(' → ')}`);
+  assert(ids.join(',') === 'apinebula,cubence,shengsuanyun,astraflow,apixo,beichenapi', `官网赞助名单与预期不符，实际顺序：${ids.join(' → ')}`);
   // 下架就要摘干净：赞助商页是"谁在付钱"的名单，留着等于替已经结束的合作继续曝光
   for (const gone of DELISTED) {
     assert(!ids.includes(gone), `${gone} 赞助已下架，不该还在官网赞助商页：${ids.join(' → ')}`);
   }
 });
 
-// 「最后一位」这个位置是给最新上架的那家的：LanoX 于 2026-08 上架时占着，同月胜算云上架后
-// 顺位后移，2026-08-23 APIMart、秘塔依次接入，2026-09-14 PackyCode、2026-09 Fluxion AI、
-// 2026-10 星图 AstraFlow 依次上架后再后移一位。
-// 改这条断言时记得两处一起改（Studio 列表 + 官网卡片），它防的是"顺序被无意打乱"，不是阻止正常上架。
-test('Studio 供应商列表：星图 AstraFlow 排赞助商组最后一位（最新接入者）', () => {
-  const order = providerOrder();
-  const i = order.indexOf('astraflow');
-  assert(i >= 0, `astraflow 不在 Studio 供应商列表里：${order.join(' → ')}`);
-  assert(order.indexOf('fluxionai') === i - 1, `Fluxion AI 应紧邻末位（接入顺序仅早于 AstraFlow）：${order.join(' → ')}`);
-  // 后面只允许跟「非赞助商」（自家 API / 已下架的），不能再冒出别的赞助商把它顶到中间
-  const block = studioSrc.slice(studioSrc.indexOf('export const API_PROVIDERS: ApiProviderMeta[]'));
-  const lines = block.slice(0, block.indexOf('\n];')).split('\n').filter((l) => /\{ id: "/.test(l));
-  const after = lines.slice(i + 1).filter((l) => /sponsor: true|flagship: true|advanced: true/.test(l));
-  assert(after.length === 0, `AstraFlow 之后还排着别的赞助商：\n    ${after.join('\n    ')}`);
-});
-
-test('官网赞助商页：最新上架的赞助商排最后一张卡（当前=AstraFlow）', () => {
+test('官网赞助商页：最新上架的赞助商排最后一张卡（当前=北辰 API）', () => {
   // 惯例：新赞助商上架时排末位（LanoX→胜算云→APIMart→秘塔→PackyCode→Fluxion AI 均如此）。
   // 每次上架新赞助商后同步更新这里的末位 id——这条测试的职责是防"顺序被无意打乱"，
   // 不是阻止正常上架。
   const ids = [...sponsorsSrc.matchAll(/^    id: "([\w-]+)"/gm)].map((m) => m[1]);
-  assert(ids[ids.length - 1] === 'astraflow', `末位应为 astraflow（最新上架），实际顺序：${ids.join(' → ')}`);
-  assert(ids.indexOf('fluxionai') === ids.length - 2, 'Fluxion AI 应紧邻末位（上架顺序仅早于 AstraFlow）');
+  assert(ids[ids.length - 1] === 'beichenapi', `末位应为 beichenapi（最新上架），实际顺序：${ids.join(' → ')}`);
+  assert(ids.indexOf('apixo') === ids.length - 2, 'APIXO 应紧邻北辰 API');
 });
 
 test('CLI 中转商卡片按实际端点写"支持哪几个 CLI"，不写死三个', () => {

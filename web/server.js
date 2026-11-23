@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import { syncApixoKey } from './apixo-config.js';
 /**
  * agency-orchestrator web UI backend
  * - Lists workflows/*.yaml
@@ -309,7 +310,14 @@ async function getRemoteManifest() {
     const r = await fetch(MANIFEST_URL, { signal: ctrl.signal });
     clearTimeout(timer);
     if (r.ok) {
-      const j = await r.json();
+      let j = await r.json();
+      // 官网可能仍在分发旧版清单。显式配置的清单地址始终由用户决定。
+      if (!process.env.AO_MANIFEST_URL) {
+        try {
+          const bundled = JSON.parse(readFileSync(join(ROOT, 'website', 'dist', 'providers-manifest.json'), 'utf8'));
+          if (Date.parse(bundled.updatedAt) > Date.parse(j?.updatedAt)) j = bundled;
+        } catch { /* 仅安装引擎时可没有前端产物，沿用远程清单。 */ }
+      }
       const idRe = /^[a-z][a-z0-9-]{1,30}$/;
       const httpsStr = (v) => (typeof v === 'string' && /^https:\/\//.test(v) ? v : undefined);
       const providers = (Array.isArray(j?.providers) ? j.providers : []).filter((p) =>
@@ -336,7 +344,7 @@ async function getRemoteManifest() {
       // 官网即对所有已安装用户生效；轮换算法仍复用引擎里那一份，份额口径不会漂移。
       // providerId 只接受「引擎真的认识」的 provider —— 否则引导里会出现一条
       // `--provider <不存在>` 的命令，比不展示更糟（纯 CLI 中转商用 relayOnly 标记）。
-      const knownProviderIds = new Set(API_PROVIDERS.map((p) => p.id));
+      const knownProviderIds = new Set([...API_PROVIDERS, ...ANTHROPIC_PROVIDERS].map((p) => p.id));
       const sponsorRotation = (Array.isArray(j?.sponsorRotation) ? j.sponsorRotation : [])
         .filter((e) => e && typeof e.name === 'string' && e.name.trim() && /^https:\/\//.test(String(e.url || '')))
         .map((e) => {
@@ -2161,7 +2169,7 @@ app.get('/api/config', async (_req, res) => {
       .filter(([id, p]) => p.family === 'api'
         && !CLI_PROVIDERS.includes(id)
         && id !== 'claude'
-        && !ANTHROPIC_PROVIDER_MAP[id])
+        && !ANTHROPIC_PROVIDER_MAP[id] || id === 'apixo-media')
       .map(([id]) => id),
     // 语音合成（type: tts）候选：**今天与 imageProviders 同一口径**——引擎的 generateSpeech
     // 复用 resolveImageAccess，能跑的就是 OpenAI 兼容那批。仍然给它独立字段而不是让前端复用
@@ -2318,6 +2326,7 @@ app.post('/api/config', (req, res) => {
       if (typeof model === 'string' && !model.trim()) delete saved[provider].model;
     }
   }
+  syncApixoKey(saved, provider, apiKey, clearing);
   writeKeys(saved);
   applyKeys(saved);
   // 把规整后的地址回给前端：用户填 `.../v1/chat/completions`、实际存的是 `.../v1`，
@@ -2654,6 +2663,20 @@ app.post('/api/test-provider', async (req, res) => {
   const key = provider === 'ollama' ? 'n/a'
     : ((typeof overrideKey === 'string' && overrideKey.trim()) || (KEY_ENV[provider] ? process.env[KEY_ENV[provider].key] : readKeys()[provider]?.apiKey));
   if (!key) return res.json({ ok: false, error: '未设置 API key' });
+  if (provider === 'apixo-media') {
+    try {
+      const spec = VIDEO_PROVIDER_MAP[provider];
+      const base = normalizeBaseUrl((typeof overrideBase === 'string' && overrideBase.trim()) || readKeys()[provider]?.baseUrl || process.env[spec.envBase] || spec.defaultBaseUrl);
+      const statusUrl = new URL(joinEndpoint(base, 'statusTask/seedream-5-5'));
+      statusUrl.searchParams.set('taskId', 'ao-readonly-connectivity-check');
+      const check = await fetch(statusUrl, {
+        headers: { Authorization: `Bearer ${key}` }, signal: AbortSignal.timeout(12000),
+      });
+      const data = await check.json();
+      const reachable = check.status === 400 && data?.message === 'TaskId not found';
+      return res.json({ ok: reachable, summary: reachable ? '媒体接口可达（只读检查）；未执行付费生成，尚未验证生成权限与余额。' : undefined, error: reachable ? undefined : `APIXO HTTP ${check.status}: ${data?.message || '连接检查失败'}` });
+    } catch { return res.json({ ok: false, error: 'APIXO 媒体接口连接失败' }); }
+  }
   const ctrl = new AbortController();
   const timer = setTimeout(() => ctrl.abort(), 12000);
   const t0 = Date.now();
@@ -2905,12 +2928,15 @@ async function shengsuanyunMediaModels() {
 // ── 拉取供应商的真实可用模型列表（OpenAI 兼容 GET /models；claude 走 Anthropic 原生端点）──
 // body 可带 baseUrl/apiKey 覆盖：add-custom 场景用户刚填了还没保存也能先拉列表。
 app.post('/api/provider-models', async (req, res) => {
+  // APIXO chat supports Messages but does not expose a compatible model-list endpoint.
+  if (req.body?.provider === 'apixo') return res.json({ ok: true, models: [ANTHROPIC_PROVIDER_MAP.apixo.defaultModel], source: 'preset', summary: '预设模型；不代表当前密钥的实时可用模型列表，请测试连接确认权限。' });
+  if (req.body?.provider === 'apixo-media') return res.json({ ok: true, models: ['seedream-5-5', 'grok-imagine-video'], source: 'documented' });
   const { provider, baseUrl: overrideBase, apiKey: overrideKey, protocol } = req.body || {};
   const keyErr = keyCharsetError(overrideKey);
   if (keyErr) return res.json({ ok: false, error: keyErr });
   await getRemoteManifest();
   const saved = provider ? (readKeys()[provider] || {}) : {};
-  const spec = provider ? API_PROVIDER_MAP[provider] : null;
+  const spec = provider ? (API_PROVIDER_MAP[provider] || ANTHROPIC_PROVIDER_MAP[provider]) : null;
   const remote = provider ? remoteProviderSpec(provider) : null;
   // protocol:'anthropic' = Anthropic 兼容端点（claude-code 中转商），认证头用 x-api-key
   const isClaude = provider === 'claude' || protocol === 'anthropic' || !!ANTHROPIC_PROVIDER_MAP[provider];
@@ -3162,7 +3188,13 @@ app.get(/^(?!\/api\/).*/, (req, res, next) => {
   res.sendFile(indexHtml);
 });
 
-app.listen(PORT, HOST, () => {
+app.listen(PORT, HOST, (error) => {
+  if (error) {
+    console.error(`Web Studio 无法监听 ${HOST}:${PORT}（${error.message}）`);
+    if (error.code === 'EADDRINUSE') console.error('端口已被占用，请用 --port 指定其他空闲端口。');
+    process.exit(1);
+  }
+  process.send?.('studio-listening');
   const ui = HAS_NEW_UI ? 'Web Studio' : 'web UI (legacy)';
   console.log(`🌐 agency-orchestrator ${ui}: http://${HOST}:${PORT}`);
   // 把解析到的前端路径打出来，前端缺失类问题（#81）一眼可查。

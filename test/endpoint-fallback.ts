@@ -396,3 +396,6 @@ assert(new OllamaConnector('localhost:11434') instanceof OllamaConnector, 'Ollam
 
 console.log(`\n${failed === 0 ? '✅' : '❌'} ${passed} passed, ${failed} failed\n`);
 process.exit(failed === 0 ? 0 : 1);
+
+const exhaustedPoolHint = endpointHint(403, 'https://api.beichenapi.com/v1/chat/completions', 'https://api.beichenapi.com/v1', undefined, '{"error":{"message":"All available accounts exhausted","type":"server_error"}}');
+if (!exhaustedPoolHint.includes('上游账号池不可用') || exhaustedPoolHint.includes('401/403 = 鉴权没过')) throw new Error('upstream pool exhaustion must not be reported as invalid credentials');

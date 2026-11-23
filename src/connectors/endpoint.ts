@@ -382,6 +382,8 @@ export function endpointHint(status: number, url: string, baseUrl: string, drift
     );
   } else if (status >= 300 && status < 400) {
     lines.push(`${status} = 还在跳转：跳了 ${MAX_REDIRECTS} 次仍没到终点，多为 base_url 指向了会反复重定向的地址，请直接填中转商文档里的最终地址`);
+  } else if (status === 403 && /all available accounts exhausted/i.test(body || '')) {
+    lines.push('供应商报告上游账号池不可用：请检查密钥所属分组与模型是否匹配，并联系供应商确认账号池状态；此响应不能证明密钥错误或用户余额不足');
   } else if (status === 401 || status === 403) {
     lines.push('401/403 = 鉴权没过：核对 API key 是否复制完整、是否与该 base_url 属于同一家、账号是否还有额度');
   } else if (status === 429 && body && isQuotaExhausted(body)) {

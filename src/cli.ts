@@ -1666,12 +1666,14 @@ async function handleWeb(): Promise<void> {
   console.log('   按 Ctrl+C 停止\n');
 
   const child = spawn(process.execPath, [serverPath], {
-    stdio: 'inherit',
+    stdio: ['inherit', 'inherit', 'inherit', 'ipc'],
     env: { ...process.env, PORT: String(port), HOST: host },
   });
 
   // 让 Studio 默认跟随 CLI 的界面语言（用户在界面里切换后由 localStorage 记住）
-  if (!noOpen) setTimeout(() => openBrowser(`${url}/?lang=${detectLang()}`), 1500);
+  if (!noOpen) child.once('message', (message) => {
+    if (message === 'studio-listening') openBrowser(`${url}/?lang=${detectLang()}`);
+  });
 
   const stop = () => { try { child.kill('SIGINT'); } catch { /* noop */ } };
   process.on('SIGINT', stop);

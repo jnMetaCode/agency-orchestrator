@@ -68,7 +68,7 @@ test('所有地址都是 https（服务端会按此过滤，写成 http 等于�
 });
 
 test('增量上架的 id 不能覆盖内置 provider（服务端会拒，这里提前拦）', () => {
-  const builtin = new Set(API_PROVIDERS.map((p) => p.id));
+  const builtin = new Set([...API_PROVIDERS, ...ANTHROPIC_PROVIDERS].map((p) => p.id));
   for (const p of m.providers ?? []) {
     assert(!builtin.has(p.id), `${p.id} 与内置 provider 重名，会被服务端丢弃`);
   }
@@ -93,7 +93,7 @@ test('CLI 中转预设的 provider id 必须是引擎支持的那三个', () => 
 });
 
 test('赞助商轮换池：名字齐全、链接 https、providerId 必须是真 provider', () => {
-  const builtin = new Set(API_PROVIDERS.map((p) => p.id));
+  const builtin = new Set([...API_PROVIDERS, ...ANTHROPIC_PROVIDERS].map((p) => p.id));
   for (const e of m.sponsorRotation ?? []) {
     assert(!!e.name && e.name.trim().length > 0, '轮换池条目缺 name');
     assert(/^https:\/\//.test(e.url), `${e.name} 的链接不是 https（服务端会整条丢弃）: ${e.url}`);
@@ -131,6 +131,7 @@ test('AICodeMirror 已下架（2026-09-14）：进 removedProviders，清单里�
 test('LanoX AI 的中转预设已上架，且端点与内置预设一致（2026-08 新增）', () => {
   const lx = (m.relayPresets ?? []).find((r) => /lanox/i.test(r.name));
   assert(!!lx, '清单里应有 LanoX AI 预设（这样还停在旧版的用户不等发版也能用）');
+  assert(!lx!.signupUrl && !lx!.sponsor, 'LanoX 保留中转端点，撤下赞助标识与推广链接');
   assert(lx!.baseUrls['claude-code'] === 'https://api.lanox.ai', `claude-code 端点不对（Anthropic 协议，base 不带 /v1）: ${lx!.baseUrls['claude-code']}`);
   assert(lx!.baseUrls['codex-cli'] === 'https://api.lanox.ai/v1', `codex-cli 端点不对: ${lx!.baseUrls['codex-cli']}`);
   // 没探到任何 Google 格式端点，宁可不给也不猜——填错的中转配置比没有更糟
@@ -153,7 +154,7 @@ test('PackyCode 的中转预设已上架，且端点与内置预设一致（2026
   assert(pc!.baseUrls['claude-code'] === 'https://www.packyapi.ai', `claude-code 端点不对（Anthropic 协议，base 不带 /v1）: ${pc!.baseUrls['claude-code']}`);
   assert(pc!.baseUrls['gemini-cli'] === 'https://www.packyapi.ai', `gemini-cli 端点不对: ${pc!.baseUrls['gemini-cli']}`);
   assert(pc!.baseUrls['codex-cli'] === 'https://www.packyapi.ai/v1', `codex-cli 端点不对: ${pc!.baseUrls['codex-cli']}`);
-  assert(pc!.signupUrl === 'https://www.packyapi.ai/register?aff=Zpx1', `返利链接不对: ${pc!.signupUrl}`);
+  assert(!pc!.signupUrl && !pc!.sponsor, 'PackyCode 保留中转端点，撤下赞助标识与推广链接');
 });
 
 test('星图 AstraFlow 的 API、CLI 中转预设与轮换池已完整上架（2026-10-20 补齐）', () => {
@@ -176,7 +177,7 @@ test('星图 AstraFlow 的 API、CLI 中转预设与轮换池已完整上架（2
   assert(line.includes('sponsor: true') && line.includes('https://www.ucloud.cn/site/active/astraflow-credit?ytag=geo_waituo_agencyagentszh'), 'Studio 卡片应标赞助并带专属链接');
 });
 
-test('Sidrune AI 的 API 与 CLI 中转预设已完整上架（2026-10-03 补齐）', () => {
+test('Sidrune AI 下架赞助但保留 API 兼容', () => {
   const api = API_PROVIDERS.find((p) => p.id === 'fluxionai');
   assert(!!api, 'Sidrune AI 必须是可运行的内置 API provider，不能只有赞助卡片');
   assert(api!.defaultBaseUrl === 'https://fluxionai.space/v1', `OpenAI 兼容地址不对: ${api!.defaultBaseUrl}`);
@@ -184,10 +185,9 @@ test('Sidrune AI 的 API 与 CLI 中转预设已完整上架（2026-10-03 补齐
   assert(!api!.defaultModel, 'Sidrune AI 模型受 key 分组限制，不应猜一个全局默认模型');
 
   const relay = (m.relayPresets ?? []).find((r) => /sidrune/i.test(r.name));
-  assert(!!relay, '清单里应有 Sidrune AI CLI 中转预设');
-  assert(relay!.baseUrls['claude-code'] === 'https://fluxionai.space', `Claude Code 根地址不对: ${relay!.baseUrls['claude-code']}`);
-  assert(relay!.baseUrls['codex-cli'] === 'https://fluxionai.space/v1', `Codex 根地址不对: ${relay!.baseUrls['codex-cli']}`);
-  assert(!relay!.baseUrls['gemini-cli'], 'Gemini 依赖特定 key 分组，不应冒充通用预设');
+  assert(!relay, '下架后不应再有 CLI 推广预设');
+  assert(m.removedProviders?.includes('fluxionai') === true, '必须同步远程下架');
+  assert(!m.sponsorRotation?.some(e => e.providerId === 'fluxionai'), '下架后退出轮换池');
 
   const studio = readFileSync('website/src/lib/studio.ts', 'utf-8');
   const line = studio.split('\n').find((s) => s.includes('{ id: "fluxionai"')) || '';
@@ -324,10 +324,10 @@ test('在架供应商不受影响', () => {
       `赞助商组内顺序被打乱了：声明 ${declared.join(',')} → 渲染 ${rendered.join(',')}`);
   });
 
-  test('胜算云在下架调整后的旗舰+赞助商队列中保持第 4 位', () => {
+  test('Studio 按官网顺序展示六家赞助商', () => {
     const promoted = FE_PROVIDERS.filter((x) => x.flagship || x.sponsor).map((x) => x.id);
-    assert(promoted.indexOf('shengsuanyun') === 3,
-      `胜算云应为第 4 位，实际：${promoted.join(',')}`);
+    assert(promoted.join(',') === 'apinebula,cubence,shengsuanyun,astraflow,apixo,beichenapi',
+      `当前赞助供应商及其顺序有误，实际：${promoted.join(',')}`);
   });
 }
 

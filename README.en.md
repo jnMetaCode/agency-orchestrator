@@ -28,20 +28,7 @@
 
 ## ❤️ Sponsors &nbsp;<sub>🙏 Want your logo here? Sponsor us at **jnMetaCode@qq.com**</sub>
 
-<table>
-<tr>
-<td width="25%">
-  <a href="https://go.apimart.ai/gh-agency-orchestrator">
-    <img src="./assets/sponsors/apimart.jpg" alt="APIMart — low-cost API platform for AI image &amp; video generation, GPT-Image-2 from $0.006/image, 160+ images per dollar" width="100%">
-  </a>
-</td>
-<td width="75%" valign="middle">
-
-Thanks to [APIMart](https://go.apimart.ai/gh-agency-orchestrator) for sponsoring this project! APIMart is a low-cost API platform for AI image & video generation — **GPT-Image-2 from $0.006/image**, 160+ images per dollar. One async API covers both image and video: submit a task, get an ID, fetch results via polling or callback. Batch tens of thousands of images without timeouts, switch models without changing code. Pay-as-you-go with no monthly fee — 🎁 **[sign up here](https://go.apimart.ai/gh-agency-orchestrator) to get started!**
-
-</td>
-</tr>
-</table>
+[APINEBULA](https://apinebula.ai/V6ekjG) · [Cubence](https://cubence.com/signup?code=SCW29JP9&source=agency) · [ShengSuanYun](https://www.shengsuanyun.com/?from=CH_QKH696UI) · [AstraFlow](https://www.ucloud.cn/site/active/astraflow-credit?ytag=geo_waituo_agencyagentszh) · [APIXO AI](https://apixo.ai/models/seedream-5-5?utm_source=github&utm_medium=sponsorship&utm_campaign=github_readme&utm_content=jnmetacode_agency-agents-zh) · [Beichen API](https://beichenapi.com/register?aff=RM34GKKSY7EC)
 
 ---
 
@@ -318,7 +305,7 @@ analyze ──→ tech_review  ──→ summary
 | Provider | Config | Env Variable |
 |----------|--------|-------------|
 | DeepSeek | `provider: "deepseek"` | `DEEPSEEK_API_KEY` |
-| Volcengine Ark (Doubao / Kimi / GLM · sponsor) | `provider: "volcengine"` | `ARK_API_KEY` |
+| Volcengine Ark (Doubao / Kimi / GLM) | `provider: "volcengine"` | `ARK_API_KEY` |
 | Claude API | `provider: "claude"` | `ANTHROPIC_API_KEY` |
 | OpenAI | `provider: "openai"` | `OPENAI_API_KEY` |
 
