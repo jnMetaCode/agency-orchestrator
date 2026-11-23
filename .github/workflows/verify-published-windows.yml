@@ -1,0 +1,72 @@
+name: Verify published Windows installer
+on:
+  push:
+    branches: [qa/desktop-0.4.15-install]
+permissions:
+  contents: read
+jobs:
+  install-and-launch:
+    runs-on: windows-latest
+    timeout-minutes: 10
+    env:
+      RELEASE_TAG: desktop-v0.4.15
+      AO_DESKTOP_PORT: 18192
+    steps:
+      - name: Download the published installer and check its digest
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          Set-Location $env:RUNNER_TEMP
+          gh release download $env:RELEASE_TAG --repo $env:GITHUB_REPOSITORY --pattern '*.exe' --pattern 'SHA256SUMS-win.txt'
+          if ($LASTEXITCODE -ne 0) { throw "Release download failed" }
+          $installer = Get-Item 'Agency.Orchestrator.Setup.0.4.15.exe'
+          $line = Get-Content SHA256SUMS-win.txt | Where-Object { $_.EndsWith("  $($installer.Name)") }
+          $hash = (Get-FileHash $installer.FullName -Algorithm SHA256).Hash
+          if ($line -ne "$hash  $($installer.Name)" -or $hash -ne '004cf6a8ce4ff2a3ecaa3e1cede2587e7a717846a66a1ebdc1981751286ffd4c') { throw "Installer digest mismatch" }
+          Write-Host "Installer SHA-256 verified: $hash"
+      - name: Install, launch the desktop window, and verify the loaded Studio page
+        shell: pwsh
+        run: |
+          Set-Location $env:RUNNER_TEMP
+          $installDir = Join-Path $env:RUNNER_TEMP 'ao-installed'
+          $env:AO_DATA_DIR = Join-Path $env:RUNNER_TEMP 'ao-data'
+          $install = Start-Process -FilePath '.\Agency.Orchestrator.Setup.0.4.15.exe' -ArgumentList '/S',"/D=$installDir" -Wait -PassThru
+          if ($install.ExitCode -ne 0) { throw "Installer exited $($install.ExitCode)" }
+          $exe = Get-Item (Join-Path $installDir 'Agency Orchestrator.exe')
+          if ($exe.VersionInfo.ProductVersion -notmatch '^0\.4\.15(?:\.|$)') { throw "Unexpected installed version" }
+          Write-Host "Installed $($exe.Name) $($exe.VersionInfo.ProductVersion)"
+          $app = Start-Process -FilePath $exe.FullName -ArgumentList '--remote-debugging-port=18193' -PassThru
+          try {
+            @'
+          const base = 'http://127.0.0.1:18192';
+          const sleep = ms => new Promise(r => setTimeout(r,ms));
+          async function check() {
+            for (let i = 0; i < 90; i++) {
+              try {
+                const pages = await (await fetch('http://127.0.0.1:18193/json/list')).json();
+                const page = pages.find(p => p.type === 'page' && p.url.startsWith(base + '/studio'));
+                if (!page) { await sleep(500); continue; }
+                const ws = new WebSocket(page.webSocketDebuggerUrl);
+                const dom = await new Promise((res,rej) => {
+                  const timer = setTimeout(() => rej(new Error('Renderer timed out')),3000);
+                  ws.onopen = () => ws.send(JSON.stringify({id:1,method:'Runtime.evaluate',params:{expression:"document.querySelector('#root')?.innerText?.trim().length || 0",returnByValue:true}}));
+                  ws.onmessage = event => { const msg=JSON.parse(event.data); if (msg.id===1) {clearTimeout(timer); res(msg.result?.result?.value); ws.close();} };
+                  ws.onerror = () => {clearTimeout(timer); rej(new Error('Renderer connection failed'));};
+                });
+                if (dom > 0) {
+                  const health = await (await fetch(base+'/api/health')).json();
+                  if (health.ok && health.version === '0.21.1') { console.log('Rendered packaged Studio at',page.url,'with',dom,'characters. Engine',health.version,'healthy.'); return; }
+                }
+              } catch (error) { if(i===89) throw error; }
+              await sleep(500);
+            }
+            throw new Error('Installed desktop window did not load Studio');
+          }
+          check().catch(e=>{console.error(e);process.exitCode=1;});
+          '@ | Set-Content -Encoding utf8 smoke.cjs
+            node smoke.cjs
+            if ($LASTEXITCODE -ne 0) { throw "Desktop smoke test failed" }
+          } finally {
+            if (!$app.HasExited) { taskkill /T /F /PID $app.Id | Out-Null }
+          }
