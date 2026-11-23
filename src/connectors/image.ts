@@ -1,3 +1,4 @@
+import { APIXO_MEDIA_ID, apixoImage } from './apixo.js';
 /**
  * 文生图（`type: image` 步骤的执行端）。
  *
@@ -37,7 +38,7 @@ export interface GeneratedImage {
   /** 目前各家一律回 png（我们也显式请求 png） */
   mime: 'image/png';
   /** 走的哪条协议（诊断/测试用） */
-  via: 'images-api' | 'responses-tool';
+  via: 'images-api' | 'responses-tool' | 'apixo-task';
   /** 真实像素尺寸（从 PNG 头读，不信厂商回执）——拿不到就没有这两个字段 */
   width?: number;
   height?: number;
@@ -177,6 +178,11 @@ export async function generateImage(
       '图片步骤缺少模型：请在该步写 image: { model: "<图片模型>" }。' +
       '各家可用的图片模型在 Studio「供应商」页配 key 后点「获取模型列表」查看（或看该服务商文档）。'
     );
+  }
+  if ((opts.provider || config.provider) === APIXO_MEDIA_ID) {
+    const key = config.provider === APIXO_MEDIA_ID ? config.api_key || process.env.APIXO_API_KEY : process.env.APIXO_API_KEY;
+    if (!key) throw new Error('图片步骤缺少 APIXO_API_KEY');
+    return settle(await apixoImage(key, opts.model, prompt, opts.size, opts.background, config.timeout && config.timeout > 0 ? config.timeout : 300_000, (config.provider === APIXO_MEDIA_ID ? config.base_url : undefined) || process.env.APIXO_MEDIA_BASE_URL), 'apixo-task', opts, onNotice);
   }
   const { baseUrl, apiKey } = resolveImageAccess(config, opts);
   const headers = { 'Content-Type': 'application/json', Authorization: `Bearer ${apiKey}` };

@@ -51,13 +51,11 @@
     ]
   },
   "version": 2,
-  "updatedAt": "2026-10-03",
+  "updatedAt": "2026-11-23",
   "providers": [],
   "relayPresets": [
     {
       "name": "LanoX AI",
-      "sponsor": true,
-      "signupUrl": "https://lanox.ai/?c=X3RD38F7&inviteCode=A3HRUB6M",
       "baseUrls": {
         "claude-code": "https://api.lanox.ai",
         "codex-cli": "https://api.lanox.ai/v1"
@@ -75,21 +73,10 @@
     },
     {
       "name": "PackyCode",
-      "sponsor": true,
-      "signupUrl": "https://www.packyapi.ai/register?aff=Zpx1",
       "baseUrls": {
         "claude-code": "https://www.packyapi.ai",
         "gemini-cli": "https://www.packyapi.ai",
         "codex-cli": "https://www.packyapi.ai/v1"
-      }
-    },
-    {
-      "name": "Sidrune AI",
-      "sponsor": true,
-      "signupUrl": "https://sidrune.ai/register?source=github&campaign=agencyagents&promo=agencyagents&aff=RQHWKAMQLX2S",
-      "baseUrls": {
-        "claude-code": "https://fluxionai.space",
-        "codex-cli": "https://fluxionai.space/v1"
       }
     },
     {
@@ -117,34 +104,26 @@
       "url": "https://cubence.com/signup?code=SCW29JP9&source=agency"
     },
     {
-      "providerId": "lanox",
-      "name": "LanoX AI",
-      "bonus": "注册送 5 美金",
-      "url": "https://lanox.ai/?c=X3RD38F7&inviteCode=A3HRUB6M"
-    },
-    {
       "providerId": "shengsuanyun",
       "name": "胜算云",
       "bonus": "注册送 5 元 Token",
       "url": "https://www.shengsuanyun.com/?from=CH_QKH696UI"
     },
     {
-      "providerId": "packycode",
-      "name": "PackyCode",
-      "bonus": "新用户首充折扣 + $1 体验额度",
-      "url": "https://www.packyapi.ai/register?aff=Zpx1"
-    },
-    {
-      "providerId": "fluxionai",
-      "name": "Sidrune AI",
-      "bonus": "专属链接注册送 $3 API 额度",
-      "url": "https://sidrune.ai/register?source=github&campaign=agencyagents&promo=agencyagents&aff=RQHWKAMQLX2S"
-    },
-    {
       "providerId": "astraflow",
       "name": "星图 AstraFlow",
       "bonus": "专属链接注册领 50 元算力金",
       "url": "https://www.ucloud.cn/site/active/astraflow-credit?ytag=geo_waituo_agencyagentszh"
+    },
+    {
+      "providerId": "apixo",
+      "name": "APIXO AI",
+      "url": "https://apixo.ai/docs"
+    },
+    {
+      "providerId": "beichenapi",
+      "name": "北辰 API",
+      "url": "https://beichenapi.com/register?aff=RM34GKKSY7EC"
     }
   ],
   "removedProviders": [
@@ -154,7 +133,8 @@
     "metaso",
     "compshare",
     "volcengine",
-    "volcengine-plan"
+    "volcengine-plan",
+    "fluxionai"
   ],
   "providerOverrides": {
     "deepseek": {

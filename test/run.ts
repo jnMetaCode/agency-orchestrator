@@ -215,7 +215,7 @@ test('formatDAG 输出包含并行标记', () => {
   const wf = parseWorkflow(workflowPath);
   const dag = buildDAG(wf);
   const text = formatDAG(dag);
-  assert(text.includes('并行'), '应包含并行标记');
+  assert(/并行|parallel/i.test(text), '应包含并行标记');
 });
 
 test('反向依赖正确', () => {

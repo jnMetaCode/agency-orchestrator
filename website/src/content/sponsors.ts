@@ -3,7 +3,6 @@ import type { Language } from "@/i18n/translations";
 /**
  * 赞助商数据。
  *
- * 当前赞助商：星图 AstraFlow（UCloud 出品的大模型与视频统一调用平台）、APINEBULA（旗舰，银河录像局旗下 AI 聚合平台）、Cubence（API 中转服务商）、LanoX AI（全球模型聚合，500+ 模型）、胜算云（面向 AI 原生团队的模型 API 聚合 + 企业级网关）、APIMart（AI 图片/视频生成低价 API）、PackyCode（API 中转，统一域名统一密钥）、Sidrune AI（全球主流 AI 模型统一 API）。
  * 均为真实付费赞助，非占位样例。新增赞助商时按 Sponsor 结构追加即可。
  * 已下架：优云智算、火山引擎（2026-10-16）、秘塔科技（2026-10-08）、RootFlowAI、CCSub（2026-08）、多元探索（2026-08-17，赞助到期）、AICodeMirror（2026-09-14）——赞助身份与
  * 曝光位一并摘除，但它们在 Studio 里仍是可用供应商（已配过 key 的用户不该被搞坏）。
@@ -97,29 +96,6 @@ export const sponsors: Sponsor[] = [
     couponCode: "AGENCY",
   },
   {
-    id: "lanox",
-    name: "LanoX AI",
-    badge: "LX",
-    accent: "from-blue-600 to-violet-500",
-    logo: "/sponsors/logo-lanox-icon.png",
-    url: "https://lanox.ai/?c=X3RD38F7&inviteCode=A3HRUB6M",
-    tier: "standard",
-    since: "2026-08",
-    featured: false,
-    tagline: {
-      zh: "全球模型接入 · 500+ 免费模型，顶级模型低至官方价 1 折起",
-      en: "Global model access · 500+ free models, top-tier models from 10% of list price",
-    },
-    description: {
-      zh: "感谢 LanoX AI 赞助了本项目！LanoX AI 为开发者、团队与企业提供稳定、高性价比的全球模型接入服务：GPT、Claude、Gemini、Qwen、Grok 等全球主流模型，以及 Seedance 2.0、GPT Image、Gemini Nano Banana 等多模态创作能力。企业级稳定服务——高可用、原生能力输出、不降智、不混模、调用与计费透明；顶级模型低至官方价 1 折起，文档清晰、接入简单、支持开票与企业批量调用，适用于 AI 产品、Agent、内容平台与研发团队的批量调用场景。",
-      en: "Thanks to LanoX AI for sponsoring this project! LanoX AI provides stable, cost-effective global model access for developers, teams and enterprises: mainstream models including GPT, Claude, Gemini, Qwen and Grok, plus multimodal creation with Seedance 2.0, GPT Image and Gemini Nano Banana. Enterprise-grade reliability — high availability, native capability output, no intelligence degradation, no model mixing, transparent usage and billing. Top-tier models start from 10% of official pricing, with clear documentation, simple integration, invoicing support and enterprise-scale batch usage — ideal for AI products, agents, content platforms and R&D teams.",
-    },
-    perk: {
-      zh: "注册即送 5 美金，免费领取百万 Token，另有 500+ 免费模型可用",
-      en: "Sign up for $5 in free credit, claim millions of free tokens, plus 500+ free models",
-    },
-  },
-  {
     id: "shengsuanyun",
     name: "胜算云",
     badge: "SS",
@@ -140,76 +116,6 @@ export const sponsors: Sponsor[] = [
     perk: {
       zh: "新用户通过专属链接注册，即可领取 5 元 Token 体验额度",
       en: "New users get ¥5 in token credit when signing up via our link",
-    },
-  },
-  {
-    id: "apimart",
-    name: "APIMart",
-    badge: "M",
-    accent: "from-neutral-800 to-neutral-500",
-    logo: "/sponsors/logo-apimart-icon.png",
-    url: "https://go.apimart.ai/gh-agency-orchestrator",
-    tier: "standard",
-    since: "2026-08",
-    featured: false,
-    tagline: {
-      zh: "AI 图片/视频生成低价 API · GPT-Image-2 低至 $0.006/张",
-      en: "Low-cost API for AI image & video generation · GPT-Image-2 from $0.006/image",
-    },
-    description: {
-      zh: "感谢 APIMart 赞助了本项目！APIMart 是专注 AI 图片/视频生成的低价 API 平台，GPT-Image-2 低至 $0.006/张，1 美元可出图 160+ 张。图片、视频一套异步 API 通吃，提交任务拿 ID、回调取结果，跑批万张不超时、换模型不改代码。按量付费、无月费，通过此注册链接注册即可开用。",
-      en: "Thanks to APIMart for sponsoring this project! APIMart is a low-cost API platform for AI image & video generation — GPT-Image-2 from $0.006/image, 160+ images per dollar. One async API covers both image and video: submit a task, get an ID, fetch results via polling or callback. Batch tens of thousands of images without timeouts, switch models without changing code. Pay-as-you-go with no monthly fee — sign up here to get started.",
-    },
-    perk: {
-      zh: "按量付费、无月费，1 美元可出图 160+ 张，通过专属链接注册即可开用",
-      en: "Pay-as-you-go with no monthly fee — 160+ images per dollar; sign up via our link to start",
-    },
-  },
-  {
-    id: "packycode",
-    name: "PackyCode",
-    badge: "P",
-    accent: "from-emerald-500 to-green-400",
-    logo: "/sponsors/logo-packycode-icon.png",
-    url: "https://www.packyapi.ai/register?aff=Zpx1",
-    tier: "standard",
-    since: "2026-09",
-    featured: false,
-    tagline: {
-      zh: "稳定高效的 API 中转 · 一句话接入主流大模型，多分组低至 2 折",
-      en: "Stable, fast API relay · one endpoint for leading models, routes from 20% of list price",
-    },
-    description: {
-      zh: "感谢 PackyCode 赞助了本项目！PackyCode 是一家稳定、高效的 API 中转服务商，一句话接入主流大模型：统一域名、统一密钥、智能容灾切换，97% 可用性。人民币 1:1 充值，无汇率无手续费坑；多分组折扣低至 2 折起，并提供专属 Codex / Claude Code 高速通道。支持 Stripe、支付宝、微信、银行卡与对公付款，对公可开票，支持退款。",
-      en: "Thanks to PackyCode for sponsoring this project! PackyCode is a stable, efficient API relay: access leading AI models with one API endpoint and one API key, with automatic failover, 97% availability and dedicated high-speed routes for Codex and Claude Code. Pay in RMB with no currency conversion markups or extra top-up fees, and save up to 80% on eligible routes. Pay via Stripe, Alipay, WeChat Pay, bank card or corporate transfer — invoices for corporate payments, refunds supported.",
-    },
-    perk: {
-      zh: "新用户首充立享折扣 + $1 免费体验额度",
-      en: "$1 in free credits plus a discount on your first top-up",
-    },
-  },
-  {
-    id: "fluxionai",
-    name: "Sidrune AI",
-    badge: "S",
-    accent: "from-blue-600 to-violet-600",
-    logo: "/sponsors/logo-sidrune-ai.png",
-    logoShape: "wide",
-    url: "https://sidrune.ai/register?source=github&campaign=agencyagents&promo=agencyagents&aff=RQHWKAMQLX2S",
-    tier: "standard",
-    since: "2026-09",
-    featured: false,
-    tagline: {
-      zh: "一个入口，接入并管理全球主流 AI 模型",
-      en: "One gateway to access and manage the world’s leading AI models",
-    },
-    description: {
-      zh: "感谢 Sidrune AI 赞助本项目！Sidrune AI 面向个人开发者、技术团队与企业，通过统一 API 接入并管理全球主流 AI 模型；通过多线路动态调度提升可用性，模型表现、响应时间与费用透明可查。根据不同模型与线路，API 调用成本较官方或基准价格可降低 40%—98%。",
-      en: "Thanks to Sidrune AI for sponsoring this project! Sidrune AI gives individual developers, engineering teams and enterprises one unified API for accessing and managing leading AI models worldwide. Dynamic routing across multiple channels improves availability, while model performance, latency and costs remain transparent. Depending on the model and route, API costs can be 40%–98% lower than official or benchmark pricing.",
-    },
-    perk: {
-      zh: "通过专属链接注册，即可获得 $3 API 额度",
-      en: "Sign up via our exclusive link to receive $3 in API credit",
     },
   },
   {
@@ -237,7 +143,7 @@ export const sponsors: Sponsor[] = [
   },
   {
     id: "apixo",
-    name: "APIXO",
+    name: "APIXO AI",
     badge: "A",
     logo: { zh: "/sponsors/apixo-ai-zh.jpg", en: "/sponsors/apixo-ai-en.jpg" },
     logoShape: "wide",

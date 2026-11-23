@@ -26,6 +26,7 @@ export interface ApiProviderSpec {
 export const CLAUDE_DEFAULT_MODEL = 'claude-sonnet-5';
 
 export const API_PROVIDERS: ApiProviderSpec[] = [
+  { id: 'beichenapi', envKey: 'BEICHENAPI_API_KEY', envBase: 'BEICHENAPI_BASE_URL', defaultBaseUrl: 'https://api.beichenapi.com/v1', defaultModel: 'gpt-6.1-sol' },
   { id: 'deepseek', envKey: 'DEEPSEEK_API_KEY', envBase: 'DEEPSEEK_BASE_URL', defaultBaseUrl: 'https://api.deepseek.com/v1', defaultModel: 'deepseek-chat' },
   { id: 'openai', envKey: 'OPENAI_API_KEY', envBase: 'OPENAI_BASE_URL', defaultBaseUrl: 'https://api.openai.com/v1', defaultModel: 'gpt-5.5' },
   // 优云智算 / CompShare ModelVerse（赞助商）—— 模型如 deepseek-ai/DeepSeek-R1，无通用默认模型
@@ -177,6 +178,7 @@ export interface AnthropicProviderSpec {
 }
 
 export const ANTHROPIC_PROVIDERS: AnthropicProviderSpec[] = [
+  { id: 'apixo', envKey: 'APIXO_API_KEY', envBase: 'APIXO_BASE_URL', defaultBaseUrl: 'https://llm.apixo.ai', defaultModel: 'claude-opus-4-8' },
   // AICodeMirror —— Claude / Codex / Gemini 中转（赞助已于 2026-09-14 下架，provider 保留可用，
   // 不搞坏已配好 key 的用户；Studio 里退到末位的已下架组）。
   // 直连走 Anthropic Messages 协议：base 不带 /v1，客户端自己接 /v1/messages
@@ -221,7 +223,7 @@ export interface VideoProviderSpec {
    * **接第二家时才知道这层抽象立不立得住**：秘塔与 APIMart 从路径到字段名到状态词
    * 没有一处相同，加 APIMart 只新增了一个 adapter，主流程一行没动。
    */
-  shape: 'minimax' | 'apimart' | 'openai-videos' | 'ark' | 'local' | 'shengsuanyun' | 'modelverse';
+  shape: 'apixo' | 'minimax' | 'apimart' | 'openai-videos' | 'ark' | 'local' | 'shengsuanyun' | 'modelverse';
   /** 建任务时额外固定字段（如 Agnes 的 openai-videos 变体要求 mode:"text"）；有首帧图时用 createExtraWithImage */
   createExtra?: Record<string, unknown>;
   createExtraWithImage?: Record<string, unknown>;
@@ -255,6 +257,7 @@ export interface VideoProviderSpec {
 }
 
 export const VIDEO_PROVIDERS: VideoProviderSpec[] = [
+  { id: 'apixo-media', envKey: 'APIXO_API_KEY', envBase: 'APIXO_MEDIA_BASE_URL', defaultBaseUrl: 'https://api.apixo.ai/api/v1', shape: 'apixo', models: [{ id: 'grok-imagine-video', resolutions: ['480p', '720p', '1080p'], durations: [6, 10, 15, 20, 30], ratios: ['1:1', '3:2', '2:3', '16:9', '9:16'] }] },
   {
     id: 'metaso',
     envKey: 'METASO_API_KEY',

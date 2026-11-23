@@ -1,3 +1,4 @@
+import { VideoGenerator } from "@/components/creative/VideoGenerator";
 // 创意提示词库：图像生成（Nano Banana / Gemini）提示词,独立于专家库,方便直接取用。
 // 内容来自 CC BY 4.0 开源库,UI 标注出处与作者署名（见底部 + 每张卡片）。
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -187,6 +188,8 @@ function VideoCard({ t }: { t: VideoTemplate }) {
   // 示例成片**点了才加载**：OpenAI 官方那几条单个 17~48MB，一页 24 张卡自动预载会把
   // 流量打爆；preload="none" 也只能省下载、省不掉 24 个黑框，所以干脆按需换入。
   const [showVideo, setShowVideo] = useState(false);
+  const [generateOpen, setGenerateOpen] = useState(false);
+  const [generateMounted, setGenerateMounted] = useState(false);
   const copy = async () => {
     try {
       await navigator.clipboard.writeText(t.prompt);
@@ -252,10 +255,12 @@ function VideoCard({ t }: { t: VideoTemplate }) {
             </button>
           </>
         )}
+        {t.prompt && <button onClick={() => { setGenerateMounted(true); setGenerateOpen(v => !v); }} className="rounded-lg border border-primary/40 px-2.5 py-1.5 text-primary">{generateOpen ? (en ? "Hide generator" : "收起生成") : (en ? "Generate video" : "生成视频")}</button>}
         <a href={t.source} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-muted-foreground hover:text-primary">
           {en ? "Full breakdown" : "原文与拆解"} <ExternalLink className="size-3" />
         </a>
       </div>
+      {generateMounted && <div hidden={!generateOpen}><VideoGenerator prompt={t.prompt} en={en} /></div>}
     </div>
   );
 }
@@ -389,15 +394,17 @@ function PromptCard({ p, gen, onOpenGen, batchMode, selected, onToggleSelected }
             </p>
           ) : (
             <>
+              <datalist id="creative-image-models">{API_PROVIDER_MAP[effProvider]?.imageModels?.map((m) => <option key={m} value={m} />)}</datalist>
               <div className="flex flex-wrap items-center gap-2">
                 <select
                   value={effProvider}
-                  onChange={(e) => { setGenProvider(e.target.value); writeGenPref({ provider: e.target.value }); }}
+                  onChange={(e) => { const id = e.target.value; setGenProvider(id); writeGenPref({ provider: id }); if (id === "apixo-media") { setGenModel("seedream-5-5"); writeGenPref({ model: "seedream-5-5" }); } }}
                   className="h-8 rounded-lg border border-border/70 bg-background px-2"
                 >
                   {gen?.providers.map((pr) => <option key={pr.id} value={pr.id}>{pr.label}</option>)}
                 </select>
                 <input
+                  list="creative-image-models"
                   value={genModel}
                   onChange={(e) => { setGenModel(e.target.value); writeGenPref({ model: e.target.value }); }}
                   placeholder={en ? "image model, e.g. gpt-image-2" : "图片模型，如 gpt-image-2"}

@@ -6,8 +6,7 @@
  *   无凭证响应的 provider 字段）——不占引导横幅，避免双份曝光。
  *   **该档位现无人持有**（多元探索 2026-08-17 到期下架），默认 provider 位暂由
  *   旗舰赞助商 APINEBULA 顶上（旗舰权益的延伸，不是进阶档本身）。
- * - 无凭证引导横幅/CLI ② 路径 = 轮换池 8 家（旗舰 APINEBULA + 标准 7 家）按自然日
- *   轮换，每天显示相邻 2 家：等份轮值、确定性、可向赞助商解释份额（每家 2/8 天数）
+ * - 无凭证引导横幅/CLI ② 路径 = 按自然日轮换，每天显示相邻两家。
  */
 
 export interface SponsorGuideEntry {
@@ -32,30 +31,21 @@ export interface SponsorGuideEntry {
  * 进阶档（默认 provider 位持有者）——**目前无人持有**：多元探索的赞助于 2026-08-17 到期下架。
  *
  * 为什么是 null 而不是随手填一家：进阶档是独立的付费档位，拿轮换池里的某家来充数
- * 等于白送双份曝光（横幅轮值 + 进阶位），对其余 7 家不公平——有断言钉着"进阶档持有者
+ * 等于白送双份曝光（横幅轮值 + 进阶位），对其余赞助商不公平——有断言钉着"进阶档持有者
  * 不得同时在轮换池里"。默认 provider 位（DEFAULT_PROVIDER / DEFAULT_PROVIDER_ID）
  * 眼下暂交给旗舰赞助商 APINEBULA，那是旗舰权益的延伸，与这里的进阶档是两件事。
  * 下一家买进阶档时，把它填回来即可（届时须把它从轮换池移出）。
  */
 export const PREMIUM_SPONSOR: SponsorGuideEntry | null = null;
 
-/** 引导横幅轮换池：旗舰 + 标准共 8 家（顺序无偏好，轮值即公平；每家 2/8 天数）。
- *  RootFlowAI 与 CCSub 已下架赞助（2026-08），AICodeMirror 曾顶上其中一位；
- *  LanoX AI 于 2026-08 新增（池子 5 → 6 家，份额同步从 2/5 稀释为 2/6）；
- *  胜算云于 2026-08 新增（6 → 7 家，份额再稀释为 2/7）；
- *  AICodeMirror 于 2026-09-14 下架（7 → 6 家，份额回到 2/6）；
- *  PackyCode 于 2026-09-16 补进池（6 → 7 家，份额再稀释为 2/7）——它是标准档赞助商，
- *  其余标准档都在池里，单把它排除等于收了赞助却不给横幅曝光。
- *  Sidrune AI 于 2026-09 加入（2026-10-03 补齐 API 与轮换池，7 → 8 家）。
- *  星图 AstraFlow 于 2026-10 加入（标准档，2026-10-20 补齐 API 与轮换池）。 */
+/** 引导横幅轮换池，按官网赞助商展示顺序排列。 */
 export const SPONSOR_ROTATION: SponsorGuideEntry[] = [
   { providerId: 'apinebula', name: 'APINEBULA', bonus: '充值码 agent 九折', url: 'https://apinebula.ai/V6ekjG' },
   { providerId: 'cubence', name: 'Cubence', bonus: '首购 9 折', url: 'https://cubence.com/signup?code=SCW29JP9&source=agency' },
-  { providerId: 'lanox', name: 'LanoX AI', bonus: '注册送 5 美金', url: 'https://lanox.ai/?c=X3RD38F7&inviteCode=A3HRUB6M' },
   { providerId: 'shengsuanyun', name: '胜算云', bonus: '注册送 5 元 Token', url: 'https://www.shengsuanyun.com/?from=CH_QKH696UI' },
-  { providerId: 'packycode', name: 'PackyCode', bonus: '新用户首充折扣 + $1 体验额度', url: 'https://www.packyapi.ai/register?aff=Zpx1' },
-  { providerId: 'fluxionai', name: 'Sidrune AI', bonus: '专属链接注册送 $3 API 额度', url: 'https://sidrune.ai/register?source=github&campaign=agencyagents&promo=agencyagents&aff=RQHWKAMQLX2S' },
   { providerId: 'astraflow', name: '星图 AstraFlow', bonus: '专属链接注册领 50 元算力金', url: 'https://www.ucloud.cn/site/active/astraflow-credit?ytag=geo_waituo_agencyagentszh' },
+  { providerId: 'apixo', name: 'APIXO AI', url: 'https://apixo.ai/docs' },
+  { providerId: 'beichenapi', name: '北辰 API', url: 'https://beichenapi.com/register?aff=RM34GKKSY7EC' },
 ];
 
 /**

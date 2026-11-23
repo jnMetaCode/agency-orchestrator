@@ -104,6 +104,7 @@ export function ProviderConfigView({
   const [homepageUrl, setHomepageUrl] = useState(isEditCustom ? ((target as { customMeta?: { homepageUrl?: string } }).customMeta?.homepageUrl ?? "") : "");
 
   // 模型列表拉取
+  const [modelListSource, setModelListSource] = useState<string | undefined>();
   const [fetchedModels, setFetchedModels] = useState<string[] | null>(null);
   // 供应商 /models 响应里的 owned_by/provider —— 分组标题优先用它（对齐 cc-switch），没有才按模型名推断
   const [fetchedVendors, setFetchedVendors] = useState<Record<string, string> | undefined>(undefined);
@@ -236,7 +237,7 @@ export function ProviderConfigView({
         apiKey: key.trim() || undefined,
         protocol: isCcRelay ? "anthropic" : undefined,
       });
-      if (r.ok && r.models) { setFetchedModels(r.models); setFetchedVendors(r.vendors); }
+      if (r.ok && r.models) { setFetchedModels(r.models); setFetchedVendors(r.vendors); setModelListSource(r.source); }
       // 没填 key 又被中转拒绝(401/未设置 key)时,别把原始 JSON 甩给用户,给一句可操作的引导
       else if (!key.trim() && /401|403|未设置 API key|authentication|credential|invalid token/i.test(r.error || "")) { setFetchNeedsKey(true); setFetchError(p.fetchNeedsKey); }
       else setFetchError(r.error || "failed");
@@ -866,7 +867,7 @@ export function ProviderConfigView({
               </div>
               {fetchError && <p className={cn("text-[11px]", fetchNeedsKey ? "text-amber-500" : "text-red-500")}>{fetchError}</p>}
               {fetchedModels && (
-                <p className="text-[11px] text-muted-foreground">{p.modelsFetchedPre}{fetchedModels.length}{p.modelsFetchedPost}</p>
+                <p className="text-[11px] text-muted-foreground">{modelListSource === "preset" || modelListSource === "documented" ? "预设模型 / Preset models: " : p.modelsFetchedPre}{fetchedModels.length}{modelListSource === "preset" || modelListSource === "documented" ? "（权限请测试连接 / test connection to verify access）" : p.modelsFetchedPost}</p>
               )}
               <datalist id="cc-relay-models">
                 {(fetchedModels ?? []).map((m) => (
@@ -925,7 +926,7 @@ export function ProviderConfigView({
                 {fetchError && <p className={cn("mt-1 text-[11px]", fetchNeedsKey ? "text-amber-500" : "text-red-500")}>{fetchError}</p>}
                 {fetchedModels && (
                   <p className="mt-1 text-[11px] text-muted-foreground">
-                    {p.modelsFetchedPre}{fetchedModels.length}{p.modelsFetchedPost}
+                    {modelListSource === "preset" || modelListSource === "documented" ? "预设模型 / Preset models: " : p.modelsFetchedPre}{fetchedModels.length}{modelListSource === "preset" || modelListSource === "documented" ? "（权限请测试连接 / test connection to verify access）" : p.modelsFetchedPost}
                   </p>
                 )}
                 {/* 模型多时给个搜索框先筛（聚合站常几百个），筛完再点选 */}

@@ -80,6 +80,10 @@ function InputsDialog({ wf, provider, onClose, onRun, onCompare }: { wf: Workflo
     if (inp.source === "video_durations") return (tier?.durations ?? vp?.durations ?? []).map((d) => ({ value: String(d), label: `${d}s` }));
     if (inp.source === "video_ratios") return (tier?.ratios ?? vp?.ratios ?? []).map((r) => ({ value: r, label: r }));
     if (inp.source === "models") {
+      if (pid === "apixo-media") {
+        const providerInput = inputs.find((i) => i.name === inp.source_from);
+        return (providerInput?.source === "image_providers" ? ["seedream-5-5"] : ["grok-imagine-video"]).map((m) => ({ value: m, label: m }));
+      }
       if (vp) return vp.models.map((m) => ({ value: m, label: m }));
       if (!pid) return [];
       const cached = modelLists[pid];

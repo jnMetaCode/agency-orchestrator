@@ -831,6 +831,9 @@ const PROVIDER_LOGO_SVG_IDS = new Set(["aicodemirror"]);
 export function providerLogo(id: string): string | undefined {
   // 同一家的多个条目共用 logo（方舟套餐 = 火山引擎）
   const base = id === "volcengine-plan" ? "volcengine" : id;
+  if (base === "beichenapi") return "/sponsors/logo-beichenapi.jpg";
+  if (base === "apixo-media") return "/sponsors/apixo-ai-en.jpg";
+  if (base === "apixo") return "/sponsors/apixo-ai-en.jpg";
   if (base === "fluxionai") return "/sponsors/logo-sidruneai-icon.png";
   if (!PROVIDER_LOGO_IDS.has(base)) return undefined;
   return `/sponsors/logo-${base}-icon.${PROVIDER_LOGO_SVG_IDS.has(base) ? "svg" : "png"}`;
@@ -1184,29 +1187,29 @@ export const API_PROVIDERS: ApiProviderMeta[] = [
   { id: "volcengine-plan", name: "火山引擎 · Agent Plan 套餐", shortName: "方舟套餐", hint: "火山引擎的套餐通道 · base …/api/plan/v3 · 套餐专属 key · 图片 seedream-5.0-lite（size 2k）", defaultBaseUrl: "https://ark.cn-beijing.volces.com/api/plan/v3", signupUrl: "https://www.volcengine.com/activity/ai618?utm_campaign=hw&utm_content=hw&utm_medium=devrel_tool_web&utm_source=OWO&utm_term=agency-agents-zh", delisted: true, modelSuggestions: ["ark-code-latest", "doubao-seed-2.1-turbo", "doubao-seed-2.0-lite", "deepseek-v4-flash", "deepseek-v4-pro", "glm-5.3", "kimi-k2.7-code", "minimax-m3"], imageModels: ["doubao-seedream-5.0-lite"] },
   // CompShare（优云智算，2026-10-16 下架赞助）：保留已配置用户的接入
   { id: "compshare", name: "CompShare", hint: "console.compshare.cn", defaultBaseUrl: "https://api.modelverse.cn/v1", signupUrl: "https://passport.compshare.cn/register?referral_code=ETD3L5JBM13CtKARkMORot&ytag=GPU_YY_YX_git_agency-agents", sponsor: false, delisted: true, modelSuggestions: ["deepseek-ai/DeepSeek-V3.2", "deepseek-ai/DeepSeek-R1", "Qwen/Qwen3-Coder-480B-A35B-Instruct", "MiniMaxAI/MiniMax-M2.7"] },
-  // 赞助商 LanoX AI（2026-08 新增，按约定排赞助商组最后一位）—— 全球模型聚合，500+ 模型；
+  // LanoX AI—— 全球模型聚合，500+ 模型；
   // 直连走 OpenAI 兼容 api.lanox.ai/v1（引擎侧在 API_PROVIDERS 注册，无默认模型：见那边的说明）。
   // 同一端点也兼容 Anthropic Messages，给编码 CLI 配中转见下方 CLI_RELAY_PRESETS。
   // modelSuggestions 里 gpt-5.6-sol 取自它官方文档的示例模型编码；其余是跨家中转通用兜底。
   // 官方明确「模型可用性以 GET /v1/models 的实时结果为准」——配了 key 点「获取模型列表」即拉真实全量。
-  { id: "lanox", name: "LanoX AI", hint: "api.lanox.ai · 注册送 5 美金", defaultBaseUrl: "https://api.lanox.ai/v1", signupUrl: "https://lanox.ai/?c=X3RD38F7&inviteCode=A3HRUB6M", sponsor: true, modelSuggestions: ["gpt-5.6-sol", ...COMMON_RELAY_MODELS] },
+  { id: "lanox", name: "LanoX AI", hint: "api.lanox.ai", defaultBaseUrl: "https://api.lanox.ai/v1", modelSuggestions: ["gpt-5.6-sol", ...COMMON_RELAY_MODELS] },
   // 赞助商 胜算云（2026-08 新增，按约定排赞助商组最后一位）—— 面向 AI 原生团队的模型 API
   // 聚合，合规直供、企业级网关（成本/权限、智能路由、BYOK 托管、开票）。
   // 直连走 OpenAI 兼容 router.shengsuanyun.com/api/v1（**不是 api.shengsuanyun.com**，那个域名整站 404）。
   // modelSuggestions 全部取自它公开的 GET /api/v1/models 实拉结果（无需 key），不是猜的；
   // 模型名带厂商前缀（anthropic/…、openai/…），少写前缀会 404。
   { id: "shengsuanyun", name: "胜算云", shortName: "胜算云", hint: "router.shengsuanyun.com · 注册送 5 元 Token", defaultBaseUrl: "https://router.shengsuanyun.com/api/v1", signupUrl: "https://www.shengsuanyun.com/?from=CH_QKH696UI", sponsor: true, modelSuggestions: ["anthropic/claude-sonnet-5", "anthropic/claude-opus-5", "openai/gpt-5.2", "google/gemini-3-flash", "deepseek/deepseek-v4-pro"] },
-  // 赞助商 APIMart（2026-08 新增，按约定排赞助商组最后一位）—— OpenAI 兼容网关，
+  // APIMart—— OpenAI 兼容网关，
   // 主打图片/视频生成的低价供给；接它的理由是 /v1/images/generations 能直接供
   // `type: image` 步骤与创意库「一键出图」用（同一个 key 也通聊天模型）。
   // 不给 modelSuggestions：零余额账户 GET /v1/models 也回 402，模型编码尚未核实（见引擎侧说明）。
-  { id: "apimart", name: "APIMart", hint: "api.apimart.ai · 图片/视频低价 API · 配好 key 点「获取模型列表」", defaultBaseUrl: "https://api.apimart.ai/v1", signupUrl: "https://go.apimart.ai/gh-agency-orchestrator", sponsor: true },
+  { id: "apimart", name: "APIMart", hint: "api.apimart.ai · 图片/视频低价 API · 配好 key 点「获取模型列表」", defaultBaseUrl: "https://api.apimart.ai/v1" },
   // 赞助商 秘塔科技（2026-08-23 接入）—— **视频专用供应商**，给 `type: video` 步骤用：
   // MiniMax-H3 文生视频，768P 0.09 元/秒、2K 0.15 元/秒。端点是 MiniMax 官方 API 换了 Host，
   // 建任务/查状态两条路径已用真 key 实探核实（见引擎 VIDEO_PROVIDERS 的说明）。
   // videoOnly：它没有 chat/images 端点，进了模型下拉就是给用户挖坑。
   { id: "metaso", name: "秘塔科技", shortName: "秘塔", hint: "metaso.cn · MiniMax-H3 文生视频 · 768P 0.09 元/秒", defaultBaseUrl: "https://metaso.cn/api/minimax", signupUrl: "https://metaso.cn/minimax-h3/?s=gt533367", sponsor: false, delisted: true, videoOnly: true, modelSuggestions: ["MiniMax-H3"] },
-  // 赞助商 PackyCode（2026-09-14 上架，按约定排赞助商组最后一位）—— API 中转，统一域名 www.packyapi.ai。
+  // PackyCode—— API 中转，统一域名 www.packyapi.ai。
   // 直连走 OpenAI 兼容 /v1（端点探测见引擎 API_PROVIDERS 的说明）；编码 CLI 中转见 CLI_RELAY_PRESETS。
   // modelSuggestions / imageModels 取自它公开的 GET /api/pricing（无需 key，2026-09-14 实拉），
   // 五个文本模型的 supported_endpoint_types 都含 openai；gpt-image-2 在 image 分组、端点类型 image-generation。
@@ -1219,15 +1222,17 @@ export const API_PROVIDERS: ApiProviderMeta[] = [
   // Codex 默认 gpt-5.6-sol（价目表在列、支持 openai-response，已加进建议）；它给 Gemini 写的 gemini-3.6-flash
   // **不在** PackyCode 价目表里，没照抄。备用主机 cf.api.fan / slb-v1.api.fan / www.packyapi.com 也逐条探过：
   // /v1/models、chat/completions、messages、responses 均 401「无效的令牌」、乱写路径 404，是同一网关。
-  { id: "packycode", name: "PackyCode", hint: "www.packyapi.ai · 人民币 1:1 充值 · 新用户送 $1 体验额度", defaultBaseUrl: "https://www.packyapi.ai/v1", signupUrl: "https://www.packyapi.ai/register?aff=Zpx1", sponsor: true, modelSuggestions: ["qwen3.8-max", "glm-5", "kimi-k2.5", "claude-sonnet-5", "claude-opus-5", "gpt-5.6-sol"], imageModels: ["gpt-image-2"], usageQuery: "newapi" },
+  { id: "packycode", name: "PackyCode", hint: "www.packyapi.ai", defaultBaseUrl: "https://www.packyapi.ai/v1", modelSuggestions: ["qwen3.8-max", "glm-5", "kimi-k2.5", "claude-sonnet-5", "claude-opus-5", "gpt-5.6-sol"], imageModels: ["gpt-image-2"], usageQuery: "newapi" },
   // Sidrune AI（赞助商）——官方 OpenAI 兼容地址为 /v1。模型受 key 分组限制，绝不设
   // 全局默认值；测试连接会先用 key 拉 /models 再选真实模型。静态建议覆盖官方文档中的
   // Claude / GPT / Grok 示例；图片模型仅对开通相应图片能力的 key 有效。
-  { id: "fluxionai", name: "Sidrune AI", hint: "Sidrune AI · 模型随 Key 分组变化，配好后先获取模型列表 · 注册送 $3", defaultBaseUrl: "https://fluxionai.space/v1", signupUrl: "https://sidrune.ai/register?source=github&campaign=agencyagents&promo=agencyagents&aff=RQHWKAMQLX2S", sponsor: true, modelSuggestions: ["claude-sonnet-4-6", "claude-sonnet-5", "claude-opus-4-8", "gpt-5.6-sol", "gpt-6-astra", "grok-4.5"], imageModels: ["gpt-image-2"] },
   // 星图 AstraFlow（赞助商，UCloud ModelVerse）——建议模型全部取自 2026-10-20 免 key 的 /v1/models 实拉（不猜）；
   // Claude/GPT 要带 key 才列，配好后点「获取模型列表」。图片走 OpenAI 兼容 /v1/images/generations（文档：Seedream 同步返回），
   // Seedream 5 要 ≥3.69MP，出图时 size 用 "2K"。
   { id: "astraflow", name: "星图 AstraFlow", hint: "UCloud ModelVerse · 200+ 模型与视频一站式 · 专属链接注册领 50 元算力金", defaultBaseUrl: "https://api.modelverse.cn/v1", signupUrl: "https://www.ucloud.cn/site/active/astraflow-credit?ytag=geo_waituo_agencyagentszh", sponsor: true, modelSuggestions: ["deepseek-v4.1-flash", "kimi-k3", "glm-5.3", "qwen3.8-max", "MiniMax-M3", "doubao-seed-2-1-pro-260628"], imageModels: ["doubao-seedream-5-0-260128", "doubao-seedream-4.5", "doubao-seedream-5-0-pro-260628"] },
+  { id: "apixo", name: "APIXO AI", hint: "Claude 聊天 API · 图片/视频使用独立异步接口", defaultBaseUrl: "https://llm.apixo.ai", signupUrl: "https://apixo.ai/docs", sponsor: true, modelSuggestions: ["claude-opus-4-8"] },
+  { id: "apixo-media", name: "APIXO AI · 图片 / 视频", hint: "Seedream 5.5 图片 · Grok 视频 · 异步生成", defaultBaseUrl: "https://api.apixo.ai/api/v1", signupUrl: "https://apixo.ai/docs", videoOnly: true, modelSuggestions: ["grok-imagine-video"], imageModels: ["seedream-5-5"] },
+  { id: "beichenapi", name: "北辰 API", hint: "OpenAI 兼容 · 配置后获取可用模型", defaultBaseUrl: "https://api.beichenapi.com/v1", signupUrl: "https://beichenapi.com/register?aff=RM34GKKSY7EC", sponsor: true, modelSuggestions: ["gpt-6.1-sol"] },
   { id: "deepseek", name: "DeepSeek", hint: "platform.deepseek.com", defaultBaseUrl: "https://api.deepseek.com/v1", vendor: true, modelSuggestions: ["deepseek-chat", "deepseek-reasoner"] },
   // 默认端点**不带 /v1**：Anthropic 客户端（SDK / claude CLI）自己会接 /v1/messages，
   // base 里再写一遍就成了 /v1/v1/messages。这里是用户配中转时照抄的形状样板，写错等于
@@ -1263,6 +1268,7 @@ export const API_PROVIDERS: ApiProviderMeta[] = [
   // 编码 CLI 中转预设一并摘除；**保留为可用供应商**排在末位（同多元探索 / RootFlowAI / CCSub）。
   // 它走 **Anthropic 原生协议**（引擎侧在 ANTHROPIC_PROVIDERS 注册）：base 不带 /v1。
   { id: "aicodemirror", name: "AICodeMirror", hint: "api.aicodemirror.com", defaultBaseUrl: "https://api.aicodemirror.com/api/claudecode", delisted: true, modelSuggestions: ["claude-sonnet-5", "claude-opus-4-8", "claude-haiku-4-5-20251001"] },
+  { id: "fluxionai", name: "Sidrune AI", hint: "Sidrune AI · 模型随 Key 分组变化，配好后先获取模型列表", defaultBaseUrl: "https://fluxionai.space/v1",  sponsor: false, delisted: true, modelSuggestions: ["claude-sonnet-4-6", "claude-sonnet-5", "claude-opus-4-8", "gpt-5.6-sol", "gpt-6-astra", "grok-4.5"], imageModels: ["gpt-image-2"] },
 ];
 
 export const API_PROVIDER_MAP: Record<string, ApiProviderMeta> = Object.fromEntries(
@@ -1343,7 +1349,7 @@ export const CLI_RELAY_PRESETS: CliRelayPreset[] = [
       "codex-cli": "https://api.cubence.com/v1",
     },
   },
-  // LanoX AI（赞助商）—— 一个 key 通 GPT / Claude / Gemini / Qwen / Grok 等，官网明列
+  // LanoX AI—— 一个 key 通 GPT / Claude / Gemini / Qwen / Grok 等，官网明列
   // Claude Code、Codex CLI、Cursor、Cline 为支持的客户端。端点布局是常见那种：
   //   Claude Code → https://api.lanox.ai（Anthropic 兼容，**不带 /v1**，CLI 自己接 /v1/messages）
   //   Codex       → https://api.lanox.ai/v1（OpenAI 兼容）
@@ -1355,8 +1361,6 @@ export const CLI_RELAY_PRESETS: CliRelayPreset[] = [
   // gemini-cli 不列：没有探到任何 Google 格式端点（/v1beta/* 是"接口不存在"），宁可不填也不猜。
   {
     name: "LanoX AI",
-    sponsor: true,
-    signupUrl: "https://lanox.ai/?c=X3RD38F7&inviteCode=A3HRUB6M",
     anthropicApiBaseUrl: "https://api.lanox.ai",
     baseUrls: {
       "claude-code": "https://api.lanox.ai",
@@ -1383,7 +1387,7 @@ export const CLI_RELAY_PRESETS: CliRelayPreset[] = [
       "codex-cli": "https://router.shengsuanyun.com/api/v1",
     },
   },
-  // PackyCode（赞助商，2026-09-14）—— 官方文档的 Claude Code 最小配置就是 ANTHROPIC_BASE_URL +
+  // PackyCode—— 官方文档的 Claude Code 最小配置就是 ANTHROPIC_BASE_URL +
   // ANTHROPIC_AUTH_TOKEN，Codex / Gemini 各有专页，宣传里也有专属 Codex / Claude Code 高速通道。
   // 端点探测（无效 key）：/v1/messages、/v1/responses、/v1beta/models 均 401=存在，而乱写的
   // /v1/zzz、/v1beta/zzz 回 404 Invalid URL —— 状态码可信，不是 LanoX 那种"哪儿都 200"。
@@ -1393,8 +1397,6 @@ export const CLI_RELAY_PRESETS: CliRelayPreset[] = [
   // 注意是 **www** 子域：api.packyapi.ai 解析不到。
   {
     name: "PackyCode",
-    sponsor: true,
-    signupUrl: "https://www.packyapi.ai/register?aff=Zpx1",
     anthropicApiBaseUrl: "https://www.packyapi.ai",
     baseUrls: {
       "claude-code": "https://www.packyapi.ai",
@@ -1402,19 +1404,11 @@ export const CLI_RELAY_PRESETS: CliRelayPreset[] = [
       "codex-cli": "https://www.packyapi.ai/v1",
     },
   },
+  { name: "APIXO AI", sponsor: true, signupUrl: "https://apixo.ai/docs", anthropicApiBaseUrl: "https://llm.apixo.ai", baseUrls: { "claude-code": "https://llm.apixo.ai", "codex-cli": "https://llm.apixo.ai/v1", "gemini-cli": "https://llm.apixo.ai" } },
   // Sidrune AI：官方文档区分 key 分组协议。Claude Code 用 Anthropic 根地址，
   // Codex 用 OpenAI Responses 的 /v1 根地址。Gemini 只在特定蓝色分组下走
   // /v1beta，不能用同一预设欺骗所有 key，因此不列。
-  {
-    name: "Sidrune AI",
-    sponsor: true,
-    signupUrl: "https://sidrune.ai/register?source=github&campaign=agencyagents&promo=agencyagents&aff=RQHWKAMQLX2S",
-    anthropicApiBaseUrl: "https://fluxionai.space",
-    baseUrls: {
-      "claude-code": "https://fluxionai.space",
-      "codex-cli": "https://fluxionai.space/v1",
-    },
-  },
+
   // 星图 AstraFlow：2026-10-20 无效 key 探测三种协议都在——Anthropic /v1/messages（Claude Code 用根地址）、
   // OpenAI Responses /v1/responses（Codex 用 /v1）、Gemini 原生 /v1beta/models/*:generateContent（Gemini CLI 用根地址）。
   {

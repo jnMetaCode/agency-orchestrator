@@ -532,6 +532,10 @@ const upstream = http.createServer((req, res) => {
       res.writeHead(200, { 'Content-Type': 'application/json' });
       return res.end(JSON.stringify({ choices: [{ message: { content: 'hi' } }] }));
     }
+    if (req.method === 'GET' && req.url === '/media/statusTask/seedream-5-5?taskId=ao-readonly-connectivity-check' && req.headers.authorization === 'Bearer mock-media-key') {
+      res.writeHead(400, { 'Content-Type': 'application/json' });
+      return res.end(JSON.stringify({ message: 'TaskId not found' }));
+    }
     // FastAPI/Starlette 的标准回法，即用户截图里那条报文
     const known = req.url === '/v1/chat/completions';
     res.writeHead(known ? 405 : 404, { 'Content-Type': 'application/json' });
@@ -691,6 +695,8 @@ try {
     assert(t3.body.ok === false && String(t3.body.error).includes('请求地址: POST'), '彻底不通时报错带上实际请求地址');
 
     // 6) Claude Code 中转按 Anthropic 原生协议测（以前这条链路完全没有「测试连接」）
+    const mediaCheck = await postJson('/api/test-provider', { provider: 'apixo-media', apiKey: 'mock-media-key', baseUrl: `http://127.0.0.1:${upPort}/media` });
+    assert(mediaCheck.body.ok === true, 'APIXO 媒体连通性检查使用配置页指定的端点');
     const t4 = await postJson('/api/test-provider', { provider: 'claude-code', apiKey: 'sk-relay', baseUrl: `http://127.0.0.1:${anthPort}` });
     assert(t4.body.ok === true, 'Claude Code 中转：填根地址（不带 /v1）也能测通');
     const t5 = await postJson('/api/test-provider', { provider: 'claude-code', apiKey: 'sk-relay', baseUrl: `http://127.0.0.1:${anthRedirPort}/v1` });

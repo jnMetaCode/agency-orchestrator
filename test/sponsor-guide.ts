@@ -10,7 +10,7 @@
  */
 import { readFileSync } from 'node:fs';
 import { SPONSOR_ROTATION, PREMIUM_SPONSOR, rotatingSponsors, guideProviderId } from '../src/utils/sponsor-guide.js';
-import { API_PROVIDERS } from '../src/connectors/api-providers.js';
+import { API_PROVIDERS, ANTHROPIC_PROVIDERS } from '../src/connectors/api-providers.js';
 
 let passed = 0;
 let failed = 0;
@@ -45,7 +45,7 @@ test('每家都有名字和 https 链接', () => {
 });
 
 test('带 providerId 的赞助商必须是 AO 真实支持的 provider', () => {
-  const known = new Set(API_PROVIDERS.map((p) => p.id));
+  const known = new Set([...API_PROVIDERS, ...ANTHROPIC_PROVIDERS].map((p) => p.id));
   for (const s of exposed()) {
     if (!s.providerId) continue;
     assert(known.has(s.providerId), `${s.name} 的 providerId "${s.providerId}" 不在 API_PROVIDERS 里`);
@@ -65,7 +65,7 @@ test('轮换池里没有重名', () => {
 });
 
 test('已下架的赞助商不得出现在曝光位', () => {
-  const delisted = [/rootflow/i, /ccsub/i, /compshare|优云/i, /volcengine|火山/i, /metaso|秘塔/i];
+  const delisted = [/rootflow/i, /ccsub/i, /compshare|优云/i, /volcengine|火山/i, /metaso|秘塔/i, /apimart|lanox|packy/i];
   for (const s of exposed()) {
     for (const re of delisted) {
       assert(!re.test(s.name) && !re.test(s.url), `${s.name} 已下架赞助，不该还在曝光位`);
@@ -74,8 +74,8 @@ test('已下架的赞助商不得出现在曝光位', () => {
 });
 
 test('下架赞助 ≠ 下架供应商：它们仍是可用 provider（不搞坏已配 key 的用户）', () => {
-  const ids = new Set(API_PROVIDERS.map((p) => p.id));
-  for (const id of ['rootflowai', 'ccsub', 'compshare', 'volcengine', 'volcengine-plan']) {
+  const ids = new Set([...API_PROVIDERS, ...ANTHROPIC_PROVIDERS].map((p) => p.id));
+  for (const id of ['rootflowai', 'ccsub', 'compshare', 'volcengine', 'volcengine-plan', 'apimart', 'lanox', 'packycode']) {
     assert(ids.has(id), `${id} 应保留为可用供应商，只摘赞助曝光`);
   }
 });
@@ -187,7 +187,7 @@ test('要几家给几家，且不越界', () => {
 console.log('\n─── 引导示例命令的 provider ───');
 
 test('任意一天的示例命令都指向真实 provider（不会打印 unknown provider）', () => {
-  const known = new Set(API_PROVIDERS.map((p) => p.id));
+  const known = new Set([...API_PROVIDERS, ...ANTHROPIC_PROVIDERS].map((p) => p.id));
   for (let d = 0; d < SPONSOR_ROTATION.length * 3; d++) {
     const rots = rotatingSponsors(2, Date.UTC(2026, 0, 1) + d * DAY);
     const pid = guideProviderId(rots);
@@ -201,7 +201,7 @@ test('当天轮值含 relayOnly 时，示例命令跳过它取有 API 的那家'
   assert(guideProviderId([relay, api]) === api.providerId, '应取第二家的 providerId');
   // 极端情形：当天两家都是纯中转商 → 退回轮换池里第一个有 provider 的，仍可执行
   const fallback = guideProviderId([relay, { ...relay, name: 'RelayOnly测试2' }]);
-  assert(new Set(API_PROVIDERS.map((p) => p.id)).has(fallback), `兜底也必须是真 provider，实际 ${fallback}`);
+  assert(new Set([...API_PROVIDERS, ...ANTHROPIC_PROVIDERS].map((p) => p.id)).has(fallback), `兜底也必须是真 provider，实际 ${fallback}`);
 });
 
 console.log(`\n  结果: ${passed} 通过, ${failed} 失败\n`);

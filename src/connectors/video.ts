@@ -1,3 +1,4 @@
+import { apixoResult } from './apixo.js';
 /**
  * 文生视频（`type: video` 步骤的执行端）。
  *
@@ -470,7 +471,19 @@ export async function generateVideo(
   // 供应商 id 统一从解析结果来：调用方只在 config.provider 里给（脚本就是这么调的）时，
   // adapter 查 createExtra / 字段表用 opts.provider 会落空——真机：Agnes 少了 mode 报 400
   opts = { ...opts, provider: spec.id };
-  const shape = SHAPES[spec.shape];
+  const shape: VideoShapeAdapter = spec.shape === 'apixo' ? {
+    createPath: 'generateTask/grok-imagine-video',
+    createBody(o, text, imageUrl) {
+      if (o.model !== 'grok-imagine-video') throw new Error('APIXO 视频目前支持 grok-imagine-video');
+      if (o.duration && (!Number.isInteger(o.duration) || o.duration < 6 || o.duration > 30)) throw new Error('APIXO Grok 视频时长必须为 6–30 整秒');
+      return JSON.stringify({ request_type: 'async', input: { mode: imageUrl ? 'image-to-video' : 'text-to-video', prompt: text,
+        ...(imageUrl ? { image_urls: [imageUrl] } : {}), ...(o.duration ? { duration: o.duration } : {}),
+        ...(o.resolution ? { resolution: o.resolution } : {}), ...(o.ratio ? { aspect_ratio: o.ratio } : {}) } });
+    },
+    parseCreate(j: any) { return j.code === 200 ? j.data?.taskId || '' : ''; },
+    queryUrl: (base, id) => `${base}/statusTask/grok-imagine-video?taskId=${encodeURIComponent(id)}`,
+    parseQuery: apixoResult,
+  } : SHAPES[spec.shape];
   if (!shape) throw new Error(`视频供应商 ${spec.id} 的协议形状 "${spec.shape}" 没有对应的适配器（见 video.ts 的 SHAPES）`);
   const headers = { 'Content-Type': 'application/json', Authorization: `Bearer ${apiKey}` };
   const totalMs = opts.timeout && opts.timeout > 0 ? opts.timeout : 10 * 60_000;
@@ -495,6 +508,9 @@ export async function generateVideo(
         if (task?.phase === 'failed') gone = `厂商报失败：${task.error || '未给出原因'}`;
       }
     } catch { /* 网络抖动：当它还活着 */ }
+    if (gone && spec.shape === 'apixo') {
+      throw new Error(`APIXO 上次任务 ${hooks?.resumeTaskId} 已不可用（${gone}）。未重新下单；请先检查控制台任务和扣费记录，再显式创建新任务。`);
+    }
     if (gone) {
       onNotice?.(`⚠️ 上次中断的视频任务（task_id=${hooks.resumeTaskId}）已不可用（${gone}），按新任务重新下单`);
     } else {

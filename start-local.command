@@ -31,3 +31,4 @@ if [ "$status" -ne 0 ]; then
   printf '\n启动失败，请保留此窗口查看错误。按回车退出。\n'
   read -r
 fi
+exit "$status"
