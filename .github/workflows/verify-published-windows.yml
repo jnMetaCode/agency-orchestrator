@@ -6,7 +6,11 @@ permissions:
   contents: read
 jobs:
   install-and-launch:
-    runs-on: windows-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-2022, windows-latest]
+    runs-on: ${{ matrix.os }}
     timeout-minutes: 10
     env:
       RELEASE_TAG: desktop-v0.4.15
@@ -29,10 +33,16 @@ jobs:
         shell: pwsh
         run: |
           Set-Location $env:RUNNER_TEMP
-          $installDir = Join-Path $env:RUNNER_TEMP 'ao-installed'
+          $installDir = Join-Path $env:LOCALAPPDATA 'Programs\agency-orchestrator-desktop'
           $env:AO_DATA_DIR = Join-Path $env:RUNNER_TEMP 'ao-data'
-          $install = Start-Process -FilePath '.\Agency.Orchestrator.Setup.0.4.15.exe' -ArgumentList '/S',"/D=$installDir" -Wait -PassThru
-          if ($install.ExitCode -ne 0) { throw "Installer exited $($install.ExitCode)" }
+          $install = Start-Process -FilePath '.\Agency.Orchestrator.Setup.0.4.15.exe' -ArgumentList '/S','/currentuser' -Wait -PassThru
+          if ($install.ExitCode -ne 0) {
+            Get-WinEvent -FilterHashtable @{LogName='Application'; Id=1000,1001; StartTime=(Get-Date).AddMinutes(-3)} -ErrorAction SilentlyContinue | Select-Object -First 4 -ExpandProperty Message | Write-Host
+            throw "Installer exited $($install.ExitCode)"
+          }
+          $installedExe = Get-ChildItem (Join-Path $env:LOCALAPPDATA 'Programs') -Recurse -Filter 'Agency Orchestrator.exe' | Select-Object -First 1
+          if (!$installedExe) { throw "Could not find installed executable under LocalAppData/Programs" }
+          $installDir = $installedExe.DirectoryName
           $exe = Get-Item (Join-Path $installDir 'Agency Orchestrator.exe')
           if ($exe.VersionInfo.ProductVersion -notmatch '^0\.4\.15(?:\.|$)') { throw "Unexpected installed version" }
           Write-Host "Installed $($exe.Name) $($exe.VersionInfo.ProductVersion)"
