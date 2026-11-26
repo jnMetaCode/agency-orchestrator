@@ -73,6 +73,8 @@ Switch your system Claude to any relay in one click — written to global config
 > Launch: `ao web` (local — your API key stays on your machine, never uploaded). A [desktop client download](https://github.com/jnMetaCode/agency-orchestrator/releases/latest) (Electron · macOS / Windows / Linux) is also available.
 >
 > **Docker / NAS** (amd64/arm64): `docker run -d -p 8088:8088 -v ao-data:/data ghcr.io/jnmetacode/agency-orchestrator:latest`, then open `http://<host>:8088` — keys are configured in the Providers tab and persist in the mounted volume. A ready-made [docker-compose.yml](./docker-compose.yml) is in the repo root.
+>
+> **Railway** (one click): [![Deploy on Railway](https://railway.com/button.svg)](https://railway.com/deploy/agency-orchestrator-ai-team) runs the official image with a `/data` volume, a randomly generated `AO_WEB_TOKEN` and `AO_ALLOWED_HOSTS` set to the Railway domain. Copy the token from the service's Variables tab and open `https://<your-domain>/?token=<token>` once.
 
 ---
 
