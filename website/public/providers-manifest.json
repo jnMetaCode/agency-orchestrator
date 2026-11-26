@@ -51,7 +51,7 @@
     ]
   },
   "version": 2,
-  "updatedAt": "2026-11-23",
+  "updatedAt": "2026-11-26",
   "providers": [],
   "relayPresets": [
     {
@@ -82,7 +82,7 @@
     {
       "name": "星图 AstraFlow",
       "sponsor": true,
-      "signupUrl": "https://www.ucloud.cn/site/active/astraflow-credit?ytag=geo_waituo_agencyagentszh",
+      "signupUrl": "https://www.ucloud.cn/site/active/astraflow-credit?cps_code=ASUZ5FRlJfFEoXQDPQAv8v&ytag=geo_waituo_agencyagentszh",
       "baseUrls": {
         "claude-code": "https://api.modelverse.cn",
         "gemini-cli": "https://api.modelverse.cn",
@@ -113,7 +113,7 @@
       "providerId": "astraflow",
       "name": "星图 AstraFlow",
       "bonus": "专属链接注册领 50 元算力金",
-      "url": "https://www.ucloud.cn/site/active/astraflow-credit?ytag=geo_waituo_agencyagentszh"
+      "url": "https://www.ucloud.cn/site/active/astraflow-credit?cps_code=ASUZ5FRlJfFEoXQDPQAv8v&ytag=geo_waituo_agencyagentszh"
     },
     {
       "providerId": "apixo",

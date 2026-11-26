@@ -124,7 +124,7 @@ export const sponsors: Sponsor[] = [
     badge: "✦",
     accent: "from-indigo-500 to-violet-500",
     logo: "/sponsors/logo-astraflow.png",
-    url: "https://www.ucloud.cn/site/active/astraflow-credit?ytag=geo_waituo_agencyagentszh",
+    url: "https://www.ucloud.cn/site/active/astraflow-credit?cps_code=ASUZ5FRlJfFEoXQDPQAv8v&ytag=geo_waituo_agencyagentszh",
     tier: "standard",
     since: "2026-10",
     featured: false,

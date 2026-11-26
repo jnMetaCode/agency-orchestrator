@@ -1229,7 +1229,7 @@ export const API_PROVIDERS: ApiProviderMeta[] = [
   // 星图 AstraFlow（赞助商，UCloud ModelVerse）——建议模型全部取自 2026-10-20 免 key 的 /v1/models 实拉（不猜）；
   // Claude/GPT 要带 key 才列，配好后点「获取模型列表」。图片走 OpenAI 兼容 /v1/images/generations（文档：Seedream 同步返回），
   // Seedream 5 要 ≥3.69MP，出图时 size 用 "2K"。
-  { id: "astraflow", name: "星图 AstraFlow", hint: "UCloud ModelVerse · 200+ 模型与视频一站式 · 专属链接注册领 50 元算力金", defaultBaseUrl: "https://api.modelverse.cn/v1", signupUrl: "https://www.ucloud.cn/site/active/astraflow-credit?ytag=geo_waituo_agencyagentszh", sponsor: true, modelSuggestions: ["deepseek-v4.1-flash", "kimi-k3", "glm-5.3", "qwen3.8-max", "MiniMax-M3", "doubao-seed-2-1-pro-260628"], imageModels: ["doubao-seedream-5-0-260128", "doubao-seedream-4.5", "doubao-seedream-5-0-pro-260628"] },
+  { id: "astraflow", name: "星图 AstraFlow", hint: "UCloud ModelVerse · 200+ 模型与视频一站式 · 专属链接注册领 50 元算力金", defaultBaseUrl: "https://api.modelverse.cn/v1", signupUrl: "https://www.ucloud.cn/site/active/astraflow-credit?cps_code=ASUZ5FRlJfFEoXQDPQAv8v&ytag=geo_waituo_agencyagentszh", sponsor: true, modelSuggestions: ["deepseek-v4.1-flash", "kimi-k3", "glm-5.3", "qwen3.8-max", "MiniMax-M3", "doubao-seed-2-1-pro-260628"], imageModels: ["doubao-seedream-5-0-260128", "doubao-seedream-4.5", "doubao-seedream-5-0-pro-260628"] },
   { id: "apixo", name: "APIXO AI", hint: "Claude 聊天 API · 图片/视频使用独立异步接口", defaultBaseUrl: "https://llm.apixo.ai", signupUrl: "https://apixo.ai/docs", sponsor: true, modelSuggestions: ["claude-opus-4-8"] },
   { id: "apixo-media", name: "APIXO AI · 图片 / 视频", hint: "Seedream 5.5 图片 · Grok 视频 · 异步生成", defaultBaseUrl: "https://api.apixo.ai/api/v1", signupUrl: "https://apixo.ai/docs", videoOnly: true, modelSuggestions: ["grok-imagine-video"], imageModels: ["seedream-5-5"] },
   { id: "beichenapi", name: "北辰 API", hint: "OpenAI 兼容 · 配置后获取可用模型", defaultBaseUrl: "https://api.beichenapi.com/v1", signupUrl: "https://beichenapi.com/register?aff=RM34GKKSY7EC", sponsor: true, modelSuggestions: ["gpt-6.1-sol"] },
@@ -1414,7 +1414,7 @@ export const CLI_RELAY_PRESETS: CliRelayPreset[] = [
   {
     name: "星图 AstraFlow",
     sponsor: true,
-    signupUrl: "https://www.ucloud.cn/site/active/astraflow-credit?ytag=geo_waituo_agencyagentszh",
+    signupUrl: "https://www.ucloud.cn/site/active/astraflow-credit?cps_code=ASUZ5FRlJfFEoXQDPQAv8v&ytag=geo_waituo_agencyagentszh",
     anthropicApiBaseUrl: "https://api.modelverse.cn",
     baseUrls: {
       "claude-code": "https://api.modelverse.cn",

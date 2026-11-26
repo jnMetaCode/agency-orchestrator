@@ -169,12 +169,12 @@ test('星图 AstraFlow 的 API、CLI 中转预设与轮换池已完整上架（2
   assert(relay!.baseUrls['claude-code'] === 'https://api.modelverse.cn', `Claude Code 应为不带 /v1 的根地址: ${relay!.baseUrls['claude-code']}`);
   assert(relay!.baseUrls['gemini-cli'] === 'https://api.modelverse.cn', `Gemini CLI 根地址不对: ${relay!.baseUrls['gemini-cli']}`);
   assert(relay!.baseUrls['codex-cli'] === 'https://api.modelverse.cn/v1', `Codex 应带 /v1: ${relay!.baseUrls['codex-cli']}`);
-  assert(relay!.signupUrl === 'https://www.ucloud.cn/site/active/astraflow-credit?ytag=geo_waituo_agencyagentszh', `返利链接不对: ${relay!.signupUrl}`);
+  assert(relay!.signupUrl === 'https://www.ucloud.cn/site/active/astraflow-credit?cps_code=ASUZ5FRlJfFEoXQDPQAv8v&ytag=geo_waituo_agencyagentszh', `返利链接不对: ${relay!.signupUrl}`);
   assert((m.sponsorRotation ?? []).some((e) => e.providerId === 'astraflow'), '标准档赞助商应在横幅轮换池里');
 
   const studio = readFileSync('website/src/lib/studio.ts', 'utf-8');
   const line = studio.split('\n').find((s) => s.includes('{ id: "astraflow"')) || '';
-  assert(line.includes('sponsor: true') && line.includes('https://www.ucloud.cn/site/active/astraflow-credit?ytag=geo_waituo_agencyagentszh'), 'Studio 卡片应标赞助并带专属链接');
+  assert(line.includes('sponsor: true') && line.includes('https://www.ucloud.cn/site/active/astraflow-credit?cps_code=ASUZ5FRlJfFEoXQDPQAv8v&ytag=geo_waituo_agencyagentszh'), 'Studio 卡片应标赞助并带专属链接');
 });
 
 test('Sidrune AI 下架赞助但保留 API 兼容', () => {
@@ -211,7 +211,7 @@ test('轮换池与代码里的那份逐条一致（清单配了就整池替换�
 test('清单里的返利/渠道参数与代码里的一致（改一处漏一处 = 返利悄悄流走）', () => {
   // 按 host + 参数名比对，而不是只认 invitecode 一种写法：LanoX 用的是 ?c=…&inviteCode=…，
   // 只匹配 invitecode 会静默漏过（大小写敏感），返利错了没有任何环节会报错。
-  const AFFILIATE_KEYS = ['invitecode', 'inviteCode', 'invite', 'aff', 'ref', 'referral_code', 'code', 'c', 'from'];
+  const AFFILIATE_KEYS = ['invitecode', 'inviteCode', 'invite', 'aff', 'ref', 'referral_code', 'cps_code', 'code', 'c', 'from'];
   const collect = (text: string, into: Map<string, Map<string, Set<string>>>) => {
     for (const raw of text.match(/https:\/\/[^\s"'`,)]+/g) ?? []) {
       let u: URL;

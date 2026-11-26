@@ -43,7 +43,7 @@ export const SPONSOR_ROTATION: SponsorGuideEntry[] = [
   { providerId: 'apinebula', name: 'APINEBULA', bonus: '充值码 agent 九折', url: 'https://apinebula.ai/V6ekjG' },
   { providerId: 'cubence', name: 'Cubence', bonus: '首购 9 折', url: 'https://cubence.com/signup?code=SCW29JP9&source=agency' },
   { providerId: 'shengsuanyun', name: '胜算云', bonus: '注册送 5 元 Token', url: 'https://www.shengsuanyun.com/?from=CH_QKH696UI' },
-  { providerId: 'astraflow', name: '星图 AstraFlow', bonus: '专属链接注册领 50 元算力金', url: 'https://www.ucloud.cn/site/active/astraflow-credit?ytag=geo_waituo_agencyagentszh' },
+  { providerId: 'astraflow', name: '星图 AstraFlow', bonus: '专属链接注册领 50 元算力金', url: 'https://www.ucloud.cn/site/active/astraflow-credit?cps_code=ASUZ5FRlJfFEoXQDPQAv8v&ytag=geo_waituo_agencyagentszh' },
   { providerId: 'apixo', name: 'APIXO AI', url: 'https://apixo.ai/docs' },
   { providerId: 'beichenapi', name: '北辰 API', url: 'https://beichenapi.com/register?aff=RM34GKKSY7EC' },
 ];

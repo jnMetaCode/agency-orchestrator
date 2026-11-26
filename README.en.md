@@ -28,7 +28,7 @@
 
 ## ❤️ Sponsors &nbsp;<sub>🙏 Want your logo here? Sponsor us at **jnMetaCode@qq.com**</sub>
 
-[APINEBULA](https://apinebula.ai/V6ekjG) · [Cubence](https://cubence.com/signup?code=SCW29JP9&source=agency) · [ShengSuanYun](https://www.shengsuanyun.com/?from=CH_QKH696UI) · [AstraFlow](https://www.ucloud.cn/site/active/astraflow-credit?ytag=geo_waituo_agencyagentszh) · [APIXO AI](https://apixo.ai/models/seedream-5-5?utm_source=github&utm_medium=sponsorship&utm_campaign=github_readme&utm_content=jnmetacode_agency-agents-zh) · [Beichen API](https://beichenapi.com/register?aff=RM34GKKSY7EC)
+[APINEBULA](https://apinebula.ai/V6ekjG) · [Cubence](https://cubence.com/signup?code=SCW29JP9&source=agency) · [ShengSuanYun](https://www.shengsuanyun.com/?from=CH_QKH696UI) · [AstraFlow](https://www.ucloud.cn/site/active/astraflow-credit?cps_code=ASUZ5FRlJfFEoXQDPQAv8v&ytag=geo_waituo_agencyagentszh) · [APIXO AI](https://apixo.ai/models/seedream-5-5?utm_source=github&utm_medium=sponsorship&utm_campaign=github_readme&utm_content=jnmetacode_agency-agents-zh) · [Beichen API](https://beichenapi.com/register?aff=RM34GKKSY7EC)
 
 ---
 
